@@ -99,6 +99,9 @@ def run_pipeline():
         config['paths']['rclone_mount'],
         rclone_config=config['paths'].get('rclone_config')
     )
+    # Ensure we start with a clean temp folder
+    extractor.cleanup_temp()
+    
     zip_files = extractor.list_zips()
     
     if not zip_files:
