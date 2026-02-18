@@ -1,0 +1,16 @@
+# Cloud Configuration for QuantGod
+paths:
+  rclone_mount: "Z:/PROJETOS/BTC_USDT_L2_2023_2026"
+  processed_output: "/workspace/data/L2/pre_processed"
+  scaler_path: "/workspace/data/artifacts/scaler.pkl"
+
+etl:
+  sampling_interval_ms: 1000  # 1s
+  resampling_interval: "1min"
+  orderbook_levels: 200      # Hard Cut 200
+  compression: "snappy"
+  batch_size_zips: 10        # Number of zips to process in a single batch
+
+features:
+  normalization: "log_returns" # log_returns, z-score, or both
+  apply_zscore: false

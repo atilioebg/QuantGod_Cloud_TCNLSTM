@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv/
+venv/
+env/
+
+# Data
+data/
+!data/README.md
+!data/.gitkeep
+!data/*.pth
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+
+# Scripts & Configs
+rclone.exe
+# rclone.conf
+optuna_study.db
+*.db
+
+# Temporary
+logs/

@@ -1,0 +1,14 @@
+# Training Configuration
+paths:
+  labelled_dir: "data/L2/labelled"
+  model_output: "data/models/quantgod_cloud_model.pth"
+  logs_dir: "logs/training"
+
+hyperparameters:
+  seq_len: 720
+  batch_size: 32
+  d_model: 256
+  nhead: 8
+  lr: 0.000077
+  epochs: 10
+  dropout: 0.3

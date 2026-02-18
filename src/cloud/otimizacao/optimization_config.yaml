@@ -1,0 +1,20 @@
+
+paths:
+  labelled_dir: "data/L2/labelled"
+  study_name: "quantgod_transformer_optimization"
+  db_path: "sqlite:///optuna_study.db"
+
+optimization:
+  n_trials: 20
+  timeout: 3600  # 1 hour
+  metric: "f1_weighted" # f1_weighted, accuracy, or val_loss
+
+search_space:
+  d_model: [128, 256]
+  nhead: [4, 8]
+  num_layers: [2, 3, 4]
+  lr: [0.00001, 0.0001]
+  dropout: [0.1, 0.3]
+  batch_size: [32, 64]
+  epochs: 5 # Small number of epochs per trial for optimization speed
+  seq_len: 60
