@@ -31,7 +31,10 @@ def process_single_zip(zip_path, config):
     """
     try:
         # Initialize modules inside worker for process isolation
-        extractor = DataExtractor(config['paths']['rclone_mount'])
+        extractor = DataExtractor(
+            config['paths']['rclone_mount'],
+            rclone_config=config['paths'].get('rclone_config')
+        )
         transformer = L2Transformer(
             levels=config['etl']['orderbook_levels'],
             sampling_ms=config['etl']['sampling_interval_ms']
@@ -88,7 +91,10 @@ def run_pipeline():
         config = yaml.safe_load(f)
 
     # 2. Setup parallel execution
-    extractor = DataExtractor(config['paths']['rclone_mount'])
+    extractor = DataExtractor(
+        config['paths']['rclone_mount'],
+        rclone_config=config['paths'].get('rclone_config')
+    )
     zip_files = extractor.list_zips()
     
     if not zip_files:

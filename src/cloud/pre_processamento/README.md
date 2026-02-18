@@ -43,44 +43,70 @@ Script bash para preparar a instância Linux (RunPod).
 
 ---
 
-## 🚀 Como Usar
+## 🚀 Como Usar na Cloud (RunPod)
+
+Para rodar o processamento completo dos anos 2023-2026, siga estes passos ajustados para o ambiente Ubuntu 24.04:
 
 ### Passo 1: Preparar a máquina
 ```bash
-cd cloud
-chmod +x setup_cloud.sh
-./setup_cloud.sh
+# Execute o script de setup (ele criará .venv, pastas de dados/logs e instalará dependências)
+chmod +x src/cloud/pre_processamento/setup_cloud.sh
+./src/cloud/pre_processamento/setup_cloud.sh
 ```
 
 ### Passo 2: Configurar e Ativar o Rclone
-O processo de ativação depende do seu ambiente:
+No Linux (RunPod), o mount é feito em um diretório do sistema:
 
-#### 1. No Windows (Seu PC atual)
-Como o WinFSP já está instalado, você pode usar o `rclone.exe` presente na raiz do projeto para montar o Google Drive como um disco local (`Z:`):
-1. Abra um terminal exclusivo para o rclone.
-2. Execute o comando para montar:
-   ```powershell
-   .\rclone.exe mount drive: Z: --vfs-cache-mode full --config rclone.conf
-   ```
-3. **Mantenha o terminal aberto.** Se fechar, o disco `Z:` será desconectado.
+1. **Configurar Credenciais**:
+   * O arquivo `rclone.conf` no storage provavelmente está vazio.
+   * `nano /workspace/rclone.conf`
+   * Cole o conteúdo do seu `rclone.conf` local (que começa com `[drive]`).
+   * Salve (Ctrl+O, Enter) e saia (Ctrl+X).
 
-#### 2. Na Cloud (Linux / RunPod)
-No Linux, o mount é feito em um diretório do sistema:
-1. Configure o acesso (caso ainda não tenha feito): `rclone config`.
-2. Crie a pasta de destino: `mkdir -p /workspace/gdrive`.
-3. Ative o mount em segundo plano:
+2. **Montar o Drive**:
    ```bash
-   rclone mount drive: /workspace/gdrive --vfs-cache-mode full --allow-other &
+   mkdir -p /workspace/mnt/gdrive
+   rclone mount drive: /workspace/mnt/gdrive --config /workspace/rclone.conf --daemon --vfs-cache-mode writes
    ```
-   *O `&` no final libera o terminal para outros comandos.*
+   *Verifique com `ls /workspace/mnt/gdrive` se suas pastas apareceram.*
 
-### Passo 3: Rodar o Processamento
-Ative o ambiente e execute o pipeline:
+3. **Ajustar Caminhos**:
+   * No arquivo `src/cloud/pre_processamento/configs/cloud_config.yaml`, verifique se o `rclone_mount` aponta corretamente para a pasta montada. Ex: `rclone_mount: "/workspace/mnt/gdrive/PROJETOS/BTC_USDT_L2_2023_2026"`.
+
+### Passo 3: Rodar o Processamento (Modo Persistente)
+Como o processamento pode levar horas, use o `tmux` para garantir que o script continue rodando mesmo se você fechar o navegador.
+
+1. **Entrar no tmux**:
+   ```bash
+   tmux new -s pilar_etl
+   ```
+
+2. **Ativar Ambiente e Disparar**:
+   ```bash
+   source .venv/bin/activate
+   export PYTHONPATH=$PYTHONPATH:/workspace
+   python3 src/cloud/pre_processamento/orchestration/run_pipeline.py
+   ```
+
+3. **Comandos Úteis do tmux**:
+   * **Desconectar (Sair sem parar)**: `Ctrl + B`, solte, e aprete `D`.
+   * **Reconectar**: `tmux attach -t pilar_etl`.
+   * **Navegar nos logs**: `Ctrl + B`, solte, e aprete `[` para usar as setas (esc para sair).
+
+---
+
+## 💻 Como Usar Local (Windows)
+
+#### 1. Montar o Google Drive
+Como o WinFSP já está instalado, use o `rclone.exe` na raiz:
+```powershell
+.\rclone.exe mount drive: Z: --vfs-cache-mode full --config rclone.conf
+```
+*Mantenha o terminal aberto.*
+
+#### 2. Rodar Testes Locais
 ```bash
 source .venv/bin/activate
-# Para produção (RunPod):
-python -m src.cloud.pre_processamento.orchestration.run_pipeline
-# Para testes (Local):
 python -m src.cloud.pre_processamento.orchestration.run_pipeline src/cloud/pre_processamento/configs/test_local.yaml
 ```
 

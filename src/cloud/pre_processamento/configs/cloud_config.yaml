@@ -1,6 +1,7 @@
 # Cloud Configuration for QuantGod
 paths:
-  rclone_mount: "Z:/PROJETOS/BTC_USDT_L2_2023_2026"
+  rclone_mount: "drive:PROJETOS/BTC_USDT_L2_2023_2026"
+  rclone_config: "/workspace/rclone.conf"
   processed_output: "/workspace/data/L2/pre_processed"
   scaler_path: "/workspace/data/artifacts/scaler.pkl"
 
