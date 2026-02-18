@@ -54,24 +54,13 @@ chmod +x src/cloud/pre_processamento/setup_cloud.sh
 ./src/cloud/pre_processamento/setup_cloud.sh
 ```
 
-### Passo 2: Configurar e Ativar o Rclone
-No Linux (RunPod), o mount é feito em um diretório do sistema:
+### Passo 2: Configurar Credenciais
+Como o FUSE costuma ser bloqueado em containers, o pipeline agora usa o **CLI do rclone** diretamente:
 
-1. **Configurar Credenciais**:
-   * O arquivo `rclone.conf` no storage provavelmente está vazio.
+1. **Configurar rclone.conf**:
    * `nano /workspace/rclone.conf`
    * Cole o conteúdo do seu `rclone.conf` local (que começa com `[drive]`).
    * Salve (Ctrl+O, Enter) e saia (Ctrl+X).
-
-2. **Montar o Drive**:
-   ```bash
-   mkdir -p /workspace/mnt/gdrive
-   rclone mount drive: /workspace/mnt/gdrive --config /workspace/rclone.conf --daemon --vfs-cache-mode writes
-   ```
-   *Verifique com `ls /workspace/mnt/gdrive` se suas pastas apareceram.*
-
-3. **Ajustar Caminhos**:
-   * No arquivo `src/cloud/pre_processamento/configs/cloud_config.yaml`, verifique se o `rclone_mount` aponta corretamente para a pasta montada. Ex: `rclone_mount: "/workspace/mnt/gdrive/PROJETOS/BTC_USDT_L2_2023_2026"`.
 
 ### Passo 3: Rodar o Processamento (Modo Persistente)
 Como o processamento pode levar horas, use o `tmux` para garantir que o script continue rodando mesmo se você fechar o navegador.
