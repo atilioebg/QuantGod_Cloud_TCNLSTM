@@ -112,7 +112,7 @@ def run_pipeline():
     # We use CPU count minus 1 to keep the system responsive, with a minimum of 1
     total_cpus = os.cpu_count() or 1
     # max_workers = max(1, total_cpus - 1)
-    max_workers = 3
+    max_workers = 4
     
     logger.info(f"System detected {total_cpus} vCPUs. Using {max_workers} parallel workers.")
     logger.info(f"Found {len(zip_files)} ZIP files to process.")
