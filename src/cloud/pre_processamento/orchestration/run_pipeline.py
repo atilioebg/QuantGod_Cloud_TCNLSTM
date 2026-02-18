@@ -58,6 +58,7 @@ def process_single_zip(zip_path, config):
                     continue
         
         # 2. Transformation & Loading
+        zip_p = Path(zip_path)
         if sampled_rows:
             df_sampled = pd.DataFrame(sampled_rows)
             df_final = transformer.apply_feature_engineering(df_sampled)
@@ -65,16 +66,19 @@ def process_single_zip(zip_path, config):
             if config['features']['apply_zscore']:
                 df_final = transformer.apply_zscore(df_final, config['paths']['scaler_path'])
             
-            validator.validate_integrity(df_final, name=zip_path.name)
+            validator.validate_integrity(df_final, name=zip_p.name)
             
-            output_name = zip_path.with_suffix(".parquet").name
+            output_name = zip_p.with_suffix(".parquet").name
             loader.save_parquet(df_final, output_name, config['etl']['compression'])
-            return f"✅ Processed {zip_path.name}"
+            
+            logger.info(f"✅ Saved pre-processed data: {output_name} in {config['paths']['processed_output']}")
+            return f"✅ Processed {zip_p.name}"
         else:
-            return f"⚠️  No data in {zip_path.name}"
+            return f"⚠️  No data in {zip_p.name}"
             
     except Exception as e:
-        return f"❌ Error processing {zip_path.name}: {str(e)}"
+        zip_name = Path(zip_path).name if zip_path else "unknown"
+        return f"❌ Error processing {zip_name}: {str(e)}"
 
 def run_pipeline():
     # 1. Load Config
