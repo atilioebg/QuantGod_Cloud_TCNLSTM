@@ -9,11 +9,11 @@ __pycache__/
 venv/
 env/
 
-# Data
-data/
-!data/README.md
-!data/.gitkeep
-!data/*.pth
+# # Data
+# data/
+# !data/README.md
+# !data/.gitkeep
+# !data/*.pth
 
 # IDE / Editor
 .vscode/
@@ -29,5 +29,5 @@ rclone.exe
 optuna_study.db
 *.db
 
-# Temporary
-logs/
+# # Temporary
+# logs/
