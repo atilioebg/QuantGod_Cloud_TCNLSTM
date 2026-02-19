@@ -15,6 +15,6 @@ search_space:
   num_layers: [2, 4, 8]
   lr: [0.00001, 0.0001]
   dropout: [0.1, 0.3, 0.4]
-  batch_size: [64, 128, 256]
+  batch_size: [128, 256, 512]
   epochs: 5 # Small number of epochs per trial for optimization speed
   seq_len: [720, 1440] # 12h vs 24h lookback
