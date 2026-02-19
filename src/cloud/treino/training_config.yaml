@@ -1,6 +1,6 @@
 # Training Configuration
 paths:
-  labelled_dir: "data/L2/labelled"
+  labelled_dir: "data/L2/labelled/labelled_SELL_0004_BUY_0004_1h"
   model_output: "data/models/quantgod_cloud_model.pth"
   logs_dir: "logs/training"
 
