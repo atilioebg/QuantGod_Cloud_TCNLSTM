@@ -114,6 +114,7 @@ def objective(trial, X_all, y_all, config):
     for epoch in range(epochs):
         model.train()
         train_loss = 0
+        batch_idx = 0
         for batch_X, batch_y in train_loader:
             batch_X, batch_y = batch_X.to(DEVICE), batch_y.to(DEVICE)
             optimizer.zero_grad()
@@ -122,6 +123,11 @@ def objective(trial, X_all, y_all, config):
             loss.backward()
             optimizer.step()
             train_loss += loss.item()
+            
+            # Log progress every 100 batches
+            batch_idx += 1
+            if batch_idx % 100 == 0:
+                logger.info(f"Trial {trial.number} | Epoch {epoch+1} | Batch {batch_idx}/{len(train_loader)} | Loss: {loss.item():.4f}")
             
         # Validation
         model.eval()
