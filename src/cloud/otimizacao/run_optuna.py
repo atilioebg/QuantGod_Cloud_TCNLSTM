@@ -105,11 +105,12 @@ def objective(trial, X_all, y_all, config):
         train_dataset = SequenceDataset(X_train_raw, y_train_raw, seq_len)
         val_dataset = SequenceDataset(X_val_raw, y_val_raw, seq_len)
         
-        # #1 & #2: num_workers=6, pin_memory, persistent_workers, prefetch_factor
+        # num_workers=4: safe for multiprocessing (persistent_workers removed to prevent
+        # stale worker PID crashes when DataLoader is deleted during OOM handling)
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
-                                  num_workers=6, pin_memory=True, persistent_workers=True, prefetch_factor=4)
+                                  num_workers=4, pin_memory=True)
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False,
-                                num_workers=6, pin_memory=True, persistent_workers=True, prefetch_factor=4)
+                                num_workers=4, pin_memory=True)
         
         # --- Model ---
         model = QuantGodModel(
