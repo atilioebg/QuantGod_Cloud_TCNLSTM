@@ -5,6 +5,6 @@ paths:
 
 params:
   lookahead: 60           # 1h lookahead for 1min candles
-  threshold_long: 0.003   # +0.3% for Buy signal (2) - Lowered for testing
-  threshold_short: -0.003 # -0.3% for Sell signal (0) - Lowered for testing
+  threshold_long: 0.008   # +0.8% for Buy signal (2)
+  threshold_short: -0.004 # -0.4% for Sell signal (0)
   # Neutrals (1) are otherwise

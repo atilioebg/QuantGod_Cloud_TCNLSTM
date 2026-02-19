@@ -105,7 +105,8 @@ def run_labelling():
 
     # Dynamic CPU Detection
     total_cpus = os.cpu_count() or 1
-    max_workers = max(1, total_cpus - 1)
+    # max_workers = max(1, total_cpus - 1)
+    max_workers = 6
     
     logger.info(f"System detected {total_cpus} vCPUs. Using {max_workers} parallel workers for labelling.")
     logger.info(f"Found {len(parquet_files)} files to label.")
