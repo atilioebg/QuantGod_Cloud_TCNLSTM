@@ -5,8 +5,8 @@ paths:
   db_path: "sqlite:///optuna_study.db"
 
 optimization:
-  n_trials: 50
-  timeout: 14400  # Increased to 4 hours due to more trials and larger model
+  n_trials: 20
+  timeout: 30000  # Increased to ~8.3 hours to ensure 20 trials completion
   metric: "f1_weighted" # Goal metric
 
 search_space:
