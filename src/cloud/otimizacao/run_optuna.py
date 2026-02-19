@@ -3,11 +3,14 @@ import optuna
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import TensorDataset, DataLoader
+from torch.utils.data import DataLoader
+from sklearn.metrics import f1_score, accuracy_score  # #6: Import at top
+from sklearn.preprocessing import StandardScaler
 import polars as pl
 import numpy as np
 import yaml
 import logging
+import json
 from pathlib import Path
 import sys
 import os
@@ -45,7 +48,6 @@ class SequenceDataset(torch.utils.data.Dataset):
         return len(self.X) - self.seq_len
 
     def __getitem__(self, idx):
-        # Retorna a sequência [idx : idx+seq_len] e o label na posição idx+seq_len-1
         x_seq = self.X[idx : idx + self.seq_len]
         y_label = self.y[idx + self.seq_len - 1]
         return torch.from_numpy(x_seq), torch.tensor(y_label, dtype=torch.long)
@@ -68,120 +70,148 @@ def load_data(labelled_dir):
     return df, feature_cols
 
 def objective(trial, X_all, y_all, config):
-    # Search Space - Using suggest_categorical for specific lists requested by user
-    d_model = trial.suggest_categorical("d_model", config['search_space']['d_model'])
-    nhead = trial.suggest_categorical("nhead", config['search_space']['nhead'])
-    num_layers = trial.suggest_categorical("num_layers", config['search_space']['num_layers'])
-    batch_size = trial.suggest_categorical("batch_size", config['search_space']['batch_size'])
-    dropout = trial.suggest_categorical("dropout", config['search_space']['dropout'])
-    seq_len = trial.suggest_categorical("seq_len", config['search_space']['seq_len'])
-    
-    # LR is still suggested as a float range
-    lr = trial.suggest_float("lr", config['search_space']['lr'][0], config['search_space']['lr'][1], log=True)
-    
-    # Log trial parameters
-    logger.info(f"Trial {trial.number} Params: d_model={d_model}, nhead={nhead}, layers={num_layers}, "
-                f"batch={batch_size}, seq_len={seq_len}, drop={dropout}, lr={lr:.6f}")
-    
-    epochs = config['search_space']['epochs']
-    
-    # Simple Train/Val Split (80/20) - Chronological
-    split_idx = int(len(X_all) * 0.8)
-    X_train_raw, y_train_raw = X_all[:split_idx], y_all[:split_idx]
-    X_val_raw, y_val_raw = X_all[split_idx:], y_all[split_idx:]
-    
-    # Datasets sob demanda (Não consomem RAM extra)
-    train_dataset = SequenceDataset(X_train_raw, y_train_raw, seq_len)
-    val_dataset = SequenceDataset(X_val_raw, y_val_raw, seq_len)
-    
-    # Tensors
-    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=2)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
-    
-    # Model
-    model = QuantGodModel(
-        num_features=X_all.shape[1],
-        seq_len=seq_len,
-        d_model=d_model,
-        nhead=nhead,
-        num_layers=num_layers,
-        num_classes=3,
-        dropout=dropout
-    ).to(DEVICE)
-    
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=lr)
-    
-    scaler = torch.cuda.amp.GradScaler()
-    
-    # Loop
-    best_val_f1 = 0
-    for epoch in range(epochs):
-        model.train()
-        train_loss = 0
-        batch_idx = 0
-        for batch_X, batch_y in train_loader:
-            batch_X, batch_y = batch_X.to(DEVICE), batch_y.to(DEVICE)
-            optimizer.zero_grad()
-            
-            # Mixed Precision Training
-            with torch.cuda.amp.autocast():
-                outputs = model(batch_X)
-                loss = criterion(outputs, batch_y)
-            
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
-            
-            train_loss += loss.item()
-            
-            # Log progress every 100 batches
-            batch_idx += 1
-            if batch_idx % 100 == 0:
-                percent = (batch_idx / len(train_loader)) * 100
-                logger.info(f"Trial {trial.number} | Epoch {epoch+1} | Batch {batch_idx}/{len(train_loader)} ({percent:.1f}%) | Loss: {loss.item():.4f}")
-            
-        # Validation
-        model.eval()
-        val_loss = 0
-        all_preds = []
-        all_targets = []
-        with torch.no_grad():
-            for batch_X, batch_y in val_loader:
+    # #10: Wrap in try-except for OOM resilience
+    try:
+        DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        # --- Search Space ---
+        d_model = trial.suggest_categorical("d_model", config['search_space']['d_model'])
+        
+        # #8: nhead must be a divisor of d_model (mathematically valid combinations only)
+        valid_nheads = [h for h in config['search_space']['nhead'] if d_model % h == 0]
+        nhead = trial.suggest_categorical("nhead", valid_nheads)
+        
+        # #7: num_layers as suggest_int (smarter TPE search vs categorical)
+        num_layers = trial.suggest_int("num_layers", 
+                                       min(config['search_space']['num_layers']), 
+                                       max(config['search_space']['num_layers']), 
+                                       step=2)
+        
+        batch_size = trial.suggest_categorical("batch_size", config['search_space']['batch_size'])
+        dropout = trial.suggest_categorical("dropout", config['search_space']['dropout'])
+        seq_len = trial.suggest_categorical("seq_len", config['search_space']['seq_len'])
+        lr = trial.suggest_float("lr", config['search_space']['lr'][0], config['search_space']['lr'][1], log=True)
+        
+        epochs = config['search_space']['epochs']
+        
+        logger.info(f"Trial {trial.number} START | d_model={d_model}, nhead={nhead}, layers={num_layers}, "
+                    f"batch={batch_size}, seq_len={seq_len}, drop={dropout}, lr={lr:.6f}")
+        
+        # --- Data Split (Chronological 80/20) ---
+        split_idx = int(len(X_all) * 0.8)
+        X_train_raw, y_train_raw = X_all[:split_idx], y_all[:split_idx]
+        X_val_raw, y_val_raw = X_all[split_idx:], y_all[split_idx:]
+        
+        train_dataset = SequenceDataset(X_train_raw, y_train_raw, seq_len)
+        val_dataset = SequenceDataset(X_val_raw, y_val_raw, seq_len)
+        
+        # #1 & #2: num_workers=6, pin_memory, persistent_workers, prefetch_factor
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
+                                  num_workers=6, pin_memory=True, persistent_workers=True, prefetch_factor=4)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False,
+                                num_workers=6, pin_memory=True, persistent_workers=True, prefetch_factor=4)
+        
+        # --- Model ---
+        model = QuantGodModel(
+            num_features=X_all.shape[1],
+            seq_len=seq_len,
+            d_model=d_model,
+            nhead=nhead,
+            num_layers=num_layers,
+            num_classes=3,
+            dropout=dropout
+        ).to(DEVICE)
+        
+        criterion = nn.CrossEntropyLoss()
+        
+        # #3: AdamW with weight_decay for proper Transformer regularization
+        optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
+        
+        # #4: LR Scheduler for better convergence in 5 epochs
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+        
+        amp_scaler = torch.cuda.amp.GradScaler()
+        
+        # --- Training Loop ---
+        best_val_f1 = 0
+        for epoch in range(epochs):
+            model.train()
+            train_loss = 0
+            batch_idx = 0
+            for batch_X, batch_y in train_loader:
                 batch_X, batch_y = batch_X.to(DEVICE), batch_y.to(DEVICE)
-                outputs = model(batch_X)
+                optimizer.zero_grad()
                 
-                loss_v = criterion(outputs, batch_y)
-                val_loss += loss_v.item()
+                with torch.cuda.amp.autocast():
+                    outputs = model(batch_X)
+                    loss = criterion(outputs, batch_y)
                 
-                preds = torch.argmax(outputs, dim=1)
-                all_preds.extend(preds.cpu().numpy())
-                all_targets.extend(batch_y.cpu().numpy())
-        
-        # Calculate Metrics
-        from sklearn.metrics import f1_score, accuracy_score
-        f1_weighted = f1_score(all_targets, all_preds, average='weighted')
-        f1_macro = f1_score(all_targets, all_preds, average='macro')
-        acc = accuracy_score(all_targets, all_preds)
-        
-        avg_train_loss = train_loss / len(train_loader)
-        avg_val_loss = val_loss / len(val_loader)
-        
-        logger.info(f"Trial {trial.number}, Epoch {epoch+1}/{epochs} | "
-                    f"Train Loss: {avg_train_loss:.4f} | Val Loss: {avg_val_loss:.4f} | "
-                    f"F1 Weighted: {f1_weighted:.4f} | F1 Macro: {f1_macro:.4f} | Acc: {acc:.4f}")
+                amp_scaler.scale(loss).backward()
+                amp_scaler.step(optimizer)
+                amp_scaler.update()
+                
+                train_loss += loss.item()
+                batch_idx += 1
+                if batch_idx % 100 == 0:
+                    percent = (batch_idx / len(train_loader)) * 100
+                    logger.info(f"Trial {trial.number} | Epoch {epoch+1} | Batch {batch_idx}/{len(train_loader)} ({percent:.1f}%) | Loss: {loss.item():.4f}")
+            
+            # Step scheduler after each epoch
+            scheduler.step()
+            
+            # --- Validation with autocast (#5) ---
+            model.eval()
+            val_loss = 0
+            all_preds = []
+            all_targets = []
+            with torch.no_grad():
+                with torch.cuda.amp.autocast():  # #5: AMP on validation too
+                    for batch_X, batch_y in val_loader:
+                        batch_X, batch_y = batch_X.to(DEVICE), batch_y.to(DEVICE)
+                        outputs = model(batch_X)
+                        loss_v = criterion(outputs, batch_y)
+                        val_loss += loss_v.item()
+                        preds = torch.argmax(outputs, dim=1)
+                        all_preds.extend(preds.cpu().numpy())
+                        all_targets.extend(batch_y.cpu().numpy())
+            
+            f1_weighted = f1_score(all_targets, all_preds, average='weighted')
+            f1_macro = f1_score(all_targets, all_preds, average='macro')
+            acc = accuracy_score(all_targets, all_preds)
+            
+            avg_train_loss = train_loss / len(train_loader)
+            avg_val_loss = val_loss / len(val_loader)
+            current_lr = scheduler.get_last_lr()[0]
+            
+            logger.info(f"Trial {trial.number}, Epoch {epoch+1}/{epochs} | "
+                        f"Train Loss: {avg_train_loss:.4f} | Val Loss: {avg_val_loss:.4f} | "
+                        f"F1 Weighted: {f1_weighted:.4f} | F1 Macro: {f1_macro:.4f} | "
+                        f"Acc: {acc:.4f} | LR: {current_lr:.6f}")
 
-        if f1_weighted > best_val_f1:
-            best_val_f1 = f1_weighted
-            
-        # Trial report for pruning
-        trial.report(f1_weighted, epoch)
-        if trial.should_prune():
-            logger.info(f"Trial {trial.number} pruned at epoch {epoch+1}")
+            if f1_weighted > best_val_f1:
+                best_val_f1 = f1_weighted
+                
+            trial.report(f1_weighted, epoch)
+            if trial.should_prune():
+                logger.info(f"Trial {trial.number} pruned at epoch {epoch+1}")
+                # #9: Clean up before pruning
+                del model, train_loader, val_loader, train_dataset, val_dataset
+                torch.cuda.empty_cache()
+                raise optuna.exceptions.TrialPruned()
+        
+        # #9: Explicit VRAM cleanup after each trial
+        del model, train_loader, val_loader, train_dataset, val_dataset
+        torch.cuda.empty_cache()
+        
+        return best_val_f1
+
+    except RuntimeError as e:
+        # #10: Catch OOM and prune trial instead of crashing the whole study
+        if "out of memory" in str(e).lower():
+            logger.warning(f"Trial {trial.number} — OOM! Pruning and continuing...")
+            torch.cuda.empty_cache()
             raise optuna.exceptions.TrialPruned()
-            
-    return best_val_f1
+        raise e
 
 def run_optimization():
     # 1. Config
@@ -196,13 +226,12 @@ def run_optimization():
     y_all = df.select('target').to_numpy().flatten().astype(np.int64)
     logger.info(f"Data loaded: {X_raw.shape}")
     
-    # 3. Normalization (Fit on Train Only)
+    # 3. Normalization (Fit on Train Only) — float32 to halve RAM usage (#6 from report)
     split_idx = int(len(X_raw) * 0.8)
-    from sklearn.preprocessing import StandardScaler
     logger.info("Fitting Scaler on Training Split (First 80%) for Optimization...")
     scaler = StandardScaler()
     scaler.fit(X_raw[:split_idx])
-    X_all = scaler.transform(X_raw)
+    X_all = scaler.transform(X_raw).astype(np.float32)
 
     # 4. Study
     study = optuna.create_study(
@@ -223,8 +252,6 @@ def run_optimization():
     logger.info(f"Best trial value: {study.best_trial.value}")
     logger.info(f"Best parameters: {study.best_params}")
     
-    # Save best params to a file for training
-    import json
     with open("src/cloud/otimizacao/best_params.json", "w") as f:
         json.dump(study.best_params, f, indent=4)
     logger.info("Best parameters saved to cloud/otimizacao/best_params.json")
