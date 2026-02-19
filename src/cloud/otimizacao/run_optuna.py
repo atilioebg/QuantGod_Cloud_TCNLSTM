@@ -130,7 +130,7 @@ def objective(trial, X_all, y_all, config):
         # #4: LR Scheduler for better convergence in 5 epochs
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
         
-        amp_scaler = torch.cuda.amp.GradScaler()
+        amp_scaler = torch.amp.GradScaler('cuda')
         
         # --- Training Loop ---
         best_val_f1 = 0
@@ -142,7 +142,7 @@ def objective(trial, X_all, y_all, config):
                 batch_X, batch_y = batch_X.to(DEVICE), batch_y.to(DEVICE)
                 optimizer.zero_grad()
                 
-                with torch.cuda.amp.autocast():
+                with torch.amp.autocast('cuda'):
                     outputs = model(batch_X)
                     loss = criterion(outputs, batch_y)
                 
@@ -165,7 +165,7 @@ def objective(trial, X_all, y_all, config):
             all_preds = []
             all_targets = []
             with torch.no_grad():
-                with torch.cuda.amp.autocast():  # #5: AMP on validation too
+                with torch.amp.autocast('cuda'):  # #5: AMP on validation too
                     for batch_X, batch_y in val_loader:
                         batch_X, batch_y = batch_X.to(DEVICE), batch_y.to(DEVICE)
                         outputs = model(batch_X)
