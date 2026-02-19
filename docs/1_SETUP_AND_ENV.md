@@ -8,7 +8,7 @@ To run QuantGod in production (Training & Inference), the following specs are re
 - **GPU**: NVIDIA RTX 3060 (12GB) or higher.
     - *Reason*: 6D Tensors with 96 time-steps consume significant VRAM during training batches. 12GB+ is comfortable for Batch Size 32-64.
 - **RAM**: 32GB DDR4+.
-    - *Reason*: `pandas_ta` and Polars operations on high-frequency data (millions of rows) are memory-intensive.
+    - *Reason*: Polars operations on high-frequency data (millions of rows) are memory-intensive.
 - **Storage**: NVMe SSD (1TB+).
     - *Reason*: Fast I/O is critical for loading Parquet shards during training.
 
@@ -41,7 +41,6 @@ pip install -r requirements.txt
 ```
 *Key Dependencies:*
 - `PyWavelets`: For `db4` signal denoising.
-- `pandas_ta`: High-performance technical analysis.
 - `polars`: Blazing fast ETL engine.
 - `binance-connector`: Official API wrapper.
 
