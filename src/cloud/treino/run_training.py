@@ -21,15 +21,24 @@ if project_root not in sys.path:
 from src.cloud.models.model import QuantGodModel
 
 
-def create_sequences(X, y, seq_len):
-    """Cria sequencias 3D (Batch, Time, Features)"""
-    Xs, ys = [], []
-    for i in range(len(X) - seq_len):
-        Xs.append(X[i : i+seq_len])
-        ys.append(y[i + seq_len - 1])
-    return np.array(Xs), np.array(ys)
+class SequenceDataset(torch.utils.data.Dataset):
+    """
+    Dataset eficiente que gera sequências sob demanda, economizando memória RAM.
+    """
+    def __init__(self, X, y, seq_len):
+        self.X = X
+        self.y = y
+        self.seq_len = seq_len
 
-def train_one_batch_size(batch_size, X_train_t, y_train_t, X_val_t, y_val_t, config, feature_cols, DEVICE):
+    def __len__(self):
+        return len(self.X) - self.seq_len
+
+    def __getitem__(self, idx):
+        x_seq = self.X[idx : idx + self.seq_len]
+        y_label = self.y[idx + self.seq_len - 1]
+        return torch.from_numpy(x_seq), torch.tensor(y_label, dtype=torch.long)
+
+def train_one_batch_size(batch_size, train_dataset, val_dataset, config, feature_cols, DEVICE):
     """Executa o treino para um tamanho de batch específico."""
     logger.info(f"\n" + "="*50)
     logger.info(f"🚀 INICIANDO TREINO COM BATCH_SIZE: {batch_size}")
@@ -50,11 +59,8 @@ def train_one_batch_size(batch_size, X_train_t, y_train_t, X_val_t, y_val_t, con
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=config['hyperparameters']['lr'])
     
-    train_dataset = TensorDataset(X_train_t, y_train_t)
-    val_dataset = TensorDataset(X_val_t, y_val_t)
-    
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True)
     
     epochs = config['hyperparameters']['epochs']
     
@@ -183,21 +189,16 @@ def run_fine_tuning():
         pickle.dump(scaler, f)
     logger.info(f"Scaler saved to {scaler_path}")
 
-    # 5. Sequence Creation
+    # 5. Split and Sequence Datasets (Memory Efficient)
     seq_len = config['hyperparameters']['seq_len']
-    logger.info(f"Creating sequences with seq_len={seq_len}...")
-    X_seq, y_seq = create_sequences(X_norm, y_raw, seq_len)
+    split_idx = int(len(X_norm) * 0.8)
     
-    # Redefine split index based on sequences
-    split_idx_seq = int(len(X_seq) * 0.8)
-    X_train, y_train = X_seq[:split_idx_seq], y_seq[:split_idx_seq]
-    X_val, y_val = X_seq[split_idx_seq:], y_seq[split_idx_seq:]
+    X_train_raw, y_train_raw = X_norm[:split_idx], y_raw[:split_idx]
+    X_val_raw, y_val_raw = X_norm[split_idx:], y_raw[split_idx:]
     
-    # Tensors
-    X_train_t = torch.from_numpy(X_train)
-    y_train_t = torch.from_numpy(y_train)
-    X_val_t = torch.from_numpy(X_val)
-    y_val_t = torch.from_numpy(y_val)
+    logger.info(f"Creating demand-based Datasets (No extra RAM)...")
+    train_dataset = SequenceDataset(X_train_raw, y_train_raw, seq_len)
+    val_dataset = SequenceDataset(X_val_raw, y_val_raw, seq_len)
     
     # Device
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -205,7 +206,7 @@ def run_fine_tuning():
 
     # 6. Fine-Tuning Loop for Batch Sizes
     for b_size in BATCH_SIZES:
-        model = train_one_batch_size(b_size, X_train_t, y_train_t, X_val_t, y_val_t, config, feature_cols, DEVICE)
+        model = train_one_batch_size(b_size, train_dataset, val_dataset, config, feature_cols, DEVICE)
         
         # Save each model variant with experiment suffix
         output_name = f"quantgod{suffix}_b{b_size}.pth"

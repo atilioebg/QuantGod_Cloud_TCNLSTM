@@ -32,13 +32,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def create_sequences(X, y, seq_len):
-    """Cria sequencias 3D (Batch, Time, Features)"""
-    Xs, ys = [], []
-    for i in range(len(X) - seq_len):
-        Xs.append(X[i : i+seq_len])
-        ys.append(y[i + seq_len - 1])
-    return np.array(Xs), np.array(ys)
+class SequenceDataset(torch.utils.data.Dataset):
+    """
+    Dataset eficiente que gera sequências sob demanda, economizando memória RAM.
+    """
+    def __init__(self, X, y, seq_len):
+        self.X = X
+        self.y = y
+        self.seq_len = seq_len
+
+    def __len__(self):
+        return len(self.X) - self.seq_len
+
+    def __getitem__(self, idx):
+        # Retorna a sequência [idx : idx+seq_len] e o label na posição idx+seq_len-1
+        x_seq = self.X[idx : idx + self.seq_len]
+        y_label = self.y[idx + self.seq_len - 1]
+        return torch.from_numpy(x_seq), torch.tensor(y_label, dtype=torch.long)
 
 def load_data(labelled_dir):
     parquet_files = sorted(list(Path(labelled_dir).glob("*.parquet")))
@@ -71,25 +81,19 @@ def objective(trial, X_all, y_all, config):
     
     epochs = config['search_space']['epochs']
     
-    # Simple Train/Val Split (80/20)
+    # Simple Train/Val Split (80/20) - Chronological
     split_idx = int(len(X_all) * 0.8)
     X_train_raw, y_train_raw = X_all[:split_idx], y_all[:split_idx]
     X_val_raw, y_val_raw = X_all[split_idx:], y_all[split_idx:]
     
-    # Create Sequences
-    X_train, y_train = create_sequences(X_train_raw, y_train_raw, seq_len)
-    X_val, y_val = create_sequences(X_val_raw, y_val_raw, seq_len)
+    # Datasets sob demanda (Não consomem RAM extra)
+    train_dataset = SequenceDataset(X_train_raw, y_train_raw, seq_len)
+    val_dataset = SequenceDataset(X_val_raw, y_val_raw, seq_len)
     
     # Tensors
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    train_loader = DataLoader(
-        TensorDataset(torch.from_numpy(X_train), torch.from_numpy(y_train)),
-        batch_size=batch_size, shuffle=True
-    )
-    val_loader = DataLoader(
-        TensorDataset(torch.from_numpy(X_val), torch.from_numpy(y_val)),
-        batch_size=batch_size, shuffle=False
-    )
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=2)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
     
     # Model
     model = QuantGodModel(
