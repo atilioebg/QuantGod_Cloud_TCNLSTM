@@ -58,13 +58,15 @@ def load_data(labelled_dir):
     return df, feature_cols
 
 def objective(trial, X_all, y_all, config):
-    # Search Space
+    # Search Space - Using suggest_categorical for specific lists requested by user
     d_model = trial.suggest_categorical("d_model", config['search_space']['d_model'])
     nhead = trial.suggest_categorical("nhead", config['search_space']['nhead'])
-    num_layers = trial.suggest_int("num_layers", config['search_space']['num_layers'][0], config['search_space']['num_layers'][-1])
-    lr = trial.suggest_float("lr", config['search_space']['lr'][0], config['search_space']['lr'][1], log=True)
-    dropout = trial.suggest_float("dropout", config['search_space']['dropout'][0], config['search_space']['dropout'][1])
+    num_layers = trial.suggest_categorical("num_layers", config['search_space']['num_layers'])
     batch_size = trial.suggest_categorical("batch_size", config['search_space']['batch_size'])
+    dropout = trial.suggest_categorical("dropout", config['search_space']['dropout'])
+    
+    # LR is still suggested as a float range
+    lr = trial.suggest_float("lr", config['search_space']['lr'][0], config['search_space']['lr'][1], log=True)
     
     seq_len = config['search_space']['seq_len']
     epochs = config['search_space']['epochs']
@@ -107,6 +109,7 @@ def objective(trial, X_all, y_all, config):
     best_val_f1 = 0
     for epoch in range(epochs):
         model.train()
+        train_loss = 0
         for batch_X, batch_y in train_loader:
             batch_X, batch_y = batch_X.to(DEVICE), batch_y.to(DEVICE)
             optimizer.zero_grad()
@@ -114,36 +117,42 @@ def objective(trial, X_all, y_all, config):
             loss = criterion(outputs, batch_y)
             loss.backward()
             optimizer.step()
+            train_loss += loss.item()
             
         # Validation
         model.eval()
+        val_loss = 0
         all_preds = []
         all_targets = []
         with torch.no_grad():
             for batch_X, batch_y in val_loader:
                 batch_X, batch_y = batch_X.to(DEVICE), batch_y.to(DEVICE)
                 outputs = model(batch_X)
+                
+                loss_v = criterion(outputs, batch_y)
+                val_loss += loss_v.item()
+                
                 preds = torch.argmax(outputs, dim=1)
                 all_preds.extend(preds.cpu().numpy())
                 all_targets.extend(batch_y.cpu().numpy())
         
-        # Calculate F1 (Weighted and Macro) and Loss tracking
-        from sklearn.metrics import f1_score
+        # Calculate Metrics
+        from sklearn.metrics import f1_score, accuracy_score
         f1_weighted = f1_score(all_targets, all_preds, average='weighted')
         f1_macro = f1_score(all_targets, all_preds, average='macro')
+        acc = accuracy_score(all_targets, all_preds)
         
-        # Calculate Validation Loss
-        val_loss = 0
-        loss_fn = nn.CrossEntropyLoss()
-        # Re-calc loss on val set for logging (could be optimized but safe for now)
-        # Actually we didn't track loss inside the no_grad loop above, let's just log accuracy/f1
+        avg_train_loss = train_loss / len(train_loader)
+        avg_val_loss = val_loss / len(val_loader)
         
-        logger.info(f"Trial {trial.number}, Epoch {epoch+1}/{epochs} | Val F1 Weighted: {f1_weighted:.4f} | Val F1 Macro: {f1_macro:.4f}")
+        logger.info(f"Trial {trial.number}, Epoch {epoch+1}/{epochs} | "
+                    f"Train Loss: {avg_train_loss:.4f} | Val Loss: {avg_val_loss:.4f} | "
+                    f"F1 Weighted: {f1_weighted:.4f} | F1 Macro: {f1_macro:.4f} | Acc: {acc:.4f}")
 
         if f1_weighted > best_val_f1:
             best_val_f1 = f1_weighted
             
-        # Optional: trial.report and pruning
+        # Trial report for pruning
         trial.report(f1_weighted, epoch)
         if trial.should_prune():
             logger.info(f"Trial {trial.number} pruned at epoch {epoch+1}")
