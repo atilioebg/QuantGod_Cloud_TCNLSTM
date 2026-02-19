@@ -79,6 +79,10 @@ def objective(trial, X_all, y_all, config):
     # LR is still suggested as a float range
     lr = trial.suggest_float("lr", config['search_space']['lr'][0], config['search_space']['lr'][1], log=True)
     
+    # Log trial parameters
+    logger.info(f"Trial {trial.number} Params: d_model={d_model}, nhead={nhead}, layers={num_layers}, "
+                f"batch={batch_size}, seq_len={seq_len}, drop={dropout}, lr={lr:.6f}")
+    
     epochs = config['search_space']['epochs']
     
     # Simple Train/Val Split (80/20) - Chronological
