@@ -146,3 +146,91 @@ O pipeline aplica um **Hard Cut** automático para 200 níveis. Isso garante que
 ### 4. Erro: `Out of Memory (OOM)`
 - Reduza o `batch_size` nos arquivos de configuração `.yaml`.
 - No ETL, reduza o número de workers em `run_pipeline.py`.
+
+---
+
+## 🚀 Passo a Passo para rodar na Cloud (RUNPOD)
+
+Este guia prático fornece todos os comandos necessários para executar o pipeline completo em uma instância RunPod, garantindo persistência e organização.
+
+### 1. Preparação Inicial do Terminal
+Após entrar no **Web Terminal** do RunPod, prepare o ambiente básico:
+
+```bash
+cd /workspace
+
+# Sincronizar o código mais recente
+git pull origin main
+# Credenciais (se solicitado):
+# User: atilioebg
+# Token: <SEU_GITHUB_TOKEN_AQUI>
+
+# Ativar ambiente e caminhos
+source .venv/bin/activate
+export PYTHONPATH=$PYTHONPATH:/workspace
+```
+
+### 2. Execução do Pré-processamento (ETL)
+Usaremos o `tmux` para garantir que o processamento continue mesmo se você fechar o navegador.
+
+```bash
+# Criar uma sessão persistente
+tmux new -s pipeline_god
+
+# Dentro do tmux, prepare o ambiente novamente (necessário por sessão)
+cd /workspace
+source .venv/bin/activate
+export PYTHONPATH=$PYTHONPATH:/workspace
+
+# Disparar o motor de ETL
+python3 src/cloud/pre_processamento/orchestration/run_pipeline.py
+```
+
+*   **Comandos úteis do tmux:**
+    *   `Ctrl + B` depois `D`: Sair do terminal sem interromper o processo (Detach).
+    *   `tmux ls`: Listar sessões ativas.
+    *   `tmux attach -t pipeline_god`: Retornar ao terminal do pipeline.
+
+### 3. Validação do ETL
+Sempre valide os dados antes de prosseguir:
+
+```bash
+pytest tests/test_cloud_etl_output.py
+```
+
+### 4. Execução da Rotulagem (Labelling)
+Com os dados limpos, aplicamos as regras de estratégia para criar os alvos de treino:
+
+```bash
+# Garante que as configurações de thresholds estão atualizadas
+git pull origin main
+
+source .venv/bin/activate
+export PYTHONPATH=$PYTHONPATH:/workspace
+python3 src/cloud/labelling/run_labelling.py
+
+# Validar integridade dos labels
+pytest tests/test_labelling_output.py
+```
+
+### 5. Backup e Sincronização com Google Drive
+Não confie no armazenamento efêmero do Pod. Faça o backup dos logs e dados processados:
+
+```bash
+# Copiar logs de auditoria
+rclone --config /workspace/rclone.conf copy /workspace/logs/labelling/labelling_processing.log drive:PROJETOS/
+rclone --config /workspace/rclone.conf copy /workspace/logs/etl/etl_processing.log drive:PROJETOS/
+
+# Backup total da pasta L2 (Data) para o Drive (use tmux para processos longos)
+tmux new -s upload_drive
+rclone --config /workspace/rclone.conf copy /workspace/data/L2 drive:PROJETOS/L2 -P
+```
+
+### 6. Validação Local (Opcional - Pós-Cloud)
+Após copiar os dados para o Drive, você pode conferir a integridade na sua máquina local montando o Drive como unidade `Z:`:
+
+```powershell
+# Comando para rodar no terminal local (Windows)
+.\rclone mount drive: Z: --vfs-cache-mode full --config "c:\Users\Atilio\Desktop\PROJETOS\PESSOAL\QuantGod\rclone.conf"
+```
+*Com a unidade montada, você pode rodar os mesmos arquivos de `pytest` localmente apontando para `Z:\`.*

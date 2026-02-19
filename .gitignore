@@ -9,11 +9,11 @@ __pycache__/
 venv/
 env/
 
-# # Data
-# data/
-# !data/README.md
-# !data/.gitkeep
-# !data/*.pth
+# Data
+data/
+!data/README.md
+!data/.gitkeep
+!data/*.pth
 
 # IDE / Editor
 .vscode/
@@ -25,9 +25,10 @@ env/
 
 # Scripts & Configs
 rclone.exe
-# rclone.conf
+rclone.conf
 optuna_study.db
 *.db
 
-# # Temporary
-# logs/
+# Temporary
+logs/
+runpos_token.txt
