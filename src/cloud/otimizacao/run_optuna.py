@@ -109,6 +109,8 @@ def objective(trial, X_all, y_all, config):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
     
+    scaler = torch.cuda.amp.GradScaler()
+    
     # Loop
     best_val_f1 = 0
     for epoch in range(epochs):
@@ -118,16 +120,23 @@ def objective(trial, X_all, y_all, config):
         for batch_X, batch_y in train_loader:
             batch_X, batch_y = batch_X.to(DEVICE), batch_y.to(DEVICE)
             optimizer.zero_grad()
-            outputs = model(batch_X)
-            loss = criterion(outputs, batch_y)
-            loss.backward()
-            optimizer.step()
+            
+            # Mixed Precision Training
+            with torch.cuda.amp.autocast():
+                outputs = model(batch_X)
+                loss = criterion(outputs, batch_y)
+            
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+            
             train_loss += loss.item()
             
             # Log progress every 100 batches
             batch_idx += 1
             if batch_idx % 100 == 0:
-                logger.info(f"Trial {trial.number} | Epoch {epoch+1} | Batch {batch_idx}/{len(train_loader)} | Loss: {loss.item():.4f}")
+                percent = (batch_idx / len(train_loader)) * 100
+                logger.info(f"Trial {trial.number} | Epoch {epoch+1} | Batch {batch_idx}/{len(train_loader)} ({percent:.1f}%) | Loss: {loss.item():.4f}")
             
         # Validation
         model.eval()
