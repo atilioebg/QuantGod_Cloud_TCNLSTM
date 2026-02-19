@@ -1,8 +1,8 @@
 
 paths:
   labelled_dir: "data/L2/labelled/labelled_SELL_0004_BUY_0004_1h"
-  study_name: "quantgod_transformer_optimization"
-  db_path: "sqlite:///optuna_study.db"
+  study_name: "quantgod_transformer_optimization_v2"
+  db_path: "sqlite:///optuna_study_v2.db"
 
 optimization:
   n_trials: 20
@@ -11,10 +11,11 @@ optimization:
 
 search_space:
   d_model: [256, 512]
-  nhead: [4, 8, 16]
+  nhead: [2, 4, 8]
   num_layers: [2, 4, 8]
   lr: [0.00001, 0.0001]
-  dropout: [0.1, 0.3, 0.4]
-  batch_size: [128, 256, 512]
+  dropout: [0.1, 0.4]
+  batch_size: [256, 512]
   epochs: 5 # Small number of epochs per trial for optimization speed
   seq_len: [720, 1440] # 12h vs 24h lookback
+
