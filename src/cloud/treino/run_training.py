@@ -20,18 +20,6 @@ if project_root not in sys.path:
 
 from src.cloud.models.model import QuantGodModel
 
-# Logger setup
-log_dir = Path("logs/training")
-log_dir.mkdir(parents=True, exist_ok=True)
-logging.basicConfig(
-    level=logging.INFO, 
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(log_dir / "fine_tuning.log"),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-logger = logging.getLogger(__name__)
 
 def create_sequences(X, y, seq_len):
     """Cria sequencias 3D (Batch, Time, Features)"""
@@ -106,11 +94,36 @@ def run_fine_tuning():
     # 1. Load Config
     config_path = Path("src/cloud/treino/training_config.yaml")
     if not config_path.exists():
-        logger.error(f"Config file not found at {config_path}")
+        print(f"Config file not found at {config_path}")
         return
 
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
+
+    # Lógica de Sufixo Dinâmico
+    labelled_dir_path = Path(config['paths']['labelled_dir'])
+    folder_name = labelled_dir_path.name # Pega "labelled_SELL_0004_BUY_0004_1h"
+    # Extrai o sufixo (remove o prefixo 'labelled' se existir, ou usa o nome completo)
+    suffix = folder_name.replace("labelled", "") if "labelled" in folder_name else f"_{folder_name}"
+
+    # Logger setup dinâmico
+    log_dir = Path("logs/training")
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / f"fine_tuning{suffix}.log"
+    
+    # Reconfigurando o logging para usar o novo arquivo
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+        
+    logging.basicConfig(
+        level=logging.INFO, 
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
+    logger = logging.getLogger(__name__)
 
     # Parametros solicitados
     BATCH_SIZES = [128, 256, 512]
@@ -194,11 +207,11 @@ def run_fine_tuning():
     for b_size in BATCH_SIZES:
         model = train_one_batch_size(b_size, X_train_t, y_train_t, X_val_t, y_val_t, config, feature_cols, DEVICE)
         
-        # Save each model variant
-        output_name = f"quantgod_finetuned_b{b_size}.pth"
+        # Save each model variant with experiment suffix
+        output_name = f"quantgod{suffix}_b{b_size}.pth"
         output_path = Path("data/models") / output_name
         torch.save(model.state_dict(), output_path)
-        logger.info(f"✅ Model with Batch Size {b_size} saved to {output_path}")
+        logger.info(f"✅ Model saved to {output_path}")
 
     logger.info("\n" + "="*50)
     logger.info("🎯 FINE-TUNING COMPLETED SUCCESSFULLY")
