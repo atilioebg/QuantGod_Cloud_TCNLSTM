@@ -234,3 +234,65 @@ Após copiar os dados para o Drive, você pode conferir a integridade na sua má
 .\rclone mount drive: Z: --vfs-cache-mode full --config "c:\Users\Atilio\Desktop\PROJETOS\PESSOAL\QuantGod\rclone.conf"
 ```
 *Com a unidade montada, você pode rodar os mesmos arquivos de `pytest` localmente apontando para `Z:\`.*
+
+---
+
+## ⚡ TREINO GPU CLOUD - STORAGE NOVO
+
+Este guia é destinado a instâncias de GPU zeradas (como RunPod RTX 4090/A100 com storage vazio), onde o foco é baixar o dataset rotulado para o disco local (`/workspace/data`) para máxima performance de I/O durante o treino.
+
+### 1. Ambiente e Dependências
+Execute estes comandos para clonar o projeto e preparar o ambiente virtual:
+
+```bash
+cd /workspace
+
+# Clonar o repositório diretamente na raiz do workspace
+git clone https://github.com/atilioebg/QuantGod_Cloud.git .
+
+# Setup do Ambiente Virtual
+python -m venv venv
+source venv/bin/activate
+
+# Instalação Otimizada (Totalmente corrigida)
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### 2. Configurações de Nuvem (Rclone)
+Configure a ponte com o Google Drive usando o arquivo integrado ao repositório:
+
+```bash
+# Preparar o diretório de configuração do sistema
+mkdir -p /root/.config/rclone/
+
+# Migrar a configuração do repositório para o sistema
+cp /workspace/rclone.conf /root/.config/rclone/rclone.conf
+
+# Validar Conexão
+rclone lsd drive:
+```
+
+### 3. Recuperação de Dataset (Alta Performance)
+Para treinos pesados, não use o `mount`. Baixe o dataset rotulado diretamente para o disco NVMe da instância usando `tmux`:
+
+```bash
+# Iniciar sessão persistente
+tmux new -s download_data
+
+# Executar o download do dataset +0.4% / -0.4% em 2h (Foundation Model)
+# Ajuste o caminho se necessário
+mkdir -p /workspace/data/L2/labelled/
+rclone copy drive:PROJETOS/L2/labelled/labelled_SELL_0004_BUY_0004_2h /workspace/data/L2/labelled/labelled_SELL_0004_BUY_0004_2h -P
+
+# Sair do tmux (Background): Ctrl + B, depois D
+```
+
+### 4. Iniciar Treinamento Final
+Após o término do download, execute o treinamento:
+
+```bash
+source venv/bin/activate
+export PYTHONPATH=$PYTHONPATH:/workspace
+python3 src/cloud/treino/run_training.py
+```
