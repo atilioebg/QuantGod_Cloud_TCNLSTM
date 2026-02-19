@@ -17,4 +17,4 @@ search_space:
   dropout: [0.1, 0.3, 0.4]
   batch_size: [64, 128, 256]
   epochs: 5 # Small number of epochs per trial for optimization speed
-  seq_len: 720 # Consistent with training
+  seq_len: [720, 1440] # 12h vs 24h lookback

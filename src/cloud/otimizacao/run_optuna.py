@@ -64,11 +64,11 @@ def objective(trial, X_all, y_all, config):
     num_layers = trial.suggest_categorical("num_layers", config['search_space']['num_layers'])
     batch_size = trial.suggest_categorical("batch_size", config['search_space']['batch_size'])
     dropout = trial.suggest_categorical("dropout", config['search_space']['dropout'])
+    seq_len = trial.suggest_categorical("seq_len", config['search_space']['seq_len'])
     
     # LR is still suggested as a float range
     lr = trial.suggest_float("lr", config['search_space']['lr'][0], config['search_space']['lr'][1], log=True)
     
-    seq_len = config['search_space']['seq_len']
     epochs = config['search_space']['epochs']
     
     # Simple Train/Val Split (80/20)
