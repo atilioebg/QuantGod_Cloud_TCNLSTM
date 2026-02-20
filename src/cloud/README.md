@@ -430,8 +430,7 @@ Todos os logs vão para `logs/` na raiz do projeto. Consulte [`logs/LOGS_README.
 ```bash
 # 1. Clonar e configurar
 cd /workspace
-git clone https://github.com/atilioebg/QuantGod_Cloud.git .
-git checkout tcn_lstm
+git clone https://github.com/atilioebg/QuantGod_Cloud_TCNLSTM.git .
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 export PYTHONPATH=$PYTHONPATH:/workspace

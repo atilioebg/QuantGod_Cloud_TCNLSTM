@@ -26,8 +26,7 @@
 
 ```bash
 # Clonar
-git clone https://github.com/atilioebg/QuantGod_Cloud.git .
-git checkout tcn_lstm
+git clone https://github.com/atilioebg/QuantGod_Cloud_TCNLSTM.git .
 
 # Criar e ativar virtualenv
 python -m venv venv
@@ -137,7 +136,7 @@ runpod_token.txt
 
 Para autenticar no GitHub a partir do RunPod:
 ```bash
-git clone https://github.com/atilioebg/QuantGod_Cloud.git .
+git clone https://github.com/atilioebg/QuantGod_Cloud_TCNLSTM.git .
 # Quando solicitado:
 # User: atilioebg
 # Password: <SEU GITHUB TOKEN> (não a senha da conta)

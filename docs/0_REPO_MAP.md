@@ -1,6 +1,6 @@
 # 🗺️ Repo Map
 
-> **Branch:** `tcn_lstm` | Updated: 2026-02-20
+> **Repo:** [`atilioebg/QuantGod_Cloud_TCNLSTM`](https://github.com/atilioebg/QuantGod_Cloud_TCNLSTM) | **Branch:** `main` | Updated: 2026-02-20
 
 ---
 

@@ -1,6 +1,6 @@
 # TCN+LSTM Ensemble Architecture
 
-> **Version:** 1.0 | **Branch:** `tcn_lstm` | **Status:** 🟢 Implementation Ready
+> **Version:** 1.0 | **Repo:** [`QuantGod_Cloud_TCNLSTM`](https://github.com/atilioebg/QuantGod_Cloud_TCNLSTM) | **Branch:** `main` | **Status:** 🟢 Implementation Ready
 >
 > *Pivot from ViViT (Transformer) to Hybrid TCN+LSTM (Base) + XGBoost (Auditor)*
 

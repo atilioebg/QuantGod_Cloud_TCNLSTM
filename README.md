@@ -1,6 +1,6 @@
 # QuantGod Cloud ⚡
 
-> **Branch ativo:** `tcn_lstm` | **Status:** 🟢 Production Ready
+> **Repositório:** [`atilioebg/QuantGod_Cloud_TCNLSTM`](https://github.com/atilioebg/QuantGod_Cloud_TCNLSTM) | **Branch:** `main` | **Status:** 🟢 Production Ready
 >
 > Sistema de predição de direção de mercado para **BTC/USDT Perpetual Futures (Bybit/Binance)** usando um ensemble **TCN+LSTM (Base Model) + XGBoost (Auditor)**, treinado em dados Level 2 de Order Book históricos de 2023–2026.
 
@@ -94,8 +94,8 @@ Para a documentação do pipeline de infraestrutura cloud completa, consulte tam
 ### Ambiente Local (Windows — desenvolvimento/testes)
 
 ```powershell
-git clone https://github.com/atilioebg/QuantGod_Cloud.git
-git checkout tcn_lstm
+git clone https://github.com/atilioebg/QuantGod_Cloud_TCNLSTM.git
+cd QuantGod_Cloud_TCNLSTM
 python -m venv venv && venv\Scripts\Activate.ps1
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 pip install -r requirements.txt
@@ -165,5 +165,4 @@ Veja `requirements.txt` para a lista completa.
 
 | Branch | Status | Descrição |
 |:---|:---|:---|
-| `tcn_lstm` | 🟢 **Ativo** | Arquitetura atual — TCN+LSTM ensemble |
-| `main` | 🔴 Legacy | Contém código do ViViT — **não usar** |
+| `main` | 🟢 **Ativo** | Arquitetura atual — TCN+LSTM ensemble |

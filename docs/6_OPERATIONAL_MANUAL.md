@@ -149,9 +149,8 @@ python src/cloud/auditor_model/binance_adapter.py --test-mode --max-candles 2
 
 ```bash
 # 1. Clonar e configurar
-git clone https://github.com/atilioebg/QuantGod_Cloud.git /workspace
+git clone https://github.com/atilioebg/QuantGod_Cloud_TCNLSTM.git /workspace
 cd /workspace
-git checkout tcn_lstm
 python -m venv venv && source venv/bin/activate
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 pip install -r requirements.txt
