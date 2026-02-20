@@ -20,8 +20,11 @@ data/
 .idea/
 *.swp
 
-# Logs
-*.log
+# Logs — ignore log files and plots, but keep README and structure
+logs/**/*.log
+logs/debug_plots/
+!logs/LOGS_README.md
+!logs/**/.gitkeep
 
 # Scripts & Configs
 rclone.exe
@@ -29,10 +32,8 @@ rclone.conf
 optuna_study.db
 *.db
 
-# Temporary
-logs/
-runpos_token.txt
 # Tokens e segredos
 runpod_token.txt
+runpos_token.txt
 *.token
 *.secret
