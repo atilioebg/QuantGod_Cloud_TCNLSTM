@@ -4,13 +4,14 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from sklearn.metrics import f1_score, accuracy_score  # #6: Import at top
+from sklearn.metrics import f1_score, accuracy_score
 from sklearn.preprocessing import StandardScaler
 import polars as pl
 import numpy as np
 import yaml
 import logging
 import json
+from datetime import datetime
 from pathlib import Path
 import sys
 import os
@@ -22,18 +23,36 @@ if project_root not in sys.path:
 
 from src.cloud.models.model import QuantGodModel
 
-# Logger setup
+# Logger setup — FileHandler is added dynamically in run_optimization()
+# after parsing the config, so log filename includes labelled_dir suffix + timestamp.
 log_dir = Path("logs/optimization")
 log_dir.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
-    level=logging.INFO, 
+    level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(log_dir / "optimization_processing.log"),
-        logging.StreamHandler(sys.stdout)
-    ]
+    handlers=[logging.StreamHandler(sys.stdout)]  # File handler added dynamically
 )
 logger = logging.getLogger(__name__)
+
+def _setup_log_file(labelled_dir: str):
+    """
+    Adds a FileHandler to the root logger using the labelled_dir suffix + timestamp.
+    Example: optimization_SELL_0004_BUY_0004_1h_20260220_014500.log
+    labelled_dir path example: 'data/L2/labelled/labelled_SELL_0004_BUY_0004_1h'
+    """
+    # Extract suffix: 'labelled_SELL_0004_BUY_0004_1h' → 'SELL_0004_BUY_0004_1h'
+    dir_name = Path(labelled_dir).name
+    suffix = dir_name.replace("labelled_", "") if dir_name.startswith("labelled_") else dir_name
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_filename = log_dir / f"optimization_{suffix}_{timestamp}.log"
+    
+    file_handler = logging.FileHandler(log_filename, mode='w')  # 'w' = new file each run
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    
+    logging.getLogger().addHandler(file_handler)
+    logger.info(f"Log file: {log_filename}")
 
 class SequenceDataset(torch.utils.data.Dataset):
     """
@@ -222,7 +241,10 @@ def run_optimization():
     config_path = Path("src/cloud/otimizacao/optimization_config.yaml")
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
-        
+    
+    # Setup log file with dynamic name (labelled_dir suffix + timestamp)
+    _setup_log_file(config['paths']['labelled_dir'])
+    
     # 2. Data
     logger.info("Loading data for optimization...")
     df, feature_cols = load_data(config['paths']['labelled_dir'])
