@@ -7,17 +7,8 @@ import sys
 import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-# Logger setup
-log_dir = Path("logs/labelling")
-log_dir.mkdir(parents=True, exist_ok=True)
-logging.basicConfig(
-    level=logging.INFO, 
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(log_dir / "labelling_processing.log"),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
+from src.cloud.base_model.utils.logging_utils import setup_logger, get_labelling_suffix
+
 logger = logging.getLogger(__name__)
 
 def apply_labelling(file_path, config):
@@ -86,7 +77,7 @@ def run_labelling():
     if len(sys.argv) > 1:
         config_path = Path(sys.argv[1])
     else:
-        config_path = Path("src/cloud/labelling/labelling_config.yaml")
+        config_path = Path("src/cloud/base_model/labelling/labelling_config.yaml")
 
     if not config_path.exists():
         logger.error(f"Config file not found at {config_path}")
@@ -95,7 +86,20 @@ def run_labelling():
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
 
-    # 2. List Files
+    # 2. Dynamic Output Dir Modification & Logging Setup
+    suffix = get_labelling_suffix(config['params'])
+    setup_logger("labelling", suffix)
+    
+    base_output = Path(config['paths']['output_dir'])
+    
+    # If the base output dir doesn't already end with the suffix, append it
+    # This ensures we don't nest suffixes if run multiple times
+    if not base_output.name.endswith(suffix):
+        new_output = base_output.parent / f"{base_output.name}{suffix}"
+        config['paths']['output_dir'] = str(new_output)
+        logger.info(f"📁 DYNAMIC PATH: Output redirected to {new_output}")
+    
+    # 3. List Files
     input_dir = Path(config['paths']['input_dir'])
     parquet_files = list(input_dir.glob("*.parquet"))
     

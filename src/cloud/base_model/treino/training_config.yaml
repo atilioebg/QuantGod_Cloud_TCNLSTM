@@ -1,6 +1,7 @@
 
 paths:
-  labelled_dir: "data/L2/labelled/labelled_SELL_0004_BUY_0008_1h"
+  train_dir: "data/L2/splits_SELL_0002_BUY_0002_1h/train"
+  val_dir: "data/L2/splits_SELL_0002_BUY_0002_1h/val"
   model_output: "data/models/best_tcn_lstm.pt"
   scaler_output: "data/models/scaler_finetuning.pkl"
 

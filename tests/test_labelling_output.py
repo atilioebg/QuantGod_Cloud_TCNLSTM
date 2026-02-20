@@ -25,6 +25,7 @@ import polars as pl
 import pandas as pd
 from pathlib import Path
 import pytest
+import os
 import logging
 
 logger = logging.getLogger(__name__)
@@ -49,7 +50,9 @@ def get_labelled_dir(request=None) -> Path:
         cli = request.config.getoption("--labelled-dir", default=None)
         if cli:
             return Path(cli)
-    return Path("data/L2/labelled_SELL_0004_BUY_0008_1h")
+    import os
+    default_dir = os.getenv("LABELLED_DIR", "data/L2/labelled_SELL_0004_BUY_0008_1h")
+    return Path(default_dir)
 
 
 def get_labelled_files(request=None) -> list:
@@ -78,7 +81,7 @@ class TestLabelledDirectory:
 
     def test_file_count_matches_pre_processed(self):
         """Number of labelled files must match pre_processed directory (same dates)."""
-        pre_processed = Path("data/L2/pre_processed")
+        pre_processed = Path(os.getenv("PRE_PROCESSED_DIR", "data/L2/pre_processed"))
         if not pre_processed.exists():
             pytest.skip("pre_processed dir not found — skipping cross-dir count check")
         pp_count = len(list(pre_processed.glob("*.parquet")))

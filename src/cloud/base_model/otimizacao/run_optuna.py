@@ -31,17 +31,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def _setup_log_file(labelled_dir: str):
-    """Adds FileHandler with dynamic name: optimization_{suffix}_{timestamp}.log"""
-    dir_name = Path(labelled_dir).name
-    suffix = dir_name.replace("labelled_", "") if dir_name.startswith("labelled_") else dir_name
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_filename = log_dir / f"optimization_{suffix}_{timestamp}.log"
-    fh = logging.FileHandler(log_filename, mode='w')
-    fh.setLevel(logging.INFO)
-    fh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-    logging.getLogger().addHandler(fh)
-    logger.info(f"Log file: {log_filename}")
+from src.cloud.base_model.utils.logging_utils import setup_logger
+
+logger = logging.getLogger(__name__)
 
 
 class SequenceDataset(torch.utils.data.Dataset):
@@ -53,15 +45,17 @@ class SequenceDataset(torch.utils.data.Dataset):
                 torch.tensor(self.y[idx + self.seq_len - 1], dtype=torch.long))
 
 
-def load_data(labelled_dir, feature_cols):
-    parquet_files = sorted(list(Path(labelled_dir).glob("*.parquet")))
+def load_data(directory, feature_cols):
+    parquet_files = sorted(list(Path(directory).glob("*.parquet")))
     if not parquet_files:
-        raise FileNotFoundError(f"No labelled data in {labelled_dir}")
+        raise FileNotFoundError(f"No labelled data in {directory}")
     dfs = [pl.read_parquet(pf, columns=feature_cols + ['target']) for pf in parquet_files]
-    return pl.concat(dfs), feature_cols
+    df = pl.concat(dfs)
+    logger.info(f"Loaded {len(df):,} rows from {directory}")
+    return df, feature_cols
 
 
-def objective(trial, X_all, y_all, config, class_weights):
+def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
     """
     Optuna objective function for TCN+LSTM hyperparameter search.
 
@@ -93,10 +87,9 @@ def objective(trial, X_all, y_all, config, class_weights):
                     f"layers={num_lstm_layers}, batch={batch_size}, seq={seq_len}, "
                     f"drop={dropout:.3f}, lr={lr:.6f}")
 
-        # ── Data split (chronological 80/20) ──────────────────────────────────
-        split_idx = int(len(X_all) * 0.8)
-        train_dataset = SequenceDataset(X_all[:split_idx], y_all[:split_idx], seq_len)
-        val_dataset   = SequenceDataset(X_all[split_idx:], y_all[split_idx:], seq_len)
+        # ── Datasets ───────────────────────────────────────────────────────────
+        train_dataset = SequenceDataset(X_train, y_train, seq_len)
+        val_dataset   = SequenceDataset(X_val, y_val, seq_len)
         train_loader  = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
                                    num_workers=4, pin_memory=True)
         val_loader    = DataLoader(val_dataset,   batch_size=batch_size, shuffle=False,
@@ -104,7 +97,7 @@ def objective(trial, X_all, y_all, config, class_weights):
 
         # ── Model ──────────────────────────────────────────────────────────────
         model = Hybrid_TCN_LSTM(
-            num_features=X_all.shape[1],
+            num_features=X_train.shape[1],
             seq_len=seq_len,
             tcn_channels=tcn_channels,
             lstm_hidden=lstm_hidden,
@@ -211,20 +204,31 @@ def run_optimization():
     class_weights = base_cfg['training']['class_weights']
     feature_cols  = base_cfg['model']['feature_names']
 
-    _setup_log_file(config['paths']['labelled_dir'])
+    # ── Suffix Extraction & Logging Setup ──────────────────────────────────
+    suffix = ""
+    train_dir_path = Path(config['paths']['train_dir'])
+    import re
+    match = re.search(r"(_SELL_.*)$", str(train_dir_path.parent))
+    if match:
+        suffix = match.group(1)
+        
+    setup_logger("optimization", suffix)
 
     # ── Data ──────────────────────────────────────────────────────────────────
     logger.info("Loading data for optimization...")
-    df, _ = load_data(config['paths']['labelled_dir'], feature_cols)
-    X_raw = df.select(feature_cols).to_numpy().astype(np.float32)
-    y_all = df.select('target').to_numpy().flatten().astype(np.int64)
-    logger.info(f"Data loaded: {X_raw.shape} | class_weights: {class_weights}")
+    train_df, _ = load_data(config['paths']['train_dir'], feature_cols)
+    val_df, _   = load_data(config['paths']['val_dir'],   feature_cols)
+
+    X_train_raw = train_df.select(feature_cols).to_numpy().astype(np.float32)
+    y_train     = train_df.select('target').to_numpy().flatten().astype(np.int64)
+    X_val_raw   = val_df.select(feature_cols).to_numpy().astype(np.float32)
+    y_val       = val_df.select('target').to_numpy().flatten().astype(np.int64)
 
     # Normalize fit on train only
-    split_idx = int(len(X_raw) * 0.8)
     scaler = StandardScaler()
-    scaler.fit(X_raw[:split_idx])
-    X_all = scaler.transform(X_raw).astype(np.float32)
+    scaler.fit(X_train_raw)
+    X_train = scaler.transform(X_train_raw).astype(np.float32)
+    X_val   = scaler.transform(X_val_raw).astype(np.float32)
 
     # ── Optuna study ──────────────────────────────────────────────────────────
     study = optuna.create_study(
@@ -238,7 +242,7 @@ def run_optimization():
                 f"Metric: {config['optimization']['metric']} | "
                 f"Timeout: {config['optimization']['timeout']}s")
     study.optimize(
-        lambda trial: objective(trial, X_all, y_all, config, class_weights),
+        lambda trial: objective(trial, X_train, y_train, X_val, y_val, config, class_weights),
         n_trials=config['optimization']['n_trials'],
         timeout=config['optimization']['timeout'],
     )

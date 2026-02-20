@@ -5,7 +5,8 @@ import pytest
 import datetime
 import re
 
-PRE_PROCESSED_DIR = Path("data/L2/pre_processed")
+import os
+PRE_PROCESSED_DIR = Path(os.getenv("PRE_PROCESSED_DIR", "data/L2/pre_processed"))
 EXPECTED_ROWS = 1440  # 24 * 60 for 1-minute samples
 
 def get_parquet_files():

@@ -17,8 +17,9 @@ class DataExtractor:
         """
         self.path_or_remote = path_or_remote
         self.rclone_config = rclone_config
-        self.is_remote = ":" in path_or_remote
-        self.temp_dir = Path("/workspace/data/L2/temp_raw")
+        # remote if it has : and it's not a single char (Windows drive)
+        self.is_remote = ":" in path_or_remote and not (len(path_or_remote.split(":")[0]) == 1 and path_or_remote[1] == ":")
+        self.temp_dir = Path("data/L2/temp_raw")
         self.temp_dir.mkdir(parents=True, exist_ok=True)
 
     def _run_rclone(self, args: list) -> str:

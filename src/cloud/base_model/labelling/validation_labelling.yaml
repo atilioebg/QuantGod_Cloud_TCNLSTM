@@ -1,0 +1,9 @@
+# Labelling Configuration for Validation Subset
+paths:
+  input_dir: "data/L2/pre_processed"
+  output_dir: "data/L2/labelled_test"
+
+params:
+  lookahead: 60           # 1h lookahead for 1min candles
+  threshold_long: 0.002   # +0.2% for Buy signal (2)
+  threshold_short: -0.002 # -0.2% for Sell signal (0)

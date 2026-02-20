@@ -2,27 +2,18 @@ import yaml
 import logging
 from pathlib import Path
 import pandas as pd
-from src.cloud.pre_processamento.etl.extract import DataExtractor
-from src.cloud.pre_processamento.etl.transform import L2Transformer
-from src.cloud.pre_processamento.etl.load import DataLoader
-from src.cloud.pre_processamento.etl.validate import DataValidator
+from src.cloud.base_model.pre_processamento.etl.extract import DataExtractor
+from src.cloud.base_model.pre_processamento.etl.transform import L2Transformer
+from src.cloud.base_model.pre_processamento.etl.load import DataLoader
+from src.cloud.base_model.pre_processamento.etl.validate import DataValidator
 import json
 from tqdm import tqdm
 import sys
 import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-# Logger setup
-log_dir = Path("logs/etl")
-log_dir.mkdir(parents=True, exist_ok=True)
-logging.basicConfig(
-    level=logging.INFO, 
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(log_dir / "etl_processing.log"),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
+from src.cloud.base_model.utils.logging_utils import setup_logger
+
 logger = logging.getLogger(__name__)
 
 def process_single_zip(zip_path, config):
@@ -85,7 +76,7 @@ def run_pipeline():
     if len(sys.argv) > 1:
         config_path = Path(sys.argv[1])
     else:
-        config_path = Path("src/cloud/pre_processamento/configs/cloud_config.yaml")
+        config_path = Path("src/cloud/base_model/pre_processamento/configs/cloud_config.yaml")
 
     if not config_path.exists():
         logger.error(f"Config file not found at {config_path}")
@@ -94,7 +85,10 @@ def run_pipeline():
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
 
-    # 2. Setup parallel execution
+    # 2. Setup Logging
+    setup_logger("etl")
+
+    # 3. Setup parallel execution
     extractor = DataExtractor(
         config['paths']['rclone_mount'],
         rclone_config=config['paths'].get('rclone_config')

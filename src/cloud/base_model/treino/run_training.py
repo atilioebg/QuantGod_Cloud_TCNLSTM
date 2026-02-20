@@ -10,6 +10,7 @@ import logging
 import pickle
 from datetime import datetime
 from pathlib import Path
+import json
 import sys
 
 # Project root on sys.path
@@ -20,17 +21,8 @@ if project_root not in sys.path:
 from src.cloud.base_model.models.model import Hybrid_TCN_LSTM
 from sklearn.preprocessing import StandardScaler
 
-log_dir = Path("logs/training")
-log_dir.mkdir(parents=True, exist_ok=True)
-timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler(log_dir / f"training_{timestamp}.log", mode='w')
-    ]
-)
+from src.cloud.base_model.utils.logging_utils import setup_logger
+
 logger = logging.getLogger(__name__)
 
 
@@ -61,28 +53,66 @@ def load_config():
     with open(base_cfg_path, 'r') as f:
         base_cfg = yaml.safe_load(f)
 
+    # ── Check for optimized best_params.json ──────────────────────────────────
+    best_params_path = Path("src/cloud/base_model/otimizacao/best_params.json")
+    if best_params_path.exists():
+        try:
+            with open(best_params_path, 'r') as f:
+                best_params = json.load(f)
+            
+            # Update sequence length if it was optimized
+            if 'seq_len' in best_params:
+                train_cfg['hyperparameters']['seq_len'] = best_params['seq_len']
+            
+            # Map optimization keys to training keys (handling potential mismatches)
+            opt_keys = ['lr', 'batch_size', 'dropout', 'tcn_channels', 'lstm_hidden', 'num_lstm_layers']
+            for k in opt_keys:
+                if k in best_params:
+                    train_cfg['hyperparameters'][k] = best_params[k]
+            
+            logger.info(f"✨ OPTIMIZATION: Overriding hyperparameters from {best_params_path.name}")
+            logger.debug(f"Optimized params: {best_params}")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not load best_params.json: {e}. Using YAML defaults.")
+
     return train_cfg, base_cfg
 
 
-def load_data(labelled_dir: str, feature_cols: list):
-    parquet_files = sorted(list(Path(labelled_dir).glob("*.parquet")))
+def load_data(directory: str, feature_cols: list):
+    parquet_files = sorted(list(Path(directory).glob("*.parquet")))
     if not parquet_files:
-        raise FileNotFoundError(f"No labelled data in {labelled_dir}")
+        raise FileNotFoundError(f"No labelled data in {directory}")
 
     dfs = [pl.read_parquet(pf, columns=feature_cols + ['target']) for pf in parquet_files]
     df = pl.concat(dfs)
-    logger.info(f"Loaded {len(df):,} rows from {len(parquet_files)} parquet files")
+    logger.info(f"Loaded {len(df):,} rows from {len(parquet_files)} files in {directory}")
     return df
 
 
 def run_training():
+    # ── Load Config & Suffix Extraction ────────────────────────────────────────
+    # 1. Load initial YAMLs
+    training_cfg_path = Path("src/cloud/base_model/treino/training_config.yaml")
+    with open(training_cfg_path, 'r') as f:
+        train_cfg = yaml.safe_load(f)
+
+    # Extract suffix for logging
+    suffix = ""
+    target_path = Path(train_cfg['paths']['train_dir'])
+    import re
+    match = re.search(r"(_SELL_.*)$", str(target_path.parent))
+    if match:
+        suffix = match.group(1)
+        
+    # 2. Setup Logger early to catch all initialization messages
+    setup_logger("training", suffix)
+    
+    # 3. Load full config (with potential optimization overrides)
     train_cfg, base_cfg = load_config()
-    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    logger.info(f"Device: {DEVICE}")
 
     # ── Config values ──────────────────────────────────────────────────────────
-    feature_cols   = base_cfg['model']['feature_names']        # 9 features
-    class_weights  = base_cfg['training']['class_weights']     # [2.0, 1.0, 2.0]
+    feature_cols   = base_cfg['model']['feature_names']
+    class_weights  = base_cfg['training']['class_weights']
     seq_len        = train_cfg['hyperparameters'].get('seq_len', base_cfg['training']['seq_len'])
     epochs         = train_cfg['hyperparameters'].get('epochs', base_cfg['training']['epochs'])
     patience       = base_cfg['training']['early_stopping_patience']
@@ -94,22 +124,29 @@ def run_training():
     num_lstm_layers= train_cfg['hyperparameters'].get('num_lstm_layers', 2)
     dropout        = train_cfg['hyperparameters'].get('dropout', 0.3)
 
+    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logger.info(f"Device: {DEVICE}")
     logger.info(f"Training config: seq_len={seq_len}, epochs={epochs}, lr={lr}, batch={batch_size}")
+    logger.info(f"Model Arch: TCN={tcn_channels}, LSTM={lstm_hidden}, Layers={num_lstm_layers}")
     logger.info(f"Class weights (SELL/NEUTRAL/BUY): {class_weights}")
 
     # ── Data ───────────────────────────────────────────────────────────────────
-    df = load_data(train_cfg['paths']['labelled_dir'], feature_cols)
-    X_raw = df.select(feature_cols).to_numpy().astype(np.float32)
-    y_raw = df.select('target').to_numpy().flatten().astype(np.int64)
+    train_df = load_data(train_cfg['paths']['train_dir'], feature_cols)
+    val_df   = load_data(train_cfg['paths']['val_dir'], feature_cols)
 
-    # ── Chronological split (80/20) ────────────────────────────────────────────
-    split_idx = int(len(X_raw) * 0.8)
-    logger.info(f"Split: train={split_idx:,} | val={len(X_raw)-split_idx:,}")
+    X_train_raw = train_df.select(feature_cols).to_numpy().astype(np.float32)
+    y_train_raw = train_df.select('target').to_numpy().flatten().astype(np.int64)
+    
+    X_val_raw   = val_df.select(feature_cols).to_numpy().astype(np.float32)
+    y_val_raw   = val_df.select('target').to_numpy().flatten().astype(np.int64)
+
+    logger.info(f"Split sizes: train={len(X_train_raw):,} | val={len(X_val_raw):,}")
 
     # ── Normalization: fit on train only ───────────────────────────────────────
     scaler = StandardScaler()
-    scaler.fit(X_raw[:split_idx])
-    X_norm = scaler.transform(X_raw).astype(np.float32)
+    scaler.fit(X_train_raw)
+    X_train_norm = scaler.transform(X_train_raw).astype(np.float32)
+    X_val_norm   = scaler.transform(X_val_raw).astype(np.float32)
 
     scaler_path = Path(train_cfg['paths'].get('scaler_output', 'data/models/scaler_finetuning.pkl'))
     scaler_path.parent.mkdir(parents=True, exist_ok=True)
@@ -118,8 +155,8 @@ def run_training():
     logger.info(f"Scaler saved: {scaler_path}")
 
     # ── Datasets and Loaders ───────────────────────────────────────────────────
-    train_dataset = SequenceDataset(X_norm[:split_idx], y_raw[:split_idx], seq_len)
-    val_dataset   = SequenceDataset(X_norm[split_idx:], y_raw[split_idx:],   seq_len)
+    train_dataset = SequenceDataset(X_train_norm, y_train_raw, seq_len)
+    val_dataset   = SequenceDataset(X_val_norm, y_val_raw, seq_len)
     train_loader  = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
                                num_workers=4, pin_memory=True)
     val_loader    = DataLoader(val_dataset,   batch_size=batch_size, shuffle=False,

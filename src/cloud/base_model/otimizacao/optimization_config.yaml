@@ -1,11 +1,12 @@
 
 paths:
-  labelled_dir: "data/L2/labelled/labelled_SELL_0004_BUY_0008_1h"
+  train_dir: "data/L2/splits_SELL_0002_BUY_0002_1h/train"
+  val_dir: "data/L2/splits_SELL_0002_BUY_0002_1h/val"
   study_name: "quantgod_tcn_lstm_v1"
   db_path: "sqlite:///optuna_tcn_lstm_v1.db"
 
 optimization:
-  n_trials: 30
+  n_trials: 1
   timeout: 36000  # 10 hours
   metric: "f1_macro"  # Macro preferred over weighted to avoid Neutral domination
 

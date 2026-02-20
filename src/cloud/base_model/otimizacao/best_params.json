@@ -1,8 +1,9 @@
 {
-    "d_model": 256,
-    "nhead": 8,
-    "num_layers": 2,
-    "lr": 5.25826832041769e-05,
-    "dropout": 0.2838748853780466,
-    "batch_size": 32
+    "tcn_channels": 32,
+    "lstm_hidden": 128,
+    "num_lstm_layers": 1,
+    "lr": 0.0001,
+    "dropout": 0.2,
+    "batch_size": 128,
+    "seq_len": 60
 }
