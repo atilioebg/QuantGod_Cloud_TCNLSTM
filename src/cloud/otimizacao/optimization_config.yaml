@@ -1,21 +1,20 @@
 
 paths:
   labelled_dir: "data/L2/labelled/labelled_SELL_0004_BUY_0004_1h"
-  study_name: "quantgod_transformer_optimization_v3"
-  db_path: "sqlite:///optuna_study_v3.db"
+  study_name: "quantgod_transformer_optimization_v4"
+  db_path: "sqlite:///optuna_study_v4.db"
 
 optimization:
   n_trials: 20
-  timeout: 30000  # Increased to ~8.3 hours to ensure 20 trials completion
-  metric: "f1_weighted" # Goal metric
+  timeout: 30000  # ~8.3 hours
+  metric: "f1_weighted"
 
 search_space:
   d_model: [256, 512]
   nhead: [2, 4, 8]
-  num_layers: [2, 4, 8]
-  lr: [0.00001, 0.0001]
+  num_layers: [2, 4]   # Reduced: max 4 layers (was 8). Faster trials, cleaner signal.
+  lr: [0.0001, 0.001]  # Raised floor 10x (was [0.00001, 0.0001]). More gradient energy.
   dropout: [0.1, 0.4]
   batch_size: [256, 512]
-  epochs: 5 # Small number of epochs per trial for optimization speed
+  epochs: 5
   seq_len: [720, 1440] # 12h vs 24h lookback
-
