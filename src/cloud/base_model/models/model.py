@@ -134,8 +134,8 @@ class Hybrid_TCN_LSTM(nn.Module):
                 "logits": (B, num_classes) — use with CrossEntropyLoss for training
                 "probs":  (B, num_classes) — calibrated probabilities for XGBoost input
         """
-        # Input: (B, T, F)
-        B, T, F = x.shape
+        # Input: (B, T, num_feats)
+        B, T, num_feats = x.shape
 
         # TCN expects (B, C, T) → channel-first
         x = x.permute(0, 2, 1)           # (B, F, T)
