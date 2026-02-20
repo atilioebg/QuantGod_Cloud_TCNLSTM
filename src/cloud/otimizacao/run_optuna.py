@@ -123,7 +123,10 @@ def objective(trial, X_all, y_all, config):
             dropout=dropout
         ).to(DEVICE)
         
-        criterion = nn.CrossEntropyLoss()
+        # Weights for CrossEntropyLoss to handle class imbalance (SELL=0, NEUTRAL=1, BUY=2)
+        # Sells and Buys are 2x more important than Neutrals
+        weights = torch.tensor([2.0, 1.0, 2.0]).to(DEVICE)
+        criterion = nn.CrossEntropyLoss(weight=weights)
         
         # #3: AdamW with weight_decay for proper Transformer regularization
         optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
