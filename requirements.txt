@@ -9,26 +9,18 @@ scikit-learn>=1.4.0
 # Deep Learning & Optimization
 torch>=2.2.0
 optuna>=3.5.0
-einops>=0.7.0
 xgboost>=2.0.0
 
-# Asynchronous & Network
+# Asynchronous & Network (Binance Adapter)
 aiohttp>=3.9.0
 websockets>=12.0
-python-dotenv>=1.0.0
 
-# Visualization & Dashboard
+# Visualization (label QA and auditor analysis)
 matplotlib>=3.8.0
-seaborn>=0.13.0
-plotly>=5.18.0
-streamlit>=1.30.0
 
 # Utilities
 tqdm>=4.66.1
 pyyaml>=6.0.1
-pydantic>=2.6.0
-pydantic-settings>=2.1.0
-nbformat>=5.9.0
 
 # Testing
 pytest>=8.0.0
