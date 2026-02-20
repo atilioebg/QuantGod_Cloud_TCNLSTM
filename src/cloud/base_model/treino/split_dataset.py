@@ -1,21 +1,43 @@
 import os
 import shutil
 from pathlib import Path
+import sys
 
-def split_labelled_data():
-    source_dir = Path("data/L2/labelled_test_SELL_0002_BUY_0002_1h")
+def split_labelled_data(source_dir_path=None):
+    if source_dir_path:
+        source_dir = Path(source_dir_path)
+    elif len(sys.argv) > 1:
+        source_dir = Path(sys.argv[1])
+    else:
+        # Fallback logic: check for folders starting with 'labelled' in data/L2
+        base_path = Path("data/L2")
+        if not base_path.exists():
+            print(f"Base path not found: {base_path}")
+            return
+            
+        labelled_dirs = sorted([d for d in base_path.iterdir() if d.is_dir() and d.name.startswith("labelled")], key=lambda x: x.stat().st_mtime, reverse=True)
+        if labelled_dirs:
+            source_dir = labelled_dirs[0]
+            print(f"No source directory provided. Using most recent: {source_dir}")
+        else:
+            print("No labelled directories found in data/L2")
+            return
+
     if not source_dir.exists():
         print(f"Directory not found: {source_dir}")
         return
 
-    # Extract suffix from source_dir name (e.g. labelled_test_SELL_0002_BUY_0002_1h -> SELL_0002_BUY_0002_1h)
-    suffix_match = source_dir.name.split("test_")[-1] if "test_" in source_dir.name else source_dir.name
+    # Suffix logic - use the directory name itself as suffix for the split folder
+    suffix = source_dir.name
     
     # Base directory for splits with suffix
-    split_base = Path(f"data/L2/splits_{suffix_match}")
+    split_base = Path(f"data/L2/splits_{suffix}")
     train_dir = split_base / "train"
     val_dir = split_base / "val"
     test_dir = split_base / "test"
+
+    print(f"Source: {source_dir}")
+    print(f"Target split base: {split_base}")
 
     # Clean previous splits if they exist
     for d in [train_dir, val_dir, test_dir]:
@@ -33,11 +55,10 @@ def split_labelled_data():
     # Ratios: 70/20/10
     n_train = int(total_files * 0.7)
     n_val = int(total_files * 0.2)
-    # The rest goes to test
     
     train_files = files[:n_train]
-    val_files = files[n_train:n_train + n_val]
-    test_files = files[n_train + n_val:]
+    val_files = files[n_train:n_train+n_val]
+    test_files = files[n_train+n_val:]
 
     print(f"Total files: {total_files}")
     print(f"Moving {len(train_files)} to train...")

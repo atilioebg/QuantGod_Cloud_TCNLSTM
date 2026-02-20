@@ -191,8 +191,11 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
 
 
 def run_optimization():
-    # ── Load configs ──────────────────────────────────────────────────────────
-    optuna_cfg_path = Path("src/cloud/base_model/otimizacao/optimization_config.yaml")
+    if len(sys.argv) > 1:
+        optuna_cfg_path = Path(sys.argv[1])
+    else:
+        optuna_cfg_path = Path("src/cloud/base_model/otimizacao/optimization_config.yaml")
+
     with open(optuna_cfg_path, 'r') as f:
         config = yaml.safe_load(f)
 

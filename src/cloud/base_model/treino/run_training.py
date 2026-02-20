@@ -43,8 +43,11 @@ class SequenceDataset(Dataset):
 
 
 def load_config():
-    # Training config (paths, seq_len overrides)
-    training_cfg_path = Path("src/cloud/base_model/treino/training_config.yaml")
+    if len(sys.argv) > 1:
+        training_cfg_path = Path(sys.argv[1])
+    else:
+        training_cfg_path = Path("src/cloud/base_model/treino/training_config.yaml")
+        
     with open(training_cfg_path, 'r') as f:
         train_cfg = yaml.safe_load(f)
 
@@ -91,8 +94,11 @@ def load_data(directory: str, feature_cols: list):
 
 def run_training():
     # ── Load Config & Suffix Extraction ────────────────────────────────────────
-    # 1. Load initial YAMLs
-    training_cfg_path = Path("src/cloud/base_model/treino/training_config.yaml")
+    if len(sys.argv) > 1:
+        training_cfg_path = Path(sys.argv[1])
+    else:
+        training_cfg_path = Path("src/cloud/base_model/treino/training_config.yaml")
+
     with open(training_cfg_path, 'r') as f:
         train_cfg = yaml.safe_load(f)
 
