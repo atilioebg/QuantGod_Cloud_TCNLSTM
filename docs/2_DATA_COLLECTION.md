@@ -120,7 +120,7 @@ ZIPs (GDrive/Bybit)  →  ETL (transform.py)  →  pre_processed/*.parquet
 
 Para detalhes de cada etapa, veja:
 - **ETL:** [`3_DATA_ENGINEERING.md`](3_DATA_ENGINEERING.md)
-- **Labelling:** [`5_LABELING_STRATEGY.md`](5_LABELING_STRATEGY.md)
+- **Labelling:** [`4_LABELING_STRATEGY.md`](4_LABELING_STRATEGY.md)
 - **Pipeline completo:** [`src/cloud/README.md`](../src/cloud/README.md)
 
 ---
@@ -137,4 +137,4 @@ Durante inferência ao vivo, o sistema **não usa os ZIPs do GDrive**. Em vez di
 | Features geradas | Idênticas (9 features) | Idênticas (9 features) |
 | Scaler | `StandardScaler.fit()` no train set | `scaler_finetuning.pkl` carregado |
 
-Veja [`docs/TCN_LSTM.md`](TCN_LSTM.md) → Seção 7 para a documentação completa do `binance_adapter.py`.
+Veja [`docs/5_MODEL_ARCHITECTURE.md`](5_MODEL_ARCHITECTURE.md) → Seção 7 para a documentação completa do `binance_adapter.py`.

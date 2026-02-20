@@ -69,14 +69,14 @@ Consulte [`tests/README.md`](../tests/README.md) para comandos e descrição det
 
 | Arquivo | Propósito |
 |:---|:---|
-| [`TCN_LSTM.md`](TCN_LSTM.md) | **Referência primária** — arquitetura completa, constraints, execução |
-| [`0_L2_DATA_REFERENCE.md`](0_L2_DATA_REFERENCE.md) | Referência técnica de dados: schema raw, 9 features, labelling, normalização |
-| [`1_SETUP_AND_ENV.md`](1_SETUP_AND_ENV.md) | Hardware, instalação, rclone, segurança, checklist pré-execução |
-| [`2_DATA_COLLECTION.md`](2_DATA_COLLECTION.md) | Fonte e organização dos dados brutos Bybit L2 + acesso live via Binance |
-| [`3_DATA_ENGINEERING.md`](3_DATA_ENGINEERING.md) | ETL: fluxo, hard cut, schema 810 cols, 9 features com fórmulas, normalização |
-| [`5_LABELING_STRATEGY.md`](5_LABELING_STRATEGY.md) | Lógica de rotulagem, thresholds assimétricos, 8 experimentos, class weights |
-| [`7_OPERATIONAL_MANUAL.md`](7_OPERATIONAL_MANUAL.md) | Pipeline completo 6 passos, guia RunPod, troubleshooting, logs |
-| [`REPO_MAP.md`](REPO_MAP.md) | Este arquivo |
+| [`0_REPO_MAP.md`](0_REPO_MAP.md) | Este arquivo |
+| [`1_SETUP_AND_ENV.md`](1_SETUP_AND_ENV.md) | Hardware, CUDA, RunPod setup |
+| [`2_DATA_COLLECTION.md`](2_DATA_COLLECTION.md) | Processo de obtenção dos dados Bybit L2 |
+| [`3_DATA_ENGINEERING.md`](3_DATA_ENGINEERING.md) | Detalhes do ETL e feature engineering |
+| [`4_LABELING_STRATEGY.md`](4_LABELING_STRATEGY.md) | Lógica de labelling e thresholds |
+| [`5_MODEL_ARCHITECTURE.md`](5_MODEL_ARCHITECTURE.md) | **Referência primária** — arquitetura completa, constraints, execução |
+| [`6_OPERATIONAL_MANUAL.md`](6_OPERATIONAL_MANUAL.md) | Guia de execução RunPod |
+| [`7_DATA_REFERENCE.md`](7_DATA_REFERENCE.md) | Referência técnica completa dos dados |
 
 ---
 

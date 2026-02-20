@@ -73,17 +73,19 @@ QuantGod_Cloud/
 
 | Documento | Conteúdo |
 |:---|:---|
-| 📖 **[TCN_LSTM.md](docs/TCN_LSTM.md)** | **Referência arquitetural principal** — modelo, constraints, OOF, live adapter |
+| 🗺️ **[0_REPO_MAP.md](docs/0_REPO_MAP.md)** | Mapa completo do repositório — arquivos, configs, artefatos |
 | 🛠️ **[1_SETUP_AND_ENV.md](docs/1_SETUP_AND_ENV.md)** | Hardware, instalação de dependências, rclone, checklist |
 | 📡 **[2_DATA_COLLECTION.md](docs/2_DATA_COLLECTION.md)** | Dados brutos Bybit L2, GDrive, acesso live via Binance |
 | ⚙️ **[3_DATA_ENGINEERING.md](docs/3_DATA_ENGINEERING.md)** | ETL: schema 810 cols, 9 features com fórmulas, normalização |
-| 🏷️ **[5_LABELING_STRATEGY.md](docs/5_LABELING_STRATEGY.md)** | Thresholds assimétricos, 8 experimentos, como gerar novos |
-| 🚁 **[7_OPERATIONAL_MANUAL.md](docs/7_OPERATIONAL_MANUAL.md)** | Pipeline 6 passos, guia RunPod, troubleshooting |
-| 📊 **[0_L2_DATA_REFERENCE.md](docs/0_L2_DATA_REFERENCE.md)** | Referência técnica detalhada das features e schema |
-| 🗺️ **[REPO_MAP.md](docs/REPO_MAP.md)** | Mapa completo dos arquivos e suas funções |
+| 🏷️ **[4_LABELING_STRATEGY.md](docs/4_LABELING_STRATEGY.md)** | Thresholds assimétricos, 8 experimentos, como gerar novos |
+| 🤖 **[5_MODEL_ARCHITECTURE.md](docs/5_MODEL_ARCHITECTURE.md)** | **Referência arquitetural** — TCN+LSTM, XGBoost, constraints, OOF, live adapter |
+| 🚁 **[6_OPERATIONAL_MANUAL.md](docs/6_OPERATIONAL_MANUAL.md)** | Pipeline 6 passos, guia RunPod, troubleshooting |
+| 📊 **[7_DATA_REFERENCE.md](docs/7_DATA_REFERENCE.md)** | Referência técnica detalhada: schema raw, 9 features, labelling, normalização |
 
-Para a documentação do pipeline de infraestrutura cloud completa (RunPod, execução e configs), consulte também:
+Para a documentação do pipeline de infraestrutura cloud completa, consulte também:
 - 📋 **[src/cloud/README.md](src/cloud/README.md)** — Guia operacional completo
+
+> **Ordem de leitura sugerida:** `0_REPO_MAP` → `1_SETUP` → `2_DATA_COLLECTION` → `3_DATA_ENGINEERING` → `4_LABELING` → `5_MODEL_ARCHITECTURE` → `6_OPERATIONAL_MANUAL` → `7_DATA_REFERENCE` (apêndice)
 
 ---
 
