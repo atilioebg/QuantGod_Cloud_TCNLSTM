@@ -353,7 +353,8 @@ graph TD
     G --> H["Labelling\nfuture_return 60min\nSELL=0, NEUTRAL=1, BUY=2"]
     H --> I["Parquet Rotulado\n810 colunas + target"]
     I --> J["Training\nStandardScaler nas 9 features\nSeq 720 candles (12h)\nInput shape: B × 720 × 9"]
-    J --> K["QuantGodModel\nTransformer Encoder\nOutput: Logits 3 classes"]
+    J --> K["Base Model (Hybrid_TCN_LSTM)\nTCN stack + LSTM + MLP Head\nOutput: {logits:(B,3), probs:(B,3)}"]
+    K --> L["Auditor (XGBoost)\n14 meta-features\nOutput: calibrated class + conf"]
 ```
 
 ---

@@ -1,82 +1,167 @@
-# 🧠 QuantGod Cloud
+# QuantGod Cloud ⚡
 
-> **Branch:** `tcn_lstm` | **Status:** 🟢 Active Development
+> **Branch ativo:** `tcn_lstm` | **Status:** 🟢 Production Ready
+>
+> Sistema de predição de direção de mercado para **BTC/USDT Perpetual Futures (Bybit/Binance)** usando um ensemble **TCN+LSTM (Base Model) + XGBoost (Auditor)**, treinado em dados Level 2 de Order Book históricos de 2023–2026.
 
-QuantGod is an autonomous market analysis system that predicts BTCUSDT price direction using a **Hybrid TCN+LSTM + XGBoost ensemble** trained on Bybit L2 orderbook microstructure data.
+---
 
-## 🏛️ System Architecture
+## 🧠 O que é o QuantGod?
 
-```mermaid
-graph TD
-    subgraph ETL
-        A[Bybit L2 ZIPs on GDrive] --> B(extract.py)
-        B --> C(transform.py: 9 features)
-        C --> D[Parquet Lake]
-    end
+QuantGod é um sistema de ML de ponta a ponta para sinais de trading em alta frequência. Dado um histórico de 12 horas de microestrutura de mercado (720 snapshots de orderbook de 1 minuto), o sistema emite um dos três sinais:
 
-    subgraph Labelling
-        D --> E(run_labelling.py)
-        E --> F[Labelled Parquets]
-    end
+| Sinal | Código | Interpretação |
+|:---:|:---:|:---|
+| **SELL** | `0` | Retorno < -0.4% nos próximos 60 min |
+| **NEUTRAL** | `1` | Ausência de direção clara — não negociar |
+| **BUY** | `2` | Retorno > +0.8% nos próximos 60 min |
 
-    subgraph Base_Model
-        F --> G(run_optuna.py: TCN+LSTM HPO)
-        G --> H(run_training.py: Hybrid_TCN_LSTM)
-        H --> I[best_tcn_lstm.pt]
-    end
+---
 
-    subgraph Auditor
-        I --> J(train_xgboost.py: OOF Walk-Forward)
-        J --> K[xgb_auditor.json]
-    end
+## 🏗️ Arquitetura do Sistema
 
-    subgraph Live
-        L[Binance Futures WS] --> M(binance_adapter.py)
-        M --> |9 features| I
-        I --> |probs| J
-        K --> |signal| N[Trading Signal]
-    end
+```
+Bybit L2 ZIPs (GDrive, 2023–2026)
+        ↓
+    ETL Pipeline          ← transform.py: book reconstruction, 9 features, 1min resample
+        ↓
+  pre_processed/*.parquet (810 colunas, ~1.440 linhas/dia)
+        ↓
+    Labelling             ← run_labelling.py: threshold assimétrico lookahead=60min
+        ↓
+  labelled_*/*.parquet (810 colunas + target ∈ {0,1,2})
+        ↓
+┌─────────────────────────────────────────────┐
+│         BASE MODEL — Hybrid_TCN_LSTM        │
+│  Input: (B, 720, 9) — 12h × 9 features    │
+│  TCN Stack (dilations [1,2,4,8]) + LSTM    │
+│  Output: {logits: (B,3), probs: (B,3)}    │
+└──────────────────┬──────────────────────────┘
+                   ↓ probs + last_step_features
+┌─────────────────────────────────────────────┐
+│        AUDITOR MODEL — XGBoost              │
+│  14 meta-features (probs, entropy,         │
+│  candle features, RSI, EMA distances)      │
+│  Output: calibrated signal + confidence    │
+└─────────────────────────────────────────────┘
+        ↓
+   Live Inference (Binance Futures WS)
 ```
 
-## 🗺️ Master Index
+---
 
-| Document | Description |
+## 📂 Estrutura do Repositório
+
+```
+QuantGod_Cloud/
+├── src/cloud/
+│   ├── base_model/          ← ETL, Labelling, TCN+LSTM, Optuna, Training
+│   └── auditor_model/       ← XGBoost, Feature Engineering Meta, Binance Live Adapter
+├── data/
+│   ├── L2/pre_processed/    ← Output do ETL (810 cols Parquet)
+│   ├── L2/labelled_*/       ← Datasets rotulados (+ coluna target)
+│   ├── models/              ← Checkpoints: .pt, .pkl, .json
+│   └── live/                ← Buffer de candles ao vivo
+├── tests/                   ← Suite de testes (unitários + integridade + qualidade de dados)
+├── docs/                    ← Documentação técnica completa
+└── logs/                    ← Logs de ETL, labelling, optuna, training
+```
+
+---
+
+## 📚 Documentação
+
+| Documento | Conteúdo |
 |:---|:---|
-| [1. Setup & Env](docs/1_SETUP_AND_ENV.md) | Hardware, CUDA, RunPod, rclone  |
-| [2. Data Collection](docs/2_DATA_COLLECTION.md) | Bybit L2 ZIP downloads |
-| [3. Data Engineering](docs/3_DATA_ENGINEERING.md) | ETL: 9 stationary features |
-| [5. Labelling Strategy](docs/5_LABELING_STRATEGY.md) | Threshold logic, label distribution |
-| [7. Operational Manual](docs/7_OPERATIONAL_MANUAL.md) | RunPod execution guide |
-| [TCN+LSTM Architecture](docs/TCN_LSTM.md) | Full model architecture & constraints |
+| 📖 **[TCN_LSTM.md](docs/TCN_LSTM.md)** | **Referência arquitetural principal** — modelo, constraints, OOF, live adapter |
+| 🛠️ **[1_SETUP_AND_ENV.md](docs/1_SETUP_AND_ENV.md)** | Hardware, instalação de dependências, rclone, checklist |
+| 📡 **[2_DATA_COLLECTION.md](docs/2_DATA_COLLECTION.md)** | Dados brutos Bybit L2, GDrive, acesso live via Binance |
+| ⚙️ **[3_DATA_ENGINEERING.md](docs/3_DATA_ENGINEERING.md)** | ETL: schema 810 cols, 9 features com fórmulas, normalização |
+| 🏷️ **[5_LABELING_STRATEGY.md](docs/5_LABELING_STRATEGY.md)** | Thresholds assimétricos, 8 experimentos, como gerar novos |
+| 🚁 **[7_OPERATIONAL_MANUAL.md](docs/7_OPERATIONAL_MANUAL.md)** | Pipeline 6 passos, guia RunPod, troubleshooting |
+| 📊 **[0_L2_DATA_REFERENCE.md](docs/0_L2_DATA_REFERENCE.md)** | Referência técnica detalhada das features e schema |
+| 🗺️ **[REPO_MAP.md](docs/REPO_MAP.md)** | Mapa completo dos arquivos e suas funções |
 
-## 🚀 Execution Order (RunPod)
+Para a documentação do pipeline de infraestrutura cloud completa (RunPod, execução e configs), consulte também:
+- 📋 **[src/cloud/README.md](src/cloud/README.md)** — Guia operacional completo
+
+---
+
+## 🚀 Quick Start
+
+### Ambiente Local (Windows — desenvolvimento/testes)
+
+```powershell
+git clone https://github.com/atilioebg/QuantGod_Cloud.git
+git checkout tcn_lstm
+python -m venv venv && venv\Scripts\Activate.ps1
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install -r requirements.txt
+
+# Testes rápidos (sem GPU, sem dados) — < 30 segundos
+python -m pytest tests/test_config_integrity.py tests/test_meta_features.py tests/test_model.py -v
+```
+
+### Treino Completo (RunPod — GPU)
 
 ```bash
-# 1. ETL
-python -m src.cloud.base_model.pre_processamento.orchestration.run_pipeline
-
-# 2. Labelling
-python -m src.cloud.base_model.labelling.run_labelling
-
-# 3. Hyperparameter Optimization
-python -m src.cloud.base_model.otimizacao.run_optuna
-
-# 4. Base Model Training
-python -m src.cloud.base_model.treino.run_training
-
-# 5. XGBoost Auditor (OOF Walk-Forward)
-python -m src.cloud.auditor_model.train_xgboost
-
-# 6. Live Inference
-python src/cloud/auditor_model/binance_adapter.py
+# Ver guia completo em docs/7_OPERATIONAL_MANUAL.md
+# Ou em src/cloud/README.md → "Guia RunPod"
 ```
 
-## 🩺 Status
+---
 
-| Module | Status |
+## 🧪 Suite de Testes
+
+```bash
+# Unitários (sem dados, sem GPU)
+pytest tests/test_model.py tests/test_meta_features.py tests/test_config_integrity.py -v
+
+# Qualidade de dados (requer data/L2/ populado)
+pytest tests/test_cloud_etl_output.py tests/test_preprocessed_quality.py -v
+pytest tests/test_labelling_output.py -v
+
+# Trocar experimento de labelling
+pytest tests/test_labelling_output.py --labelled-dir data/L2/labelled_SELL_0004_BUY_0006_1h -v
+```
+
+Consulte **[tests/README.md](tests/README.md)** para documentação completa da suite.
+
+---
+
+## 🔑 Decisões de Design
+
+| Decisão | Motivo |
 |:---|:---|
-| ETL Pipeline | 🟢 Validated (1,129 files) |
-| Labelling | 🟢 Operational |
-| Base Model (TCN+LSTM) | 🟡 Awaiting Optuna run |
-| XGBoost Auditor | 🟡 Awaiting base model |
-| Binance Adapter | 🟡 Ready (needs live test) |
+| **TCN+LSTM** ao invés de Transformer puro | O ViViT colapsou em F1≈0.29 — apenas classe NEUTRAL. TCN garante causalidade local, LSTM mantém memória de longo prazo. |
+| **XGBoost como Auditor** | Calibra e filtra predições do base model usando meta-features; treinado em OOF para zero leakage |
+| **Thresholds assimétricos** (BUY=+0.8%, SELL=-0.4%) | Reflete assimetria real de risco/retorno em futuros de BTC |
+| **seq_len=720** (12 horas) | Captura contexto de sessão de mercado sem aumentar VRAM exponencialmente |
+| **StandardScaler fit apenas no train** | Garante zero leakage de distribuição entre treino e validação |
+| **rclone mount** (não download) | Evita ocupar NVMe local com dados brutos; dados de 2023–2026 excedem capacidade local |
+| **F1 Macro** como métrica principal | Evita que a classe dominante (NEUTRAL ~65%) mascare erros em SELL/BUY |
+
+---
+
+## 📋 Dependências Principais
+
+| Biblioteca | Versão | Uso |
+|:---|:---|:---|
+| `torch` | ≥ 2.1 | `Hybrid_TCN_LSTM` |
+| `xgboost` | ≥ 2.0 | Auditor model |
+| `polars` | ≥ 0.19 | ETL + Labelling |
+| `scikit-learn` | ≥ 1.3 | StandardScaler, TimeSeriesSplit |
+| `optuna` | ≥ 3.4 | Hyperparameter search |
+| `numpy` | ≥ 1.24 | Feature engineering |
+| `pyyaml` | ≥ 6.0 | Carregamento de configs |
+
+Veja `requirements.txt` para a lista completa.
+
+---
+
+## 🌿 Branches
+
+| Branch | Status | Descrição |
+|:---|:---|:---|
+| `tcn_lstm` | 🟢 **Ativo** | Arquitetura atual — TCN+LSTM ensemble |
+| `main` | 🔴 Legacy | Contém código do ViViT — **não usar** |
