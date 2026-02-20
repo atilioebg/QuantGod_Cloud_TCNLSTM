@@ -1,0 +1,21 @@
+
+paths:
+  labelled_dir: "data/L2/labelled/labelled_SELL_0004_BUY_0008_1h"
+  study_name: "quantgod_tcn_lstm_v1"
+  db_path: "sqlite:///optuna_tcn_lstm_v1.db"
+
+optimization:
+  n_trials: 30
+  timeout: 36000  # 10 hours
+  metric: "f1_macro"  # Macro preferred over weighted to avoid Neutral domination
+
+# TCN+LSTM search space (replaces Transformer d_model/nhead/num_layers)
+search_space:
+  tcn_channels: [32, 64, 128]
+  lstm_hidden: [128, 256, 512]
+  num_lstm_layers: [1, 2]
+  lr: [0.00005, 0.001]
+  dropout: [0.2, 0.5]
+  batch_size: [128, 256]   # 512 removed: OOM risk with lstm_hidden=512+seq_len=1440
+  epochs: 5
+  seq_len: [720, 1440]

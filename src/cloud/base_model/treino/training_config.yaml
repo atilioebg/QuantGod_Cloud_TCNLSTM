@@ -1,0 +1,17 @@
+
+paths:
+  labelled_dir: "data/L2/labelled/labelled_SELL_0004_BUY_0008_1h"
+  model_output: "data/models/best_tcn_lstm.pt"
+  scaler_output: "data/models/scaler_finetuning.pkl"
+
+hyperparameters:
+  # These are the final best params after Optuna optimization.
+  # TCN+LSTM replaces the old Transformer (d_model, nhead removed).
+  seq_len: 720
+  batch_size: 256
+  tcn_channels: 64
+  lstm_hidden: 256
+  num_lstm_layers: 2
+  dropout: 0.3
+  lr: 0.0003
+  epochs: 10
