@@ -2,28 +2,26 @@
 paths:
   train_dir: "data/L2/splits_labelled_SELL_0004_BUY_0004_1h/train"
   val_dir: "data/L2/splits_labelled_SELL_0004_BUY_0004_1h/val"
-  study_name: "quantgod_tcn_lstm_v3"
-  db_path: "sqlite:///optuna_tcn_lstm_v3.db"
+  study_name: "quantgod_tcn_lstm_v4"
+  db_path: "sqlite:///optuna_tcn_lstm_v4.db"
 
 optimization:
   n_trials: 50
   timeout: 36000  # 10 hours
-  metric: "f1_macro"  # Macro preferred over weighted to avoid Neutral domination
+  metric: "f1_dir"  # F1 Direcional: ignora Neutro, foca em SELL+BUY
 
-# TCN+LSTM search space (replaces Transformer d_model/nhead/num_layers)
+# TCN+LSTM search space
 search_space:
-  # 1. Redução de Capacidade (Forçando a generalização)
-  tcn_channels: [32, 64, 128]        # Removemos o 256. Redes magras são melhores para extrair sinal de ruído L2.
-  lstm_hidden: [64, 128, 256]        # Removemos o 512. Cortamos os graus de liberdade excedentes.
+  # 1. Redução Extrema de Capacidade (Matando a Memorização)
+  tcn_channels: [16, 32, 64]         # Inserido 16, removido 128. O Alpha L2 não exige tantas convoluções.
+  lstm_hidden: [32, 64, 128]         # REMOVIDO o 256. Proibido dar cérebro excedente para a rede decorar o Neutro.
   num_lstm_layers: [1, 2]            # Mantido.
-  
-  # 2. Regularização Agressiva (O Escudo)
-  dropout: [0.3, 0.6]                # Subimos o piso de 0.1 para 0.3. O Trial 7 provou que 0.1 causa memorização rápida.
-  
-  # 3. Estabilidade Estatística (Fundamental para a Focal Loss)
-  batch_size: [512, 1024, 2048]      # Removemos 128 e 256. Lotes grandes garantem que a Focal Loss veja amostras suficientes de BUY/SELL antes de atualizar os pesos.
-  
-  # 4. Ajustes Finos de Dinâmica
-  lr: [0.0001, 0.002]                # O piso subiu levemente. Como a Focal Loss reduz o valor numérico da perda, o otimizador precisa de um passo um pouco mais firme.
-  epochs: 10                         # Mantido (O Early Stopping fará o corte).
-  seq_len: [360, 720]                # Removemos 1440. 24 horas de order book é ruído demais. Focamos no Price Action recente (6h a 12h).
+
+  # 2. O Freio do Otimizador (O Ajuste Mais Importante)
+  lr: [0.00001, 0.0005]              # Teto cortado de 0.002 para 0.0005. Impede saltos bruscos que rompam a Focal Loss.
+
+  # 3. Manutenção dos Escudos
+  dropout: [0.3, 0.6]                # Mantido.
+  batch_size: [512, 1024, 2048]      # Corrigido 521 → 512.
+  epochs: 10
+  seq_len: [180, 360, 720]           # Inserido 180 (3h). A microestrutura pode ser ainda mais rápida.
