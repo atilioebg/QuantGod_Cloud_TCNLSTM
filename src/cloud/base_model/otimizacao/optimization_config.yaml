@@ -12,11 +12,11 @@ optimization:
 
 # TCN+LSTM search space (replaces Transformer d_model/nhead/num_layers)
 search_space:
-  tcn_channels: [32, 64, 128]
-  lstm_hidden: [128, 256, 512]
-  num_lstm_layers: [1, 2]
-  lr: [0.00005, 0.001]
-  dropout: [0.2, 0.5]
-  batch_size: [128, 256]   # 512 removed: OOM risk with lstm_hidden=512+seq_len=1440
-  epochs: 5
-  seq_len: [720, 1440]
+  tcn_channels: [64, 128, 256]         # Dá espaço pro TCN ficar parrudo.
+  lstm_hidden: [256, 512, 1024]        # Mais memória. A A40 aguenta brincando!
+  num_lstm_layers: [1, 2, 3]
+  lr: [0.00001, 0.001]
+  dropout: [0.1, 0.4]
+  batch_size: [256, 512, 1024, 2048]        # GPU gigante pede Batches gigantes!
+  epochs: 10
+  seq_len: [720, 1440, 2160]           # 12h, 24h e 36h de lookback pra testar
