@@ -2,12 +2,20 @@
 paths:
   train_dir: "data/L2/splits_labelled_SELL_0004_BUY_0004_1h/train"
   val_dir: "data/L2/splits_labelled_SELL_0004_BUY_0004_1h/val"
-  model_output: "data/models/best_tcn_lstm.pt"
-  scaler_output: "data/models/scaler_finetuning.pkl"
+  # Macro champion paths (F1 Macro-optimized)
+  model_output_macro: "data/models/best_tcn_lstm.pt"
+  scaler_output_macro: "data/models/scaler_finetuning.pkl"
+  # Directional champion paths (F1 Dir-optimized: SELL+BUY only)
+  model_output_dir: "data/models/best_tcn_lstm_dir.pt"
+  scaler_output_dir: "data/models/scaler_finetuning_dir.pkl"
+
+selection:
+  # true  → loads best_dir_params.json  + saves to model_output_dir
+  # false → loads best_params.json      + saves to model_output_macro
+  use_best_directional_params: true
 
 hyperparameters:
   # These are the final best params after Optuna optimization.
-  # TCN+LSTM replaces the old Transformer (d_model, nhead removed).
   seq_len: 720
   batch_size: 256
   tcn_channels: 64

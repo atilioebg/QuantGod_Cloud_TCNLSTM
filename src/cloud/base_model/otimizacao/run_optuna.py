@@ -116,7 +116,8 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
         amp_scaler = torch.amp.GradScaler('cuda')
 
         # ── Training loop ──────────────────────────────────────────────────────
-        best_val_f1 = 0.0
+        best_macro_f1 = 0.0   # Champion tracker: Best F1 Macro
+        best_dir_f1   = 0.0   # Champion tracker: Best F1 Direcional (SELL+BUY)
         for epoch in range(epochs):
             model.train()
             train_loss = 0.0
@@ -166,8 +167,25 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
                         f"F1 [SELL/NEU/BUY]: [{f1_per_cls[0]:.3f}/{f1_per_cls[1]:.3f}/{f1_per_cls[2]:.3f}] | "
                         f"LR: {current_lr:.6f}")
 
-            if f1_dir > best_val_f1:
-                best_val_f1 = f1_dir
+            # ── Dual Champion Tracking ────────────────────────────────────────
+            # Track F1 Macro champion → saves best_tcn_lstm.pt
+            if f1_macro > best_macro_f1:
+                best_macro_f1 = f1_macro
+                macro_save_path = Path("data/models/best_tcn_lstm.pt")
+                macro_save_path.parent.mkdir(parents=True, exist_ok=True)
+                torch.save(model.state_dict(), macro_save_path)
+                logger.info(f"🥇 [MACRO]  Trial {trial.number} | New F1 Macro record: {f1_macro:.4f} → saved best_tcn_lstm.pt")
+
+            # Track F1 Directional champion → saves best_tcn_lstm_dir.pt
+            if f1_dir > best_dir_f1:
+                best_dir_f1 = f1_dir
+                dir_save_path = Path("data/models/best_tcn_lstm_dir.pt")
+                dir_save_path.parent.mkdir(parents=True, exist_ok=True)
+                torch.save(model.state_dict(), dir_save_path)
+                logger.info(f"🏆 [DIR]    Trial {trial.number} | New F1 Dir record: {f1_dir:.4f} → saved best_tcn_lstm_dir.pt")
+
+            # Store f1_macro as user attribute so we can rank trials by it later
+            trial.set_user_attr("best_f1_macro", best_macro_f1)
 
             trial.report(f1_dir, epoch)
             if trial.should_prune():
@@ -179,7 +197,7 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
         # Cleanup after trial
         del model, train_loader, val_loader, train_dataset, val_dataset
         torch.cuda.empty_cache()
-        return best_val_f1
+        return best_dir_f1  # Optuna ranks trials by this value (F1 Dir)
 
     except RuntimeError as e:
         # ── CRITICAL: OOM guard (Constraint #4) ───────────────────────────────
@@ -276,12 +294,29 @@ def run_optimization():
     logger.info("="*60)
 
     logger.info(f"Optimization complete | Melhor F1 Direcional: {study.best_trial.value:.4f}")
-    logger.info(f"Melhores Parametros: {study.best_params}")
+    logger.info(f"Melhores Parametros Direcionais: {study.best_params}")
 
-    out_path = Path("src/cloud/base_model/otimizacao/best_params.json")
-    with open(out_path, "w") as f:
+    # ── Save DIRECTIONAL champion params (trial ranked by F1 Dir) ────────────
+    out_dir_path = Path("src/cloud/base_model/otimizacao/best_dir_params.json")
+    with open(out_dir_path, "w") as f:
         json.dump(study.best_params, f, indent=4)
-    logger.info(f"Best params saved: {out_path}")
+    logger.info(f"🏆 [DIR]   Best params saved: {out_dir_path}")
+
+    # ── Save MACRO champion params (trial with highest stored f1_macro attr) ─
+    completed = [t for t in study.trials if t.state.name == "COMPLETE"
+                 and "best_f1_macro" in t.user_attrs]
+    if completed:
+        best_macro_trial = max(completed, key=lambda t: t.user_attrs["best_f1_macro"])
+        best_macro_params = best_macro_trial.params
+        best_macro_val    = best_macro_trial.user_attrs["best_f1_macro"]
+        logger.info(f"🥇 [MACRO] Best trial: {best_macro_trial.number} | F1 Macro: {best_macro_val:.4f}")
+        logger.info(f"🥇 [MACRO] Best params: {best_macro_params}")
+        out_params_path = Path("src/cloud/base_model/otimizacao/best_params.json")
+        with open(out_params_path, "w") as f:
+            json.dump(best_macro_params, f, indent=4)
+        logger.info(f"🥇 [MACRO] Best params saved: {out_params_path}")
+    else:
+        logger.warning("⚠️ No completed trials with f1_macro attribute found. best_params.json not updated.")
 
 
 if __name__ == "__main__":

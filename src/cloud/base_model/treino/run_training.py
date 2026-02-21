@@ -57,28 +57,39 @@ def load_config():
     with open(base_cfg_path, 'r') as f:
         base_cfg = yaml.safe_load(f)
 
-    # ── Check for optimized best_params.json ──────────────────────────────────
-    best_params_path = Path("src/cloud/base_model/otimizacao/best_params.json")
+    # ── Selection mode: DIRECTIONAL or MACRO ─────────────────────────────────
+    use_dir = train_cfg.get('selection', {}).get('use_best_directional_params', True)
+    mode_label = "DIRECIONAL" if use_dir else "MACRO"
+
+    # ── Check for optimized params file based on selection ────────────────────
+    params_filename = "best_dir_params.json" if use_dir else "best_params.json"
+    best_params_path = Path("src/cloud/base_model/otimizacao") / params_filename
     if best_params_path.exists():
         try:
             with open(best_params_path, 'r') as f:
                 best_params = json.load(f)
-            
-            # Update sequence length if it was optimized
-            if 'seq_len' in best_params:
-                train_cfg['hyperparameters']['seq_len'] = best_params['seq_len']
-            
-            # Map optimization keys to training keys (handling potential mismatches)
-            opt_keys = ['lr', 'batch_size', 'dropout', 'tcn_channels', 'lstm_hidden', 'num_lstm_layers']
+            opt_keys = ['lr', 'batch_size', 'dropout', 'tcn_channels', 'lstm_hidden',
+                        'num_lstm_layers', 'seq_len']
             for k in opt_keys:
                 if k in best_params:
                     train_cfg['hyperparameters'][k] = best_params[k]
-            
-            logger.info(f"✨ OPTIMIZATION: Overriding hyperparameters from {best_params_path.name}")
-            logger.debug(f"Optimized params: {best_params}")
+            logger.info(f"✨ [{mode_label}] Loading hyperparameters from {params_filename}")
         except Exception as e:
-            logger.warning(f"⚠️ Could not load best_params.json: {e}. Using YAML defaults.")
+            logger.warning(f"⚠️ Could not load {params_filename}: {e}. Using YAML defaults.")
+    else:
+        logger.warning(f"⚠️ {params_filename} not found. Using YAML defaults.")
 
+    # ── Resolve output paths based on selection ────────────────────────────────
+    paths = train_cfg['paths']
+    if use_dir:
+        train_cfg['_resolved_model_output']  = paths.get('model_output_dir',   'data/models/best_tcn_lstm_dir.pt')
+        train_cfg['_resolved_scaler_output'] = paths.get('scaler_output_dir',  'data/models/scaler_finetuning_dir.pkl')
+    else:
+        train_cfg['_resolved_model_output']  = paths.get('model_output_macro', 'data/models/best_tcn_lstm.pt')
+        train_cfg['_resolved_scaler_output'] = paths.get('scaler_output_macro','data/models/scaler_finetuning.pkl')
+
+    logger.info(f"📦 [{mode_label}] Model  → {train_cfg['_resolved_model_output']}")
+    logger.info(f"📦 [{mode_label}] Scaler → {train_cfg['_resolved_scaler_output']}")
     return train_cfg, base_cfg
 
 
@@ -155,7 +166,8 @@ def run_training():
     X_train_norm = scaler.transform(X_train_raw).astype(np.float32)
     X_val_norm   = scaler.transform(X_val_raw).astype(np.float32)
 
-    scaler_path = Path(train_cfg['paths'].get('scaler_output', 'data/models/scaler_finetuning.pkl'))
+    scaler_path = Path(train_cfg.get('_resolved_scaler_output',
+                       train_cfg['paths'].get('scaler_output_dir', 'data/models/scaler_finetuning_dir.pkl')))
     scaler_path.parent.mkdir(parents=True, exist_ok=True)
     with open(scaler_path, 'wb') as f:
         pickle.dump(scaler, f)
@@ -204,7 +216,8 @@ def run_training():
     # ── Training Loop ──────────────────────────────────────────────────────────
     best_val_f1 = 0.0
     patience_counter = 0
-    model_output_path = Path(train_cfg['paths']['model_output'])
+    model_output_path = Path(train_cfg.get('_resolved_model_output',
+                             train_cfg['paths'].get('model_output_dir', 'data/models/best_tcn_lstm_dir.pt')))
     model_output_path.parent.mkdir(parents=True, exist_ok=True)
 
     for epoch in range(epochs):
@@ -273,7 +286,7 @@ def run_training():
                 break
 
     logger.info(f"Training complete. Best Val F1 Direcional: {best_val_f1:.4f}")
-    logger.info(f"Model saved: {model_output_path}")
+    logger.info(f"Directional Model saved: {model_output_path}")
 
 
 if __name__ == "__main__":
