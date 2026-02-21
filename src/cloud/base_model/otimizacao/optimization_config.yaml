@@ -7,7 +7,7 @@ paths:
 
 optimization:
   n_trials: 50
-  timeout: 36000  # 10 hours
+  timeout: 72000  # 20 hours (Estimativa: 50 trials * 20 min = 16.6h + margem)
   metric: "f1_macro"  # Macro volta a ser o objetivo do Optuna
 
 # TCN+LSTM search space
