@@ -20,9 +20,10 @@ model:
     - log_volume
 
 training:
-  # Class weights: [SELL=0, NEUTRAL=1, BUY=2]
-  # SELL and BUY are 2x as important as NEUTRAL to penalize false neutrals.
-  class_weights: [2.0, 1.0, 2.0]
+  # Fallback class weights (inverse-frequency, ~78% Neutral / ~11% SELL / ~11% BUY).
+  # At runtime, compute_alpha_from_labels() overrides these with exact training-set counts.
+  # Formula: total / (num_classes * class_count)  →  [~3.03, ~0.43, ~3.03]
+  class_weights: [3.03, 0.43, 3.03]
   seq_len: 720          # 12h lookback at 1-min resolution
   epochs: 10
   early_stopping_patience: 3

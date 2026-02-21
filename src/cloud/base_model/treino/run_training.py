@@ -19,6 +19,7 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 from src.cloud.base_model.models.model import Hybrid_TCN_LSTM
+from src.cloud.base_model.treino.losses import FocalLossWithSmoothing, compute_alpha_from_labels
 from sklearn.preprocessing import StandardScaler
 
 from src.cloud.base_model.utils.logging_utils import setup_logger
@@ -182,10 +183,18 @@ def run_training():
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"Model: Hybrid_TCN_LSTM | Parameters: {total_params:,}")
 
-    # ── Loss: weight loaded from centralized config ────────────────────────────
-    weights = torch.tensor(class_weights, dtype=torch.float32).to(DEVICE)
-    criterion = nn.CrossEntropyLoss(weight=weights)
-    logger.info(f"CrossEntropyLoss weights: {class_weights}")
+    # ── Loss: dynamic alpha from training labels (inverse-frequency formula) ───
+    # alpha_i = total_samples / (num_classes * class_count_i)
+    # Falls back to config class_weights only if compute fails.
+    try:
+        alpha = compute_alpha_from_labels(y_train_raw, num_classes=3, device=DEVICE)
+        logger.info(f"FocalLoss alpha (computed from train labels): {alpha.cpu().tolist()}")
+    except Exception as e:
+        logger.warning(f"compute_alpha_from_labels failed ({e}). Falling back to config weights.")
+        alpha = torch.tensor(class_weights, dtype=torch.float32).to(DEVICE)
+
+    criterion = FocalLossWithSmoothing(alpha=alpha, gamma=2.0, smoothing=0.1)
+    logger.info(f"Loss: FocalLossWithSmoothing | gamma=2.0 | smoothing=0.1")
 
     # ── Optimizer & Scheduler ──────────────────────────────────────────────────
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)

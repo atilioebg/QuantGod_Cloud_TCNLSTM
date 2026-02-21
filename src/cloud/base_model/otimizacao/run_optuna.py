@@ -20,6 +20,7 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 from src.cloud.base_model.models.model import Hybrid_TCN_LSTM
+from src.cloud.base_model.treino.losses import FocalLossWithSmoothing, compute_alpha_from_labels
 
 log_dir = Path("logs/optimization")
 log_dir.mkdir(parents=True, exist_ok=True)
@@ -106,9 +107,9 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
             dropout=dropout,
         ).to(DEVICE)
 
-        # ── Loss from centralized class_weights (single source of truth) ───────
-        weights   = torch.tensor(class_weights, dtype=torch.float32).to(DEVICE)
-        criterion = nn.CrossEntropyLoss(weight=weights)
+        # ── Loss: dynamic alpha per trial (inverse-frequency from train labels) ─
+        alpha     = compute_alpha_from_labels(y_train, num_classes=3, device=DEVICE)
+        criterion = FocalLossWithSmoothing(alpha=alpha, gamma=2.0, smoothing=0.1)
 
         optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)

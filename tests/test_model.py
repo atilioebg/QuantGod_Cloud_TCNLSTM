@@ -210,3 +210,126 @@ class TestGradientFlow:
         for name, param in model.named_parameters():
             if param.requires_grad:
                 assert param.grad is not None, f"No gradient for param: {name}"
+
+
+# ── FocalLossWithSmoothing ───────────────────────────────────────────────────
+
+import numpy as np
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from src.cloud.base_model.treino.losses import FocalLossWithSmoothing, compute_alpha_from_labels
+
+
+class TestFocalLoss:
+
+    def test_instantiation_no_alpha(self):
+        """FocalLoss must instantiate without alpha (equal weighting)."""
+        loss_fn = FocalLossWithSmoothing(alpha=None, gamma=2.0, smoothing=0.1)
+        assert loss_fn is not None
+
+    def test_instantiation_with_alpha(self):
+        """FocalLoss must instantiate with an alpha tensor."""
+        alpha = torch.tensor([3.03, 0.43, 3.03])
+        loss_fn = FocalLossWithSmoothing(alpha=alpha, gamma=2.0, smoothing=0.1)
+        assert loss_fn is not None
+
+    def test_forward_returns_scalar(self):
+        """Forward pass with reduction='mean' must return a scalar tensor."""
+        loss_fn = FocalLossWithSmoothing(alpha=None, gamma=2.0, smoothing=0.1)
+        logits  = torch.randn(8, 3)
+        targets = torch.randint(0, 3, (8,))
+        loss = loss_fn(logits, targets)
+        assert loss.ndim == 0, f"Expected scalar, got shape {loss.shape}"
+        assert loss.item() > 0.0, "Loss should be positive"
+
+    def test_loss_lower_when_confident_and_correct(self):
+        """
+        When the model is very confident AND correct (logit >> for correct class),
+        focal loss should be lower than when the model is uncertain.
+        """
+        loss_fn = FocalLossWithSmoothing(alpha=None, gamma=2.0, smoothing=0.0)
+        targets = torch.tensor([0, 1, 2])
+
+        # Confident-correct: high logit for the right class
+        logits_good = torch.tensor([
+            [10.0, -5.0, -5.0],  # class 0 correct with high confidence
+            [-5.0, 10.0, -5.0],
+            [-5.0, -5.0, 10.0],
+        ])
+        # Uncertain: near-zero logits
+        logits_uncertain = torch.zeros(3, 3)
+
+        loss_good      = loss_fn(logits_good, targets)
+        loss_uncertain = loss_fn(logits_uncertain, targets)
+
+        assert loss_good.item() < loss_uncertain.item(), (
+            f"Expected confident-correct loss ({loss_good.item():.4f}) < "
+            f"uncertain loss ({loss_uncertain.item():.4f})"
+        )
+
+    def test_reduction_none_returns_per_sample(self):
+        """reduction='none' must return a tensor with one value per sample."""
+        loss_fn = FocalLossWithSmoothing(alpha=None, gamma=2.0, smoothing=0.1, reduction='none')
+        logits  = torch.randn(8, 3)
+        targets = torch.randint(0, 3, (8,))
+        loss = loss_fn(logits, targets)
+        assert loss.shape == (8,), f"Expected shape (8,), got {loss.shape}"
+
+    def test_gradient_flows_through_focal_loss(self):
+        """Backward pass through FocalLoss must propagate gradients to model params."""
+        model = Hybrid_TCN_LSTM()
+        model.train()
+        alpha    = torch.tensor([3.03, 0.43, 3.03])
+        loss_fn  = FocalLossWithSmoothing(alpha=alpha, gamma=2.0, smoothing=0.1)
+        x        = torch.randn(2, SEQ_LEN, NUM_FEATURES)
+        targets  = torch.randint(0, NUM_CLASSES, (2,))
+        out      = model(x)
+        loss     = loss_fn(out["logits"], targets)
+        loss.backward()
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                assert param.grad is not None, f"No gradient through FocalLoss for: {name}"
+
+
+class TestComputeAlpha:
+
+    def test_output_shape(self):
+        """compute_alpha_from_labels must return a tensor of shape (num_classes,)."""
+        y = np.array([0, 1, 2, 1, 1, 0, 2, 1])
+        alpha = compute_alpha_from_labels(y, num_classes=3)
+        assert alpha.shape == (3,), f"Expected shape (3,), got {alpha.shape}"
+
+    def test_output_dtype(self):
+        """Alpha must be float32."""
+        y = np.array([0, 1, 2, 1, 1])
+        alpha = compute_alpha_from_labels(y, num_classes=3)
+        assert alpha.dtype == torch.float32
+
+    def test_minority_class_has_higher_weight(self):
+        """
+        With 80% Neutral and 10% each for SELL/BUY, their weights
+        must be higher than Neutral's weight (inverse frequency).
+        """
+        # Simulate 100 samples: 80 neutral, 10 sell, 10 buy
+        y = np.array([0] * 10 + [1] * 80 + [2] * 10)
+        alpha = compute_alpha_from_labels(y, num_classes=3)
+        assert alpha[0] > alpha[1], "SELL weight should exceed NEUTRAL weight"
+        assert alpha[2] > alpha[1], "BUY weight should exceed NEUTRAL weight"
+
+    def test_balanced_data_equal_weights(self):
+        """When classes are perfectly balanced, all weights must be equal (≈ 1.0)."""
+        y = np.array([0, 1, 2] * 100)
+        alpha = compute_alpha_from_labels(y, num_classes=3)
+        expected = 300 / (3 * 100)  # = 1.0
+        assert torch.allclose(alpha, torch.tensor([expected, expected, expected], dtype=torch.float32), atol=1e-4)
+
+    def test_formula_correctness(self):
+        """Verify exact formula: alpha_i = total / (num_classes * count_i)."""
+        y = np.array([0] * 10 + [1] * 80 + [2] * 10)  # total = 100
+        alpha = compute_alpha_from_labels(y, num_classes=3)
+        expected_sell    = 100 / (3 * 10)   # ~3.333
+        expected_neutral = 100 / (3 * 80)   # ~0.417
+        assert abs(alpha[0].item() - expected_sell)    < 1e-4
+        assert abs(alpha[1].item() - expected_neutral) < 1e-4
+        assert abs(alpha[2].item() - expected_sell)    < 1e-4
