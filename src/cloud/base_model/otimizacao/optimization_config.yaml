@@ -6,17 +6,17 @@ paths:
   db_path: "sqlite:///optuna_tcn_lstm_v1.db"
 
 optimization:
-  n_trials: 1
+  n_trials: 50
   timeout: 36000  # 10 hours
   metric: "f1_macro"  # Macro preferred over weighted to avoid Neutral domination
 
 # TCN+LSTM search space (replaces Transformer d_model/nhead/num_layers)
 search_space:
-  tcn_channels: [64, 128, 256]         # Dá espaço pro TCN ficar parrudo.
-  lstm_hidden: [256, 512, 1024]        # Mais memória. A A40 aguenta brincando!
-  num_lstm_layers: [1, 2, 3]
+  tcn_channels: [64, 128, 256]
+  lstm_hidden: [128, 256, 512]
+  num_lstm_layers: [1, 2]
   lr: [0.00001, 0.001]
   dropout: [0.1, 0.4]
-  batch_size: [256, 512, 1024, 2048]        # GPU gigante pede Batches gigantes!
+  batch_size: [128, 256, 512, 1024]        # Backing off slightly from 2048
   epochs: 10
-  seq_len: [720, 1440, 2160]           # 12h, 24h e 36h de lookback pra testar
+  seq_len: [720, 1440]           # 12h and 24h lookbacks (2160 was too heavy)
