@@ -22,6 +22,10 @@ if project_root not in sys.path:
 from src.cloud.base_model.models.model import Hybrid_TCN_LSTM
 from src.cloud.base_model.treino.losses import FocalLossWithSmoothing, compute_alpha_from_labels
 
+# Tracking variables for cross-trial real-time logging
+GLOBAL_BEST_MACRO = 0.0
+GLOBAL_BEST_DIR   = 0.0
+
 log_dir = Path("logs/optimization")
 log_dir.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
@@ -167,31 +171,28 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
                         f"F1 [SELL/NEU/BUY]: [{f1_per_cls[0]:.3f}/{f1_per_cls[1]:.3f}/{f1_per_cls[2]:.3f}] | "
                         f"LR: {current_lr:.6f}")
 
-            # ── Dual Champion Tracking (GLOBAL — across all trials) ───────────
-            # MACRO global best: query Optuna study's own best value (f1_macro objective)
-            try:
-                global_best_macro = trial.study.best_value   # best f1_macro seen so far
-            except ValueError:
-                global_best_macro = 0.0  # no completed trial yet
+            # ── Dual Champion Tracking (GLOBAL — across all trials and epochs) ────
+            global GLOBAL_BEST_MACRO, GLOBAL_BEST_DIR
 
-            if f1_macro > global_best_macro:
+            # MACRO global best
+            if f1_macro > GLOBAL_BEST_MACRO:
+                prev_macro = GLOBAL_BEST_MACRO
+                GLOBAL_BEST_MACRO = f1_macro
                 macro_save_path = Path("data/models/best_tcn_lstm.pt")
                 macro_save_path.parent.mkdir(parents=True, exist_ok=True)
                 torch.save(model.state_dict(), macro_save_path)
                 logger.info(f"🥇 [MACRO]  Trial {trial.number} | Global F1 Macro record: {f1_macro:.4f} "
-                            f"(prev: {global_best_macro:.4f}) → saved best_tcn_lstm.pt")
+                            f"(prev: {prev_macro:.4f}) → saved best_tcn_lstm.pt")
 
-            # DIR global best: check max best_f1_dir stored across completed trials
-            completed = [t for t in trial.study.trials
-                         if t.state.name == "COMPLETE" and "best_f1_dir" in t.user_attrs]
-            global_best_dir = max((t.user_attrs["best_f1_dir"] for t in completed), default=0.0)
-
-            if f1_dir > global_best_dir:
+            # DIR global best
+            if f1_dir > GLOBAL_BEST_DIR:
+                prev_dir = GLOBAL_BEST_DIR
+                GLOBAL_BEST_DIR = f1_dir
                 dir_save_path = Path("data/models/best_tcn_lstm_dir.pt")
                 dir_save_path.parent.mkdir(parents=True, exist_ok=True)
                 torch.save(model.state_dict(), dir_save_path)
                 logger.info(f"🏆 [DIR]    Trial {trial.number} | Global F1 Dir record: {f1_dir:.4f} "
-                            f"(prev: {global_best_dir:.4f}) → saved best_tcn_lstm_dir.pt")
+                            f"(prev: {prev_dir:.4f}) → saved best_tcn_lstm_dir.pt")
 
             # Update this trial's running best_f1_dir attribute for ranking later
             if f1_dir > trial.user_attrs.get("best_f1_dir", 0.0):
@@ -272,6 +273,15 @@ def run_optimization():
         load_if_exists=True,
         pruner=optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=2),
     )
+
+    # Initialize global trackers from study history (if resuming)
+    global GLOBAL_BEST_MACRO, GLOBAL_BEST_DIR
+    completed = [t for t in study.trials if t.state.name == "COMPLETE"]
+    if completed:
+        GLOBAL_BEST_MACRO = study.best_value
+        GLOBAL_BEST_DIR = max((t.user_attrs.get("best_f1_dir", 0.0) for t in completed), default=0.0)
+        logger.info(f"Resuming study. Current records: Macro={GLOBAL_BEST_MACRO:.4f}, Dir={GLOBAL_BEST_DIR:.4f}")
+
     logger.info(f"Starting {config['optimization']['n_trials']} trials | "
                 f"Metric: {config['optimization']['metric']} | "
                 f"Timeout: {config['optimization']['timeout']}s")
