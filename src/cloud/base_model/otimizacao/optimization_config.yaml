@@ -12,11 +12,18 @@ optimization:
 
 # TCN+LSTM search space (replaces Transformer d_model/nhead/num_layers)
 search_space:
-  tcn_channels: [64, 128, 256]
-  lstm_hidden: [128, 256, 512]
-  num_lstm_layers: [1, 2]
-  lr: [0.00001, 0.001]
-  dropout: [0.1, 0.4]
-  batch_size: [128, 256, 512, 1024]        # Backing off slightly from 2048
-  epochs: 10
-  seq_len: [720, 1440]           # 12h and 24h lookbacks (2160 was too heavy)
+  # 1. Redução de Capacidade (Forçando a generalização)
+  tcn_channels: [32, 64, 128]        # Removemos o 256. Redes magras são melhores para extrair sinal de ruído L2.
+  lstm_hidden: [64, 128, 256]        # Removemos o 512. Cortamos os graus de liberdade excedentes.
+  num_lstm_layers: [1, 2]            # Mantido.
+  
+  # 2. Regularização Agressiva (O Escudo)
+  dropout: [0.3, 0.6]                # Subimos o piso de 0.1 para 0.3. O Trial 7 provou que 0.1 causa memorização rápida.
+  
+  # 3. Estabilidade Estatística (Fundamental para a Focal Loss)
+  batch_size: [512, 1024, 2048]      # Removemos 128 e 256. Lotes grandes garantem que a Focal Loss veja amostras suficientes de BUY/SELL antes de atualizar os pesos.
+  
+  # 4. Ajustes Finos de Dinâmica
+  lr: [0.0001, 0.002]                # O piso subiu levemente. Como a Focal Loss reduz o valor numérico da perda, o otimizador precisa de um passo um pouco mais firme.
+  epochs: 10                         # Mantido (O Early Stopping fará o corte).
+  seq_len: [360, 720]                # Removemos 1440. 24 horas de order book é ruído demais. Focamos no Price Action recente (6h a 12h).
