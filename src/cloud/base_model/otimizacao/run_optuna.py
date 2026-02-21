@@ -167,25 +167,36 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
                         f"F1 [SELL/NEU/BUY]: [{f1_per_cls[0]:.3f}/{f1_per_cls[1]:.3f}/{f1_per_cls[2]:.3f}] | "
                         f"LR: {current_lr:.6f}")
 
-            # ── Dual Champion Tracking ────────────────────────────────────────
-            # Track F1 Macro champion → saves best_tcn_lstm.pt
-            if f1_macro > best_macro_f1:
-                best_macro_f1 = f1_macro
-                macro_save_path = Path("data/models/best_tcn_lstm.pt")
-                macro_save_path.parent.mkdir(parents=True, exist_ok=True)
-                torch.save(model.state_dict(), macro_save_path)
-                logger.info(f"🥇 [MACRO]  Trial {trial.number} | New F1 Macro record: {f1_macro:.4f} → saved best_tcn_lstm.pt")
+            # ── Dual Champion Tracking (GLOBAL — across all trials) ───────────
+            # DIR global best: query Optuna study's own best value (f1_dir objective)
+            try:
+                global_best_dir = trial.study.best_value   # best f1_dir seen so far
+            except ValueError:
+                global_best_dir = 0.0  # no completed trial yet
 
-            # Track F1 Directional champion → saves best_tcn_lstm_dir.pt
-            if f1_dir > best_dir_f1:
-                best_dir_f1 = f1_dir
+            if f1_dir > global_best_dir:
                 dir_save_path = Path("data/models/best_tcn_lstm_dir.pt")
                 dir_save_path.parent.mkdir(parents=True, exist_ok=True)
                 torch.save(model.state_dict(), dir_save_path)
-                logger.info(f"🏆 [DIR]    Trial {trial.number} | New F1 Dir record: {f1_dir:.4f} → saved best_tcn_lstm_dir.pt")
+                logger.info(f"🏆 [DIR]    Trial {trial.number} | Global F1 Dir record: {f1_dir:.4f} "
+                            f"(prev: {global_best_dir:.4f}) → saved best_tcn_lstm_dir.pt")
 
-            # Store f1_macro as user attribute so we can rank trials by it later
-            trial.set_user_attr("best_f1_macro", best_macro_f1)
+            # MACRO global best: check max best_f1_macro stored across completed trials
+            completed = [t for t in trial.study.trials
+                         if t.state.name == "COMPLETE" and "best_f1_macro" in t.user_attrs]
+            global_best_macro = max((t.user_attrs["best_f1_macro"] for t in completed), default=0.0)
+
+            if f1_macro > global_best_macro:
+                macro_save_path = Path("data/models/best_tcn_lstm.pt")
+                macro_save_path.parent.mkdir(parents=True, exist_ok=True)
+                torch.save(model.state_dict(), macro_save_path)
+                logger.info(f"🥇 [MACRO]  Trial {trial.number} | Global F1 Macro record: {f1_macro:.4f} "
+                            f"(prev: {global_best_macro:.4f}) → saved best_tcn_lstm.pt")
+
+            # Update this trial's running best_f1_macro attribute
+            if f1_macro > trial.user_attrs.get("best_f1_macro", 0.0):
+                trial.set_user_attr("best_f1_macro", f1_macro)
+
 
             trial.report(f1_dir, epoch)
             if trial.should_prune():
