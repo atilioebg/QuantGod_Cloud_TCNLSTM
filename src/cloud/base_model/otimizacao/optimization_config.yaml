@@ -2,8 +2,8 @@
 paths:
   train_dir: "data/L2/splits_labelled_SELL_0004_BUY_0004_1h/train"
   val_dir: "data/L2/splits_labelled_SELL_0004_BUY_0004_1h/val"
-  study_name: "quantgod_tcn_lstm_v7"
-  db_path: "sqlite:///optuna_tcn_lstm_v7.db"
+  study_name: "quantgod_tcn_lstm_v8"
+  db_path: "sqlite:///optuna_tcn_lstm_v8.db"
 
 optimization:
   n_trials: 50
