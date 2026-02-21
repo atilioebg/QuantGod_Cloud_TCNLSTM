@@ -171,6 +171,12 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
                         f"F1 [SELL/NEU/BUY]: [{f1_per_cls[0]:.3f}/{f1_per_cls[1]:.3f}/{f1_per_cls[2]:.3f}] | "
                         f"LR: {current_lr:.6f}")
 
+            # ── Local Champion Tracking (Within this Trial) ───────────────────
+            if f1_macro > best_macro_f1:
+                best_macro_f1 = f1_macro
+            if f1_dir > best_dir_f1:
+                best_dir_f1 = f1_dir
+
             # ── Dual Champion Tracking (GLOBAL — across all trials and epochs) ────
             global GLOBAL_BEST_MACRO, GLOBAL_BEST_DIR
 
