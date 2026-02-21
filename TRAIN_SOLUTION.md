@@ -104,3 +104,6 @@ Eu já alterei o conteúdo do TRAIN_SOLUTION.md apontando com os detalhes deste 
 
 Seu ambiente QuantGod TCNLSTM está totalmente fluído e documentado. Estamos 100% prontos para ir para a Cloud se desejar! O que quer realizar em seguida?
 ```
+
+## ☁️ Acessando a Cloud
+Para os detalhes sobre os próximos passos executando essa pipeline em um ambiente VM Linux (como o RunPod), preparamos um arquivo independente com todos os scripts para gerenciar sessões virtuais com o Tmux e montar o Drive. **Consulte e siga o** `CLOUD_EXECUTION_GUIDE.md`.
