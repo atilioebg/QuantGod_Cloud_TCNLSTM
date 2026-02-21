@@ -248,30 +248,31 @@ def run_training():
         f1_macro   = f1_score(all_targets, all_preds, average='macro',    zero_division=0)
         f1_weighted= f1_score(all_targets, all_preds, average='weighted', zero_division=0)
         f1_per_cls = f1_score(all_targets, all_preds, average=None,       zero_division=0)
+        f1_dir     = (f1_per_cls[0] + f1_per_cls[2]) / 2
         current_lr = scheduler.get_last_lr()[0]
 
         logger.info(
             f"Epoch {epoch+1}/{epochs} | "
             f"Train Loss: {train_loss/len(train_loader):.4f} | "
             f"Val Loss: {val_loss/len(val_loader):.4f} | "
-            f"F1 Macro: {f1_macro:.4f} | F1 Weighted: {f1_weighted:.4f} | "
+            f"F1 Macro: {f1_macro:.4f} | F1 Dir: {f1_dir:.4f} | "
             f"F1 [SELL/NEU/BUY]: [{f1_per_cls[0]:.3f}/{f1_per_cls[1]:.3f}/{f1_per_cls[2]:.3f}] | "
             f"LR: {current_lr:.6f}"
         )
 
-        # Early stopping + checkpoint
-        if f1_macro > best_val_f1:
-            best_val_f1 = f1_macro
+        # Early stopping + checkpoint based on F1 Directional
+        if f1_dir > best_val_f1:
+            best_val_f1 = f1_dir
             patience_counter = 0
             torch.save(model.state_dict(), model_output_path)
-            logger.info(f"✅ Best model saved (F1 Macro: {best_val_f1:.4f})")
+            logger.info(f"✅ Best model saved (F1 Dir: {best_val_f1:.4f})")
         else:
             patience_counter += 1
             if patience_counter >= patience:
                 logger.info(f"Early stopping triggered after {epoch+1} epochs.")
                 break
 
-    logger.info(f"Training complete. Best Val F1 Macro: {best_val_f1:.4f}")
+    logger.info(f"Training complete. Best Val F1 Direcional: {best_val_f1:.4f}")
     logger.info(f"Model saved: {model_output_path}")
 
 

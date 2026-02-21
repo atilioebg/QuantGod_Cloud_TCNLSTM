@@ -156,19 +156,20 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
             f1_weighted = f1_score(all_targets, all_preds, average='weighted', zero_division=0)
             f1_macro    = f1_score(all_targets, all_preds, average='macro',    zero_division=0)
             f1_per_cls  = f1_score(all_targets, all_preds, average=None,       zero_division=0)
+            f1_dir      = (f1_per_cls[0] + f1_per_cls[2]) / 2
             current_lr  = scheduler.get_last_lr()[0]
 
             logger.info(f"Trial {trial.number}, Epoch {epoch+1}/{epochs} | "
                         f"Train Loss: {train_loss/len(train_loader):.4f} | "
                         f"Val Loss: {val_loss/len(val_loader):.4f} | "
-                        f"F1 Macro: {f1_macro:.4f} | F1 Weighted: {f1_weighted:.4f} | "
+                        f"F1 Macro: {f1_macro:.4f} | F1 Dir: {f1_dir:.4f} | "
                         f"F1 [SELL/NEU/BUY]: [{f1_per_cls[0]:.3f}/{f1_per_cls[1]:.3f}/{f1_per_cls[2]:.3f}] | "
                         f"LR: {current_lr:.6f}")
 
-            if f1_macro > best_val_f1:
-                best_val_f1 = f1_macro
+            if f1_dir > best_val_f1:
+                best_val_f1 = f1_dir
 
-            trial.report(f1_macro, epoch)
+            trial.report(f1_dir, epoch)
             if trial.should_prune():
                 logger.info(f"Trial {trial.number} pruned at epoch {epoch+1}")
                 del model, train_loader, val_loader, train_dataset, val_dataset
@@ -274,7 +275,7 @@ def run_optimization():
     logger.info(f"Trials Executados nesta Sessão: {trials_run}")
     logger.info("="*60)
 
-    logger.info(f"Optimization complete | Melhor F1 Macro: {study.best_trial.value:.4f}")
+    logger.info(f"Optimization complete | Melhor F1 Direcional: {study.best_trial.value:.4f}")
     logger.info(f"Melhores Parametros: {study.best_params}")
 
     out_path = Path("src/cloud/base_model/otimizacao/best_params.json")
