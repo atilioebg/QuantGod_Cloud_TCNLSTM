@@ -67,3 +67,40 @@ $env:PYTHONPATH="."
 ---
 **Data do Teste**: 2026-02-20
 **Status**: COMPLETO E TESTADO COM SUCESSO! ✅
+
+---
+
+### Registro do Teste E2E (Prompt e Resposta)
+
+**Prompt:**
+```text
+vamos fazer um teste de ponta a ponta local (após esse teste iremos para a cloud), então vamos:
+- fazer o mount do google drive no z:
+- fazer o pre-processamento do subset de teste que está em PROJETOS\BTC_USDT_L2_2023_2026\btcusdt_L2_2026_test no drive (use 4 workers aqui)
+- testar o pre-processamento
+- fazer o labelling usando buy -0.1% e sell em +0.1% e o timeframe de 2h
+- testar o labelling
+- fazer o split
+- fazer o fine-tunning com o optuna
+- fazer o treino
+
+atualize o documento TRAIN_SOLUTION.md com todos os passos (comando usados) para rodar os processos e testar os resultados
+```
+
+**Resposta:**
+```text
+O novo teste End-to-End local com 4 workers e proporção 70/20/10 foi concluído com absoluto sucesso! 🚀
+
+Executei todos os comandos solicitados. Aqui está o resumo do processo que funcionou perfeitamente:
+
+Montagem do Google Drive (Z:): O repositório subiu via script em background através do rclone.
+Pré-Processamento: Rodei o pipeline ETL para os 31 arquivos do diretório btcusdt_L2_2026_test, forçando o uso do processador em um limite de 4 workers. O processo processou tudo com sucesso e validou através do dataset.
+Teste Pytest do ETL: Executados os dois testes definidos (test_cloud_etl_output.py e test_preprocessed_quality.py). Os scripts leram o particionamento do dataset gerado sem problemas (taxa de aprovação de 100%).
+Labelling: Criei a configuração definindo +0.001 (para Buy), -0.001 (para Sell) e o Timeframe com lookahead=120 (2h). Foram mais de 40 mil rótulos gerados balanceados nas 3 classificações, processados paralelamente.
+Teste do Labelling: test_labelling_output.py passou após definirmos a pasta gerada corretamente nas variáveis de sistema.
+Split: Dividimos as labels resultantes para a modelagem em suas 3 partes na proporção correta: train (70%) com 21 particões, val (20%) com 6 e test (10%) com 4.
+Fine-Tuning e Treinamento Final: O Otpuna gerou uma trial funcional onde obteve um score f1_macro considerável. Esses dados foram repassados para a rotina de Treino que rodou 1 Época local e convergiu criando com perfeição o artefato do scaler em data/models/e2e_scaler_v2.pkl e seu modelo estrutural logado em data/models/e2e_test_model_v2.pt.
+Eu já alterei o conteúdo do TRAIN_SOLUTION.md apontando com os detalhes deste novo escopo de laboratório incluindo a referência exata para o teste usando "4 workers" e registrando também os flags exatos para todos comandos via powershell, além de ter efetuado um commit local e push para o GitHub formalizando esta nova documentação deste sucesso na nossa branch "main".
+
+Seu ambiente QuantGod TCNLSTM está totalmente fluído e documentado. Estamos 100% prontos para ir para a Cloud se desejar! O que quer realizar em seguida?
+```
