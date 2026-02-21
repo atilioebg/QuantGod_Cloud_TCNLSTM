@@ -168,23 +168,11 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
                         f"LR: {current_lr:.6f}")
 
             # ── Dual Champion Tracking (GLOBAL — across all trials) ───────────
-            # DIR global best: query Optuna study's own best value (f1_dir objective)
+            # MACRO global best: query Optuna study's own best value (f1_macro objective)
             try:
-                global_best_dir = trial.study.best_value   # best f1_dir seen so far
+                global_best_macro = trial.study.best_value   # best f1_macro seen so far
             except ValueError:
-                global_best_dir = 0.0  # no completed trial yet
-
-            if f1_dir > global_best_dir:
-                dir_save_path = Path("data/models/best_tcn_lstm_dir.pt")
-                dir_save_path.parent.mkdir(parents=True, exist_ok=True)
-                torch.save(model.state_dict(), dir_save_path)
-                logger.info(f"🏆 [DIR]    Trial {trial.number} | Global F1 Dir record: {f1_dir:.4f} "
-                            f"(prev: {global_best_dir:.4f}) → saved best_tcn_lstm_dir.pt")
-
-            # MACRO global best: check max best_f1_macro stored across completed trials
-            completed = [t for t in trial.study.trials
-                         if t.state.name == "COMPLETE" and "best_f1_macro" in t.user_attrs]
-            global_best_macro = max((t.user_attrs["best_f1_macro"] for t in completed), default=0.0)
+                global_best_macro = 0.0  # no completed trial yet
 
             if f1_macro > global_best_macro:
                 macro_save_path = Path("data/models/best_tcn_lstm.pt")
@@ -193,12 +181,24 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
                 logger.info(f"🥇 [MACRO]  Trial {trial.number} | Global F1 Macro record: {f1_macro:.4f} "
                             f"(prev: {global_best_macro:.4f}) → saved best_tcn_lstm.pt")
 
-            # Update this trial's running best_f1_macro attribute
-            if f1_macro > trial.user_attrs.get("best_f1_macro", 0.0):
-                trial.set_user_attr("best_f1_macro", f1_macro)
+            # DIR global best: check max best_f1_dir stored across completed trials
+            completed = [t for t in trial.study.trials
+                         if t.state.name == "COMPLETE" and "best_f1_dir" in t.user_attrs]
+            global_best_dir = max((t.user_attrs["best_f1_dir"] for t in completed), default=0.0)
 
+            if f1_dir > global_best_dir:
+                dir_save_path = Path("data/models/best_tcn_lstm_dir.pt")
+                dir_save_path.parent.mkdir(parents=True, exist_ok=True)
+                torch.save(model.state_dict(), dir_save_path)
+                logger.info(f"🏆 [DIR]    Trial {trial.number} | Global F1 Dir record: {f1_dir:.4f} "
+                            f"(prev: {global_best_dir:.4f}) → saved best_tcn_lstm_dir.pt")
 
-            trial.report(f1_dir, epoch)
+            # Update this trial's running best_f1_dir attribute for ranking later
+            if f1_dir > trial.user_attrs.get("best_f1_dir", 0.0):
+                trial.set_user_attr("best_f1_dir", f1_dir)
+
+            # Optimization target: F1 Macro
+            trial.report(f1_macro, epoch)
             if trial.should_prune():
                 logger.info(f"Trial {trial.number} pruned at epoch {epoch+1}")
                 del model, train_loader, val_loader, train_dataset, val_dataset
@@ -208,7 +208,7 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
         # Cleanup after trial
         del model, train_loader, val_loader, train_dataset, val_dataset
         torch.cuda.empty_cache()
-        return best_dir_f1  # Optuna ranks trials by this value (F1 Dir)
+        return best_macro_f1  # Optuna ranks trials by this value (F1 Macro)
 
     except RuntimeError as e:
         # ── CRITICAL: OOM guard (Constraint #4) ───────────────────────────────
@@ -304,30 +304,30 @@ def run_optimization():
     logger.info(f"Trials Executados nesta Sessão: {trials_run}")
     logger.info("="*60)
 
-    logger.info(f"Optimization complete | Melhor F1 Direcional: {study.best_trial.value:.4f}")
-    logger.info(f"Melhores Parametros Direcionais: {study.best_params}")
+    logger.info(f"Optimization complete | Melhor F1 Macro: {study.best_trial.value:.4f}")
+    logger.info(f"Melhores Parametros Macro: {study.best_params}")
 
-    # ── Save DIRECTIONAL champion params (trial ranked by F1 Dir) ────────────
-    out_dir_path = Path("src/cloud/base_model/otimizacao/best_dir_params.json")
-    with open(out_dir_path, "w") as f:
+    # ── Save MACRO champion params (trial ranked by study objective) ─────────
+    out_params_path = Path("src/cloud/base_model/otimizacao/best_params.json")
+    with open(out_params_path, "w") as f:
         json.dump(study.best_params, f, indent=4)
-    logger.info(f"🏆 [DIR]   Best params saved: {out_dir_path}")
+    logger.info(f"🥇 [MACRO] Best params saved: {out_params_path}")
 
-    # ── Save MACRO champion params (trial with highest stored f1_macro attr) ─
+    # ── Save DIRECTIONAL champion params (trial with highest best_f1_dir attr) 
     completed = [t for t in study.trials if t.state.name == "COMPLETE"
-                 and "best_f1_macro" in t.user_attrs]
+                 and "best_f1_dir" in t.user_attrs]
     if completed:
-        best_macro_trial = max(completed, key=lambda t: t.user_attrs["best_f1_macro"])
-        best_macro_params = best_macro_trial.params
-        best_macro_val    = best_macro_trial.user_attrs["best_f1_macro"]
-        logger.info(f"🥇 [MACRO] Best trial: {best_macro_trial.number} | F1 Macro: {best_macro_val:.4f}")
-        logger.info(f"🥇 [MACRO] Best params: {best_macro_params}")
-        out_params_path = Path("src/cloud/base_model/otimizacao/best_params.json")
-        with open(out_params_path, "w") as f:
-            json.dump(best_macro_params, f, indent=4)
-        logger.info(f"🥇 [MACRO] Best params saved: {out_params_path}")
+        best_dir_trial = max(completed, key=lambda t: t.user_attrs["best_f1_dir"])
+        best_dir_params = best_dir_trial.params
+        best_dir_val    = best_dir_trial.user_attrs["best_f1_dir"]
+        logger.info(f"🏆 [DIR]   Best trial: {best_dir_trial.number} | F1 Dir: {best_dir_val:.4f}")
+        logger.info(f"🏆 [DIR]   Best params: {best_dir_params}")
+        out_dir_path = Path("src/cloud/base_model/otimizacao/best_dir_params.json")
+        with open(out_dir_path, "w") as f:
+            json.dump(best_dir_params, f, indent=4)
+        logger.info(f"🏆 [DIR]   Best params saved: {out_dir_path}")
     else:
-        logger.warning("⚠️ No completed trials with f1_macro attribute found. best_params.json not updated.")
+        logger.warning("⚠️ No completed trials with f1_dir attribute found. best_dir_params.json not updated.")
 
 
 if __name__ == "__main__":
