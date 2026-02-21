@@ -244,14 +244,37 @@ def run_optimization():
     logger.info(f"Starting {config['optimization']['n_trials']} trials | "
                 f"Metric: {config['optimization']['metric']} | "
                 f"Timeout: {config['optimization']['timeout']}s")
+    
+    start_trials = len(study.trials)
+    start_time = datetime.now()
+
     study.optimize(
         lambda trial: objective(trial, X_train, y_train, X_val, y_val, config, class_weights),
         n_trials=config['optimization']['n_trials'],
         timeout=config['optimization']['timeout'],
     )
 
-    logger.info(f"Optimization complete | Best F1 Macro: {study.best_trial.value:.4f}")
-    logger.info(f"Best params: {study.best_params}")
+    end_time = datetime.now()
+    duration = (end_time - start_time).total_seconds()
+    trials_run = len(study.trials) - start_trials
+
+    # Inference of stopping reason
+    if duration >= (config['optimization']['timeout'] - 60): # 1 minute tolerance
+        stop_reason = f"TIMEOUT ALCANÇADO (As {config['optimization']['timeout']}s expiraram)"
+    elif trials_run >= config['optimization']['n_trials']:
+        stop_reason = f"MÁXIMO DE TRIALS ({config['optimization']['n_trials']}) ALCANÇADOS"
+    else:
+        stop_reason = "PARADA MANUAL OU ERRO INTERNO"
+
+    logger.info("="*60)
+    logger.info(f"🛑 OTIMIZAÇÃO FINALIZADA 🛑")
+    logger.info(f"Motivo da Parada: {stop_reason}")
+    logger.info(f"Tempo de Execução da Sessão: {duration/3600:.2f} Horas")
+    logger.info(f"Trials Executados nesta Sessão: {trials_run}")
+    logger.info("="*60)
+
+    logger.info(f"Optimization complete | Melhor F1 Macro: {study.best_trial.value:.4f}")
+    logger.info(f"Melhores Parametros: {study.best_params}")
 
     out_path = Path("src/cloud/base_model/otimizacao/best_params.json")
     with open(out_path, "w") as f:
