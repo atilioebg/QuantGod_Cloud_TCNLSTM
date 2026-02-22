@@ -1,0 +1,289 @@
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, Dataset
+import polars as pl
+import numpy as np
+import yaml
+import logging
+import pickle
+from datetime import datetime
+from pathlib import Path
+import json
+import sys
+
+# Project root on sys.path
+project_root = str(Path(__file__).parents[4])
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
+from src.cloud.base_model.models.model import Hybrid_TCN_LSTM
+from src.cloud.base_model.treino.losses import FocalLossWithSmoothing, compute_alpha_from_labels
+from sklearn.preprocessing import StandardScaler
+from src.cloud.base_model.utils.logging_utils import setup_logger
+
+logger = logging.getLogger(__name__)
+
+class SequenceDataset(Dataset):
+    """Memory-efficient demand-based sequence generator. No pre-allocation."""
+    def __init__(self, X: np.ndarray, y: np.ndarray, seq_len: int):
+        self.X = X
+        self.y = y
+        self.seq_len = seq_len
+
+    def __len__(self):
+        return len(self.X) - self.seq_len
+
+    def __getitem__(self, idx):
+        x_seq = self.X[idx: idx + self.seq_len]
+        y_label = self.y[idx + self.seq_len - 1]
+        return torch.from_numpy(x_seq), torch.tensor(y_label, dtype=torch.long)
+
+def load_config():
+    if len(sys.argv) > 1:
+        training_cfg_path = Path(sys.argv[1])
+    else:
+        training_cfg_path = Path("src/cloud/base_model/treino/training_config.yaml")
+        
+    with open(training_cfg_path, 'r') as f:
+        train_cfg = yaml.safe_load(f)
+
+    # Base model config: single source of truth for class_weights, features, etc.
+    base_cfg_path = Path("src/cloud/base_model/configs/base_model_config.yaml")
+    with open(base_cfg_path, 'r') as f:
+        base_cfg = yaml.safe_load(f)
+
+    # ── For Specialization: strictly load MACRO champion params ────────────────
+    params_filename = "best_params.json"
+    best_params_path = Path("src/cloud/base_model/otimizacao") / params_filename
+    if best_params_path.exists():
+        try:
+            with open(best_params_path, 'r') as f:
+                best_params = json.load(f)
+            opt_keys = ['lr', 'batch_size', 'dropout', 'tcn_channels', 'lstm_hidden',
+                        'num_lstm_layers', 'seq_len']
+            for k in opt_keys:
+                if k in best_params:
+                    train_cfg['hyperparameters'][k] = best_params[k]
+            logger.info(f"✨ [MACRO] Loading hyperparameters from {params_filename}")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not load {params_filename}: {e}. Using YAML defaults.")
+    else:
+        logger.warning(f"⚠️ {params_filename} not found. Using YAML defaults.")
+
+    # ── Resolve output paths for Specialization ────────────────────────────────
+    train_cfg['_resolved_model_output']  = 'data/models/treino_best_model.pt'
+    train_cfg['_resolved_scaler_output'] = 'data/models/treino_scaler_finetuning.pkl'
+
+    logger.info(f"📦 Specialization Model  → {train_cfg['_resolved_model_output']}")
+    logger.info(f"📦 Specialization Scaler → {train_cfg['_resolved_scaler_output']}")
+    return train_cfg, base_cfg
+
+
+def load_data(directory: str, feature_cols: list):
+    parquet_files = sorted(list(Path(directory).glob("*.parquet")))
+    if not parquet_files:
+        raise FileNotFoundError(f"No labelled data in {directory}")
+
+    dfs = [pl.read_parquet(pf, columns=feature_cols + ['target']) for pf in parquet_files]
+    df = pl.concat(dfs)
+    logger.info(f"Loaded {len(df):,} rows from {len(parquet_files)} files in {directory}")
+    return df
+
+def run_specialization():
+    # Setup Logger
+    setup_logger("treino_specialization", "")
+    
+    # Load config
+    train_cfg, base_cfg = load_config()
+
+    # ── Config values ──────────────────────────────────────────────────────────
+    feature_cols   = base_cfg['model']['feature_names']
+    class_weights  = base_cfg['training']['class_weights']
+    seq_len        = train_cfg['hyperparameters'].get('seq_len', base_cfg['training']['seq_len'])
+    epochs         = 10 # Enforced 10 epochs for specialization
+    patience       = base_cfg['training']['early_stopping_patience']
+    clip_norm      = base_cfg['training'].get('gradient_clip_norm', 1.0)
+    
+    # ── Transfer Learning: LR 10x smaller ──────────────────────────────────────
+    base_lr        = train_cfg['hyperparameters']['lr']
+    lr             = base_lr * 0.1
+    
+    batch_size     = train_cfg['hyperparameters']['batch_size']
+    tcn_channels   = train_cfg['hyperparameters'].get('tcn_channels', 64)
+    lstm_hidden    = train_cfg['hyperparameters'].get('lstm_hidden', 256)
+    num_lstm_layers= train_cfg['hyperparameters'].get('num_lstm_layers', 2)
+    dropout        = train_cfg['hyperparameters'].get('dropout', 0.3)
+
+    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logger.info(f"Device: {DEVICE}")
+    logger.info(f"Specialization config: seq_len={seq_len}, epochs={epochs}, base_lr={base_lr:.6f}, spec_lr={lr:.6f}, batch={batch_size}")
+    logger.info(f"Model Arch: TCN={tcn_channels}, LSTM={lstm_hidden}, Layers={num_lstm_layers}")
+
+    # ── Data Swap Logic ────────────────────────────────────────────────────────
+    # Standard: train = train_dir, val = val_dir
+    # Specialization: train = previous val_dir, val = previous test_dir
+    original_val_dir = train_cfg['paths'].get('val_dir', '')
+    if 'val' in original_val_dir:
+        spec_train_dir = original_val_dir
+        spec_val_dir = original_val_dir.replace('val', 'test') # Simple swap
+    else:
+        raise ValueError(f"Could not infer test directory from val_dir: {original_val_dir}")
+        
+    logger.info(f"Specialization Train Set: {spec_train_dir}")
+    logger.info(f"Specialization Val Set:   {spec_val_dir}")
+
+    train_df = load_data(spec_train_dir, feature_cols)
+    val_df   = load_data(spec_val_dir, feature_cols)
+
+    X_train_raw = train_df.select(feature_cols).to_numpy().astype(np.float32)
+    y_train_raw = train_df.select('target').to_numpy().flatten().astype(np.int64)
+    
+    X_val_raw   = val_df.select(feature_cols).to_numpy().astype(np.float32)
+    y_val_raw   = val_df.select('target').to_numpy().flatten().astype(np.int64)
+
+    logger.info(f"Split sizes: train={len(X_train_raw):,} | val={len(X_val_raw):,}")
+
+    # ── Normalization: fit on specialization train ─────────────────────────────
+    scaler = StandardScaler()
+    scaler.fit(X_train_raw)
+    X_train_norm = scaler.transform(X_train_raw).astype(np.float32)
+    X_val_norm   = scaler.transform(X_val_raw).astype(np.float32)
+
+    scaler_path = Path(train_cfg['_resolved_scaler_output'])
+    scaler_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(scaler_path, 'wb') as f:
+        pickle.dump(scaler, f)
+    logger.info(f"Scaler saved: {scaler_path}")
+
+    # ── Datasets and Loaders ───────────────────────────────────────────────────
+    train_dataset = SequenceDataset(X_train_norm, y_train_raw, seq_len)
+    val_dataset   = SequenceDataset(X_val_norm, y_val_raw, seq_len)
+    train_loader  = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
+                               num_workers=4, pin_memory=True)
+    val_loader    = DataLoader(val_dataset,   batch_size=batch_size, shuffle=False,
+                               num_workers=4, pin_memory=True)
+    logger.info(f"Train batches: {len(train_loader)} | Val batches: {len(val_loader)}")
+
+    # ── Model ──────────────────────────────────────────────────────────────────
+    model = Hybrid_TCN_LSTM(
+        num_features=len(feature_cols),
+        seq_len=seq_len,
+        tcn_channels=tcn_channels,
+        lstm_hidden=lstm_hidden,
+        num_lstm_layers=num_lstm_layers,
+        num_classes=3,
+        dropout=dropout,
+    ).to(DEVICE)
+    
+    # ── Load Base Model Weights (MACRO) ─────────────────────────────────────────
+    base_model_weights = Path(project_root) / "data" / "models" / "best_tcn_lstm.pt"
+    if base_model_weights.exists():
+        logger.info(f"🔄 Loading pre-trained base model weights from: {base_model_weights}")
+        model.load_state_dict(torch.load(base_model_weights, map_location=DEVICE))
+    else:
+        logger.error(f"❌ Base model weights NOT FOUND at {base_model_weights}. Exiting.")
+        sys.exit(1)
+
+    total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logger.info(f"Model: Hybrid_TCN_LSTM | Parameters: {total_params:,}")
+
+    # ── Loss: dynamic alpha from training labels ───────────────────────────────
+    try:
+        alpha = compute_alpha_from_labels(y_train_raw, num_classes=3, device=DEVICE)
+        logger.info(f"FocalLoss alpha (computed from specialization labels): {alpha.cpu().tolist()}")
+    except Exception as e:
+        logger.warning(f"compute_alpha_from_labels failed ({e}). Falling back to config weights.")
+        alpha = torch.tensor(class_weights, dtype=torch.float32).to(DEVICE)
+
+    criterion = FocalLossWithSmoothing(alpha=alpha, gamma=2.0, smoothing=0.1)
+    logger.info(f"Loss: FocalLossWithSmoothing | gamma=2.0 | smoothing=0.1")
+
+    # ── Optimizer & Scheduler ──────────────────────────────────────────────────
+    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    amp_scaler = torch.amp.GradScaler('cuda')
+
+    # ── Training Loop ──────────────────────────────────────────────────────────
+    best_val_f1_dir = 0.0
+    best_val_loss = float('inf')
+    val_loss_patience_counter = 0
+    model_output_path = Path(project_root) / train_cfg['_resolved_model_output']
+    model_output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    for epoch in range(epochs):
+        # TRAIN
+        model.train()
+        train_loss = 0.0
+        for batch_idx, (batch_X, batch_y) in enumerate(train_loader):
+            batch_X, batch_y = batch_X.to(DEVICE), batch_y.to(DEVICE)
+            optimizer.zero_grad()
+            with torch.amp.autocast('cuda'):
+                outputs = model(batch_X)
+                loss = criterion(outputs["logits"], batch_y)
+            amp_scaler.scale(loss).backward()
+            amp_scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_norm)
+            amp_scaler.step(optimizer)
+            amp_scaler.update()
+            train_loss += loss.item()
+            if (batch_idx + 1) % 50 == 0:
+                pct = (batch_idx + 1) / len(train_loader) * 100
+                logger.info(f"Epoch {epoch+1} | Batch {batch_idx+1}/{len(train_loader)} ({pct:.1f}%) | Loss: {loss.item():.4f}")
+
+        scheduler.step()
+
+        # VALIDATE
+        model.eval()
+        all_preds, all_targets = [], []
+        val_loss = 0.0
+        with torch.no_grad():
+            with torch.amp.autocast('cuda'):
+                for batch_X, batch_y in val_loader:
+                    batch_X, batch_y = batch_X.to(DEVICE), batch_y.to(DEVICE)
+                    outputs = model(batch_X)
+                    val_loss += criterion(outputs["logits"], batch_y).item()
+                    preds = torch.argmax(outputs["logits"], dim=1)
+                    all_preds.extend(preds.cpu().numpy())
+                    all_targets.extend(batch_y.cpu().numpy())
+
+        val_loss_epoch = val_loss / len(val_loader)
+
+        from sklearn.metrics import f1_score
+        f1_macro   = f1_score(all_targets, all_preds, average='macro',    zero_division=0)
+        f1_per_cls = f1_score(all_targets, all_preds, average=None,       zero_division=0)
+        f1_dir     = (f1_per_cls[0] + f1_per_cls[2]) / 2
+        current_lr = scheduler.get_last_lr()[0]
+
+        logger.info(
+            f"Epoch {epoch+1}/{epochs} | "
+            f"Train Loss: {train_loss/len(train_loader):.4f} | "
+            f"Val Loss: {val_loss_epoch:.4f} | "
+            f"F1 Macro: {f1_macro:.4f} | F1 Dir: {f1_dir:.4f} | "
+            f"F1 [SELL/NEU/BUY]: [{f1_per_cls[0]:.3f}/{f1_per_cls[1]:.3f}/{f1_per_cls[2]:.3f}] | "
+            f"LR: {current_lr:.6f}"
+        )
+
+        # Early stopping based on Val Loss
+        if val_loss_epoch < best_val_loss:
+            best_val_loss = val_loss_epoch
+            val_loss_patience_counter = 0
+        else:
+            val_loss_patience_counter += 1
+
+        # Checkpoint based on F1 Directional
+        if f1_dir > best_val_f1_dir:
+            best_val_f1_dir = f1_dir
+            torch.save(model.state_dict(), model_output_path)
+            logger.info(f"🏆 Best Specialization model saved (F1 Dir: {best_val_f1_dir:.4f})")
+
+        # Early stopping check
+        if val_loss_patience_counter >= patience:
+            logger.info(f"⚠️ Early stopping triggered! Val Loss did not improve for {patience} epochs.")
+            break
+
+    logger.info(f"Specialization complete. Best Val F1 Direcional: {best_val_f1_dir:.4f}")
+    logger.info(f"Specialized Model saved: {model_output_path}")
+
+if __name__ == "__main__":
+    run_specialization()
