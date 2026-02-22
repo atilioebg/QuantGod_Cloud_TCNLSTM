@@ -9,6 +9,7 @@ optimization:
   n_trials: 50
   timeout: 72000  # 20 hours (Estimativa: 50 trials * 20 min = 16.6h + margem)
   metric: "f1_macro"  # Macro volta a ser o objetivo do Optuna
+  run_specialized_after: true  # Automação completa do pipeline (Specialization + Transfer)
 
 # TCN+LSTM search space
 search_space:

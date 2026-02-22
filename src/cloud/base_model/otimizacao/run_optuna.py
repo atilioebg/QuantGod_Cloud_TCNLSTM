@@ -360,6 +360,50 @@ def run_optimization():
     else:
         logger.warning("⚠️ No completed trials with f1_dir attribute found. best_dir_params.json not updated.")
 
+    # ── Pipeline Automation ───────────────────────────────────────────────────
+    logger.info("="*60)
+    logger.info("🚀 INICIANDO TRANSFERÊNCIA BASE (FOUNDATION) 🚀")
+    
+    # Derivar o nome do arquivo de log criado pelo setup_logger
+    import sys
+    import subprocess
+    
+    # O logger salva em logs/optimization/optimization_suffix.log
+    log_filename = f"optimization_{suffix}.log" if suffix and not suffix.startswith('_') else f"optimization{suffix}.log"
+    
+    # 1. Transfer Foundation
+    try:
+        subprocess.run([sys.executable, "src/cloud/base_model/utils/transfer.py", log_filename, "foundation"], check=True)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"❌ Falha no transfer base (foundation): {e}")
+        
+    # 2. Check if Specialization should run
+    if config['optimization'].get('run_specialized_after', False):
+        logger.info("="*60)
+        logger.info("🚀 INICIANDO PIPELINE DE ESPECIALIZAÇÃO AUTOMÁTICA 🚀")
+        
+        try:
+            # 2.1 Create Splits
+            # Config expects paths like data/L2/splits.../train -> we strip the /train to get the base
+            dataset_path = str(Path(config['paths']['train_dir']).parent)
+            logger.info("-> 1/3 Gerando Splits Especializados...")
+            subprocess.run([sys.executable, "src/cloud/base_model/treino/create_specialized_splits.py", dataset_path], check=True)
+            
+            # 2.2 Run Specialization
+            logger.info("-> 2/3 Treinando Modelo Especialista...")
+            subprocess.run([sys.executable, "src/cloud/base_model/treino/run_specialization.py"], check=True)
+            
+            # 2.3 Transfer Specialized
+            logger.info("-> 3/3 Transferindo Especialista pro Drive...")
+            subprocess.run([sys.executable, "src/cloud/base_model/utils/transfer.py", log_filename, "specialized"], check=True)
+            
+            logger.info("✅ PIPELINE 100% COMPLETO E EXECUTADO COM SUCESSO! 🦅🔥")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"❌ Falha na cascata de especialização: {e}")
+    else:
+        logger.info("🏁 Pipeline parado no Foundation (run_specialized_after = False/Não configurado).")
+    logger.info("="*60)
+
 
 if __name__ == "__main__":
     run_optimization()
