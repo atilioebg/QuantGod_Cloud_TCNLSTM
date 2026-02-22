@@ -120,16 +120,21 @@ def run_specialization():
     logger.info(f"Specialization config: seq_len={seq_len}, epochs={epochs}, base_lr={base_lr:.6f}, spec_lr={lr:.6f}, batch={batch_size}")
     logger.info(f"Model Arch: TCN={tcn_channels}, LSTM={lstm_hidden}, Layers={num_lstm_layers}")
 
-    # ── Data Swap Logic ────────────────────────────────────────────────────────
+    # ── Data Loading Logic ─────────────────────────────────────────────────────
     # Standard: train = train_dir, val = val_dir
-    # Specialization: train = previous val_dir, val = previous test_dir
-    original_val_dir = train_cfg['paths'].get('val_dir', '')
-    if 'val' in original_val_dir:
-        spec_train_dir = original_val_dir
-        spec_val_dir = original_val_dir.replace('val', 'test') # Simple swap
-    else:
-        raise ValueError(f"Could not infer test directory from val_dir: {original_val_dir}")
-        
+    # Specialization: Read directly from the newly generated 85/15 specialized splits
+    original_train_dir = Path(train_cfg['paths'].get('train_dir', ''))
+    
+    parent_folder = original_train_dir.parent
+    specialized_parent = parent_folder.parent / f"specialized_{parent_folder.name}"
+    
+    spec_train_dir = str(specialized_parent / "train")
+    spec_val_dir   = str(specialized_parent / "val")
+    
+    if not Path(spec_train_dir).exists() or not Path(spec_val_dir).exists():
+        logger.error(f"❌ Specialized splits not found at {specialized_parent}. Please run create_specialized_splits.py first.")
+        sys.exit(1)
+
     logger.info(f"Specialization Train Set: {spec_train_dir}")
     logger.info(f"Specialization Val Set:   {spec_val_dir}")
 
