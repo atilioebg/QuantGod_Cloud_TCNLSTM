@@ -37,61 +37,77 @@ def transfer_results(log_filename: str):
 
     # 2. Ler optimization_config.yaml para identificar o DB e caminhos
     opt_config_path = project_root / "src/cloud/base_model/otimizacao/optimization_config.yaml"
-    with open(opt_config_path, 'r') as f:
-        opt_cfg = yaml.safe_load(f)
+    if not opt_config_path.exists():
+        print(f"⚠️ Aviso: Config de otimização não encontrada em {opt_config_path}")
+        opt_cfg = {'paths': {'db_path': 'sqlite:///optuna_tcn_lstm_v8.db'}}
+    else:
+        with open(opt_config_path, 'r') as f:
+            opt_cfg = yaml.safe_load(f)
     
-    db_uri = opt_cfg['paths']['db_path']
+    db_uri = opt_cfg['paths'].get('db_path', 'sqlite:///optuna_tcn_lstm_v8.db')
     db_filename = db_uri.replace("sqlite:///", "")
     db_path = project_root / db_filename
 
     # 3. Lista de arquivos a coletar
     files_to_transfer = [
-        # Logs
         log_path,
-        
-        # Banco de Dados de Otimização
         db_path,
-        
-        # Modelos (Macro e Direcional)
         project_root / "data/models/best_tcn_lstm.pt",
         project_root / "data/models/best_tcn_lstm_dir.pt",
-        
-        # Parâmetros JSON
         project_root / "src/cloud/base_model/otimizacao/best_params.json",
         project_root / "src/cloud/base_model/otimizacao/best_dir_params.json",
-        
-        # Configurações usadas
         opt_config_path,
         project_root / "src/cloud/base_model/treino/training_config.yaml",
         project_root / "src/cloud/base_model/configs/base_model_config.yaml",
     ]
 
-    # Adicionar todos os .pkl (scalers) e outros .pt encontrados em data/models
-    # que possam ter sido gerados
     models_dir = project_root / "data/models"
     if models_dir.exists():
         files_to_transfer.extend(list(models_dir.glob("*.pkl")))
 
-    # 4. Executar a cópia
-    # Se o Drive estiver montado, usamos shutil. Se não, poderíamos usar rclone direto.
-    # Vou usar uma abordagem híbrida: tenta criar a pasta e copiar.
+    # 4. Executar Transferência
     try:
+        # No Linux/Pod, tentamos rclone copy direto para o remote para evitar lag de sincronização
+        if os.name != 'nt':
+            # Criar pasta temporária local para agrupar tudo
+            temp_staging = project_root / "data" / "temp_results"
+            if temp_staging.exists(): shutil.rmtree(temp_staging)
+            temp_staging.mkdir(parents=True)
+
+            print(f"📦 Agrupando arquivos localmente em {temp_staging}...")
+            for src in files_to_transfer:
+                if src.exists():
+                    shutil.copy2(src, temp_staging / src.name)
+
+            # Tenta rclone copy para o remote 'drive:'
+            print(f"📡 Enviando via rclone direto para o Drive (drive:PROJETOS/RESULTADOS/)...")
+            remote_path = f"drive:PROJETOS/RESULTADOS/{folder_name}"
+            
+            cmd = ["rclone", "copy", str(temp_staging), remote_path, "-P"]
+            result = subprocess.run(cmd)
+
+            if result.returncode == 0:
+                print(f"✅ SUCESSO! Resultados enviados via rclone para {remote_path}")
+                shutil.rmtree(temp_staging)
+                return
+            else:
+                print("⚠️ Falha no 'rclone copy' direto. Tentando cópia via pasta montada (shutil)...")
+
+        # Fallback ou Windows (shutil tradicional)
         if not dest_dir.exists():
             dest_dir.mkdir(parents=True, exist_ok=True)
             
         for src in files_to_transfer:
             if src.exists():
-                print(f"   📦 Copiando: {src.name}...")
+                print(f"   📂 Copiando: {src.name}...")
                 shutil.copy2(src, dest_dir / src.name)
             else:
-                print(f"   ⚠️  Aviso: Arquivo {src.name} não encontrado, pulando...")
+                print(f"   ⚠️  Pulo: {src.name} não encontrado.")
 
-        print(f"\n✅ SUCESSO! Todos os resultados foram transferidos para:")
-        print(f"📍 {dest_dir}")
+        print(f"\n✅ SUCESSO! Resultados copiados para {dest_dir}")
 
     except Exception as e:
-        print(f"❌ Erro crítico na transferência: {e}")
-        print("Dica: Verifique se o rclone está montado corretamente no caminho esperado.")
+        print(f"❌ Erro na transferência: {e}")
 
 if __name__ == "__main__":
     import sys
