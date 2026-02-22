@@ -1,5 +1,6 @@
 import logging
 import sys
+import io
 from pathlib import Path
 from datetime import datetime
 
@@ -17,6 +18,17 @@ def setup_logger(log_module_name: str, suffix: str = ""):
         logging.root.removeHandler(handler)
         
     log_file = log_dir / f"{log_module_name}{suffix}_{timestamp}.log"
+    
+    # ── UTF-8 Terminal Fix (Windows/CI Compatibility) ────────────────────────
+    # We wrap stdout to ensure it handles UTF-8 even if the system default is different
+    try:
+        if sys.stdout.encoding != 'utf-8':
+            # Note: We use .buffer to get the raw stream and wrap it. 
+            # This is safer than just sys.stdout = ... which can break some shells.
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    except (AttributeError, io.UnsupportedOperation):
+        pass
+
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
@@ -27,7 +39,7 @@ def setup_logger(log_module_name: str, suffix: str = ""):
         force=True
     )
     logger = logging.getLogger(log_module_name)
-    logger.info(f"📝 LOGGING INITIALIZED: {log_file}")
+    logger.info(f"📝 LOGGING INITIALIZED (UTF-8): {log_file}")
     return logger
 
 def get_labelling_suffix(params: dict) -> str:

@@ -28,11 +28,7 @@ GLOBAL_BEST_DIR   = 0.0
 
 log_dir = Path("logs/optimization")
 log_dir.mkdir(parents=True, exist_ok=True)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler(sys.stdout)]
-)
+# basicConfig removed here - setup_logger() called later will handle this correctly
 logger = logging.getLogger(__name__)
 
 
@@ -324,9 +320,9 @@ def run_optimization():
     logger.info(f"Melhores Parametros Macro: {study.best_params}")
 
     # ── Save MACRO champion params (trial ranked by study objective) ─────────
-    out_params_path = Path("src/cloud/base_model/otimizacao/best_params.json")
-    with open(out_params_path, "w") as f:
-        json.dump(study.best_params, f, indent=4)
+    out_params_path = Path("src/cloud/base_model/otimizacao") / "best_params.json"
+    with open(out_params_path, "w", encoding='utf-8') as f:
+        json.dump(study.best_params, f, indent=4, ensure_ascii=False)
     logger.info(f"🥇 [MACRO] Best params saved: {out_params_path}")
 
     # ── Save DIRECTIONAL champion params (trial with highest best_f1_dir attr) 
@@ -338,9 +334,9 @@ def run_optimization():
         best_dir_val    = best_dir_trial.user_attrs["best_f1_dir"]
         logger.info(f"🏆 [DIR]   Best trial: {best_dir_trial.number} | F1 Dir: {best_dir_val:.4f}")
         logger.info(f"🏆 [DIR]   Best params: {best_dir_params}")
-        out_dir_path = Path("src/cloud/base_model/otimizacao/best_dir_params.json")
-        with open(out_dir_path, "w") as f:
-            json.dump(best_dir_params, f, indent=4)
+        out_dir_path = Path("src/cloud/base_model/otimizacao") / "best_dir_params.json"
+        with open(out_dir_path, "w", encoding='utf-8') as f:
+            json.dump(best_dir_params, f, indent=4, ensure_ascii=False)
         logger.info(f"🏆 [DIR]   Best params saved: {out_dir_path}")
     else:
         logger.warning("⚠️ No completed trials with f1_dir attribute found. best_dir_params.json not updated.")
