@@ -26,3 +26,4 @@ search_space:
   # 4. Janela de Visão (A Microestrutura manda)
   seq_len: [360, 720, 1080]           # Inserimos 1080. O Trial 32 amou a janela de 720 (12h). Vamos ver se 18h traz mais Alpha.
   dropout: [0.4, 0.6]                 # Subimos o piso. A rede vai crescer, então o escudo de dropout precisa ser mais forte.
+  epochs: 10
