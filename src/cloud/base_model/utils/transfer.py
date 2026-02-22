@@ -80,10 +80,16 @@ def transfer_results(log_filename: str):
                     shutil.copy2(src, temp_staging / src.name)
 
             # Tenta rclone copy para o remote 'drive:'
-            print(f"📡 Enviando via rclone direto para o Drive (drive:PROJETOS/RESULTADOS/)...")
+            # Busca o rclone.conf na raiz do projeto (detectado via ls)
+            rclone_cfg = project_root / "rclone.conf"
+            print(f"📡 Enviando via rclone direto para o Drive...")
             remote_path = f"drive:PROJETOS/RESULTADOS/{folder_name}"
             
             cmd = ["rclone", "copy", str(temp_staging), remote_path, "-P"]
+            if rclone_cfg.exists():
+                cmd += ["--config", str(rclone_cfg)]
+                print(f"   🔧 Usando config: {rclone_cfg}")
+            
             result = subprocess.run(cmd)
 
             if result.returncode == 0:
