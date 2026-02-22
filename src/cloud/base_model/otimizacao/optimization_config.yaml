@@ -2,8 +2,8 @@
 paths:
   train_dir: "data/L2/splits_labelled_SELL_0004_BUY_0004_1h/train"
   val_dir: "data/L2/splits_labelled_SELL_0004_BUY_0004_1h/val"
-  study_name: "quantgod_tcn_lstm_v8"
-  db_path: "sqlite:///optuna_tcn_lstm_v8.db"
+  study_name: "quantgod_tcn_lstm_v9"
+  db_path: "sqlite:///optuna_tcn_lstm_v9.db"
 
 optimization:
   n_trials: 50
@@ -12,16 +12,17 @@ optimization:
 
 # TCN+LSTM search space
 search_space:
-  # 1. Redução Extrema de Capacidade (Matando a Memorização)
-  tcn_channels: [16, 32, 64]         # Inserido 16, removido 128. O Alpha L2 não exige tantas convoluções.
-  lstm_hidden: [32, 64, 128]         # REMOVIDO o 256. Proibido dar cérebro excedente para a rede decorar o Neutro.
-  num_lstm_layers: [1, 2]            # Mantido.
-
-  # 2. O Freio do Otimizador (O Ajuste Mais Importante)
-  lr: [0.00001, 0.0005]              # Teto cortado de 0.002 para 0.0005. Impede saltos bruscos que rompam a Focal Loss.
-
-  # 3. Manutenção dos Escudos
-  dropout: [0.3, 0.6]                # Mantido.
-  batch_size: [512, 1024, 2048]      # Corrigido 521 → 512.
-  epochs: 10
-  seq_len: [180, 360, 720]           # Inserido 180 (3h). A microestrutura pode ser ainda mais rápida.
+  # 1. Expansão Controlada (Dando cérebro onde há correlação positiva)
+  tcn_channels: [64, 128]             # Removemos 16/32. Subimos o piso para 64 e testamos 128.
+  lstm_hidden: [128, 256]             # Removemos 32/64. Subimos o piso para 128 e testamos 256.
+  num_lstm_layers: [2]                # Fixamos em 2. Layers=1 não apareceu no Top 5 de elite.
+  
+  # 2. Refinamento de Velocidade
+  lr: [0.00005, 0.0003]               # Estreitamos a faixa. LR alto demais gera instabilidade com Focal Loss.
+  
+  # 3. Ajuste de Estabilidade Estatística
+  batch_size: [512, 1024]             # Removemos o 2048. Ele se provou lento demais para convergir em 10 épocas.
+  
+  # 4. Janela de Visão (A Microestrutura manda)
+  seq_len: [360, 720, 1080]           # Inserimos 1080. O Trial 32 amou a janela de 720 (12h). Vamos ver se 18h traz mais Alpha.
+  dropout: [0.4, 0.6]                 # Subimos o piso. A rede vai crescer, então o escudo de dropout precisa ser mais forte.
