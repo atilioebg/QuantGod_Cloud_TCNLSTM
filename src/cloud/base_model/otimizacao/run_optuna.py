@@ -325,6 +325,25 @@ def run_optimization():
         json.dump(study.best_params, f, indent=4, ensure_ascii=False)
     logger.info(f"🥇 [MACRO] Best params saved: {out_params_path}")
 
+    # ── Auto-update training_config.yaml ─────────────────────────────────────
+    training_cfg_path = Path("src/cloud/base_model/treino/training_config.yaml")
+    if training_cfg_path.exists():
+        try:
+            with open(training_cfg_path, 'r', encoding='utf-8') as f:
+                train_cfg_dict = yaml.safe_load(f)
+            
+            if 'hyperparameters' not in train_cfg_dict:
+                train_cfg_dict['hyperparameters'] = {}
+                
+            for k, v in study.best_params.items():
+                train_cfg_dict['hyperparameters'][k] = v
+                
+            with open(training_cfg_path, 'w', encoding='utf-8') as f:
+                yaml.dump(train_cfg_dict, f, default_flow_style=False, sort_keys=False)
+            logger.info(f"🔄 Updated {training_cfg_path} with MACRO best params.")
+        except Exception as e:
+            logger.error(f"❌ Failed to auto-update training_config.yaml: {e}")
+
     # ── Save DIRECTIONAL champion params (trial with highest best_f1_dir attr) 
     completed = [t for t in study.trials if t.state.name == "COMPLETE"
                  and "best_f1_dir" in t.user_attrs]
