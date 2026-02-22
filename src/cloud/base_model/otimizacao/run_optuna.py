@@ -364,12 +364,21 @@ def run_optimization():
     logger.info("="*60)
     logger.info("🚀 INICIANDO TRANSFERÊNCIA BASE (FOUNDATION) 🚀")
     
-    # Derivar o nome do arquivo de log criado pelo setup_logger
     import sys
     import subprocess
+    import logging
     
-    # O logger salva em logs/optimization/optimization_suffix.log
-    log_filename = f"optimization_{suffix}.log" if suffix and not suffix.startswith('_') else f"optimization{suffix}.log"
+    # 0. Descobrir o nome exato do arquivo de log (.log) gerado pelo setup_logger com precisão (incluindo timestamp)
+    log_filename = "optimization.log" # Fallback
+    opt_logger = logging.getLogger("optimization")
+    
+    # Busca o FileHandler atrelado ao logger para roubar o nome absoluto que ele gerou
+    for handler in opt_logger.handlers:
+        if isinstance(handler, logging.FileHandler):
+            log_filename = Path(handler.baseFilename).name
+            break
+            
+    logger.info(f"📁 Log-âncora identificado para a transferência: {log_filename}")
     
     # 1. Transfer Foundation
     try:
