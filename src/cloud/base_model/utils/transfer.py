@@ -14,7 +14,8 @@ def transfer_results(log_filename: str):
     e envia para a pasta de resultados no Google Drive.
     """
     # 1. Configurações de Caminhos
-    project_root = Path(__file__).parents[3]
+    # O arquivo está em src/cloud/base_model/utils/transfer.py (depth 4)
+    project_root = Path(__file__).parents[4]
     log_path = project_root / "logs" / "optimization" / log_filename
     
     if not log_path.exists():
