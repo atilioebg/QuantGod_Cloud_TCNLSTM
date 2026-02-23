@@ -45,12 +45,21 @@ def pytest_addoption(parser):
 
 
 def get_labelled_dir(request=None) -> Path:
-    """Resolve labelled directory: CLI arg > conftest constant."""
+    """Resolve labelled directory: CLI arg > env var > conftest constant."""
     if request is not None:
         cli = request.config.getoption("--labelled-dir", default=None)
         if cli:
             return Path(cli)
-    import os
+    
+    # Prioridade para RunPod absolute path se existir
+    cloud_base = Path("/workspace/data/L2")
+    if os.name != "nt" and cloud_base.exists():
+        # Busca a pasta mais recente de labelled
+        labelled_dirs = sorted(list(cloud_base.glob("labelled_*")))
+        if labelled_dirs:
+            return labelled_dirs[-1]
+        return cloud_base / "labelled"
+        
     default_dir = os.getenv("LABELLED_DIR", "data/L2/labelled_SELL_0004_BUY_0008_1h")
     return Path(default_dir)
 
@@ -81,9 +90,15 @@ class TestLabelledDirectory:
 
     def test_file_count_matches_pre_processed(self):
         """Number of labelled files must match pre_processed directory (same dates)."""
-        pre_processed = Path(os.getenv("PRE_PROCESSED_DIR", "data/L2/pre_processed"))
+        # Tenta resolver o caminho absoluto do RunPod primeiro
+        cloud_path = Path("/workspace/data/L2/pre_processed")
+        if os.name != "nt" and cloud_path.exists():
+            pre_processed = cloud_path
+        else:
+            pre_processed = Path(os.getenv("PRE_PROCESSED_DIR", "data/L2/pre_processed"))
+
         if not pre_processed.exists():
-            pytest.skip("pre_processed dir not found — skipping cross-dir count check")
+            pytest.skip(f"pre_processed dir not found at {pre_processed} — skipping check")
         pp_count = len(list(pre_processed.glob("*.parquet")))
         lb_count = len(get_labelled_files())
         assert lb_count == pp_count, (

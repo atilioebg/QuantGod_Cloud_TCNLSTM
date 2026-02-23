@@ -5,7 +5,13 @@ from pathlib import Path
 
 # Configuração do caminho dos dados de teste
 import os
-TEST_DATA_DIR = Path(os.getenv("PRE_PROCESSED_DIR", "data/L2/pre_processed"))
+def get_default_dir():
+    cloud_path = Path("/workspace/data/L2/pre_processed")
+    if os.name != "nt" and cloud_path.exists():
+        return cloud_path
+    return Path("data/L2/pre_processed")
+
+TEST_DATA_DIR = Path(os.getenv("PRE_PROCESSED_DIR", get_default_dir()))
 
 def get_test_files():
     """Retorna a lista de arquivos parquet na pasta de teste."""
