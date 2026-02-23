@@ -2,14 +2,14 @@
 paths:
   train_dir: "AUTO"
   val_dir: "AUTO"
-  study_name: "quantgod_tcn_lstm_v9"
-  db_path: "sqlite:///optuna_tcn_lstm_v9.db"
+  study_name: "quantgod_tcn_lstm_v0"
+  db_path: "sqlite:///optuna_tcn_lstm_v0.db"
 
 optimization:
   n_trials: 50
   timeout: 72000  # 20 hours (Estimativa: 50 trials * 20 min = 16.6h + margem)
   metric: "f1_macro"  # Macro volta a ser o objetivo do Optuna
-  run_specialized_after: true  # Automação completa do pipeline (Specialization + Transfer)
+  run_specialized_after: false  # Desativado a pedido do usuário para v0
 
 # TCN+LSTM search space
 search_space:
