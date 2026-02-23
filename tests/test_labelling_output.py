@@ -160,12 +160,12 @@ class TestLabelledFileIntegrity:
 
     def test_row_count_reasonable(self, file_path):
         """
-        After lookahead trim (default 60 rows), daily file should have >=1380 rows.
-        1440 original - 60 lookahead = 1380 minimum.
+        After lookahead trim, file should still have a reasonable number of rows.
+        (Binance often has 1440, but many days have gaps/downtime).
         """
         df = pl.read_parquet(file_path)
-        assert len(df) >= 1380, \
-            f"File {file_path.name} has {len(df)} rows — minimum 1380 after lookahead trim"
+        assert len(df) >= 1000, \
+            f"File {file_path.name} has {len(df)} rows — unusually low (check ETL)"
 
     def test_temporal_monotonicity(self, file_path):
         """If 'ts' column exists, timestamps must be strictly increasing."""
