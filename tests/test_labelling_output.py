@@ -170,6 +170,54 @@ class TestLabelledFileIntegrity:
             assert (diffs < 0).sum() == 0, \
                 f"Non-monotonic timestamps in {file_path.name}"
 
+    def test_label_logical_sanity(self, file_path):
+        """
+        Garante que o rótulo (0, 1, 2) reflete matematicamente a subida/queda no timeframe.
+        Recalcula o retorno futuro manualmente para uma amostra e compara com o label.
+        """
+        # 1. Carregar Config para pegar os thresholds e lookahead atuais
+        import yaml
+        config_path = Path("src/cloud/base_model/labelling/labelling_config.yaml")
+        if not config_path.exists():
+            pytest.skip("labelling_config.yaml não encontrado para validar lógica.")
+        
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        params = config['params']
+        lookahead = params['lookahead']
+        t_long = params['threshold_long']
+        t_short = params['threshold_short']
+
+        # 2. Ler o arquivo (precisamos do log_ret_close e do target)
+        df = pl.read_parquet(file_path)
+        
+        # 3. Amostra aleatória de 5 pontos para não pesar o teste
+        import numpy as np
+        # Evitamos o final do arquivo onde o lookahead não existe
+        safe_range = len(df) - lookahead - 1 
+        if safe_range <= 0:
+            pytest.skip(f"Arquivo {file_path.name} muito curto para validação lógica.")
+            
+        indices = np.random.choice(range(safe_range), min(safe_range, 5), replace=False)
+        
+        for idx in indices:
+            # O retorno futuro é a soma dos próximos 'lookahead' log_returns
+            # Calculamos do idx+1 até idx+lookahead inclusive
+            actual_future_ret = df['log_ret_close'].slice(idx + 1, lookahead).sum()
+            assigned_label = df['target'][idx]
+            
+            # Validação Cruzada:
+            if assigned_label == 2: # BUY
+                assert actual_future_ret > t_long, \
+                    f"Erro de Lógica em {file_path.name}[{idx}]: Label BUY(2) mas retorno foi {actual_future_ret:.5f} (limite {t_long})"
+            elif assigned_label == 0: # SELL
+                assert actual_future_ret < t_short, \
+                    f"Erro de Lógica em {file_path.name}[{idx}]: Label SELL(0) mas retorno foi {actual_future_ret:.5f} (limite {t_short})"
+            else: # NEUTRAL
+                assert t_short <= actual_future_ret <= t_long, \
+                    f"Erro de Lógica em {file_path.name}[{idx}]: Label NEUTRAL(1) mas retorno foi {actual_future_ret:.5f}"
+
 
 # ── Global balance check (aggregate over dataset) ─────────────────────────────
 
