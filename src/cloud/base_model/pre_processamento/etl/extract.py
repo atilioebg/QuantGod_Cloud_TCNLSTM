@@ -104,6 +104,6 @@ class DataExtractor:
 
 if __name__ == "__main__":
     # Quick test logic
-    extractor = DataExtractor("drive:PROJETOS/BTC_USDT_L2_2023_2026", rclone_config="/workspace/rclone.conf")
+    extractor = DataExtractor("drive:PROJETOS/BTC_USDT_L2_2023_2026", rclone_config="rclone.conf")
     # zips = extractor.list_zips()
     # print(zips[:5])

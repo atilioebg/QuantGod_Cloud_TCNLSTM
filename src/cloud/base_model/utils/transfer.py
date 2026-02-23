@@ -30,7 +30,7 @@ def transfer_results(log_filename: str, run_type: str):
     elif os.name == 'nt':
         drive_base = Path("Z:/PROJETOS/RESULTADOS")
     else:
-        drive_base = Path("/workspace/drive/PROJETOS/RESULTADOS")
+        drive_base = project_root / "drive" / "PROJETOS" / "RESULTADOS"
     
     # Destino Final Específico do Tipo
     dest_dir = drive_base / folder_name / run_type
