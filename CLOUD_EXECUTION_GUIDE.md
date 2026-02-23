@@ -1,50 +1,27 @@
-﻿# Guia de Execu├º├úo na Nuvem (RunPod) - Pipeline TCN-LSTM Ponta a Ponta
+﻿# Guia de Execução na Nuvem (RunPod) - Pipeline TCN-LSTM Ponta a Ponta
 
-Este guia fornece o passo a passo definitivo para preparar um ambiente RunPod do absoluto zero e rodar individualmente os 3 scripts que comp├Áem o pipeline final (ETL de 16 vari├íveis -> Labelling -> Treinamento Optuna / Funda├º├úo).
+Este guia fornece o passo a passo definitivo para preparar um ambiente RunPod do absoluto zero e rodar individualmente os scripts do pipeline (ETL -> Labelling -> Treinamento Optuna / Fundação / Especialista).
 
-Cole os comandos linha a linha no Web Terminal ou via SSH do seu RunPod rec├®m-criado.
+Cole os comandos linha a linha no Web Terminal ou via SSH do seu RunPod recém-criado.
 
 ---
 
-## Passo 1: Prepara├º├úo do Sistema Operacional e Ferramentas B├ísicas (Ubuntu)
-Geralmente os templates do RunPod v├¬m em modo root e podem estar sem alguns pacotes vitais para edi├º├úo de texto e ger├¬ncia de sess├Áes.
+## Passo 1: Preparação do Sistema Operacional (Ubuntu)
 
 ```bash
 apt-get update && apt-get install -y nano tmux pciutils wget curl unzip zip htop sudo software-properties-common rsync
 ```
 
-## Passo 2: Instala├º├úo do Rclone e Montagem do Google Drive
+## Passo 2: Instalação do Rclone e Clonagem do Repositório
 
-**2.1 - Baixar e instalar a vers├úo oficial do Rclone para Linux via script:**
+Aqui configuraremos o ambiente focado num fluxo de dados 100% contido dentro da pasta raiz do projeto.
+
+**2.1 - Instalar Rclone:**
 ```bash
 sudo -v ; curl https://rclone.org/install.sh | sudo bash
 ```
 
-**2.2 - Criar o diret├│rio raiz para o Workspace:**
-Aqui viver├úo os dados persistentes no volume de Network.
-```bash
-cd /workspace
-mkdir -p data
-```
-
-**2.3 - Configurar o token do Google Drive:**
-Crie o arquivo de configura├º├úo do Rclone usando o `nano`:
-```bash
-nano /workspace/rclone.conf
-```
-Dentro do Nano, cole a configura├º├úo do seu token:
-```ini
-[drive]
-type = drive
-scope = drive
-token = {"access_token":"ya29..."} # Substitua pela sua linha completa do token
-```
-*Salve e feche (`Ctrl+O`, `Enter`, `Ctrl+X`).*
-
-## Passo 3: Clonagem do Reposit├│rio e Ambiente Virtual Python
-Garanta que sua pasta raiz ser├í `/workspace/`. O c├│digo fonte, o virtual env e os logs devem viver nela.
-
-**3.1 - Clonar reposit├│rio e selecionar a branch correta:**
+**2.2 - Clonar o Código para dentro da Nuvem:**
 ```bash
 cd /workspace
 git clone https://github.com/atilioebg/QuantGod_Cloud_TCNLSTM.git
@@ -52,138 +29,94 @@ cd QuantGod_Cloud_TCNLSTM
 git checkout tcn_lstn_features
 ```
 
-**3.2 - Criar ambiente virtual de Python isolado e instalar requisitos:**
+**2.3 - Configurar Token Rclone Local no Projeto:**
 ```bash
-# Opcional (apenas se a VM n├úo vier nativa com as libs b├ísicas de virtualenv):
-# apt-get install python3-venv python3-pip -y
+nano rclone.conf
+```
+Dentro do Nano, cole a sua chave do Drive:
+```ini
+[drive]
+type = drive
+scope = drive
+token = {"access_token":"ya29..."} # Substitua pelo token completo
+```
+*(Salve: `Ctrl+O`, `Enter`, `Ctrl+X`).*
 
+**2.4 - Ambiente Virtual:**
+```bash
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-pip install pytest-xdist  # Necess├írio para os 12 workers paralelos
+pip install pytest-xdist
 ```
 
-## Passo 4: Sess├úo TMUX (Prote├º├úo Anti-Queda da Internet)
-O treinamento dura horas. Se a sua internet local cair, a VM cancela a execu├º├úo. Precisamos isolar o terminal num servidor de fundo atrav├®s do `tmux`.
+---
 
+## Passo 3: O Botão do Pânico (Limpeza Mestra da VM)
+
+Se você já rodou execuções antigas, estragou algo ou o path de arquivos pirou em gerações externas (`/workspace/data`), rode esta marreta para começar o sistema LIMPO de volta ao zero:
+
+```bash
+cd /workspace
+rm -rf data logs                         # Destrói dados e logs gerados incorretamente fora do repositório
+cd /workspace/QuantGod_Cloud_TCNLSTM
+git reset --hard HEAD
+git pull origin tcn_lstn_features
+rm -rf data/L2/raw/* data/L2/pre_processed/* data/L2/labelled* logs/* models/* artifacts/* .pytest_cache
+```
+
+---
+
+## Passo 4: Iniciando Pipeline (Via Tmux)
+
+O treinamento dura horas. Isole-o num terminal inquebrável por queda de internet.
 ```bash
 tmux new -s quantgod
 ```
-*(Seu terminal piscar├í e uma barra verde surgir├í no rodap├®. Voc├¬ est├í protegido agora).*
+*(Para sair e deixar rodando: aperte `Ctrl+B`, solte, aperte `D`. Para voltar depois: `tmux attach -t quantgod`)*
 
----
-
-## Passo 5: Inicializando a M├íquina e Entendendo a Resolu├º├úo de M├│dulos (PYTHONPATH)
-O `tmux` abre um terminal limpo. Repita a ativa├º├úo do ambiente virtual:
+No Tmux, **ative o ambiente e injete a raiz no Kernel do Python**:
 ```bash
 cd /workspace/QuantGod_Cloud_TCNLSTM
 source venv/bin/activate
-```
-
-Como o RunPod tem hardware potente, crie a ├írvore de diret├│rios vazia rapidamente para ancorar os outputs:
-```bash
-mkdir -p data/L2/raw data/L2/pre_processed data/L2/splits data/models data/artifacts logs/etl logs/labelling logs/optimization logs/transfer logs/tests
-```
-
-### ­ƒÜ¿ COMO CONTORNAR ModuleNotFoundError: No module named 'src'
-Ao chamar os scripts internos a partir da raiz num Linux cru, o Python pode n├úo encontrar a pasta `src/`. 
-
-**Solu├º├úo (Fa├ºa isso antes de rodar os scripts):**
-Avise ao Python para enxergar a pasta atual do RunPod como parte de suas bibliotecas injetando-a no `PYTHONPATH`:
-```bash
 export PYTHONPATH="${PYTHONPATH}:/workspace/QuantGod_Cloud_TCNLSTM"
 ```
-*(Voc├¬ precisar├í rodar essa linha novamente toda vez que reiniciar a VM ou criar um novo terminal).*
 
 ---
 
-## Passo 6: Executando o Pipeline Completo (As 3 Etapas)
+## Passo 5: Executar o Fluxo (Comandos Diretos)
 
-O processo ponta a ponta ├® composto por 3 scripts Python que rodam sequencialmente, cada um consumindo configura├º├Áes de um `.yaml` diferente.
-
-### ÔûÂ´©Å ETAPA 1: ETL (Extra├º├úo e Transforma├º├úo)
-Este script baixa os Zips crus do Google Drive, cria as 16 vari├íveis de microestrutura (OFI, Slope, Momentum) usando processamento paralelo pesado e salva os arquivos `.parquet` escalonados via Snappy sem perda de dados.
-
-**O Comando:**
+### ▶️ ETAPA 1: Pré-Processamento (ETL de 16 Atributos)
+**Objetivo:** Baixar ZIPs puros cru e explodir a física quântica dos Ticks em Parquets agrupados por 1 Minuto.
 ```bash
 python src/cloud/base_model/pre_processamento/orchestration/run_pipeline.py
 ```
-
-**Par├ómetros de Controle (onde alterar se precisar):**
-Arquivo: `src/cloud/base_model/pre_processamento/configs/cloud_config.yaml`
-* `paths.rclone_mount`: De onde baixar os Zips (Padr├úo configurado `PROJETOS/BTC_USDT_L2_2023_2026`)
-* `etl.orderbook_levels`: N├¡vel de profundidade (200)
-* `etl.resampling_interval`: Intervalo de tempo (1min)
-* `etl.max_workers`: Quantos n├║cleos usar (Sua VM usa 14).
-
-**Verifica├º├úo e Backup (Opcional):**
+> **Verificação Imediata:** Verifique se as contas bateram e o dado ETL é válido:
 ```bash
-# Validar se os Parquets foram gerados corretamente
 pytest tests/etl/test_cloud_etl_output.py -v -n 12
-
-# O log detalhado ser├í salvo automaticamente em:
-# /workspace/QuantGod_Cloud_TCNLSTM/logs/tests/last_run.log
 ```
-
-# Backup dos dados pré-processados para o Google Drive
+> **Salvar na Nuvem (Google Drive):** Envie para o Drive ANTES de prosseguir:
+```bash
 rclone copy data/L2/pre_processed drive:PROJETOS/PRE_PROCESSED_L2_2023_2026_1_MINUTE_18_FEATURES/ --config rclone.conf -P
 ```
 
-
-### ÔûÂ´©Å ETAPA 2: Labelling (Alvos de Compra/Venda)
-Este script l├¬ os `.parquets` rec├®m-processados, projeta os lucros futuros e espalha os R├│tulos/Classes (0=Sell, 1=Neutral, 2=Buy).
-
-**O Comando:**
+### ▶️ ETAPA 2: Labelling (Rótulos do Futuro)
+**Objetivo:** Projetar rentabilidade futura (+0.4% / -0.4%) e assentar Classes 0, 1 e 2 dinamicamente nas pastas.
 ```bash
 python src/cloud/base_model/labelling/run_labelling.py
 ```
-
-**Par├ómetros de Controle:**
-Arquivo: `src/cloud/base_model/configs/labelling_config.yaml`
-* `params.lookahead`: Janela no futuro para buscar lucro.
-* `params.threshold_short`: Gatilho Sell (Ex: `-0.004`).
-* `params.threshold_long`: Gatilho Buy (Ex: `0.004`).
-*(Ele cria uma pasta ├║nica, ex: `data/L2/labelled_SELL_0004_BUY_0004_1h`)*
-
-**Verifica├º├úo e Backup (Opcional):**
+> **Verificação Imediata:** Verifique a validade global dos rótulos (limiares matemáticos de precisão):
 ```bash
-# Validar distribui├º├úo de classes e integridade dos r├│tulos
 pytest tests/labelling/test_labelling_output.py -v -n 12
-
-# Backup dos dados rotulados para o Google Drive
+```
+> **Salvar na Nuvem (Google Drive):** Proteja os Rótulos no seu Drive:
+```bash
 rclone copy data/L2/labelled_* drive:PROJETOS/LABELLED_L2_2023_2026_1_MINUTE_18_FEATURES/ --config rclone.conf -P
 ```
 
-
-### ÔûÂ´©Å ETAPA 3: Treino (Optuna + Foundation + Specialization)
-O c├®rebro: ele devora os dados etiquetados, hiper-otimiza camadas usando Optuna, salva os Modelos Campe├Áes Dir / Macro e transfere o Pacote Foundation ao Google Drive de volta automaticamente.
-
-**O Comando:**
+### ▶️ ETAPA 3: Treinamento Pesado (Finetuning/Fundação)
+**Objetivo:** Rodar a busca Optuna, encontrar o Top 1, salvar o modelo campeão e gerar validações matemáticas.
+**ATENÇÃO:** Abra o `src/cloud/base_model/otimizacao/optimization_config.yaml` e atualize os caminhos do `train_dir` e `val_dir` para apontarem para a exata pasta gerada na "Etapa 2" (ex: `data/L2/splits_labelled_.../train`).
 ```bash
 python src/cloud/base_model/otimizacao/run_optuna.py
 ```
-
-**Par├ómetros de Controle:**
-Arquivo: `src/cloud/base_model/otimizacao/optimization_config.yaml`
-* **Importante:** Voc├¬ *DEVE* usar o Nano antes de rodar, para apontar o `train_dir` e `val_dir` exatamente para o nome da `labelled_...` gerada na Etapa 2.
-* `epochs`: O loop do limite de rede neural.
-* `optimization.n_trials`: Quantas arquiteturas distintas o Optuna deve chutar.
-* `optimization.run_specialized_after`: Se deve disparar a Subnet Especialista (True/False).
-
----
-
-## ­ƒöÆ Gerenciamento da Sess├úo Tmux (Background)
-
-**Como sair sem matar o modelo:**
-Com o log rodando intensamente na sua tela (Seja no Optuna, ETL ou Label)...
-1. Pressione `Ctrl+B` (Solte os bot├Áes).
-2. Aperte rapidamente `D` (Apenas a letra D de *detach*).
-O processamento passar├í a rodar isolado num Daemon Linux em background. Voc├¬ pode fechar a janela do SSH sem medo.
-
-**Para voltar amanh├ú e ver como est├í andando:**
-```bash
-tmux attach -t quantgod
-```
-
-Boa ca├ºada, seu cluster TCN-LSTM com 16 recursos microestruturais e Optuna robusto est├í 100% blindado para rodar em produ├º├úo! Ôÿü´©Å­ƒöÑ
-
