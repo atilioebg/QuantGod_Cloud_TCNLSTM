@@ -20,16 +20,17 @@ apt-get update && apt-get install -y nano tmux pciutils wget curl unzip zip htop
 sudo -v ; curl https://rclone.org/install.sh | sudo bash
 ```
 
-**2.2 - Criar o diretório raiz para o Workspace:**
-(Aqui viverão os dados persistentes no volume de Network).
+**2.2 - Preparar o Workspace Interno:**
+Tudo deve viver dentro da pasta do projeto para facilitar caminhos relativos.
 ```bash
-cd /workspace
+cd /workspace/QuantGod_Cloud_TCNLSTM
 mkdir -p data logs
 ```
 
-**2.3 - Injetar o Token do Google Drive:**
+**2.3 - Configurar o token do Google Drive:**
+Crie o arquivo de configuração do Rclone usando o `nano` dentro da raiz do projeto:
 ```bash
-nano /workspace/rclone.conf
+nano rclone.conf
 ```
 Dentro do Nano, cole a configuração do seu token:
 ```ini
@@ -89,7 +90,7 @@ Ao chamar os scripts internos a partir da raiz num Linux cru, o Python pode não
 **Solução (Faça isso antes de rodar os scripts):**
 Avise ao Python para enxergar a pasta atual do RunPod como parte de suas bibliotecas injetando-a no `PYTHONPATH`:
 ```bash
-export PYTHONPATH="${PYTHONPATH}:/workspace/QuantGod_Cloud_TCNLSTM"
+export PYTHONPATH="${PYTHONPATH}:$(pwd)"
 ```
 *(Você precisará rodar essa linha novamente toda vez que reiniciar a VM ou criar um novo terminal).*
 
