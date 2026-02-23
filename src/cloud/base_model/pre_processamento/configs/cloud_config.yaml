@@ -11,6 +11,7 @@ etl:
   orderbook_levels: 200      # Hard Cut 200
   compression: "snappy"
   batch_size_zips: 10        # Number of zips to process in a single batch
+  max_workers: 11            # Max parallel threads for processing Zips
 
 features:
   normalization: "log_returns" # log_returns, z-score, or both
