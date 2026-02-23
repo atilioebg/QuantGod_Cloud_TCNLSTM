@@ -1,7 +1,7 @@
 # Labelling Configuration
 paths:
-  input_dir: "/workspace/data/L2/pre_processed"
-  output_dir: "/workspace/data/L2/labelled"
+  input_dir: "data/L2/pre_processed"
+  output_dir: "data/L2/labelled"
 
 params:
   lookahead: 60           # 1h lookahead for 1min candles
