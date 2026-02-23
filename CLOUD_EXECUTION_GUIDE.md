@@ -24,7 +24,7 @@ sudo -v ; curl https://rclone.org/install.sh | sudo bash
 Aqui viver├úo os dados persistentes no volume de Network.
 ```bash
 cd /workspace
-mkdir -p data logs
+mkdir -p data
 ```
 
 **2.3 - Configurar o token do Google Drive:**
@@ -126,7 +126,7 @@ pytest tests/etl/test_cloud_etl_output.py -v -n 12
 ```
 
 # Backup dos dados pré-processados para o Google Drive
-rclone copy data/L2/pre_processed drive:PROJETOS/PRE_PROCESSED_L2_2023_2026_1_MINUTE_18_FEATURES/ --config /workspace/rclone.conf -P
+rclone copy data/L2/pre_processed drive:PROJETOS/PRE_PROCESSED_L2_2023_2026_1_MINUTE_18_FEATURES/ --config rclone.conf -P
 ```
 
 
@@ -151,7 +151,7 @@ Arquivo: `src/cloud/base_model/configs/labelling_config.yaml`
 pytest tests/labelling/test_labelling_output.py -v -n 12
 
 # Backup dos dados rotulados para o Google Drive
-rclone copy data/L2/labelled_* drive:PROJETOS/LABELLED_L2_2023_2026_1_MINUTE_18_FEATURES/ --config /workspace/rclone.conf -P
+rclone copy data/L2/labelled_* drive:PROJETOS/LABELLED_L2_2023_2026_1_MINUTE_18_FEATURES/ --config rclone.conf -P
 ```
 
 
