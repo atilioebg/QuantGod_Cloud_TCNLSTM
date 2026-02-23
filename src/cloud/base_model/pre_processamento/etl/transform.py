@@ -265,6 +265,9 @@ class L2Transformer:
         # Stationarity & Candle Shape
         prev_close = final_df['close'].shift(1)
         
+        # Defragment dataframe before bulk insertions to prevent PerformanceWarning
+        final_df = final_df.copy()
+        
         # Core Candle Shape Features (Institutional Standard)
         # Body: Real movement within candle
         final_df['body'] = np.log(final_df['close'] / final_df['open'])
