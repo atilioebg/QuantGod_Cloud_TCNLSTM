@@ -120,6 +120,10 @@ Arquivo: `src/cloud/base_model/pre_processamento/configs/cloud_config.yaml`
 # Validar se os Parquets foram gerados corretamente
 pytest tests/test_cloud_etl_output.py -v
 
+# O log detalhado será salvo automaticamente em:
+# /workspace/QuantGod_Cloud_TCNLSTM/logs/tests/last_run.log
+```
+
 # Backup dos dados pré-processados para o Google Drive
 rclone copy /workspace/data/L2/pre_processed drive:PROJETOS/PRE_PROCESSED_L2_2023_2026_1_MINUTE_18_FEATURES/ --config /workspace/rclone.conf -P
 ```
