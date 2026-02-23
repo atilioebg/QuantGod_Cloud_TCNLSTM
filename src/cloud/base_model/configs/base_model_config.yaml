@@ -6,7 +6,7 @@
 # =============================================================================
 
 model:
-  num_features: 9
+  num_features: 16
   num_classes: 3
   feature_names:
     - body
@@ -18,6 +18,13 @@ model:
     - mean_obi
     - mean_deep_obi
     - log_volume
+    - ofi
+    - micro_price_momentum
+    - bid_slope
+    - ask_slope
+    - bid_rdi
+    - ask_rdi
+    - pressure_ratio
 
 training:
   # Fallback class weights (inverse-frequency, ~78% Neutral / ~11% SELL / ~11% BUY).

@@ -156,7 +156,7 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
 
             f1_weighted = f1_score(all_targets, all_preds, average='weighted', zero_division=0)
             f1_macro    = f1_score(all_targets, all_preds, average='macro',    zero_division=0)
-            f1_per_cls  = f1_score(all_targets, all_preds, average=None,       zero_division=0)
+            f1_per_cls  = f1_score(all_targets, all_preds, average=None,       zero_division=0, labels=[0, 1, 2])
             f1_dir      = (f1_per_cls[0] + f1_per_cls[2]) / 2
             current_lr  = scheduler.get_last_lr()[0]
 
@@ -363,10 +363,6 @@ def run_optimization():
     # ── Pipeline Automation ───────────────────────────────────────────────────
     logger.info("="*60)
     logger.info("🚀 INICIANDO TRANSFERÊNCIA BASE (FOUNDATION) 🚀")
-    
-    import sys
-    import subprocess
-    import logging
     
     # 0. Descobrir o nome exato do arquivo de log (.log) gerado pelo setup_logger com precisão (incluindo timestamp)
     log_filename = "optimization.log" # Fallback
