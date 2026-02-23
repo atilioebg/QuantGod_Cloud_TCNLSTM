@@ -332,9 +332,6 @@ class L2Transformer:
 
         # Log the new column set for traceability
         new_cols_present = [c for c in dynamic_features if c in final_df.columns]
-        logger.info(f"[transform] Generated microstructure features: {new_cols_present}")
-        nan_count = final_df[new_cols_present].isna().sum().sum()
-        logger.info(f"[transform] NaN count in dynamic features after dropna: {nan_count}")
 
         return final_df.dropna()
 
