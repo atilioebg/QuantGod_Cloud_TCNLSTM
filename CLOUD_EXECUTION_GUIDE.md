@@ -151,7 +151,7 @@ Arquivo: `src/cloud/base_model/configs/labelling_config.yaml`
 pytest tests/labelling/test_labelling_output.py -v -n 12
 
 # Backup dos dados rotulados para o Google Drive
-rclone copy /workspace/data/L2/labelled drive:PROJETOS/LABELLED_L2_2023_2026_1_MINUTE_18_FEATURES/ --config /workspace/rclone.conf -P
+rclone copy /workspace/data/L2/labelled_* drive:PROJETOS/LABELLED_L2_2023_2026_1_MINUTE_18_FEATURES/ --config /workspace/rclone.conf -P
 ```
 
 
@@ -186,3 +186,4 @@ tmux attach -t quantgod
 ```
 
 Boa ca├ºada, seu cluster TCN-LSTM com 16 recursos microestruturais e Optuna robusto est├í 100% blindado para rodar em produ├º├úo! Ôÿü´©Å­ƒöÑ
+
