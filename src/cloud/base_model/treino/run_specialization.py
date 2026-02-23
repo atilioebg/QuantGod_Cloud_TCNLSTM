@@ -21,6 +21,7 @@ from src.cloud.base_model.models.model import Hybrid_TCN_LSTM
 from src.cloud.base_model.treino.losses import FocalLossWithSmoothing, compute_alpha_from_labels
 from sklearn.preprocessing import StandardScaler
 from src.cloud.base_model.utils.logging_utils import setup_logger
+from src.cloud.base_model.utils.experiment_utils import resolve_data_paths
 
 logger = logging.getLogger(__name__)
 
@@ -123,17 +124,9 @@ def run_specialization():
     # ── Data Loading Logic ─────────────────────────────────────────────────────
     # Standard: train = train_dir, val = val_dir
     # Specialization: Read directly from the newly generated 85/15 specialized splits
-    original_train_dir = Path(train_cfg['paths'].get('train_dir', ''))
-    
-    parent_folder = original_train_dir.parent
-    specialized_parent = parent_folder.parent / f"specialized_{parent_folder.name}"
-    
-    spec_train_dir = str(specialized_parent / "train")
-    spec_val_dir   = str(specialized_parent / "val")
-    
-    if not Path(spec_train_dir).exists() or not Path(spec_val_dir).exists():
-        logger.error(f"❌ Specialized splits not found at {specialized_parent}. Please run create_specialized_splits.py first.")
-        sys.exit(1)
+    # ── Resolve AUTO paths ─────────────────────────────────────────────────
+    train_cfg['paths']['train_dir'], train_cfg['paths']['val_dir'] = resolve_data_paths(train_cfg['paths'])
+    spec_train_dir, spec_val_dir = train_cfg['paths']['train_dir'], train_cfg['paths']['val_dir']
 
     logger.info(f"Specialization Train Set: {spec_train_dir}")
     logger.info(f"Specialization Val Set:   {spec_val_dir}")

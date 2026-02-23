@@ -1,0 +1,65 @@
+import yaml
+import logging
+from pathlib import Path
+import os
+import re
+
+logger = logging.getLogger(__name__)
+
+def get_labelling_suffix(params: dict) -> str:
+    """
+    Generates standard suffix: _SELL_0004_BUY_0004_1h
+    """
+    s_val = int(round(abs(params.get('threshold_short', 0)) * 1000))
+    b_val = int(round(abs(params.get('threshold_long', 0)) * 1000))
+    h_val = int(params.get('lookahead', 60) / 60)
+    return f"_SELL_{s_val:04d}_BUY_{b_val:04d}_{h_val}h"
+
+def resolve_active_labelled_dir() -> Path:
+    """
+    Determines the correct labelled directory based on labelling_config.yaml.
+    """
+    config_path = Path("src/cloud/base_model/labelling/labelling_config.yaml")
+    if not config_path.exists():
+        # Fallback to most recent folder if config missing
+        base = Path("data/L2")
+        dirs = sorted(list(base.glob("labelled_*")))
+        return dirs[-1] if dirs else base / "labelled"
+
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    
+    suffix = get_labelling_suffix(config['params'])
+    base_output = Path(config['paths']['output_dir'])
+    
+    # If the base output dir doesn't already end with the suffix, append it
+    if not base_output.name.endswith(suffix):
+        return base_output.parent / f"{base_output.name}{suffix}"
+    return base_output
+
+def resolve_data_paths(config_paths: dict) -> tuple:
+    """
+    Resolves train_dir and val_dir. If set to "AUTO", it uses the active labelled directory.
+    Returns (train_path, val_path).
+    """
+    train_dir = config_paths.get('train_dir')
+    val_dir = config_paths.get('val_dir')
+    
+    if train_dir == "AUTO" or val_dir == "AUTO":
+        active_dir = resolve_active_labelled_dir()
+        
+        # Check if it should be in a splits subfolder (like splits_labelled_.../train)
+        # We check for the splits variant first
+        splits_dir = active_dir.parent / f"splits_{active_dir.name}"
+        
+        if splits_dir.exists():
+            resolved_train = splits_dir / "train"
+            resolved_val = splits_dir / "val"
+        else:
+            # Fallback to base labelled dir (using it for both if no splits)
+            resolved_train = active_dir
+            resolved_val = active_dir
+            
+        return str(resolved_train), str(resolved_val)
+    
+    return train_dir, val_dir

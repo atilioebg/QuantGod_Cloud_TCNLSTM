@@ -10,25 +10,11 @@ import numpy as np
 from pathlib import Path
 
 # ─── Directory constants (single source of truth for all tests) ──────────────
+from src.cloud.base_model.utils.experiment_utils import resolve_active_labelled_dir
+
 PRE_PROCESSED_DIR = Path("data/L2/pre_processed")
 LABELLED_BASE_DIR = Path("data/L2")
-
-def _get_active_labelled_dir() -> Path:
-    """Helper to find the most recent labelled directory if default fails."""
-    # Prioridade para o que estiver no ambiente
-    import os
-    env_v = os.getenv("LABELLED_DIR")
-    if env_v:
-        return Path(env_v)
-    
-    # Busca a pasta mais recente gerada no Step 2
-    labelled_dirs = sorted(list(LABELLED_BASE_DIR.glob("labelled_*")))
-    if labelled_dirs:
-        return labelled_dirs[-1]
-    
-    return LABELLED_BASE_DIR / "labelled_SELL_0004_BUY_0004_1h"
-
-ACTIVE_LABELLED_DIR = _get_active_labelled_dir()
+ACTIVE_LABELLED_DIR = resolve_active_labelled_dir()
 
 FEATURE_NAMES = [
     "body", "upper_wick", "lower_wick", "log_ret_close",

@@ -1,7 +1,7 @@
 
 paths:
-  train_dir: "data/L2/splits_labelled_SELL_0004_BUY_0004_1h/train"
-  val_dir: "data/L2/splits_labelled_SELL_0004_BUY_0004_1h/val"
+  train_dir: "AUTO"
+  val_dir: "AUTO"
   # Macro champion paths (F1 Macro-optimized)
   model_output_macro: "data/models/best_tcn_lstm.pt"
   scaler_output_macro: "data/models/scaler_finetuning.pkl"

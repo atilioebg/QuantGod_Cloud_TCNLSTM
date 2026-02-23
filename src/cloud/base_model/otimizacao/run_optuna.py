@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 from src.cloud.base_model.utils.logging_utils import setup_logger
+from src.cloud.base_model.utils.experiment_utils import resolve_data_paths
 
 logger = logging.getLogger(__name__)
 
@@ -248,9 +249,11 @@ def run_optimization():
     import re
     match = re.search(r"(_SELL_.*)$", str(train_dir_path.parent))
     if match:
-        suffix = match.group(1)
-        
     setup_logger("optimization", suffix)
+
+    # ── Resolve AUTO paths ──────────────────────────────────────────────────
+    config['paths']['train_dir'], config['paths']['val_dir'] = resolve_data_paths(config['paths'])
+    logger.info(f"📁 DYNAMIC DATA PATHS: Train={config['paths']['train_dir']} | Val={config['paths']['val_dir']}")
 
     # ── Data ──────────────────────────────────────────────────────────────────
     logger.info("Loading data for optimization...")
