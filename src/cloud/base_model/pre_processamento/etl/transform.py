@@ -9,6 +9,10 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# Microstructure feature depth (top-N levels for OFI/Slope/RDI)
+_FLOW_DEPTH = 5
+
+
 class L2Transformer:
     def __init__(self, levels: int = 200, sampling_ms: int = 1000):
         self.levels = levels
@@ -17,10 +21,20 @@ class L2Transformer:
         self.asks_book: Dict[float, float] = {}
         self.last_sample_ts: int = -1
 
+        # ── T-1 State (for dynamic flow features) ────────────────────────────
+        self._prev_bids: list = []   # list of (price, size) tuples, top N sorted
+        self._prev_asks: list = []   # list of (price, size) tuples, top N sorted
+        self._prev_micro_price: float = np.nan
+        self._prev_obi_l0: float = 0.0
+
     def reset_book(self):
         self.bids_book = {}
         self.asks_book = {}
         self.last_sample_ts = -1
+        self._prev_bids = []
+        self._prev_asks = []
+        self._prev_micro_price = np.nan
+        self._prev_obi_l0 = 0.0
 
     def process_message(self, msg: Dict) -> Optional[Dict]:
         """
@@ -49,14 +63,21 @@ class L2Transformer:
 
         # 2. Temporal Sampling
         if self.last_sample_ts == -1 or ts - self.last_sample_ts >= self.sampling_ms:
+            # Audit fix: if gap > 2 x sampling_ms, purge T-1 state (cross-file / data hole guard)
+            if self.last_sample_ts != -1 and ts - self.last_sample_ts > 2 * self.sampling_ms:
+                logger.debug(f"[transform] Timestamp gap detected ({ts - self.last_sample_ts}ms). Resetting T-1 state.")
+                self._prev_bids = []
+                self._prev_asks = []
+                self._prev_micro_price = np.nan
+                self._prev_obi_l0 = 0.0
             self.last_sample_ts = (ts // self.sampling_ms) * self.sampling_ms
             return self._capture_state(self.last_sample_ts)
         
         return None
 
     def _capture_state(self, ts: int) -> Dict:
-        """Captures the top N levels (Hard Cut) and basic features."""
-        # Top 200 Bids (Desc)
+        """Captures the top N levels and all dynamic microstructure features."""
+        # Top Bids (Desc) / Asks (Asc)
         sorted_bids = sorted(self.bids_book.keys(), reverse=True)[:self.levels]
         sorted_asks = sorted(self.asks_book.keys())[:self.levels]
 
@@ -66,28 +87,112 @@ class L2Transformer:
                 logger.warning(f"Orderbook crossed at {ts}: Bid {sorted_bids[0]} >= Ask {sorted_asks[0]}")
 
         row = {"ts": ts}
-        
-        # Micro-price and basic features using Top 1
+
+        # ── Level 0 base features ─────────────────────────────────────────────
         bid0_p = sorted_bids[0] if sorted_bids else np.nan
         bid0_s = self.bids_book[bid0_p] if sorted_bids else 0.0
         ask0_p = sorted_asks[0] if sorted_asks else np.nan
         ask0_s = self.asks_book[ask0_p] if sorted_asks else 0.0
+        total_0 = bid0_s + ask0_s
 
         if sorted_bids and sorted_asks:
-            row['micro_price'] = (bid0_p * ask0_s + ask0_p * bid0_s) / (bid0_s + ask0_s) if (bid0_s + ask0_s) > 0 else np.nan
-            row['spread'] = ask0_p - bid0_p
-            row['obi_l0'] = (bid0_s - ask0_s) / (bid0_s + ask0_s) if (bid0_s + ask0_s) > 0 else 0.0
+            micro_price = (bid0_p * ask0_s + ask0_p * bid0_s) / total_0 if total_0 > 0 else np.nan
+            obi_l0 = (bid0_s - ask0_s) / total_0 if total_0 > 0 else 0.0
+            row['spread'] = ask0_p - bid0_p  # Spread Intensity
         else:
-            row['micro_price'] = np.nan
+            micro_price = np.nan
+            obi_l0 = 0.0
             row['spread'] = np.nan
-            row['obi_l0'] = 0.0
 
-        # Deep Imbalance (Levels 0-4)
-        bid_vol_5 = sum(self.bids_book.get(p, 0.0) for p in sorted_bids[:5])
-        ask_vol_5 = sum(self.asks_book.get(p, 0.0) for p in sorted_asks[:5])
-        row['deep_obi_5'] = (bid_vol_5 - ask_vol_5) / (bid_vol_5 + ask_vol_5) if (bid_vol_5 + ask_vol_5) > 0 else 0.0
+        row['micro_price'] = micro_price
+        row['obi_l0'] = obi_l0
 
-        # Hard Cut 200 levels (Full orderbook state if needed, but we mainly use aggregates)
+        # ── Top-N aggregates for OFI, Slope, RDI ─────────────────────────────
+        n = _FLOW_DEPTH
+        top_bids = [(p, self.bids_book[p]) for p in sorted_bids[:n]]
+        top_asks = [(p, self.asks_book[p]) for p in sorted_asks[:n]]
+
+        bid_vols = [s for _, s in top_bids]
+        ask_vols = [s for _, s in top_asks]
+        bid_vol_n = sum(bid_vols)
+        ask_vol_n = sum(ask_vols)
+
+        row['deep_obi_5'] = (bid_vol_n - ask_vol_n) / (bid_vol_n + ask_vol_n) if (bid_vol_n + ask_vol_n) > 0 else 0.0
+
+        # ── Book Slope (Elasticity): ΔVol / ΔPrice for top N levels ──────────
+        if len(top_bids) >= n and top_bids[0][0] != top_bids[-1][0]:
+            row['bid_slope'] = bid_vol_n / abs(top_bids[0][0] - top_bids[-1][0])
+        else:
+            row['bid_slope'] = 0.0
+
+        if len(top_asks) >= n and top_asks[0][0] != top_asks[-1][0]:
+            row['ask_slope'] = ask_vol_n / abs(top_asks[-1][0] - top_asks[0][0])
+        else:
+            row['ask_slope'] = 0.0
+
+        # ── Relative Depth Imbalance (RDI): Levels 1-4 vs Level 0 ────────────
+        bid_depth_1_4 = sum(bid_vols[1:]) if len(bid_vols) > 1 else 0.0
+        ask_depth_1_4 = sum(ask_vols[1:]) if len(ask_vols) > 1 else 0.0
+        row['bid_rdi'] = (bid_depth_1_4 / bid0_s) if bid0_s > 0 else 0.0
+        row['ask_rdi'] = (ask_depth_1_4 / ask0_s) if ask0_s > 0 else 0.0
+
+        # ── Dynamic Flow Features (require T-1 state) ─────────────────────────
+        prev_b = self._prev_bids
+        prev_a = self._prev_asks
+
+        if prev_b and prev_a:
+            # OFI (Cont et al.) for each of the top N levels
+            ofi_total = 0.0
+            for i in range(n):
+                # Bid side
+                if i < len(top_bids) and i < len(prev_b):
+                    cp, cs = top_bids[i]
+                    pp, ps = prev_b[i]
+                    if cp > pp:   ofi_bid_i = cs
+                    elif cp == pp: ofi_bid_i = cs - ps
+                    else:          ofi_bid_i = -ps
+                else:
+                    ofi_bid_i = 0.0
+
+                # Ask side (inverted sign convention)
+                if i < len(top_asks) and i < len(prev_a):
+                    cp, cs = top_asks[i]
+                    pp, ps = prev_a[i]
+                    if cp < pp:   ofi_ask_i = cs
+                    elif cp == pp: ofi_ask_i = cs - ps
+                    else:          ofi_ask_i = -ps
+                else:
+                    ofi_ask_i = 0.0
+
+                ofi_total += ofi_bid_i - ofi_ask_i
+
+            row['ofi'] = ofi_total
+
+            # MicroPrice Momentum: log-return of MicroPrice
+            if not np.isnan(micro_price) and not np.isnan(self._prev_micro_price) and self._prev_micro_price > 0:
+                row['micro_price_momentum'] = np.log(micro_price / self._prev_micro_price)
+            else:
+                row['micro_price_momentum'] = 0.0
+
+            # Pressure Ratio: % velocity of OBI change
+            prev_obi = self._prev_obi_l0
+            if abs(prev_obi) > 1e-9:
+                row['pressure_ratio'] = (obi_l0 - prev_obi) / abs(prev_obi)
+            else:
+                row['pressure_ratio'] = 0.0
+        else:
+            # First snapshot: zero-fill dynamic features (will be dropped by dropna if NaN)
+            row['ofi'] = 0.0
+            row['micro_price_momentum'] = 0.0
+            row['pressure_ratio'] = 0.0
+
+        # ── Update T-1 state ──────────────────────────────────────────────────
+        self._prev_bids = top_bids
+        self._prev_asks = top_asks
+        self._prev_micro_price = micro_price
+        self._prev_obi_l0 = obi_l0
+
+        # ── Hard Cut: all 200 raw levels ──────────────────────────────────────
         for i in range(self.levels):
             if i < len(sorted_bids):
                 p = sorted_bids[i]
@@ -96,7 +201,7 @@ class L2Transformer:
             else:
                 row[f"bid_{i}_p"] = np.nan
                 row[f"bid_{i}_s"] = 0.0
-                
+
             if i < len(sorted_asks):
                 p = sorted_asks[i]
                 row[f"ask_{i}_p"] = p
@@ -104,7 +209,7 @@ class L2Transformer:
             else:
                 row[f"ask_{i}_p"] = np.nan
                 row[f"ask_{i}_s"] = 0.0
-        
+
         return row
 
     def apply_feature_engineering(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -116,34 +221,42 @@ class L2Transformer:
         df['datetime'] = pd.to_datetime(df['ts'], unit='ms')
         df.set_index('datetime', inplace=True)
         
-        # Resampling 1min
-        # Note: We keep micro_price for OHLC and other aggregates
-        # Prepare aggregation for all levels
+        # ── Resampling 1min ───────────────────────────────────────────────────
+        # OFI is summed (net flow per minute), most others are averaged/last
         agg_map = {
             'micro_price': 'std',
             'spread': 'max',
             'obi_l0': 'mean',
-            'deep_obi_5': 'mean'
+            'deep_obi_5': 'mean',
+            # New dynamic features
+            'ofi': 'sum',                  # Total net flow per minute
+            'micro_price_momentum': 'sum', # Cumulated log-return of micro-price
+            'bid_slope': 'mean',
+            'ask_slope': 'mean',
+            'bid_rdi': 'mean',
+            'ask_rdi': 'mean',
+            'pressure_ratio': 'mean',
         }
-        # Include all bid/ask levels in the aggregation (using 'last' to represent best state at EOM)
-        ob_cols_raw = [c for c in df.columns if 'bid_' in c or 'ask_' in c]
+        # Include all raw orderbook levels (using 'last' to represent best state at EOM)
+        ob_cols_raw = [c for c in df.columns if ('bid_' in c or 'ask_' in c)
+                       and not c.endswith(('_slope', '_rdi'))]
         for col in ob_cols_raw:
             agg_map[col] = 'last'
 
         resampled_others = df.resample('1min').agg(agg_map)
-        
+
         # For Log Volume, we use tick count in the interval
         df['tick_count'] = 1
         resampled_vol = df['tick_count'].resample('1min').sum()
 
         resampled_ohlc = df['micro_price'].resample('1min').ohlc()
         final_df = pd.concat([resampled_ohlc, resampled_others, resampled_vol], axis=1)
-        # Match legacy names for aggregated features
-        agg_col_names = ['open', 'high', 'low', 'close', 'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi']
-        # Ensure all columns are present before renaming
-        expected_agg = ['open', 'high', 'low', 'close', 'volatility', 'max_spread', 'obi_l0', 'deep_obi_5']
-        
-        # Select existing columns carefully
+
+        # ── Rename fixed aggregated columns ───────────────────────────────────
+        # The ohlc comes first, then the agg_map columns in insertion order
+        new_dynamic_cols = ['ofi', 'micro_price_momentum', 'bid_slope', 'ask_slope', 'bid_rdi', 'ask_rdi', 'pressure_ratio']
+        agg_col_names = ['open', 'high', 'low', 'close', 'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi'] + new_dynamic_cols
+
         final_df.columns = agg_col_names + ob_cols_raw + ['tick_count']
         
         # Cleanup
@@ -162,41 +275,71 @@ class L2Transformer:
         final_df['log_ret_close'] = np.log(final_df['close'] / prev_close)
         final_df['log_volume'] = np.log1p(final_df['tick_count'])
 
-        # Final Feature List (Updated for ViViT / Transformer best practices)
+        # ── Final Feature List (including all 7 new dynamic columns) ─────────
+        dynamic_features = [
+            'ofi', 'micro_price_momentum', 'bid_slope', 'ask_slope',
+            'bid_rdi', 'ask_rdi', 'pressure_ratio'
+        ]
         agg_features = [
             'body', 'upper_wick', 'lower_wick', 'log_ret_close',
             'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi', 'log_volume'
-        ]
-        
-        # Keep aggregated features, the target base 'close', AND all raw orderbook levels (bid_X_p, bid_X_s, etc.)
-        ob_cols = [c for c in final_df.columns if any(x in c for x in ['bid_', 'ask_'])]
-        final_cols = agg_features + ['close'] + ob_cols
-        
-        # Ensure we only keep what exists and drop raw OHLCTick intermediate columns
+        ] + dynamic_features
+
+        # Keep aggregated features + 'close' (label base) + raw orderbook levels
+        ob_cols = [c for c in final_df.columns if any(x in c for x in ['bid_', 'ask_'])
+                   and not c.endswith(('_slope', '_rdi'))]
+        final_cols = [c for c in agg_features + ['close'] + ob_cols if c in final_df.columns]
         final_df = final_df[final_cols]
-        
+
+        # Log the new column set for traceability
+        new_cols_present = [c for c in dynamic_features if c in final_df.columns]
+        logger.info(f"[transform] Generated microstructure features: {new_cols_present}")
+        nan_count = final_df[new_cols_present].isna().sum().sum()
+        logger.info(f"[transform] NaN count in dynamic features after dropna: {nan_count}")
+
         return final_df.dropna()
 
     def apply_zscore(self, df: pd.DataFrame, scaler_path: Optional[str] = None) -> pd.DataFrame:
-        """Applies Z-Score normalization and saves/loads scaler."""
-        cols_to_norm = ['volatility', 'max_spread', 'mean_obi', 'mean_deep_obi', 'log_volume', 
-                        'log_ret_open', 'log_ret_high', 'log_ret_low', 'log_ret_close']
-        
+        """
+        Normalizes features.
+        - Original OHLC/OBI features: StandardScaler (backward compatible with saved scalers).
+        - New heavy-tailed flow features (OFI, Slope, etc.): RobustScaler to avoid
+          extreme OFI spikes saturating TCN ReLU/GELU activations.
+        """
+        original_cols = [
+            'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi', 'log_volume', 'log_ret_close',
+        ]
+        flow_cols = [
+            'ofi', 'micro_price_momentum', 'bid_slope', 'ask_slope',
+            'bid_rdi', 'ask_rdi', 'pressure_ratio',
+        ]
+        original_cols = [c for c in original_cols if c in df.columns]
+        flow_cols     = [c for c in flow_cols     if c in df.columns]
+
         if df.empty: return df
 
-        # Simple Z-Score for now, could be enhanced with sklearn StandardScaler for persistence
         if scaler_path and Path(scaler_path).exists():
             with open(scaler_path, 'rb') as f:
-                scaler = pickle.load(f)
-            df[cols_to_norm] = scaler.transform(df[cols_to_norm])
+                scaler_bundle = pickle.load(f)
+            # Support both old (single scaler) and new (dict of scalers) format
+            if isinstance(scaler_bundle, dict):
+                std_sc  = scaler_bundle['standard']
+                rob_sc  = scaler_bundle['robust']
+                if original_cols: df[original_cols] = std_sc.transform(df[original_cols])
+                if flow_cols:     df[flow_cols]     = rob_sc.transform(df[flow_cols])
+            else:
+                # Legacy: single StandardScaler — apply only to original cols
+                all_legacy = [c for c in original_cols if c in df.columns]
+                if all_legacy: df[all_legacy] = scaler_bundle.transform(df[all_legacy])
         else:
-            # Calculate and save if requested
-            from sklearn.preprocessing import StandardScaler
-            scaler = StandardScaler()
-            df[cols_to_norm] = scaler.fit_transform(df[cols_to_norm])
+            from sklearn.preprocessing import StandardScaler, RobustScaler
+            std_sc = StandardScaler()
+            rob_sc = RobustScaler()
+            if original_cols: df[original_cols] = std_sc.fit_transform(df[original_cols])
+            if flow_cols:     df[flow_cols]     = rob_sc.fit_transform(df[flow_cols])
             if scaler_path:
                 Path(scaler_path).parent.mkdir(parents=True, exist_ok=True)
                 with open(scaler_path, 'wb') as f:
-                    pickle.dump(scaler, f)
-        
+                    pickle.dump({'standard': std_sc, 'robust': rob_sc}, f)
+
         return df
