@@ -8,10 +8,9 @@ from pathlib import Path
 # CONFIGURAÇÃO DE DIRETÓRIO (Compatível com RunPod e Local)
 # =============================================================================
 def get_default_dir():
-    cloud_path = Path("/workspace/data/L2/pre_processed")
-    if os.name != "nt" and cloud_path.exists():
-        return cloud_path
-    return Path("data/L2/pre_processed")
+    # Agora usamos apenas paths relativos, assumindo que o teste roda da raiz do repo
+    rel_path = Path("data/L2/pre_processed")
+    return rel_path
 
 TEST_DATA_DIR = Path(os.getenv("PRE_PROCESSED_DIR", get_default_dir()))
 

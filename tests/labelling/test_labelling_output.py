@@ -47,21 +47,31 @@ def pytest_addoption(parser):
 def get_labelled_dir(request=None) -> Path:
     """Resolve labelled directory: CLI arg > env var > conftest constant."""
     if request is not None:
-        cli = request.config.getoption("--labelled-dir", default=None)
-        if cli:
-            return Path(cli)
+        try:
+            cli = request.config.getoption("--labelled-dir", default=None)
+            if cli:
+                return Path(cli)
+        except (ValueError, AttributeError):
+            pass
     
-    # Prioridade para RunPod absolute path se existir
-    cloud_base = Path("/workspace/data/L2")
-    if os.name != "nt" and cloud_base.exists():
-        # Busca a pasta mais recente de labelled
-        labelled_dirs = sorted(list(cloud_base.glob("labelled_*")))
-        if labelled_dirs:
-            return labelled_dirs[-1]
-        return cloud_base / "labelled"
+    # Importamos a lógica centralizada do conftest para evitar divergência
+    try:
+        from tests.conftest import ACTIVE_LABELLED_DIR
+        if ACTIVE_LABELLED_DIR.exists():
+            return ACTIVE_LABELLED_DIR
+    except ImportError:
+        pass
+
+    # Fallback local se conftest falhar por algum motivo
+    env_v = os.getenv("LABELLED_DIR")
+    if env_v:
+        return Path(env_v)
         
-    default_dir = os.getenv("LABELLED_DIR", "data/L2/labelled_SELL_0004_BUY_0008_1h")
-    return Path(default_dir)
+    labelled_dirs = sorted(list(Path("data/L2").glob("labelled_*")))
+    if labelled_dirs:
+        return labelled_dirs[-1]
+        
+    return Path("data/L2/labelled_SELL_0004_BUY_0004_1h")
 
 
 def get_labelled_files(request=None) -> list:
@@ -92,12 +102,7 @@ class TestLabelledDirectory:
 
     def test_file_count_matches_pre_processed(self):
         """Number of labelled files must match pre_processed directory (same dates)."""
-        # Tenta resolver o caminho absoluto do RunPod primeiro
-        cloud_path = Path("/workspace/data/L2/pre_processed")
-        if os.name != "nt" and cloud_path.exists():
-            pre_processed = cloud_path
-        else:
-            pre_processed = Path(os.getenv("PRE_PROCESSED_DIR", "data/L2/pre_processed"))
+        pre_processed = Path(os.getenv("PRE_PROCESSED_DIR", "data/L2/pre_processed"))
 
         if not pre_processed.exists():
             pytest.skip(f"pre_processed dir not found at {pre_processed} — skipping check")
