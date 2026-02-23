@@ -101,57 +101,27 @@ export PYTHONPATH="${PYTHONPATH}:/workspace/QuantGod_Cloud_TCNLSTM"
 
 O processo ponta a ponta é composto por 3 scripts Python que rodam sequencialmente, cada um consumindo configurações de um `.yaml` diferente.
 
-### ▶️ ETAPA 1: ETL (Extração e Transformação)
-Este script baixa os Zips crus do Google Drive, cria as 16 variáveis de microestrutura (OFI, Slope, Momentum) usando processamento paralelo pesado e salva os arquivos `.parquet` escalonados via Snappy sem perda de dados.
+### ▶️ ETAPA 1 e 2: O Pipeline de Dados 1-Click (ETL + Labelling Automation)
+Criamos um script wrapper `Fail-Fast` chamado `run_pipeline.sh`. Ele executa a extração dos zips, a engenharia de microestrutura "Time-Aware" (sem pulos no tempo), roda a auditoria do Pytest com 12 núcleos e emenda com o Labelling de alvos. 
 
-**O Comando:**
+**O Comando Único:**
 ```bash
-python src/cloud/base_model/pre_processamento/orchestration/run_pipeline.py
+chmod +x run_pipeline.sh
+./run_pipeline.sh
 ```
 
 **Parâmetros de Controle (onde alterar se precisar):**
-Arquivo: `src/cloud/base_model/pre_processamento/configs/cloud_config.yaml`
-* `paths.rclone_mount`: De onde baixar os Zips (Padrão configurado `PROJETOS/BTC_USDT_L2_2023_2026`)
-* `etl.orderbook_levels`: Nível de profundidade (200)
-* `etl.resampling_interval`: Intervalo de tempo (1min)
-* `etl.max_workers`: Quantos núcleos usar (Sua VM usa 14).
+* `paths.rclone_mount` em `cloud_config.yaml`: De onde baixar os Zips.
+* `params.threshold_short/long` em `labelling_config.yaml`: Gatilhos de Buy/Sell.
 
-**Verificação e Backup (Opcional):**
+> [!WARNING]
+> Se a tela cuspir texto VERMELHO do Pytest, o script **TRAVA** na mesma hora para te proteger. Nenhum dado corrompido avançará para a próxima fase.
+
+**Backup (Após o sucesso do script):**
+Após o script terminar com "PIPELINE COMPLETE", mande os resultados finais de volta pro Drive:
 ```bash
-# Validar se os Parquets foram gerados corretamente
-pytest tests/test_cloud_etl_output.py -v
-
-# O log detalhado será salvo automaticamente em:
-# /workspace/QuantGod_Cloud_TCNLSTM/logs/tests/last_run.log
-```
-
-# Backup dos dados pré-processados para o Google Drive
-rclone copy /workspace/data/L2/pre_processed drive:PROJETOS/PRE_PROCESSED_L2_2023_2026_1_MINUTE_18_FEATURES/ --config /workspace/rclone.conf -P
-```
-
-
-### ▶️ ETAPA 2: Labelling (Alvos de Compra/Venda)
-Este script lê os `.parquets` recém-processados, projeta os lucros futuros e espalha os Rótulos/Classes (0=Sell, 1=Neutral, 2=Buy).
-
-**O Comando:**
-```bash
-python src/cloud/base_model/labelling/run_labelling.py
-```
-
-**Parâmetros de Controle:**
-Arquivo: `src/cloud/base_model/configs/labelling_config.yaml`
-* `params.lookahead`: Janela no futuro para buscar lucro.
-* `params.threshold_short`: Gatilho Sell (Ex: `-0.004`).
-* `params.threshold_long`: Gatilho Buy (Ex: `0.004`).
-*(Ele cria uma pasta única, ex: `data/L2/labelled_SELL_0004_BUY_0004_1h`)*
-
-**Verificação e Backup (Opcional):**
-```bash
-# Validar distribuição de classes e integridade dos rótulos
-pytest tests/test_labelling_output.py -v
-
-# Backup dos dados rotulados para o Google Drive
-rclone copy /workspace/data/L2/labelled drive:PROJETOS/LABELLED_L2_2023_2026_1_MINUTE_18_FEATURES/ --config /workspace/rclone.conf -P
+rclone copy /workspace/data/L2/pre_processed drive:PROJETOS/PRE_PROCESSED_L2_2023_2026/ --config /workspace/rclone.conf -P
+rclone copy /workspace/data/L2/labelled drive:PROJETOS/LABELLED_L2_2023_2026/ --config /workspace/rclone.conf -P
 ```
 
 
