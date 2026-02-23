@@ -52,12 +52,12 @@ def setup_logger(log_module_name: str, suffix: str = ""):
         format='%(asctime)s - %(levelname)s - %(message)s',
         handlers=[
             RobustStreamHandler(sys.stdout),
-            logging.FileHandler(log_file, mode='w', encoding='utf-8')
+            logging.FileHandler(log_file, mode='w', encoding='utf-8-sig')
         ],
         force=True
     )
     logger = logging.getLogger(log_module_name)
-    logger.info(f"📝 LOGGING INITIALIZED (UTF-8): {log_file}")
+    logger.info(f"📝 LOGGING INITIALIZED (UTF-8-SIG): {log_file}")
     return logger
 
 def get_labelling_suffix(params: dict) -> str:
