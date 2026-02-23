@@ -249,6 +249,8 @@ def run_optimization():
     import re
     match = re.search(r"(_SELL_.*)$", str(train_dir_path.parent))
     if match:
+        suffix = match.group(1)
+        
     setup_logger("optimization", suffix)
 
     # ── Resolve AUTO paths ──────────────────────────────────────────────────
