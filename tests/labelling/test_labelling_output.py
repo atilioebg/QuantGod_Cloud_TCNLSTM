@@ -214,15 +214,15 @@ class TestLabelledFileIntegrity:
             actual_future_ret = df['log_ret_close'].slice(idx + 1, lookahead).sum()
             assigned_label = df['target'][idx]
             
-            # Validação Cruzada:
+            # Validação Cruzada (com tolerância de ponto flutuante 1e-9):
             if assigned_label == 2: # BUY
-                assert actual_future_ret > t_long, \
+                assert actual_future_ret >= t_long - 1e-9, \
                     f"Erro de Lógica em {file_path.name}[{idx}]: Label BUY(2) mas retorno foi {actual_future_ret:.5f} (limite {t_long})"
             elif assigned_label == 0: # SELL
-                assert actual_future_ret < t_short, \
+                assert actual_future_ret <= t_short + 1e-9, \
                     f"Erro de Lógica em {file_path.name}[{idx}]: Label SELL(0) mas retorno foi {actual_future_ret:.5f} (limite {t_short})"
             else: # NEUTRAL
-                assert t_short <= actual_future_ret <= t_long, \
+                assert t_short - 1e-9 <= actual_future_ret <= t_long + 1e-9, \
                     f"Erro de Lógica em {file_path.name}[{idx}]: Label NEUTRAL(1) mas retorno foi {actual_future_ret:.5f}"
 
 
