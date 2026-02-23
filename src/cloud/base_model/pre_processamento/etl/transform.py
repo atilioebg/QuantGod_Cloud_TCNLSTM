@@ -259,7 +259,43 @@ class L2Transformer:
 
         final_df.columns = agg_col_names + ob_cols_raw + ['tick_count']
         
-        # Cleanup
+        # ── Time-Aware Regularization (1440 MINUTE REINDEX) ───────────────────
+        # Ensure perfect 1-minute continuity to avoid "teleportation" over missing API data
+        try:
+            # Anchor to the start of the day for the first timestamp in the file
+            date_anchor = final_df.index[0].floor('D')
+            full_idx_start = date_anchor
+            full_idx_end = date_anchor.replace(hour=23, minute=59)
+            full_idx = pd.date_range(start=full_idx_start, end=full_idx_end, freq='1min')
+            
+            # Reindex to full expected day
+            final_df = final_df.reindex(full_idx)
+            
+            # 1. Flow Imputation (ZERO FILL)
+            # If there's a gap, there is NO flow.
+            # Do this BEFORE log_volume calculation to ensure log1p(0) = 0
+            flow_features = ['ofi', 'micro_price_momentum', 'tick_count', 'pressure_ratio']
+            if 'tick_count' in final_df.columns:
+                final_df[flow_features] = final_df[flow_features].fillna(0)
+            
+            # 2. Price/Static Imputation (FORWARD FILL)
+            # If there's a gap, orderbook state remains the same as the last seen
+            price_state_features = [c for c in final_df.columns if c not in flow_features]
+            final_df[price_state_features] = final_df[price_state_features].ffill()
+            
+            # For open/high/low in gap periods (where ffill propagated the LAST period's values),
+            # logically, a gap minute should have open=high=low=close of the LAST close.
+            # We enforce this constraint: if tick_count is 0, then open=high=low=close
+            is_gap = final_df['tick_count'] == 0
+            if is_gap.any():
+                final_df.loc[is_gap, 'open'] = final_df.loc[is_gap, 'close']
+                final_df.loc[is_gap, 'high'] = final_df.loc[is_gap, 'close']
+                final_df.loc[is_gap, 'low'] = final_df.loc[is_gap, 'close']
+                
+        except Exception as e:
+            logger.warning(f"[transform] Time-Aware reindexing failed: {e}. Falling back to dropna.")
+            
+        # Any residual NaNs at the very start of the day (before first trade) are dropped
         final_df.dropna(inplace=True)
 
         # Stationarity & Candle Shape
