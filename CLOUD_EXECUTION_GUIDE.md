@@ -1,170 +1,117 @@
-# Guia de Execução na Cloud (RunPod) ☁️
+# Guia de Execução na Nuvem (RunPod) - Instalação do Zero
 
-Este guia contém o passo a passo exato para configurar o ambiente e executar o pipeline completo do **QuantGod TCNLSTM** em uma máquina Cloud (ex: RunPod), utilizando o Tmux para processos longos e o Rclone para sincronização de dados.
+Este guia fornece as instruções otimizadas para preparar um ambiente RunPod virgem (nova VM e novo Storage Network) de ponta a ponta, desde a instalação de pacotes essenciais até a execução do pipeline de treinamento TCN-LSTM com 16 recursos de microestrutura.
 
-## 🛠️ 1. Configuração Inicial, Clone e Ambiente
+Estes comandos devem ser colados no Web Terminal ou via SSH do RunPod recém-criado.
 
-Ao iniciar a máquina (Web Terminal ou SSH), execute:
+## Passo 1: Preparação do Sistema Operacional (Ubuntu) e Ferramentas Básicas
+Os templates do RunPod iniciam em modo root e podem carecer de pacotes vitais para edição de texto e gerência de janelas.
 
 ```bash
+apt-get update && apt-get install -y nano tmux pciutils wget curl unzip zip htop sudo software-properties-common rsync
+```
+
+## Passo 2: Instalação e Configuração do Rclone
+O Rclone é necessário para montar e acessar o Google Drive onde residem os dados L2.
+
+**2.1 - Baixar e instalar o Rclone:**
+```bash
+sudo -v ; curl https://rclone.org/install.sh | sudo bash
+```
+
+**2.2 - Criar o diretório raiz do Workspace:**
+Aqui viverão os dados persistentes no volume de Network.
+```bash
 cd /workspace
+mkdir -p data logs
+```
 
-# 1. Clone o repositório (será solicitado seu usuário e personal access token)
-git clone https://github.com/atilioebg/QuantGod_Cloud_TCNLSTM.git .
-# Se as credenciais forem exigidas:
-# User: atilioebg
-# Password: <SEU_TOKEN_AQUI> (Ex: ghp_...)
+**2.3 - Configurar o token do Google Drive:**
+Crie o arquivo de configuração do Rclone usando o `nano`:
+```bash
+nano /workspace/rclone.conf
+```
+Dentro do editor Nano, cole o bloco abaixo substituindo a string inteira do `token` pelo seu token válido:
+```ini
+[drive]
+type = drive
+scope = drive
+token = {"access_token":"ya29..."} # Cole a linha toda do seu token
+```
+*Salve e feche o Nano (`Ctrl+O`, `Enter`, `Ctrl+X`).*
 
-# 2. Crie e ative a Virtual Environment (venv) isolada
-python -m venv venv
+## Passo 3: Clonando o Repositório e Configurando o Ambiente Python
+Garanta que a pasta raiz será `/workspace`. O código fonte, o virtual environment e os logs viverão dentro dela.
+
+**3.1 - Clonar e acessar a branch:**
+```bash
+cd /workspace
+git clone https://github.com/atilioebg/QuantGod_Cloud_TCNLSTM.git
+cd QuantGod_Cloud_TCNLSTM
+git checkout tcn_lstn_features
+```
+
+**3.2 - Criar o Virtual Environment e instalar as dependências:**
+```bash
+# Opcional (apenas se a VM não vier nativa com as libs básicas de virtualenv):
+# apt-get install python3-venv python3-pip -y
+
+python3 -m venv venv
 source venv/bin/activate
-
-# 3. Exporte a variável de caminho do Python para referenciar a raiz
-export PYTHONPATH=$PYTHONPATH:/workspace
-
-# 4. Atualize o pip e instale as dependências
-pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
----
-
-## 🔑 2. Configurar Rclone (Google Drive) e Baixar/Montar Dados
-
-Assumindo que você tem o arquivo `rclone.conf` na raiz do projeto (como enviado localmente):
+## Passo 4: Iniciando a Proteção Anti-Queda (TMUX)
+O treinamento do Optuna pode durar horas. Se a conexão SSH oscilar, o processo morre. O `tmux` encapsula o terminal protegendo a execução em segundo plano.
 
 ```bash
-# 1. Criar pasta oficial do rclone no sistema
-mkdir -p /root/.config/rclone/
-
-# 2. Copiar o arquivo da raiz do repositório para a pasta do sistema
-cp /workspace/rclone.conf /root/.config/rclone/rclone.conf
-
-# 3. Testar a conexão (deve listar as pastas do seu Drive)
-rclone lsd drive:
+tmux new -s quantgod
 ```
+*(Seu terminal piscará e uma barra verde aparecerá no rodapé. Você está na sessão isolada).*
 
-### 📥 Opção A: Download Direto via Tmux (Ideal se já processados)
-Se os dados já estão rotulados ou processados e você quer apenas baixar:
+## Passo 5: Inicializando a Máquina e Rodando o Pipeline
+
+O `tmux` abre um prompt limpo. Reative o ambiente virtual:
 ```bash
-tmux new -s download_dataset
-rclone copy drive:PROJETOS/L2/pre_processed /workspace/data/L2/pre_processed -P
-# Para sair deixando rodar: Pressione Ctrl + B e depois D
-```
-
----
-
-## 🔄 3. Processamento Completo de ETL e Labelling na Cloud
-
-Se precisar rodar o processo pesado na Cloud:
-
-### Executando o Pré-processamento (ETL)
-*Isso deve ser feito caso os dados no Drive sejam .zip brutos e você processe na Cloud.*
-
-```bash
-# Certifique-se de estar na raiz do projeto
-cd /workspace
+cd /workspace/QuantGod_Cloud_TCNLSTM
 source venv/bin/activate
-export PYTHONPATH=$PYTHONPATH:/workspace
-
-# Iniciar uma sessão tmux
-tmux new -s pipeline_god
-
-# Executar a orquestração do pipeline ETL (Ajuste o arquivo de config yaml se precisar)
-python src/cloud/base_model/pre_processamento/orchestration/run_pipeline.py src/cloud/base_model/pre_processamento/configs/cloud_config.yaml
-
-# Sair do tmux e deixar rolando: Ctrl + B, soltar, e apertar D
 ```
 
-### Como recuperar o terminal Tmux:
+Como o RunPod possui hardware potente, crie todas as pastas padrão necessárias para a estrutura do projeto não falhar por arquivos inexistentes:
 ```bash
-# Listar as sessões ativas
-tmux ls
-
-# Reconectar à sessão do pipeline
-tmux attach -t pipeline_god
+mkdir -p data/L2/raw data/L2/pre_processed data/L2/splits data/models data/artifacts logs/etl logs/labelling logs/optimization logs/transfer
 ```
 
-### Testando o Pré-processamento
-Após concluir o ETL, teste a integridade dos dados gerados:
+### 🚨 Como Contornar Erros de Importação (ModuleNotFoundError)
+Como o pacote `src` não está instalado globalmente (`pip install -e .`) e o código é chamado a partir da raiz da pasta, o terminal Linux virgem pode cuspir um `ModuleNotFoundError: No module named 'src'`. 
+
+Você deve setar a variável de ambiente **PYTHONPATH** dizendo para a máquina onde a biblioteca do seu código raiz vive:
 ```bash
-pytest tests/test_cloud_etl_output.py
-pytest tests/test_preprocessed_quality.py
+export PYTHONPATH="${PYTHONPATH}:/workspace/QuantGod_Cloud_TCNLSTM"
 ```
 
----
-
-## 🏷️ 4. Labelling (Rotulagem)
-
-Após o ETL passar nos testes, aplicamos as rotulagens de Buy/Sell:
-
+### ▶️ Iniciando a Execução (ETL)
+O comando que puxa os dados do Driver, pré-processa as 16 Features, aplica as transformações e salva os parquets é:
 ```bash
-cd /workspace
-source venv/bin/activate
-export PYTHONPATH=$PYTHONPATH:/workspace
-
-# Execute a rotulagem passando a configuração desejada (ex: labelling_config.yaml)
-python src/cloud/base_model/labelling/run_labelling.py src/cloud/base_model/labelling/labelling_config.yaml
-
-# Testando o resultado da Rotulagem:
-# Defina a variável para o diretório que acabou de ser gerado (ex: labelled_SELL_0001_BUY_0001_2h)
-export LABELLED_DIR="data/L2/labelled_SELL_0001_BUY_0001_2h"
-pytest tests/test_labelling_output.py
+python src/cloud/base_model/pre_processamento/orchestration/run_pipeline.py
 ```
 
----
-
-## 🪚 5. Split do Dataset Train/Val/Test
-
-Após aprovação nos testes, vamos separar os dados (70/20/10):
-
+*(Ou usando a "solução à prova de balas" chamando como um módulo caso o PYTHONPATH não fixe o erro das pastas:*
 ```bash
-cd /workspace
-source venv/bin/activate
-export PYTHONPATH=$PYTHONPATH:/workspace
-
-# Separa as imagens indicando o diretório rotulado
-python src/cloud/base_model/treino/split_dataset.py data/L2/labelled_SELL_0001_BUY_0001_2h
+python -m src.cloud.base_model.pre_processamento.orchestration.run_pipeline
 ```
+*)*
 
----
+## Gerenciando a Sessão Tmux (Básicos)
 
-## 🧠 6. Treinamento na GPU e Optuna (Uploads)
+**Como Sair da Máquina sem Matar o Processo (Detach):**
+Quando o comando estiver rodando na tela verde soltando os logs:
+1. Pressione `Ctrl+B`.
+2. Solte todas as teclas.
+3. Aperte rapidamente `D` (Apenas a letra D de 'detach').
+Você voltará ao shell original da máquina e pode fechar o SSH em paz.
 
-Com os dados de Treino/Val/Test criados, é iniciada a otimização e o treino final:
-
+**Para voltar amanhã e ver o progresso (Attach):**
 ```bash
-cd /workspace
-source venv/bin/activate
-export PYTHONPATH=$PYTHONPATH:/workspace
-
-# Opcional: Busca por Hiperparâmetros (pode ser executado no Tmux também)
-python src/cloud/base_model/otimizacao/run_optuna.py src/cloud/base_model/otimizacao/optimization_config.yaml
-
-# Treinamento do Modelo Híbrido Final (TCN+LSTM)
-# Se os melhores hiperparâmetros foram encontrados, o sistema carregará o best_params.json
-python src/cloud/base_model/treino/run_training.py src/cloud/base_model/treino/training_config.yaml
+tmux attach -t quantgod
 ```
-
----
-
-## 💾 7. Backup Automático: Logs e L2 para o Google Drive
-
-Para assegurar todo log e dado modificado sejam gravados permanentemente no seu drive:
-
-```bash
-# 1. Copiar Logs de Processamento e ETL
-rclone --config /workspace/rclone.conf copy /workspace/logs/labelling drive:PROJETOS/L2/logs/labelling -P
-rclone --config /workspace/rclone.conf copy /workspace/logs/etl drive:PROJETOS/L2/logs/etl -P
-
-# 2. Copiar todo o Dataset Processado via Tmux
-tmux new -s upload_drive
-rclone --config /workspace/rclone.conf copy /workspace/data/L2 drive:PROJETOS/L2 -P
-# Sair (Ctrl+B depois D) para liberar a janela
-```
-
-> **📌 Validação Pós-Cloud no Ambiente Local:**
-> No seu terminal Windows local (PowerShell), monte a pasta se desejar realizar uma nova bateria de validações local, assegurando que os relatórios do rclone bateram perfeitamente na nuvem!
-> ```powershell
-> .\rclone mount drive: Z: --vfs-cache-mode full --config "c:\Users\Atilio\Desktop\PROJETOS\PESSOAL\QuantGod\rclone.conf"
-> ```
