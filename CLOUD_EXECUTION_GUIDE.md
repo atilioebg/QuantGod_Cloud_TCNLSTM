@@ -81,7 +81,7 @@ source venv/bin/activate
 
 Como o RunPod tem hardware potente, crie a árvore de diretórios vazia rapidamente para ancorar os outputs:
 ```bash
-mkdir -p data/L2/raw data/L2/pre_processed data/L2/splits data/models data/artifacts logs/etl logs/labelling logs/optimization logs/transfer
+mkdir -p data/L2/raw data/L2/pre_processed data/L2/splits data/models data/artifacts logs/etl logs/labelling logs/optimization logs/transfer logs/tests
 ```
 
 ### 🚨 COMO CONTORNAR ModuleNotFoundError: No module named 'src'
