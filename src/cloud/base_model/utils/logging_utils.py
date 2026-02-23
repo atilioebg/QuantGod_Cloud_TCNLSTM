@@ -4,6 +4,26 @@ import io
 from pathlib import Path
 from datetime import datetime
 
+class RobustStreamHandler(logging.StreamHandler):
+    """
+    A StreamHandler that silently swallows OSError / IOError on emit and flush.
+    This prevents a detached SSH terminal (Errno 5: I/O error) from crashing a
+    long-running cloud process (e.g., Optuna optimization on RunPod).
+    The FileHandler is unaffected and continues writing to disk normally.
+    """
+    def emit(self, record):
+        try:
+            super().emit(record)
+        except OSError:
+            pass
+
+    def flush(self):
+        try:
+            super().flush()
+        except OSError:
+            pass
+
+
 def setup_logger(log_module_name: str, suffix: str = ""):
     """
     Standardized logger setup for all QuantGod modules.
@@ -23,8 +43,6 @@ def setup_logger(log_module_name: str, suffix: str = ""):
     # We wrap stdout to ensure it handles UTF-8 even if the system default is different
     try:
         if sys.stdout.encoding != 'utf-8':
-            # Note: We use .buffer to get the raw stream and wrap it. 
-            # This is safer than just sys.stdout = ... which can break some shells.
             sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     except (AttributeError, io.UnsupportedOperation):
         pass
@@ -33,7 +51,7 @@ def setup_logger(log_module_name: str, suffix: str = ""):
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
         handlers=[
-            logging.StreamHandler(sys.stdout),
+            RobustStreamHandler(sys.stdout),
             logging.FileHandler(log_file, mode='w', encoding='utf-8')
         ],
         force=True
