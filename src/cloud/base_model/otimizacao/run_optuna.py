@@ -14,6 +14,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 import sys
+import subprocess
 
 project_root = str(Path(__file__).parents[4])
 if project_root not in sys.path:

@@ -25,7 +25,9 @@ def transfer_results(log_filename: str, run_type: str):
     folder_name = log_filename.replace(".log", "")
     
     # Definir base do Drive (Detecta se Windows ou Linux/Pod)
-    if os.name == 'nt':
+    if os.environ.get('MOCK_DRIVE') == '1':
+        drive_base = Path("mock_drive_results")
+    elif os.name == 'nt':
         drive_base = Path("Z:/PROJETOS/RESULTADOS")
     else:
         drive_base = Path("/workspace/drive/PROJETOS/RESULTADOS")
