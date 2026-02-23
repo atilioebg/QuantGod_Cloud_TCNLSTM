@@ -115,6 +115,15 @@ Arquivo: `src/cloud/base_model/pre_processamento/configs/cloud_config.yaml`
 * `etl.resampling_interval`: Intervalo de tempo (1min)
 * `etl.max_workers`: Quantos núcleos usar (Sua VM usa 14).
 
+**Verificação e Backup (Opcional):**
+```bash
+# Validar se os Parquets foram gerados corretamente
+pytest tests/test_cloud_etl_output.py -v
+
+# Backup dos dados pré-processados para o Google Drive
+rclone copy /workspace/data/L2/pre_processed drive:PROJETOS/PRE_PROCESSED_L2_2023_2026_1_MINUTE_18_FEATURES/ --config /workspace/rclone.conf -P
+```
+
 
 ### ▶️ ETAPA 2: Labelling (Alvos de Compra/Venda)
 Este script lê os `.parquets` recém-processados, projeta os lucros futuros e espalha os Rótulos/Classes (0=Sell, 1=Neutral, 2=Buy).
@@ -130,6 +139,15 @@ Arquivo: `src/cloud/base_model/configs/labelling_config.yaml`
 * `params.threshold_short`: Gatilho Sell (Ex: `-0.004`).
 * `params.threshold_long`: Gatilho Buy (Ex: `0.004`).
 *(Ele cria uma pasta única, ex: `data/L2/labelled_SELL_0004_BUY_0004_1h`)*
+
+**Verificação e Backup (Opcional):**
+```bash
+# Validar distribuição de classes e integridade dos rótulos
+pytest tests/test_labelling_output.py -v
+
+# Backup dos dados rotulados para o Google Drive
+rclone copy /workspace/data/L2/labelled drive:PROJETOS/LABELLED_L2_2023_2026_1_MINUTE_18_FEATURES/ --config /workspace/rclone.conf -P
+```
 
 
 ### ▶️ ETAPA 3: Treino (Optuna + Foundation + Specialization)
