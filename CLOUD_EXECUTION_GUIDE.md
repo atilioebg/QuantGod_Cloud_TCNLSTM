@@ -60,6 +60,7 @@ git checkout tcn_lstn_features
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+pip install pytest-xdist  # Necessário para os 12 workers paralelos
 ```
 
 ## Passo 4: Sessão TMUX (Proteção Anti-Queda da Internet)
