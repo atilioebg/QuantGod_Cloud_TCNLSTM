@@ -81,10 +81,17 @@ def get_labelled_files(request=None) -> list:
 
 
 REQUIRED_FEATURES = [
-    "body", "upper_wick", "lower_wick", "log_ret_close",
-    "volatility", "max_spread", "mean_obi", "mean_deep_obi", "log_volume",
-    "ofi", "micro_price_momentum", "bid_slope", "ask_slope",
-    "bid_rdi", "ask_rdi", "pressure_ratio"
+    # Core OHLC + OBI (9)
+    'body', 'upper_wick', 'lower_wick', 'log_ret_close', 
+    'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi', 'log_volume',
+    # Multi-Scale Triggers (1min vs 5min) (11)
+    'ofi', 'ofi_delta_5', 'ofi_delta_1',
+    'micro_price_momentum', 'micro_price_delta_5', 'micro_price_delta_1',
+    'bid_rdi', 'bid_rdi_delta_5', 'bid_rdi_delta_1',
+    'ask_rdi', 'ask_rdi_delta_5', 'ask_rdi_delta_1',
+    # Institutional (7)
+    'bid_slope', 'ask_slope', 'book_asymmetry_v5', 
+    'spread_zscore_60', 'vpin_lite_5', 'pressure_ratio'
 ]
 
 
