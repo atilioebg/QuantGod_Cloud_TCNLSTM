@@ -16,7 +16,10 @@ class DataValidator:
             logger.warning(f"Found {nans} NaN values in {name}")
             # Identify columns with NaNs
             nan_cols = df.columns[df.isna().any()].tolist()
-            logger.warning(f"Columns with NaNs: {nan_cols}")
+            if len(nan_cols) > 5:
+                logger.warning(f"Columns with NaNs (Top 5): {nan_cols[:5]} ... and {len(nan_cols)-5} more.")
+            else:
+                logger.warning(f"Columns with NaNs: {nan_cols}")
         else:
             logger.info("No NaNs found.")
 

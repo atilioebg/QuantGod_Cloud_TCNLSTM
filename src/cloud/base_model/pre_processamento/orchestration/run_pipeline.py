@@ -34,7 +34,9 @@ def process_single_zip(zip_path, config):
         validator = DataValidator()
 
         transformer.reset_book()
-        sampled_rows = []
+        # Optimization: use a dictionary of lists instead of a list of dicts
+        # This significantly reduces memory overhead and speeds up DataFrame construction
+        sampled_rows = {}
         
         # 1. Extraction (Streaming)
         for name, file_obj in extractor.stream_zip_content(zip_path):
@@ -44,7 +46,13 @@ def process_single_zip(zip_path, config):
                     msg = json.loads(line)
                     row = transformer.process_message(msg)
                     if row:
-                        sampled_rows.append(row)
+                        if not sampled_rows:
+                            # Initialize lists for all keys on first successful row
+                            sampled_rows = {k: [] for k in row.keys()}
+                        
+                        # Append values, handle potential missing keys safely
+                        for k in sampled_rows.keys():
+                            sampled_rows[k].append(row.get(k, np.nan))
                 except:
                     continue
         
