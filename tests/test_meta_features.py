@@ -36,6 +36,8 @@ from src.cloud.auditor_model.feature_engineering_meta import (
     _entropy,
 )
 
+from tests.conftest import NUM_FEATURES
+
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
 @pytest.fixture
@@ -72,7 +74,7 @@ def valid_probs():
 @pytest.fixture
 def last_step():
     rng = np.random.default_rng(7)
-    return rng.standard_normal(9).astype(np.float32)
+    return rng.standard_normal(NUM_FEATURES).astype(np.float32)
 
 
 # ── extract_meta_features: output contract ───────────────────────────────────

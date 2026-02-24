@@ -16,14 +16,30 @@ PRE_PROCESSED_DIR = Path("data/L2/pre_processed")
 LABELLED_BASE_DIR = Path("data/L2")
 ACTIVE_LABELLED_DIR = resolve_active_labelled_dir()
 
-FEATURE_NAMES = [
+import yaml
+
+# Load dynamic configs
+def load_yaml(path: str) -> dict:
+    p = Path(path)
+    if p.exists():
+        with open(p, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
+    return {}
+
+base_cfg = load_yaml("src/cloud/base_model/configs/base_model_config.yaml")
+train_cfg = load_yaml("src/cloud/base_model/treino/training_config.yaml")
+
+# Read dynamically; fallback to defaults if config is not found (e.g. CI without configs)
+FEATURE_NAMES = base_cfg.get("model", {}).get("feature_names", [
     "body", "upper_wick", "lower_wick", "log_ret_close",
     "volatility", "max_spread", "mean_obi", "mean_deep_obi", "log_volume",
-]
-NUM_FEATURES = len(FEATURE_NAMES)   # 9
-NUM_CLASSES  = 3                    # SELL=0, NEUTRAL=1, BUY=2
-SEQ_LEN      = 720                  # 12h lookback (1-min candles)
-META_FEATURES = 14                  # XGBoost auditor input dimension
+])
+NUM_FEATURES = len(FEATURE_NAMES)
+NUM_CLASSES  = base_cfg.get("model", {}).get("num_classes", 3)
+SEQ_LEN      = train_cfg.get("hyperparameters", {}).get("seq_len", 720)
+
+from src.cloud.auditor_model.feature_engineering_meta import META_FEATURE_NAMES
+META_FEATURES = len(META_FEATURE_NAMES) # Dynamically extract Auditor dimensions
 
 
 # ─── Shared fixtures ─────────────────────────────────────────────────────────

@@ -26,9 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.cloud.base_model.models.model import CausalConv1d, TCNBlock, Hybrid_TCN_LSTM
 
-SEQ_LEN     = 720
-NUM_FEATURES = 9
-NUM_CLASSES  = 3
+from tests.conftest import SEQ_LEN, NUM_FEATURES, NUM_CLASSES
 BATCH_SIZE   = 4
 
 
@@ -52,17 +50,17 @@ def dummy_input():
 class TestModelInstantiation:
 
     def test_default_instantiation(self):
-        m = Hybrid_TCN_LSTM()
+        m = Hybrid_TCN_LSTM(num_features=NUM_FEATURES)
         assert m is not None
 
     def test_custom_channels(self):
         for tcn_ch in [32, 64, 128]:
-            m = Hybrid_TCN_LSTM(tcn_channels=tcn_ch)
+            m = Hybrid_TCN_LSTM(num_features=NUM_FEATURES, tcn_channels=tcn_ch)
             assert m is not None
 
     def test_custom_lstm_hidden(self):
         for hidden in [128, 256, 512]:
-            m = Hybrid_TCN_LSTM(lstm_hidden=hidden)
+            m = Hybrid_TCN_LSTM(num_features=NUM_FEATURES, lstm_hidden=hidden)
             assert m is not None
 
     def test_trainable_parameters_exist(self, model_default):
@@ -112,7 +110,7 @@ class TestForwardPassShape:
 
     def test_seq_len_1440(self):
         """Model must accept longer sequences (Optuna trials with seq_len=1440)."""
-        m = Hybrid_TCN_LSTM(seq_len=1440)
+        m = Hybrid_TCN_LSTM(num_features=NUM_FEATURES, seq_len=1440)
         m.eval()
         x = torch.randn(2, 1440, NUM_FEATURES)
         with torch.no_grad():
@@ -149,8 +147,8 @@ class TestCausalConv:
     def test_causal_output_length_matches_input(self):
         """CausalConv1d must not change the temporal dimension."""
         for dilation in [1, 2, 4, 8]:
-            conv = CausalConv1d(in_channels=9, out_channels=64, kernel_size=3, dilation=dilation)
-            x = torch.randn(2, 9, 720)   # (B, C, T)
+            conv = CausalConv1d(in_channels=NUM_FEATURES, out_channels=64, kernel_size=3, dilation=dilation)
+            x = torch.randn(2, NUM_FEATURES, 720)   # (B, C, T)
             out = conv(x)
             assert out.shape[-1] == 720, \
                 f"dilation={dilation}: output T={out.shape[-1]}, expected 720"
@@ -162,10 +160,10 @@ class TestCausalConv:
         Output[:, k] must be identical for k < 50.
         """
         torch.manual_seed(0)
-        conv = CausalConv1d(in_channels=9, out_channels=9, kernel_size=3, dilation=1)
+        conv = CausalConv1d(in_channels=NUM_FEATURES, out_channels=NUM_FEATURES, kernel_size=3, dilation=1)
         conv.eval()
 
-        x1 = torch.randn(1, 9, 720)
+        x1 = torch.randn(1, NUM_FEATURES, 720)
         x2 = x1.clone()
         # Add noise AFTER position 50 only in x2
         x2[:, :, 51:] += 10.0
@@ -200,7 +198,7 @@ class TestGradientFlow:
 
     def test_logits_have_gradient(self):
         """Verify the computational graph is connected end-to-end (training scenario)."""
-        model = Hybrid_TCN_LSTM()
+        model = Hybrid_TCN_LSTM(num_features=NUM_FEATURES)
         model.train()
         x = torch.randn(2, SEQ_LEN, NUM_FEATURES, requires_grad=False)
         out = model(x)
@@ -278,7 +276,7 @@ class TestFocalLoss:
 
     def test_gradient_flows_through_focal_loss(self):
         """Backward pass through FocalLoss must propagate gradients to model params."""
-        model = Hybrid_TCN_LSTM()
+        model = Hybrid_TCN_LSTM(num_features=NUM_FEATURES)
         model.train()
         alpha    = torch.tensor([3.03, 0.43, 3.03])
         loss_fn  = FocalLossWithSmoothing(alpha=alpha, gamma=2.0, smoothing=0.1)
