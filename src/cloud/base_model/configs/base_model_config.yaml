@@ -43,16 +43,4 @@ model:
     - pressure_ratio      # Razão de Pressão L2: Outro ângulo da força de absorção entre bid e ask
 
 training:
-  # Fallback class weights (inverse-frequency, ~78% Neutral / ~11% SELL / ~11% BUY).
-  # At runtime, compute_alpha_from_labels() overrides these with exact training-set counts.
-  # Formula: total / (num_classes * class_count)  →  [~3.03, ~0.43, ~3.03]
   class_weights: [3.03, 0.43, 3.03]
-  seq_len: 720          # 12h lookback at 1-min resolution
-  epochs: 10
-  early_stopping_patience: 3
-  gradient_clip_norm: 1.0  # Clip gradients to stabilize LSTM training
-  optimizer:
-    type: AdamW
-    weight_decay: 0.01
-  scheduler:
-    type: CosineAnnealingLR
