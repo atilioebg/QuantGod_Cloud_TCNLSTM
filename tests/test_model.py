@@ -40,7 +40,7 @@ def model_default():
 
 @pytest.fixture(scope="module")
 def dummy_input():
-    """Synthetic batch tensor (B, T, F) = (4, 720, 9)."""
+    """Synthetic batch tensor (B, T, F) = (4, SEQ_LEN, NUM_FEATURES)."""
     torch.manual_seed(0)
     return torch.randn(BATCH_SIZE, SEQ_LEN, NUM_FEATURES)
 
@@ -148,10 +148,10 @@ class TestCausalConv:
         """CausalConv1d must not change the temporal dimension."""
         for dilation in [1, 2, 4, 8]:
             conv = CausalConv1d(in_channels=NUM_FEATURES, out_channels=64, kernel_size=3, dilation=dilation)
-            x = torch.randn(2, NUM_FEATURES, 720)   # (B, C, T)
+            x = torch.randn(2, NUM_FEATURES, SEQ_LEN)   # (B, C, T)
             out = conv(x)
-            assert out.shape[-1] == 720, \
-                f"dilation={dilation}: output T={out.shape[-1]}, expected 720"
+            assert out.shape[-1] == SEQ_LEN, \
+                f"dilation={dilation}: output T={out.shape[-1]}, expected {SEQ_LEN}"
 
     def test_causal_independence_future(self):
         """
@@ -163,7 +163,7 @@ class TestCausalConv:
         conv = CausalConv1d(in_channels=NUM_FEATURES, out_channels=NUM_FEATURES, kernel_size=3, dilation=1)
         conv.eval()
 
-        x1 = torch.randn(1, NUM_FEATURES, 720)
+        x1 = torch.randn(1, NUM_FEATURES, SEQ_LEN)
         x2 = x1.clone()
         # Add noise AFTER position 50 only in x2
         x2[:, :, 51:] += 10.0

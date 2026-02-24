@@ -11,7 +11,7 @@ optimization:
   metric: "f1_macro"
   run_specialized_after: false
 
-# Sniper Alpha 🎯 Search Space (Minimalist & Rigid)
+# Sniper Alpha - Search Space (Minimalist & Rigid)
 search_space:
   tcn_channels: [16, 32, 64]          # "Slim" TCN: Reduced capacity to fight overfitting
   lstm_hidden: [64, 128]              # "Slim" LSTM: Essential temporal features only

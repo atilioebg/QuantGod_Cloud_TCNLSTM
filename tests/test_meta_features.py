@@ -40,30 +40,32 @@ from tests.conftest import NUM_FEATURES
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
+from tests.conftest import SEQ_LEN, NUM_FEATURES
+
 @pytest.fixture
 def price_series():
-    """Realistic synthetic micro_price series of length 720."""
+    """Realistic synthetic micro_price series of length SEQ_LEN."""
     rng = np.random.default_rng(42)
-    log_rets = rng.normal(0.0001, 0.002, 720)
+    log_rets = rng.normal(0.0001, 0.002, SEQ_LEN)
     return np.exp(np.cumsum(log_rets))
 
 
 @pytest.fixture
 def flat_series():
     """Constant price series — edge case for indicators."""
-    return np.ones(720) * 50_000.0
+    return np.ones(SEQ_LEN) * 50_000.0
 
 
 @pytest.fixture
 def uptrend_series():
     """Strict monotonically increasing series — RSI should approach 100."""
-    return np.linspace(49_000, 51_000, 720)
+    return np.linspace(49_000, 51_000, SEQ_LEN)
 
 
 @pytest.fixture
 def downtrend_series():
     """Strict monotonically decreasing series — RSI should approach 0."""
-    return np.linspace(51_000, 49_000, 720)
+    return np.linspace(51_000, 49_000, SEQ_LEN)
 
 
 @pytest.fixture
