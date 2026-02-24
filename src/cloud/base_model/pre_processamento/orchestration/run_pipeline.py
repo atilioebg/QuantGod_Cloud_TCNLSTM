@@ -123,7 +123,10 @@ def run_pipeline():
     logger.info(f"System detected {total_cpus} vCPUs. Using {max_workers} parallel workers.")
     logger.info(f"Found {len(zip_files)} ZIP files to process.")
 
-    # 3. Parallel Execution with ProcessPool
+    # 4. Parallel Execution with ProcessPool
+    skipped_files = []
+    failed_files = []
+    
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         # Create a list of future tasks
         future_to_zip = {executor.submit(process_single_zip, zp, config): zp for zp in zip_files}
@@ -134,9 +137,34 @@ def run_pipeline():
             # Optional: Log errors if any
             if "❌" in result:
                 logger.error(result)
+                failed_files.append(result)
+            elif "⚠️" in result:
+                # Track skipped files based on the warning prefix
+                file_name = result.split("in ")[-1] if "in " in result else result
+                skipped_files.append(file_name)
+
+    # 5. Pipeline Manifest and Auditing
+    report_dir = Path("docs/reports")
+    report_dir.mkdir(parents=True, exist_ok=True)
+    
+    if skipped_files:
+        manifest_path = report_dir / "pipeline_skip_manifest.json"
+        with open(manifest_path, "w") as f:
+            json.dump({
+                "total_files_scanned": len(zip_files),
+                "total_skipped": len(skipped_files),
+                "skipped_files": skipped_files
+            }, f, indent=4)
+        logger.info(f"📄 Saved skip manifest to {manifest_path} ({len(skipped_files)} files)")
+        
+        # Check for 10% threshold
+        if len(skipped_files) / len(zip_files) > 0.10:
+            logger.error(f"⚠️ DATASET SIGNIFICANTLY REDUCED: {len(skipped_files)} files skipped.")
+            # Print to standard error/out vigorously in red
+            print(f"\033[91m⚠️ DATASET SIGNIFICANTLY REDUCED: {len(skipped_files)} files skipped (>10%). Check docs/reports/pipeline_skip_manifest.json\033[0m")
 
     logger.info("Pipeline execution finished.")
-    logger.info(f"Total processed files: {len(zip_files)}")
+    logger.info(f"Total processed files: {len(zip_files) - len(skipped_files) - len(failed_files)}")
     logger.info(f"CPUs used: {max_workers} / {total_cpus}")
 
 if __name__ == "__main__":
