@@ -56,9 +56,14 @@ def resolve_data_paths(config_paths: dict) -> tuple:
             resolved_train = splits_dir / "train"
             resolved_val = splits_dir / "val"
         else:
-            # Fallback to base labelled dir (using it for both if no splits)
-            resolved_train = active_dir
-            resolved_val = active_dir
+            # 🚨 CRITICAL AUDIT FIX: Never fallback to the same folder for Train and Val.
+            # This causes massive data leakage where the model tests on its training data.
+            raise FileNotFoundError(
+                f"\n❌ CRITICAL ERROR: Data split directory not found at {splits_dir}.\n"
+                f"You MUST run 'python src/cloud/base_model/treino/split_dataset.py' "
+                f"before running Optuna to create chronological train/val splits and "
+                f"prevent data leakage!"
+            )
             
         return str(resolved_train), str(resolved_val)
     
