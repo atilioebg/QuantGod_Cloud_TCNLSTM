@@ -123,6 +123,10 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
         # ── Training loop ──────────────────────────────────────────────────────
         best_macro_f1 = 0.0   # Champion tracker: Best F1 Macro
         best_dir_f1   = 0.0   # Champion tracker: Best F1 Direcional (SELL+BUY)
+        best_val_loss = float('inf')
+        patience_counter = 0
+        patience_limit = config['optimization'].get('early_stopping_patience', 3)
+
         for epoch in range(epochs):
             model.train()
             train_loss = 0.0
@@ -173,6 +177,13 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
                         f"LR: {current_lr:.6f}")
 
             # ── Local Champion Tracking (Within this Trial) ───────────────────
+            current_val_loss = val_loss / len(val_loader)
+            if current_val_loss < best_val_loss:
+                best_val_loss = current_val_loss
+                patience_counter = 0
+            else:
+                patience_counter += 1
+
             if f1_macro > best_macro_f1:
                 best_macro_f1 = f1_macro
             if f1_dir > best_dir_f1:
@@ -207,8 +218,16 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
 
             # Optimization target: F1 Macro
             trial.report(f1_macro, epoch)
+            
+            # ── Sniper Alpha Early Stopping ──────────────────────────────────
+            if patience_counter >= patience_limit:
+                logger.info(f"Trial {trial.number} stopped early due to patience ({patience_limit} epochs without improvement)")
+                del model, train_loader, val_loader, train_dataset, val_dataset
+                torch.cuda.empty_cache()
+                return best_macro_f1
+
             if trial.should_prune():
-                logger.info(f"Trial {trial.number} pruned at epoch {epoch+1}")
+                logger.info(f"Trial {trial.number} pruned by Optuna at epoch {epoch+1}")
                 del model, train_loader, val_loader, train_dataset, val_dataset
                 torch.cuda.empty_cache()
                 raise optuna.exceptions.TrialPruned()

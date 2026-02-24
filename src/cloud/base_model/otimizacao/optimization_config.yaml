@@ -7,25 +7,24 @@ paths:
 
 optimization:
   n_trials: 50
-  timeout: 72000  # 20 hours (Estimativa: 50 trials * 20 min = 16.6h + margem)
-  metric: "f1_macro"  # Macro volta a ser o objetivo do Optuna
-  run_specialized_after: false  # Desativado a pedido do usuário para v0
+  timeout: 72000  # 20 hours
+  metric: "f1_macro"
+  run_specialized_after: false
 
-# TCN+LSTM search space
+# Sniper Alpha 🎯 Search Space (Minimalist & Rigid)
 search_space:
-  # 1. Expansão Controlada (Dando cérebro onde há correlação positiva)
-  tcn_channels: [32, 64, 128]          # Capacidade reduzida para combater o overfitting severo.
-  lstm_hidden: [128, 256, 512]         # Expandido para 512. Mais "músculo" para processar microestrutura.
+  tcn_channels: [16, 32, 64]          # "Slim" TCN: Reduced capacity to fight overfitting
+  lstm_hidden: [64, 128]              # "Slim" LSTM: Essential temporal features only
   num_lstm_layers: [2]
   
-  # 2. Refinamento de Velocidade
-  lr: [0.00001, 0.0001]               # Conservative LR: Limite superior em 1e-4 para evitar pulos fora de mínimos globais.
-  weight_decay: [0.00001, 0.001]      # Regularização L2: Penalização [1e-5 a 1e-3] no AdamW para pesos muito altos (overfitting).
+  lr: [0.00001, 0.0001]               # Conservative LR
+  weight_decay: [0.00001, 0.001]      # L2 Regularization tuned
   
-  # 3. Ajuste de Estabilidade Estatística
-  batch_size: [512, 1024]             # Removemos o 2048. Ele se provou lento demais para convergir em 10 épocas.
+  batch_size: [512, 1024]
   
-  # 4. Janela de Visão (A Microestrutura manda)
-  seq_len: [120, 240, 480]            # Janela menor (2h a 8h): Capturar momentum recente sem poluição temporal de longo prazo.
-  dropout: [0.6, 0.8]                 # Dropout Massivo: Forçar redundância para combater memorização.
+  # Sniper Horizon (1h to 6h lookback)
+  seq_len: [60, 120, 180, 240, 300, 360]
+  
+  dropout: [0.70, 0.85]               # Extreme Dropout: Forcing structural robustness
   epochs: 10
+  early_stopping_patience: 3          # Stricter pruning to avoid "rotting" overfits

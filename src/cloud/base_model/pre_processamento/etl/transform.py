@@ -314,10 +314,17 @@ class L2Transformer:
         final_df['log_ret_close'] = np.log(final_df['close'] / prev_close)
         final_df['log_volume'] = np.log1p(final_df['tick_count'])
 
-        # ── Final Feature List (including all 7 new dynamic columns) ─────────
+        # ── High Velocity "Sniper" Features (Acceleration) ────────────────────
+        # OFI_delta_5: Change in net flow over the last 5 minutes
+        final_df['ofi_delta_5'] = final_df['ofi'].diff(5)
+        # RDI_delta_5: Change in relative depth imbalance over 5 minutes
+        final_df['bid_rdi_delta_5'] = final_df['bid_rdi'].diff(5)
+        final_df['ask_rdi_delta_5'] = final_df['ask_rdi'].diff(5)
+
+        # ── Final Feature List (including Sniper features) ───────────────────
         dynamic_features = [
-            'ofi', 'micro_price_momentum', 'bid_slope', 'ask_slope',
-            'bid_rdi', 'ask_rdi', 'pressure_ratio'
+            'ofi', 'ofi_delta_5', 'micro_price_momentum', 'bid_slope', 'ask_slope',
+            'bid_rdi', 'bid_rdi_delta_5', 'ask_rdi', 'ask_rdi_delta_5', 'pressure_ratio'
         ]
         agg_features = [
             'body', 'upper_wick', 'lower_wick', 'log_ret_close',
@@ -346,8 +353,8 @@ class L2Transformer:
             'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi', 'log_volume', 'log_ret_close',
         ]
         flow_cols = [
-            'ofi', 'micro_price_momentum', 'bid_slope', 'ask_slope',
-            'bid_rdi', 'ask_rdi', 'pressure_ratio',
+            'ofi', 'ofi_delta_5', 'micro_price_momentum', 'bid_slope', 'ask_slope',
+            'bid_rdi', 'bid_rdi_delta_5', 'ask_rdi', 'ask_rdi_delta_5', 'pressure_ratio',
         ]
         original_cols = [c for c in original_cols if c in df.columns]
         flow_cols     = [c for c in flow_cols     if c in df.columns]

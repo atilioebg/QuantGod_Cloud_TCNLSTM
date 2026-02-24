@@ -19,11 +19,14 @@ model:
     - mean_deep_obi
     - log_volume
     - ofi
+    - ofi_delta_5
     - micro_price_momentum
     - bid_slope
     - ask_slope
     - bid_rdi
+    - bid_rdi_delta_5
     - ask_rdi
+    - ask_rdi_delta_5
     - pressure_ratio
 
 training:
