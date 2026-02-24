@@ -32,24 +32,24 @@ def cleanup_workspace():
         targets.extend(list(l2_base.glob("splits*")))
         targets.extend(list(l2_base.glob("specialized*")))
 
-    print("\n🧹 INICIANDO LIMPEZA DO WORKSPACE...")
+    print("\n--- INICIANDO LIMPEZA DO WORKSPACE ---")
     for target in targets:
         if target.exists():
             try:
                 if target.is_dir():
                     shutil.rmtree(target)
-                    print(f"   🗑️  Removido diretório: {target.relative_to(project_root)}")
+                    print(f"   Removido diretorio: {target.relative_to(project_root)}")
                 else:
                     target.unlink()
-                    print(f"   🗑️  Removido arquivo: {target.relative_to(project_root)}")
+                    print(f"   Removido arquivo: {target.relative_to(project_root)}")
             except Exception as e:
-                print(f"   ⚠️ Erro ao remover {target}: {e}")
+                print(f"   Erro ao remover {target}: {e}")
     
-    # Recriar estrutura mínima necessária
+    # Recriar estrutura minima necessaria
     (project_root / "logs").mkdir(exist_ok=True)
     (project_root / "data/L2/raw").mkdir(parents=True, exist_ok=True)
     (project_root / "data/L2/pre_processed").mkdir(parents=True, exist_ok=True)
-    print("✨ Workspace limpo e resetado! Estrutura base recriada.\n")
+    print("Workspace limpo e resetado! Estrutura base recriada.\n")
 
 def transfer_results(log_filename: str, run_type: str):
     """
@@ -57,7 +57,7 @@ def transfer_results(log_filename: str, run_type: str):
     e envia para a pasta de resultados hierárquica no Google Drive.
     """
     if run_type not in ["foundation", "specialized"]:
-        print(f"❌ Erro: Tipo inválido '{run_type}'. Use 'foundation' ou 'specialized'.")
+        print(f"Erro: Tipo invalido '{run_type}'. Use 'foundation' or 'specialized'.")
         return
 
     # 1. Configurações de Caminhos Base
@@ -74,9 +74,9 @@ def transfer_results(log_filename: str, run_type: str):
     else:
         drive_base = project_root / "drive" / "PROJETOS" / "RESULTADOS"
     
-    # Destino Final Específico do Tipo
+    # Destino Final Especifico do Tipo
     dest_dir = drive_base / folder_name / run_type
-    print(f"🚀 Iniciando transferência [{run_type.upper()}] para: {dest_dir}")
+    print(f"--- Iniciando transferencia [{run_type.upper()}] para: {dest_dir} ---")
 
     # Lista Base (Configs comuns que vão para ambos garantindo autonomia)
     opt_config_path = project_root / "src/cloud/base_model/otimizacao/optimization_config.yaml"
@@ -145,7 +145,7 @@ def transfer_results(log_filename: str, run_type: str):
                 shutil.rmtree(temp_staging)
             temp_staging.mkdir(parents=True)
 
-            print(f"📦 Agrupando {len(files_to_transfer)} arquivos em {temp_staging.relative_to(project_root)}...")
+            print(f"Agrupando {len(files_to_transfer)} arquivos em {temp_staging.relative_to(project_root)}...")
             for src in files_to_transfer:
                 shutil.copy2(src, temp_staging / src.name)
 
@@ -159,7 +159,7 @@ def transfer_results(log_filename: str, run_type: str):
             result = subprocess.run(cmd)
 
             if result.returncode == 0:
-                print(f"✅ SUCESSO! Resultados copiados (rclone) para: {remote_path}")
+                print(f"SUCESSO! Resultados copiados (rclone) para: {remote_path}")
                 shutil.rmtree(project_root / "data" / "temp_results")
                 return
 
@@ -171,10 +171,10 @@ def transfer_results(log_filename: str, run_type: str):
             print(f"   📂 Copiando: {src.name}...")
             shutil.copy2(src, dest_dir / src.name)
 
-        print(f"\n✅ SUCESSO! Resultados copiados localmente para: {dest_dir}")
+        print(f"\nSUCESSO! Resultados copiados localmente para: {dest_dir}")
 
     except Exception as e:
-        print(f"❌ Erro na transferência: {e}")
+        print(f"Erro na transferencia: {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Gerenciador de Resultados e Workspace QuantGod.")

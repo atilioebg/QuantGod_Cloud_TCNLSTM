@@ -73,7 +73,7 @@ def split_labelled_data(source_dir_path=None):
     for f in test_files:
         shutil.copy(f, test_dir / f.name)
 
-    print("\n✅ Split completed:")
+    print("\nSplit completed:")
     print(f"  Train: {train_dir} ({len(train_files)} files)")
     print(f"  Val:   {val_dir} ({len(val_files)} files)")
     print(f"  Test:  {test_dir} ({len(test_files)} files)")

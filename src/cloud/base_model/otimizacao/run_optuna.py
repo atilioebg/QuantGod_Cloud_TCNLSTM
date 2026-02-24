@@ -331,17 +331,17 @@ def run_optimization():
 
     # Inference of stopping reason
     if duration >= (config['optimization']['timeout'] - 60): # 1 minute tolerance
-        stop_reason = f"TIMEOUT ALCANÇADO (As {config['optimization']['timeout']}s expiraram)"
+        stop_reason = f"TIMEOUT ALCANCADO (As {config['optimization']['timeout']}s expiraram)"
     elif trials_run >= config['optimization']['n_trials']:
-        stop_reason = f"MÁXIMO DE TRIALS ({config['optimization']['n_trials']}) ALCANÇADOS"
+        stop_reason = f"MAXIMO DE TRIALS ({config['optimization']['n_trials']}) ALCANCADOS"
     else:
         stop_reason = "PARADA MANUAL OU ERRO INTERNO"
 
     logger.info("="*60)
-    logger.info(f"🛑 OTIMIZAÇÃO FINALIZADA 🛑")
+    logger.info(f"--- OTIMIZACAO FINALIZADA ---")
     logger.info(f"Motivo da Parada: {stop_reason}")
-    logger.info(f"Tempo de Execução da Sessão: {duration/3600:.2f} Horas")
-    logger.info(f"Trials Executados nesta Sessão: {trials_run}")
+    logger.info(f"Tempo de Execucao da Sessao: {duration/3600:.2f} Horas")
+    logger.info(f"Trials Executados nesta Sessao: {trials_run}")
     logger.info("="*60)
 
     logger.info(f"Optimization complete | Melhor F1 Macro: {study.best_trial.value:.4f}")
@@ -390,34 +390,33 @@ def run_optimization():
 
     # ── Pipeline Automation ───────────────────────────────────────────────────
     logger.info("="*60)
-    logger.info("🚀 INICIANDO TRANSFERÊNCIA BASE (FOUNDATION) 🚀")
+    logger.info("--- INICIANDO TRANSFERENCIA BASE (FOUNDATION) ---")
     
-    # 0. Descobrir o nome exato do arquivo de log (.log) gerado pelo setup_logger com precisão (incluindo timestamp)
+    # 0. Descobrir o nome exato do arquivo de log (.log) gerado pelo setup_logger
     log_filename = "optimization.log" # Fallback
     opt_logger = logging.getLogger("optimization")
     
-    # Busca o FileHandler atrelado ao logger para roubar o nome absoluto que ele gerou
+    # Busca o FileHandler atrelado ao logger
     for handler in opt_logger.handlers:
         if isinstance(handler, logging.FileHandler):
             log_filename = Path(handler.baseFilename).name
             break
             
-    logger.info(f"📁 Log-âncora identificado para a transferência: {log_filename}")
+    logger.info(f"Log-ancora identificado para a transferencia: {log_filename}")
     
     # 1. Transfer Foundation
     try:
         subprocess.run([sys.executable, "src/cloud/base_model/utils/transfer.py", log_filename, "foundation"], check=True)
     except subprocess.CalledProcessError as e:
-        logger.error(f"❌ Falha no transfer base (foundation): {e}")
+        logger.error(f"Falha no transfer base (foundation): {e}")
         
     # 2. Check if Specialization should run
     if config['optimization'].get('run_specialized_after', False):
         logger.info("="*60)
-        logger.info("🚀 INICIANDO PIPELINE DE ESPECIALIZAÇÃO AUTOMÁTICA 🚀")
+        logger.info("--- INICIANDO PIPELINE DE ESPECIALIZACAO AUTOMATICA ---")
         
         try:
             # 2.1 Create Splits
-            # Config expects paths like data/L2/splits.../train -> we strip the /train to get the base
             dataset_path = str(Path(config['paths']['train_dir']).parent)
             logger.info("-> 1/3 Gerando Splits Especializados...")
             subprocess.run([sys.executable, "src/cloud/base_model/treino/create_specialized_splits.py", dataset_path], check=True)
@@ -430,11 +429,11 @@ def run_optimization():
             logger.info("-> 3/3 Transferindo Especialista pro Drive...")
             subprocess.run([sys.executable, "src/cloud/base_model/utils/transfer.py", log_filename, "specialized"], check=True)
             
-            logger.info("✅ PIPELINE 100% COMPLETO E EXECUTADO COM SUCESSO! 🦅🔥")
+            logger.info("PIPELINE 100%% COMPLETO E EXECUTADO COM SUCESSO!")
         except subprocess.CalledProcessError as e:
-            logger.error(f"❌ Falha na cascata de especialização: {e}")
+            logger.error(f"Falha na cascata de especializacao: {e}")
     else:
-        logger.info("🏁 Pipeline parado no Foundation (run_specialized_after = False/Não configurado).")
+        logger.info("--- Pipeline parado no Foundation (run_specialized_after = False/Nao configurado) ---")
     logger.info("="*60)
 
 
