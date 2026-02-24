@@ -73,9 +73,10 @@ class DataValidator:
 
         # 7. Check for Time Gaps (assuming 1min resampled)
         diffs = df.index.to_series().diff().dropna()
-        max_gap = diffs.max()
-        if max_gap > pd.Timedelta(minutes=5):
-            logger.warning(f"Found large time gap: {max_gap}")
+        if not diffs.empty:
+            max_gap = diffs.max()
+            if not pd.isna(max_gap) and max_gap > pd.Timedelta(minutes=5):
+                logger.warning(f"Found large time gap: {max_gap}")
         
         logger.info(f"Validation complete for {name}. Total rows: {len(df)}")
         return nans == 0 and infs == 0
