@@ -10,14 +10,14 @@
 
 | Arquivo | Propósito |
 |:---|:---|
-| `configs/base_model_config.yaml` | **Fonte única de verdade** — `class_weights`, `feature_names` (9), `seq_len`, `num_classes` |
+| `configs/base_model_config.yaml` | **Fonte única de verdade** — `class_weights`, `feature_names` (32), `seq_len`, `num_classes` |
 | `labelling/run_labelling.py` | Gera labels SELL(0)/NEUTRAL(1)/BUY(2) via rolling_sum de log_ret_close |
 | `labelling/labelling_config.yaml` | Parâmetros de rotulagem: `lookahead=60`, thresholds, paths de I/O |
 | `models/model.py` | `Hybrid_TCN_LSTM` — CausalConv1D stack + LSTM + MLP head |
 | `otimizacao/run_optuna.py` | Busca de hiperparâmetros (F1 Macro) com OOM guard via TrialPruned |
 | `otimizacao/optimization_config.yaml` | Search space: `tcn_channels`, `lstm_hidden`, `lr`, `dropout`, `batch_size`, `seq_len` |
 | `pre_processamento/etl/extract.py` | Leitura recursiva de ZIPs (ob200 + ob500) do GDrive/local |
-| `pre_processamento/etl/transform.py` | Reconstrução do L2 book → Hard Cut 200 → 1s sampling → 1min resample → 9 features |
+| `pre_processamento/etl/transform.py` | Reconstrução do L2 book → Hard Cut 200 → 1s sampling → 1min resample → 32 features |
 | `pre_processamento/etl/load.py` | Serialização para Parquet com compressão Snappy |
 | `pre_processamento/etl/validate.py` | NaN, Inf, ordem temporal, gap detection |
 | `pre_processamento/orchestration/run_pipeline.py` | Orquestrador do ETL — parallelismo por arquivo |
@@ -40,8 +40,8 @@
 
 | Caminho | Conteúdo |
 |:---|:---|
-| `data/L2/pre_processed/` | Parquets ETL — 810 colunas, ~1440 linhas/dia |
-| `data/L2/labelled_*/` | Parquets rotulados — 810 colunas + `target` ∈ {0,1,2} |
+| `data/L2/pre_processed/` | Parquets ETL — 833 colunas, ~1440 linhas/dia |
+| `data/L2/labelled_*/` | Parquets rotulados — 833 colunas + `target` ∈ {0,1,2} |
 | `data/models/` | `base_model.pt`, `scaler_finetuning.pkl`, `xgb_auditor.json` |
 | `data/live/` | Buffers de candles live do `binance_adapter.py` |
 
@@ -57,7 +57,7 @@ Consulte [`data/README.md`](../data/README.md) para detalhes de tamanhos e exper
 | `test_model.py` | Unitário | `Hybrid_TCN_LSTM`: shapes, simplex, causal conv, determinismo, gradientes |
 | `test_meta_features.py` | Unitário | `feature_engineering_meta.py`: indicadores (RSI, EMA, Bollinger, ATR, Entropy) e `extract_meta_features` |
 | `test_config_integrity.py` | Config | 4 YAMLs + consistência cross-config (`labelled_dir` deve coincidir) |
-| `test_cloud_etl_output.py` | Dados | 810 cols, book sorted, no NaN, chronological |
+| `test_cloud_etl_output.py` | Dados | 833 cols, book sorted, no NaN, chronological |
 | `test_preprocessed_quality.py` | Dados | Contagem de linhas, continuidade de datas, schema, nulls |
 | `test_labelling_output.py` | Dados | Schema `target`, {0,1,2}, ≥2 classes/arquivo, balance global ≥3% |
 

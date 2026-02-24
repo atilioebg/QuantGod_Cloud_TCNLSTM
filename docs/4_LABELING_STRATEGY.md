@@ -141,7 +141,7 @@ pytest tests/test_labelling_output.py -v
 ## 📝 Output Schema
 
 Arquivos em `data/L2/labelled_*/YYYY-MM-DD_BTCUSDT_ob*.parquet`:
-- **Todas as 810 colunas** do `pre_processed/` +
+- **Todas as 833 colunas** do `pre_processed/` +
 - Coluna `target` (int) com valores `{0, 1, 2}` +
 - Sem coluna `future_return` (removida após labelling)
 - **Linhas**: `len(pre_processed) - lookahead` (últimas `lookahead` linhas são removidas pois não têm retorno futuro)

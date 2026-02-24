@@ -9,8 +9,8 @@
 
 | Etapa | CPU | RAM | GPU | Notes |
 |:---|:---:|:---:|:---:|:---|
-| ETL (`run_pipeline.py`) | 8+ vCPUs | 16 GB | ❌ | CPU-bound — book reconstruction, ob500 é mais pesado |
-| Labelling (`run_labelling.py`) | 4+ vCPUs | 8 GB | ❌ | 6 workers paralelos por padrão |
+| ETL (`run_pipeline.py`) | 14+ vCPUs | 16 GB | ❌ | CPU-bound — book reconstruction, ob500 é mais pesado |
+| Labelling (`run_labelling.py`) | 14+ vCPUs | 8 GB | ❌ | 14 workers paralelos por padrão |
 | Optuna (`run_optuna.py`) | 4 vCPUs | 16 GB | ✅ RTX 3090+ | LSTM+TCN requer VRAM ≥ 8GB |
 | Training (`run_training.py`) | 4 vCPUs | 16 GB | ✅ RTX 3090+ | seq_len=720, batch=256 → ~4GB VRAM |
 | XGBoost (`train_xgboost.py`) | 8+ vCPUs | 32 GB | ❌ | K=5 folds × treinamento do base model |

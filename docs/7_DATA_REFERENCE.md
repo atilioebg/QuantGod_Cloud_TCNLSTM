@@ -146,7 +146,7 @@ O índice do DataFrame (e do arquivo Parquet) é `datetime` — timestamps em UT
 
 ## 5. Features Derivadas — Cálculo Detalhado
 
-As 9 features derivadas são as **únicas colunas usadas como input direto pelo modelo de treinamento**. Elas são calculadas sobre os dados já reamostrados em 1 minuto.
+As 32 features derivadas são as **colunas usadas como input direto pelo modelo de treinamento**. Elas são calculadas sobre os dados já reamostrados em 1 minuto.
 
 ### 5.1 Features de Candle (Forma/Estrutura)
 
@@ -306,8 +306,8 @@ micro_price = (bid_0_p * ask_0_s + ask_0_p * bid_0_s) / (bid_0_s + ask_0_s)
 ```
 - Representa o **preço justo de curtíssimo prazo**, ponderando a pressão de cada lado do book.
 - Usada para gerar OHLC (open/high/low/close) durante o resampling de 1min.
-- A coluna `close` no Parquet é a micro-price de fechamento do minuto.
-- `micro_price` **não é passada diretamente ao modelo** — apenas suas transformações derivadas (`body`, `upper_wick`, `lower_wick`, `log_ret_close`, `volatility`).
+- O timeframe efetivo de análise do modelo é 1 minuto. Cada linha no arquivo Parquet pré-processado representa 1 candle de 1 minuto do orderbook de BTC/USDT Perpetual Futures.
+- `micro_price` **não é passada diretamente ao modelo** — apenas suas transformações derivadas (OHLC, Volatilidade, Momenta, etc).
 
 ---
 
@@ -337,15 +337,15 @@ feature_cols = [
 
 ### 7.2 Shape do Tensor de Input
 ```
-Input Tensor Shape: (Batch, Seq_Len, 9)
+Input Tensor Shape: (Batch, Seq_Len, 32)
 ```
 Onde:
-- **Batch**: tamanho do batch (configurável: 32, 128, 256, 512 para fine-tuning)
+- **Batch**: tamanho do batch (configurável: 32..512)
 - **Seq_Len**: **720** candles de 1 minuto = **12 horas** de histórico
-- **9**: as 9 feature columns acima
+- **32**: as 32 feature columns acima
 
 ### 7.3 Normalização dos Inputs
-Antes de entrar no modelo, as 9 features são normalizadas com **StandardScaler** (Z-Score):
+Antes de entrar no modelo, as 32 features são normalizadas com **StandardScaler** (Z-Score):
 ```python
 scaler = StandardScaler()
 scaler.fit(X_raw[:split_idx])  # Fit apenas no conjunto de treino (sem data leakage)
@@ -420,11 +420,11 @@ graph TD
     B --> C["Sampling 1s\n(1 linha por segundo)"]
     C --> D["capture_state()\nHard Cut OB200\nbid_i_p, bid_i_s, ask_i_p, ask_i_s\nspread, obi_l0, deep_obi_5, micro_price"]
     D --> E["apply_feature_engineering()\nResample 1min\nOHLC, agg features"]
-    E --> F["9 Features Derivadas\n+ close + 800 colunas OB"]
-    F --> G["Parquet Pré-Processado\n810 colunas, index datetime 1min"]
+    E --> F["32 Features Derivadas\n+ close + 800 colunas OB"]
+    F --> G["Parquet Pré-Processado\n833 colunas, index datetime 1min"]
     G --> H["Labelling\nfuture_return 60min\nSELL=0, NEUTRAL=1, BUY=2"]
-    H --> I["Parquet Rotulado\n810 colunas + target"]
-    I --> J["Training\nStandardScaler nas 9 features\nSeq 720 candles (12h)\nInput shape: B × 720 × 9"]
+    H --> I["Parquet Rotulado\n833 colunas + target"]
+    I --> J["Training\nStandardScaler nas 32 features\nSeq 720 candles (12h)\nInput shape: B × 720 × 32"]
     J --> K["Base Model (Hybrid_TCN_LSTM)\nTCN stack + LSTM + MLP Head\nOutput: {logits:(B,3), probs:(B,3)}"]
     K --> L["Auditor (XGBoost)\n14 meta-features\nOutput: calibrated class + conf"]
 ```
@@ -439,7 +439,7 @@ Para uma segunda IA que deve receber os **mesmos dados como input**, as seguinte
 2. **Mesma lógica de reconstrução**: snapshot inicial seguido de aplicação incremental de deltas (remoção quando `size==0`)
 3. **Mesmo Hard Cut**: Top 200 bids (desc) e top 200 asks (asc)
 4. **Mesmo timeframe**: Sampling 1s → Resample 1min
-5. **Mesmas 9 features**: calculadas conforme seção 5, na mesma ordem
+5. **Mesmas 32 features**: calculadas conforme seções 5.1 a 5.6, na mesma ordem
 6. **Mesma normalização**: StandardScaler fit no conjunto de treino, aplicado em treino e validação
 7. **Mesmo `seq_len`**: 720 candles (12 horas de histórico)
 8. **Mesmo scaler**: Deve usar o `scaler_finetuning.pkl` salvo durante o treino do modelo original para garantir mesma distribuição em inferência em produção

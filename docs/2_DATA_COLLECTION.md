@@ -134,7 +134,7 @@ Durante inferência ao vivo, o sistema **não usa os ZIPs do GDrive**. Em vez di
 | Fonte | ZIPs históricos `.data` | WebSocket `btcusdt@depth@100ms` |
 | Snapshot inicial | `"type":"snapshot"` no arquivo | REST GET `/fapi/v1/depth?limit=1000` |
 | Sync | Sequencial por arquivo | `lastUpdateId/U/u` + re-bootstrap |
-| Features geradas | Idênticas (9 features) | Idênticas (9 features) |
+| Features geradas | Idênticas (32 features) | Idênticas (32 features) |
 | Scaler | `StandardScaler.fit()` no train set | `scaler_finetuning.pkl` carregado |
 
 Veja [`docs/5_MODEL_ARCHITECTURE.md`](5_MODEL_ARCHITECTURE.md) → Seção 7 para a documentação completa do `binance_adapter.py`.

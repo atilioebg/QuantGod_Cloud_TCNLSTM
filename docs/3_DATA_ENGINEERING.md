@@ -30,7 +30,7 @@ ZIP (GDrive/Bybit L2)
   │   ├─ Hard Cut: top 200 bids (desc) + top 200 asks (asc)
   │   ├─ Sampling: 1 tick/segundo (1000ms)
   │   ├─ Cálculo por tick: micro_price, spread, obi_l0, deep_obi_5, tick_count
-  │   └─ Resample 1 minuto: OHLC + 9 features agregadas
+  │   └─ Resample 1 minuto: OHLC + 32 features agregadas (Sniper Triggers + Deep Book)
   │
   ├─ load.py: Serialização em Parquet com compressão snappy
   │
@@ -48,13 +48,13 @@ sorted_bids = sorted(self.bids_book.keys(), reverse=True)[:200]  # Top 200 bids
 sorted_asks = sorted(self.asks_book.keys())[:200]                 # Top 200 asks
 ```
 
-Isso garante **schema de colunas idêntico** para todos os anos (810 colunas), sem qualquer branch especial no código de treinamento.
+Isso garante **schema de colunas idêntico** para todos os anos (833 colunas), sem qualquer branch especial no código de treinamento.
 
 ---
 
 ## 📊 Output: Schema do Parquet
 
-Cada arquivo `data/L2/pre_processed/YYYY-MM-DD_BTCUSDT_ob*.parquet` possui **810 colunas** e ~1.440 linhas (1 minuto por linha):
+Cada arquivo `data/L2/pre_processed/YYYY-MM-DD_BTCUSDT_ob*.parquet` possui **833 colunas** e ~1.440 linhas (1 minuto por linha):
 
 | Grupo | Padrão | Qtd | Descrição |
 |:---|:---|:---:|:---|
@@ -62,9 +62,9 @@ Cada arquivo `data/L2/pre_processed/YYYY-MM-DD_BTCUSDT_ob*.parquet` possui **810
 | Bids — Tamanho | `bid_{0..199}_s` | 200 | Quantidade do nível i |
 | Asks — Preço | `ask_{0..199}_p` | 200 | Preço do nível i (ask_0 = best ask) |
 | Asks — Tamanho | `ask_{0..199}_s` | 200 | Quantidade do nível i |
-| Features | *(ver abaixo)* | 9 | Input direto do modelo |
+| Features | *(ver 7_DATA_REFERENCE)* | 32 | Input direto do modelo |
 | Referência | `close` | 1 | Micro-price de fechamento |
-| **TOTAL** | | **810** | |
+| **TOTAL** | | **833** | |
 
 **Ordenação garantida:** `bid_0_p > bid_1_p > ... > bid_199_p` (decrescente), `ask_0_p < ask_1_p < ... < ask_199_p` (crescente).
 
@@ -72,37 +72,15 @@ Cada arquivo `data/L2/pre_processed/YYYY-MM-DD_BTCUSDT_ob*.parquet` possui **810
 
 ---
 
-## 🧮 As 9 Features Derivadas
+## 🧮 As 32 Features Derivadas
 
-Estas são as **únicas colunas** passadas como input ao modelo `Hybrid_TCN_LSTM`. Calculadas durante o resample de 1 minuto sobre os ticks de 1 segundo:
+Estas são as **únicas colunas** passadas como input ao modelo `Hybrid_TCN_LSTM`. A lista completa e fórmulas detalhadas podem ser encontradas no **[7_DATA_REFERENCE.md](7_DATA_REFERENCE.md)**.
 
-### Features de Candle (Forma da Vela)
-
-| Feature | Fórmula | Descrição |
-|:---|:---|:---|
-| `body` | `log(close / open)` | Retorno log do corpo — positivo = alta, negativo = queda |
-| `upper_wick` | `(high - max(open, close)) / prev_close` | Sombra superior normalizada pelo fechamento anterior |
-| `lower_wick` | `(min(open, close) - low) / prev_close` | Sombra inferior normalizada pelo fechamento anterior |
-
-> **OHLC** é derivado da `micro_price` durante o resample. `close` = micro_price no fechamento do minuto.
-
-### Feature de Retorno
-
-| Feature | Fórmula | Descrição |
-|:---|:---|:---|
-| `log_ret_close` | `log(close / prev_close)` | Log-retorno — série estacionária para ML |
-
-> Esta coluna também é a base para reconstruir micro_price durante feature engineering do XGBoost (via `cumsum` dos log-retornos).
-
-### Features de Microestrutura (Orderbook)
-
-| Feature | Fórmula | Descrição |
-|:---|:---|:---|
-| `volatility` | `std(micro_price_ticks_1s)` | Desvio padrão da micro_price intra-candle |
-| `max_spread` | `max(ask_0_p - bid_0_p)_ticks_1s` | Spread máximo bid-ask no minuto — proxy de stress de liquidez |
-| `mean_obi` | `mean((bid_0_s - ask_0_s)/(bid_0_s + ask_0_s))` | OBI top 1 nível — range [-1, +1] |
-| `mean_deep_obi` | `mean((Σbid_0..4_s - Σask_0..4_s)/(Σbid + Σask))` | OBI dos top 5 níveis — liquidez mais representativa |
-| `log_volume` | `log1p(tick_count)` | Proxy de volume — count de mensagens L2 no minuto |
+### Categorias de Features:
+1. **Core Candle Shape:** `body`, `upper_wick`, `lower_wick`, `log_ret_close`, `volatility`, `max_spread`.
+2. **Orderbook Imbalance (OBI):** `mean_obi`, `mean_deep_obi`, `pressure_ratio`.
+3. **Multi-Scale Triggers:** OFI e Momenta em janelas de 1min e 5min.
+4. **Institutional Intel:** Kyle's Lambda, Deep-to-Front Ratio, Book Convexity, V-PIN.
 
 ---
 
@@ -122,7 +100,7 @@ Estas são as **únicas colunas** passadas como input ao modelo `Hybrid_TCN_LSTM
 
 ## 📏 Normalização dos Inputs
 
-Antes de entrar no modelo, as 9 features recebem Z-Score via `StandardScaler`:
+Antes de entrar no modelo, as 32 features recebem Z-Score via `StandardScaler`:
 
 ```python
 scaler = StandardScaler()
@@ -145,7 +123,7 @@ Bybit WebSocket L2 ticks (~100ms de frequência)
     → Resample 1min  → ~1.440 linhas/dia  (1 por minuto) ← Output final
 ```
 
-**Janela de lookback do modelo:** 720 candles × 1 min = **12 horas de histórico**.
+**Janela de lookback do modelo:** 720 candles × 1 min = **12 horas de histórico**. Shape de input: `(Batch, 720, 32)`.
 
 ---
 

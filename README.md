@@ -25,15 +25,15 @@ Bybit L2 ZIPs (GDrive, 2023–2026)
         ↓
     ETL Pipeline          ← transform.py: book reconstruction, 9 features, 1min resample
         ↓
-  pre_processed/*.parquet (810 colunas, ~1.440 linhas/dia)
+  pre_processed/*.parquet (833 colunas, ~1.440 linhas/dia)
         ↓
     Labelling             ← run_labelling.py: threshold assimétrico lookahead=60min
         ↓
-  labelled_*/*.parquet (810 colunas + target ∈ {0,1,2})
+  labelled_*/*.parquet (833 colunas + target ∈ {0,1,2})
         ↓
 ┌─────────────────────────────────────────────┐
 │         BASE MODEL — Hybrid_TCN_LSTM        │
-│  Input: (B, 720, 9) — 12h × 9 features    │
+│  Input: (B, 720, 32) — 12h × 32 features    │
 │  TCN Stack (dilations [1,2,4,8]) + LSTM    │
 │  Output: {logits: (B,3), probs: (B,3)}    │
 └──────────────────┬──────────────────────────┘
@@ -58,7 +58,7 @@ QuantGod_Cloud/
 │   ├── base_model/          ← ETL, Labelling, TCN+LSTM, Optuna, Training
 │   └── auditor_model/       ← XGBoost, Feature Engineering Meta, Binance Live Adapter
 ├── data/
-│   ├── L2/pre_processed/    ← Output do ETL (810 cols Parquet)
+│   ├── L2/pre_processed/    ← Output do ETL (833 cols Parquet)
 │   ├── L2/labelled_*/       ← Datasets rotulados (+ coluna target)
 │   ├── models/              ← Checkpoints: .pt, .pkl, .json
 │   └── live/                ← Buffer de candles ao vivo
@@ -76,11 +76,11 @@ QuantGod_Cloud/
 | 🗺️ **[0_REPO_MAP.md](docs/0_REPO_MAP.md)** | Mapa completo do repositório — arquivos, configs, artefatos |
 | 🛠️ **[1_SETUP_AND_ENV.md](docs/1_SETUP_AND_ENV.md)** | Hardware, instalação de dependências, rclone, checklist |
 | 📡 **[2_DATA_COLLECTION.md](docs/2_DATA_COLLECTION.md)** | Dados brutos Bybit L2, GDrive, acesso live via Binance |
-| ⚙️ **[3_DATA_ENGINEERING.md](docs/3_DATA_ENGINEERING.md)** | ETL: schema 810 cols, 9 features com fórmulas, normalização |
-| 🏷️ **[4_LABELING_STRATEGY.md](docs/4_LABELING_STRATEGY.md)** | Thresholds assimétricos, 8 experimentos, como gerar novos |
+| ⚙️ **[3_DATA_ENGINEERING.md](docs/3_DATA_ENGINEERING.md)** | ETL: schema 833 cols, 32 features com fórmulas, normalização |
+| 🏷️ **[4_LABELING_STRATEGY.md](docs/4_LABELING_STRATEGY.md)** | Thresholds assimétricos, como gerar novos |
 | 🤖 **[5_MODEL_ARCHITECTURE.md](docs/5_MODEL_ARCHITECTURE.md)** | **Referência arquitetural** — TCN+LSTM, XGBoost, constraints, OOF, live adapter |
 | 🚁 **[6_OPERATIONAL_MANUAL.md](docs/6_OPERATIONAL_MANUAL.md)** | Pipeline 6 passos, guia RunPod, troubleshooting |
-| 📊 **[7_DATA_REFERENCE.md](docs/7_DATA_REFERENCE.md)** | Referência técnica detalhada: schema raw, 9 features, labelling, normalização |
+| 📊 **[7_DATA_REFERENCE.md](docs/7_DATA_REFERENCE.md)** | Referência técnica detalhada: schema raw, 32 features, labelling, normalização |
 
 Para a documentação do pipeline de infraestrutura cloud completa, consulte também:
 - 📋 **[src/cloud/README.md](src/cloud/README.md)** — Guia operacional completo
@@ -201,7 +201,7 @@ pytest tests/etl/test_cloud_etl_output.py -v -n 12
 ```
 > **Salvar na Nuvem (Google Drive):** Envie para o Drive ANTES de prosseguir:
 ```bash
-rclone copy data/L2/pre_processed drive:PROJETOS/PRE_PROCESSED_L2_2023_2026_1_MINUTE_18_FEATURES/ --config rclone.conf -P
+rclone copy data/L2/pre_processed drive:PROJETOS/PRE_PROCESSED_L2_2023_2026_1_MINUTE_32_FEATURES/ --config rclone.conf -P
 ```
 
 ##### ▶️ ETAPA 2: Labelling (Rótulos do Futuro)
@@ -215,7 +215,7 @@ pytest tests/labelling/test_labelling_output.py -v -n 12
 ```
 > **Salvar na Nuvem (Google Drive):** Proteja os Rótulos no seu Drive:
 ```bash
-rclone copy data/L2/labelled_* drive:PROJETOS/LABELLED_L2_2023_2026_1_MINUTE_18_FEATURES/ --config rclone.conf -P
+rclone copy data/L2/labelled_* drive:PROJETOS/LABELLED_L2_2023_2026_1_MINUTE_32_FEATURES/ --config rclone.conf -P
 ```
 
 ##### ▶️ ETAPA 3: Divisão Cronológica (Anti-Leakage)

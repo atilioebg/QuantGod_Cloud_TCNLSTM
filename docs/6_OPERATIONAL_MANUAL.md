@@ -47,8 +47,8 @@ python -m src.cloud.base_model.pre_processamento.orchestration.run_pipeline
 ```
 
 - **Input:** ZIPs do GDrive (via rclone mount)
-- **Output:** `data/L2/pre_processed/YYYY-MM-DD_*.parquet` (810 colunas, ~1440 linhas/arquivo)
-- **Duração:** ~2–4 horas para o dataset completo (2023–2026) em 8 vCPUs
+- **Output:** `data/L2/pre_processed/YYYY-MM-DD_*.parquet` (833 colunas, ~1440 linhas/arquivo)
+- **Duração:** ~2–4 horas para o dataset completo (2023–2026) em 14 vCPUs
 
 **Validar:**
 ```bash
