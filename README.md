@@ -218,9 +218,16 @@ pytest tests/labelling/test_labelling_output.py -v -n 12
 rclone copy data/L2/labelled_* drive:PROJETOS/LABELLED_L2_2023_2026_1_MINUTE_18_FEATURES/ --config rclone.conf -P
 ```
 
-##### ▶️ ETAPA 3: Treinamento Pesado (Finetuning/Fundação)
+##### ▶️ ETAPA 3: Divisão Cronológica (Anti-Leakage)
+**Objetivo:** Fatiar ordenadamente no tempo os dados rotulados nas pastas `train`, `val` e `test`. Esta etapa é **obrigatória** para prevenir vazamento de dados (onde a rede decora o dataset na validação).
+```bash
+python src/cloud/base_model/treino/split_dataset.py
+```
+> **Nota de Segurança:** O script `experiment_utils.py` bloqueia tentativas de rodar o Optuna se esta pasta `splits_` não for detectada para garantir validação Out-of-Sample limpa.
+
+##### ▶️ ETAPA 4: Treinamento Pesado (Finetuning/Fundação)
 **Objetivo:** Rodar a busca Optuna, encontrar o Top 1, salvar o modelo campeão e gerar validações matemáticas.
-**ATENÇÃO:** Abra o `src/cloud/base_model/otimizacao/optimization_config.yaml` e atualize os caminhos do `train_dir` e `val_dir` para apontarem para a exata pasta gerada na "Etapa 2" (ex: `data/L2/splits_labelled_.../train`).
+**ATENÇÃO:** O arquivo `src/cloud/base_model/otimizacao/optimization_config.yaml` já está configurado com os caminhos como `"AUTO"`, o que significa que o sistema descobrirá a pasta `splits_...` automaticamente.
 ```bash
 python src/cloud/base_model/otimizacao/run_optuna.py
 ```
