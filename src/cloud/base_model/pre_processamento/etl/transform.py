@@ -343,14 +343,30 @@ class L2Transformer:
         # Cumulative absolute OFI / Total depth over 5 minutes
         final_df['vpin_lite_5'] = final_df['ofi'].abs().rolling(5).sum() / (sum_bids_5 + sum_asks_5 + 1e-9)
 
-        # Final fillna for rolling windows
-        final_df[['micro_price_delta_5', 'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5']] = \
-            final_df[['micro_price_delta_5', 'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5']].fillna(0)
+        # ── Multi-Scale "Trigger" Features (1min Deltas) ────────────────────
+        # Fast-reacting signals to compare against 5min contexts
+        final_df['micro_price_delta_1'] = final_df['close'].pct_change(1)
+        final_df['ofi_delta_1'] = final_df['ofi'].diff(1)
+        final_df['bid_rdi_delta_1'] = final_df['bid_rdi'].diff(1)
+        final_df['ask_rdi_delta_1'] = final_df['ask_rdi'].diff(1)
 
-        # ── Final Feature List (including Sniper & Institutional features) ────
+        # Final cleanup for all rolling/diff features (NaNs to 0, Infs to 0)
+        sniper_institutional_cols = [
+            'ofi_delta_5', 'ofi_delta_1',
+            'bid_rdi_delta_5', 'bid_rdi_delta_1', 
+            'ask_rdi_delta_5', 'ask_rdi_delta_1',
+            'micro_price_delta_5', 'micro_price_delta_1',
+            'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5'
+        ]
+        final_df[sniper_institutional_cols] = final_df[sniper_institutional_cols].replace([np.inf, -np.inf], 0).fillna(0)
+
+        # ── Final Feature List (including Sniper, Institutional & Multi-Scale) ─
         dynamic_features = [
-            'ofi', 'ofi_delta_5', 'micro_price_momentum', 'micro_price_delta_5',
-            'bid_slope', 'ask_slope', 'bid_rdi', 'bid_rdi_delta_5', 'ask_rdi', 'ask_rdi_delta_5',
+            'ofi', 'ofi_delta_5', 'ofi_delta_1',
+            'micro_price_momentum', 'micro_price_delta_5', 'micro_price_delta_1',
+            'bid_slope', 'ask_slope', 
+            'bid_rdi', 'bid_rdi_delta_5', 'bid_rdi_delta_1',
+            'ask_rdi', 'ask_rdi_delta_5', 'ask_rdi_delta_1',
             'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5', 'pressure_ratio'
         ]
         agg_features = [
@@ -380,8 +396,11 @@ class L2Transformer:
             'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi', 'log_volume', 'log_ret_close',
         ]
         flow_cols = [
-            'ofi', 'ofi_delta_5', 'micro_price_momentum', 'micro_price_delta_5',
-            'bid_slope', 'ask_slope', 'bid_rdi', 'bid_rdi_delta_5', 'ask_rdi', 'ask_rdi_delta_5',
+            'ofi', 'ofi_delta_5', 'ofi_delta_1',
+            'micro_price_momentum', 'micro_price_delta_5', 'micro_price_delta_1',
+            'bid_slope', 'ask_slope', 
+            'bid_rdi', 'bid_rdi_delta_5', 'bid_rdi_delta_1',
+            'ask_rdi', 'ask_rdi_delta_5', 'ask_rdi_delta_1',
             'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5', 'pressure_ratio',
         ]
         original_cols = [c for c in original_cols if c in df.columns]

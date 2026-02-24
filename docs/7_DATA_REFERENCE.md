@@ -129,9 +129,9 @@ Os arquivos Parquet produzidos pelo ETL (`data/L2/pre_processed/*.parquet`) poss
 | **Orderbook Bids** | `bid_{i}_s` | 200 | Quantidade (size) do i-ésimo nível de Bid |
 | **Orderbook Asks** | `ask_{i}_p` | 200 | Preço do i-ésimo nível de Ask (i=0 é o best ask) |
 | **Orderbook Asks** | `ask_{i}_s` | 200 | Quantidade (size) do i-ésimo nível de Ask |
-| **Features Derivadas** | *(ver seção 5)* | 23 | Features de treinamento calculadas no resampling |
+| **Features Derivadas** | *(ver seção 5)* | 27 | Features de treinamento calculadas no resampling |
 | **Referência de Preço** | `close` | 1 | Micro-price de fechamento do candle de 1min |
-| **TOTAL** | | **824** | |
+| **TOTAL** | | **828** | |
 
 **Exemplo de nomes de colunas de orderbook:**
 ```
@@ -229,16 +229,19 @@ log_volume = np.log1p(tick_count)
 Onde `tick_count` é o **número de mensagens L2 recebidas** no minuto (snapshot + deltas).
 - Usado como proxy de volume e atividade de mercado (dados L2 não contêm trade volume diretamente).
 
-### 5.4 Sniper Features (Aceleração de Fluxo)
+### 5.4 Multi-Scale Features (📡 Sniper Triggers)
 
-#### `ofi_delta_5` — Aceleração da Agressão
-```python
-ofi_delta_5 = ofi - ofi.shift(5)
-```
-- Captura o "susto" ou aceleração na agressão líquida. Variações repentinas costumam preceder rompimentos de 1h.
+#### `ofi_delta_1` / `ofi_delta_5` — Aceleração da Agressão
+- **Delta 1min**: Captura o choque instantâneo de fluxo.
+- **Delta 5min**: Captura a tendência estrutural de agressão.
+- A TCN usa ambos para distinguir entre spikes isolados e rompimentos reais.
 
-#### `bid_rdi_delta_5` / `ask_rdi_delta_5` — Choque de Profundidade
-- Variação do *Relative Depth Imbalance* nos últimos 5 minutos. Identifica quando a liquidez de um lado está sendo removida/adicionada rapidamente de forma direcional.
+#### `bid_rdi_delta_1` / `ask_rdi_delta_1` — Choque de Profundidade
+- Captura a remoção/adição instantânea de liquidez. Essencial para identificar o início de uma absorção ou bleed de liquidez.
+
+#### `micro_price_delta_1` / `micro_price_delta_5` — Momentum do Preço Real
+- **Delta 1min**: Gatilho rápido de desequilíbrio de preço.
+- **Delta 5min**: Drift de valor justo institucional.
 
 ---
 
@@ -285,20 +288,22 @@ micro_price = (bid_0_p * ask_0_s + ask_0_p * bid_0_s) / (bid_0_s + ask_0_s)
 
 ## 7. Inputs Diretos do Modelo (QuantGodModel)
 
-### 7.1 Feature Columns (23 colunas)
-O modelo recebe **exclusivamente estas 23 colunas** como input:
+### 7.1 Feature Columns (27 colunas)
+O modelo recebe **exclusivamente estas 27 colunas** como input:
 
 ```python
 feature_cols = [
     # Core OHLC + OBI (9)
     'body', 'upper_wick', 'lower_wick', 'log_ret_close', 
     'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi', 'log_volume',
-    # Sniper Alpha (3)
-    'ofi', 'ofi_delta_5', 'micro_price_momentum',
-    # Institutional (11)
-    'micro_price_delta_5', 'bid_slope', 'ask_slope',
-    'bid_rdi', 'bid_rdi_delta_5', 'ask_rdi', 'ask_rdi_delta_5',
-    'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5', 'pressure_ratio'
+    # Multi-Scale Triggers (1min vs 5min) (11)
+    'ofi', 'ofi_delta_5', 'ofi_delta_1',
+    'micro_price_momentum', 'micro_price_delta_5', 'micro_price_delta_1',
+    'bid_rdi', 'bid_rdi_delta_5', 'bid_rdi_delta_1',
+    'ask_rdi', 'ask_rdi_delta_5', 'ask_rdi_delta_1',
+    # Institutional (7)
+    'bid_slope', 'ask_slope', 'book_asymmetry_v5', 
+    'spread_zscore_60', 'vpin_lite_5', 'pressure_ratio'
 ]
 ```
 
