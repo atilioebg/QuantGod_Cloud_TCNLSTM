@@ -2,6 +2,7 @@ import yaml
 import logging
 from pathlib import Path
 import pandas as pd
+import numpy as np
 from src.cloud.base_model.pre_processamento.etl.extract import DataExtractor
 from src.cloud.base_model.pre_processamento.etl.transform import L2Transformer
 from src.cloud.base_model.pre_processamento.etl.load import DataLoader
@@ -53,7 +54,8 @@ def process_single_zip(zip_path, config):
                         # Append values, handle potential missing keys safely
                         for k in sampled_rows.keys():
                             sampled_rows[k].append(row.get(k, np.nan))
-                except:
+                except Exception as e:
+                    logger.debug(f"[pipeline] Failed to process message: {e}")
                     continue
         
         # 2. Transformation & Loading
