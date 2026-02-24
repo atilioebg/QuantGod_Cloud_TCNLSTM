@@ -6,36 +6,41 @@
 # =============================================================================
 
 model:
-  num_features: 16
+  num_features: 32
   num_classes: 3
   feature_names:
-    - body
-    - upper_wick
-    - lower_wick
-    - log_ret_close
-    - volatility
-    - max_spread
-    - mean_obi
-    - mean_deep_obi
-    - log_volume
-    - ofi
-    - ofi_delta_5
-    - ofi_delta_1
-    - micro_price_momentum
-    - micro_price_delta_5
-    - micro_price_delta_1
-    - bid_slope
-    - ask_slope
-    - bid_rdi
-    - bid_rdi_delta_5
-    - bid_rdi_delta_1
-    - ask_rdi
-    - ask_rdi_delta_5
-    - ask_rdi_delta_1
-    - book_asymmetry_v5
-    - spread_zscore_60
-    - vpin_lite_5
-    - pressure_ratio
+    - body                # Corpo da vela: log(close/open) - Direcionalidade do candle
+    - upper_wick          # Sombra superior normalizada: (high - max(open,close))/prev_close - Rejeição de compra
+    - lower_wick          # Sombra inferior normalizada: (min(open,close) - low)/prev_close - Rejeição de venda
+    - log_ret_close       # Retorno logarítmico: log(close/prev_close) - Momentum de preço bruto
+    - volatility          # Volatilidade intra-minuto: std(micro_price) - Estresse de preço no candle
+    - max_spread          # Spread máximo: Maior diferença entre ask e bid no minuto - Termômetro de liquidez
+    - mean_obi            # Order Book Imbalance (Top 1): Média de (bid_s - ask_s)/(bid_s + ask_s) no nível 0
+    - mean_deep_obi       # Order Book Imbalance Profundo (L5): OBI médio do volume nos top 5 níveis
+    - log_volume          # Proxy de Volume: log(tick_count + 1) - Intensidade de mensagens L2 no minuto
+    - ofi                 # Order Flow Imbalance: Fluxo líquido de ordens no nível 0 (compras vs vendas líquidas)
+    - ofi_delta_5         # Aceleração de Fluxo (5min): Variação do OFI nos últimos 5 minutos - Contexto estrutural
+    - ofi_delta_1         # Gatilho de Fluxo (1min): Variação instantânea do OFI - Choque de fluxo
+    - micro_price_momentum # Momentum Acumulado Micro-Price: Soma de log-retornos do micro-price no minuto
+    - micro_price_delta_5 # Drift de Preço Real (5min): Variação percentual do micro-price em 5 minutos
+    - micro_price_delta_1 # Gatilho de Preço Real (1min): Variação percentual instantânea do micro-price
+    - bid_slope           # Inclinação dos Bids: Agressividade dos compradores nos níveis de profundidade
+    - ask_slope           # Inclinação dos Asks: Agressiveidade dos vendedores nos níveis de profundidade
+    - bid_rdi             # Relative Depth Imbalance (Bid): Profundidade dos compradores em relação ao total
+    - bid_rdi_delta_5     # Choque de Profundidade Bid (5min): Variação estrutural da liquidez compradora
+    - bid_rdi_delta_1     # Gatilho de Profundidade Bid (1min): Choque instantâneo na liquidez compradora
+    - ask_rdi             # Relative Depth Imbalance (Ask): Profundidade dos vendedores em relação ao total
+    - ask_rdi_delta_5     # Choque de Profundidade Ask (5min): Variação estrutural da liquidez vendedora
+    - ask_rdi_delta_1     # Gatilho de Profundidade Ask (1min): Choque instantâneo na liquidez vendedora
+    - book_asymmetry_v5   # Assimetria L5: log(sum_bids_L5 / sum_asks_L5) - Detecção de absorção/paredes
+    - spread_zscore_60    # Spread Relativo (60min): Z-Score do spread em relação à última hora - Estresse extremo
+    - vpin_lite_5         # Toxicidade de Volume (5min): Ratio de OFI absoluto sobre liquidez total L5
+    - kyle_lambda         # Kyle's Lambda: micro_price_delta_1 / ofi_delta_1 - Resistência do preço ao fluxo (Absorção)
+    - bid_deep_ratio      # Razão Profunda Bid (L200/L5): Volume níveis 50-200 / Volume níveis 0-5 - Intenção institucional
+    - ask_deep_ratio      # Razão Profunda Ask (L200/L5): Volume níveis 50-200 / Volume níveis 0-5 - Intenção institucional
+    - bid_convexity       # Convexidade Bid: Gradiente de volume L1-L10 / L11-L20 - Proteção de preço
+    - ask_convexity       # Convexidade Ask: Gradiente de volume L1-L10 / L11-L20 - Proteção de preço
+    - pressure_ratio      # Razão de Pressão L2: Outro ângulo da força de absorção entre bid e ask
 
 training:
   # Fallback class weights (inverse-frequency, ~78% Neutral / ~11% SELL / ~11% BUY).

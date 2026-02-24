@@ -28,7 +28,9 @@ DYNAMIC_FEATURES = [
     'bid_slope', 'ask_slope', 
     'bid_rdi', 'bid_rdi_delta_5', 'bid_rdi_delta_1',
     'ask_rdi', 'ask_rdi_delta_5', 'ask_rdi_delta_1',
-    'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5', 'pressure_ratio'
+    'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5',
+    'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity',
+    'pressure_ratio'
 ]
 AGG_FEATURES = [
     'body', 'upper_wick', 'lower_wick', 'log_ret_close',
@@ -42,7 +44,7 @@ OB_COLS = []
 for i in range(OB_LEVELS):
     OB_COLS.extend([f"bid_{i}_p", f"bid_{i}_s", f"ask_{i}_p", f"ask_{i}_s"])
 
-# Total esperado: 27 features + 1 close + 800 OB = 828 colunas
+# Total esperado: 32 features + 1 close + 800 OB = 833 colunas
 EXPECTED_COL_COUNT = len(ALL_FEATURES) + 1 + len(OB_COLS)
 
 # =============================================================================

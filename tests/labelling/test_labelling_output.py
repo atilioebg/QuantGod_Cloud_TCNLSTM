@@ -89,9 +89,11 @@ REQUIRED_FEATURES = [
     'micro_price_momentum', 'micro_price_delta_5', 'micro_price_delta_1',
     'bid_rdi', 'bid_rdi_delta_5', 'bid_rdi_delta_1',
     'ask_rdi', 'ask_rdi_delta_5', 'ask_rdi_delta_1',
-    # Institutional (7)
+    # Institutional & Phase 6 (12)
     'bid_slope', 'ask_slope', 'book_asymmetry_v5', 
-    'spread_zscore_60', 'vpin_lite_5', 'pressure_ratio'
+    'spread_zscore_60', 'vpin_lite_5', 
+    'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity',
+    'pressure_ratio'
 ]
 
 

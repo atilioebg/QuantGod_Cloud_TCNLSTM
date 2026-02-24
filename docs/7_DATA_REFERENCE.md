@@ -129,9 +129,9 @@ Os arquivos Parquet produzidos pelo ETL (`data/L2/pre_processed/*.parquet`) poss
 | **Orderbook Bids** | `bid_{i}_s` | 200 | Quantidade (size) do i-ésimo nível de Bid |
 | **Orderbook Asks** | `ask_{i}_p` | 200 | Preço do i-ésimo nível de Ask (i=0 é o best ask) |
 | **Orderbook Asks** | `ask_{i}_s` | 200 | Quantidade (size) do i-ésimo nível de Ask |
-| **Features Derivadas** | *(ver seção 5)* | 27 | Features de treinamento calculadas no resampling |
+| **Features Derivadas** | *(ver seção 5)* | 32 | Features de treinamento calculadas no resampling |
 | **Referência de Preço** | `close` | 1 | Micro-price de fechamento do candle de 1min |
-| **TOTAL** | | **828** | |
+| **TOTAL** | | **833** | |
 
 **Exemplo de nomes de colunas de orderbook:**
 ```
@@ -245,6 +245,31 @@ Onde `tick_count` é o **número de mensagens L2 recebidas** no minuto (snapshot
 
 ---
 
+### 5.6 Deep-Book Intelligence (🧬 Phase 6 Orthogonal)
+
+#### `kyle_lambda` — Kyle's Lambda (Absorção)
+```python
+lambda = micro_price_delta_1 / (abs(ofi_delta_1) + 1e-9)
+```
+- Mede o **custo de liquidez**: quanto o preço se move para cada unidade de fluxo líquido. 
+- Valores baixos indicam alta absorção (liquidez profunda absorvendo ordens). 
+- Valores altos indicam "slippage" institucional ou falta de suporte.
+
+#### `bid_deep_ratio` / `ask_deep_ratio` — Deep-to-Front Ratio (L200/L5)
+```python
+ratio = sum(vol_L50_L200) / sum(vol_L0_L5)
+```
+- Compara a "intenção profunda" institucional (níveis 50-200) com as "paredes de tela" (níveis 0-5).
+- Detecta quando grandes players estão posicionando liquidez profunda antes de um movimento direcional.
+
+#### `bid_convexity` / `ask_convexity` — Book Convexity (Gradient)
+```python
+convexity = sum(vol_L1_L10) / sum(vol_L11_L20)
+```
+- Analisa o **gradiente de proteção** imediata. Identifica se a liquidez está concentrada no topo ou se há um "vácuo" logo atrás dos primeiros níveis.
+
+---
+
 ### 5.5 Advanced Institutional Microstructure (🏛️ Nível 4)
 
 #### `micro_price_delta_5` — Momentum do Preço Real
@@ -288,22 +313,25 @@ micro_price = (bid_0_p * ask_0_s + ask_0_p * bid_0_s) / (bid_0_s + ask_0_s)
 
 ## 7. Inputs Diretos do Modelo (QuantGodModel)
 
-### 7.1 Feature Columns (27 colunas)
-O modelo recebe **exclusivamente estas 27 colunas** como input:
+### 7.1 Feature Columns (32 colunas)
+O modelo recebe **exclusivamente estas 32 colunas** como input:
 
 ```python
 feature_cols = [
     # Core OHLC + OBI (9)
     'body', 'upper_wick', 'lower_wick', 'log_ret_close', 
     'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi', 'log_volume',
-    # Multi-Scale Triggers (1min vs 5min) (11)
+    # Multi-Scale Triggers (11)
     'ofi', 'ofi_delta_5', 'ofi_delta_1',
     'micro_price_momentum', 'micro_price_delta_5', 'micro_price_delta_1',
     'bid_rdi', 'bid_rdi_delta_5', 'bid_rdi_delta_1',
     'ask_rdi', 'ask_rdi_delta_5', 'ask_rdi_delta_1',
-    # Institutional (7)
+    # Institutional & Deep-Book (12)
     'bid_slope', 'ask_slope', 'book_asymmetry_v5', 
-    'spread_zscore_60', 'vpin_lite_5', 'pressure_ratio'
+    'spread_zscore_60', 'vpin_lite_5', 
+    'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 
+    'bid_convexity', 'ask_convexity',
+    'pressure_ratio'
 ]
 ```
 

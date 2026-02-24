@@ -350,24 +350,45 @@ class L2Transformer:
         final_df['bid_rdi_delta_1'] = final_df['bid_rdi'].diff(1)
         final_df['ask_rdi_delta_1'] = final_df['ask_rdi'].diff(1)
 
+        # ── Phase 6: Orthogonal Deep-Book Features 🧬 ─────────────────────
+        # 1. Kyle's Lambda: Resistance to flow (Price Impact)
+        final_df['kyle_lambda'] = final_df['micro_price_delta_1'] / (final_df['ofi_delta_1'].abs() + 1e-9)
+
+        # 2. Deep-to-Front Ratio (L200/L5): Structural intent vs short-term walls
+        sum_bids_50_200 = sum(final_df[f"bid_{i}_s"] for i in range(50, 200))
+        sum_asks_50_200 = sum(final_df[f"ask_{i}_s"] for i in range(50, 200))
+        final_df['bid_deep_ratio'] = sum_bids_50_200 / (sum_bids_5 + 1e-9)
+        final_df['ask_deep_ratio'] = sum_asks_50_200 / (sum_asks_5 + 1e-9)
+
+        # 3. Book Convexity: Gradient between L1-L10 and L11-L20
+        sum_bids_1_10 = sum(final_df[f"bid_{i}_s"] for i in range(1, 11))
+        sum_bids_11_20 = sum(final_df[f"bid_{i}_s"] for i in range(11, 21))
+        sum_asks_1_10 = sum(final_df[f"ask_{i}_s"] for i in range(1, 11))
+        sum_asks_11_20 = sum(final_df[f"ask_{i}_s"] for i in range(11, 21))
+        final_df['bid_convexity'] = sum_bids_1_10 / (sum_bids_11_20 + 1e-9)
+        final_df['ask_convexity'] = sum_asks_1_10 / (sum_asks_11_20 + 1e-9)
+
         # Final cleanup for all rolling/diff features (NaNs to 0, Infs to 0)
         sniper_institutional_cols = [
             'ofi_delta_5', 'ofi_delta_1',
             'bid_rdi_delta_5', 'bid_rdi_delta_1', 
             'ask_rdi_delta_5', 'ask_rdi_delta_1',
             'micro_price_delta_5', 'micro_price_delta_1',
-            'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5'
+            'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5',
+            'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity'
         ]
         final_df[sniper_institutional_cols] = final_df[sniper_institutional_cols].replace([np.inf, -np.inf], 0).fillna(0)
 
-        # ── Final Feature List (including Sniper, Institutional & Multi-Scale) ─
+        # ── Final Feature List (including Sniper, Institutional, Multi-Scale & Phase 6) 
         dynamic_features = [
             'ofi', 'ofi_delta_5', 'ofi_delta_1',
             'micro_price_momentum', 'micro_price_delta_5', 'micro_price_delta_1',
             'bid_slope', 'ask_slope', 
             'bid_rdi', 'bid_rdi_delta_5', 'bid_rdi_delta_1',
             'ask_rdi', 'ask_rdi_delta_5', 'ask_rdi_delta_1',
-            'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5', 'pressure_ratio'
+            'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5',
+            'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity',
+            'pressure_ratio'
         ]
         agg_features = [
             'body', 'upper_wick', 'lower_wick', 'log_ret_close',
@@ -401,7 +422,9 @@ class L2Transformer:
             'bid_slope', 'ask_slope', 
             'bid_rdi', 'bid_rdi_delta_5', 'bid_rdi_delta_1',
             'ask_rdi', 'ask_rdi_delta_5', 'ask_rdi_delta_1',
-            'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5', 'pressure_ratio',
+            'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5',
+            'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity',
+            'pressure_ratio',
         ]
         original_cols = [c for c in original_cols if c in df.columns]
         flow_cols     = [c for c in flow_cols     if c in df.columns]
