@@ -57,3 +57,37 @@ def sample_sequence_batch():
     """
     rng = np.random.default_rng(99)
     return rng.standard_normal((4, SEQ_LEN, NUM_FEATURES)).astype(np.float32)
+
+# ─── Custom Reporting for Failed Files ───────────────────────────────────────
+
+def pytest_sessionstart(session):
+    """Clear the failure report at the start of the session."""
+    log_dir = Path("logs/tests")
+    log_dir.mkdir(parents=True, exist_ok=True)
+    report_file = log_dir / "failed_files_report.log"
+    if report_file.exists():
+        report_file.unlink()
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Catches test failures and logs the specific file and error to a clean report."""
+    outcome = yield
+    rep = outcome.get_result()
+    
+    if rep.when == "call" and rep.failed:
+        file_path_str = "Global/Unknown"
+        if hasattr(item, "callspec") and "file_path" in item.callspec.params:
+            val = item.callspec.params["file_path"]
+            file_path_str = getattr(val, "name", str(val))
+            
+        error_msg = "Unknown Error"
+        if call.excinfo:
+            # Get the first line of the exception value (the assertion message)
+            error_msg = str(call.excinfo.value).split("\n")[0]
+            
+        log_dir = Path("logs/tests")
+        log_dir.mkdir(parents=True, exist_ok=True)
+        report_file = log_dir / "failed_files_report.log"
+        
+        with open(report_file, "a", encoding="utf-8") as f:
+            f.write(f"❌ FILE: {file_path_str} | TEST: {item.name} | ERROR: {error_msg}\n")
