@@ -14,17 +14,18 @@ optimization:
 # TCN+LSTM search space
 search_space:
   # 1. Expansão Controlada (Dando cérebro onde há correlação positiva)
-  tcn_channels: [64, 128, 256]         # Expandido para 256. A 4000 Ada (20GB) aguenta modelos mais profundos.
+  tcn_channels: [32, 64, 128]          # Capacidade reduzida para combater o overfitting severo.
   lstm_hidden: [128, 256, 512]         # Expandido para 512. Mais "músculo" para processar microestrutura.
   num_lstm_layers: [2]
   
   # 2. Refinamento de Velocidade
-  lr: [0.00005, 0.0003]               # Estreitamos a faixa. LR alto demais gera instabilidade com Focal Loss.
+  lr: [0.00001, 0.0001]               # Conservative LR: Limite superior em 1e-4 para evitar pulos fora de mínimos globais.
+  weight_decay: [0.00001, 0.001]      # Regularização L2: Penalização [1e-5 a 1e-3] no AdamW para pesos muito altos (overfitting).
   
   # 3. Ajuste de Estabilidade Estatística
   batch_size: [512, 1024]             # Removemos o 2048. Ele se provou lento demais para convergir em 10 épocas.
   
   # 4. Janela de Visão (A Microestrutura manda)
-  seq_len: [360, 720, 1080]           # Inserimos 1080. O Trial 32 amou a janela de 720 (12h). Vamos ver se 18h traz mais Alpha.
-  dropout: [0.4, 0.6]                 # Subimos o piso. A rede vai crescer, então o escudo de dropout precisa ser mais forte.
+  seq_len: [120, 240, 480]            # Janela menor (2h a 8h): Capturar momentum recente sem poluição temporal de longo prazo.
+  dropout: [0.6, 0.8]                 # Dropout Massivo: Forçar redundância para combater memorização.
   epochs: 10

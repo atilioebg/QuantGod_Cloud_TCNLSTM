@@ -84,11 +84,14 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
         lr              = trial.suggest_float("lr",
                                               config['search_space']['lr'][0],
                                               config['search_space']['lr'][1], log=True)
+        weight_decay    = trial.suggest_float("weight_decay",
+                                              config['search_space']['weight_decay'][0],
+                                              config['search_space']['weight_decay'][1], log=True)
         epochs          = config['search_space']['epochs']
 
         logger.info(f"Trial {trial.number} START | tcn={tcn_channels}, lstm={lstm_hidden}, "
                     f"layers={num_lstm_layers}, batch={batch_size}, seq={seq_len}, "
-                    f"drop={dropout:.3f}, lr={lr:.6f}")
+                    f"drop={dropout:.3f}, lr={lr:.6f}, wd={weight_decay:.6f}")
 
         # ── Datasets ───────────────────────────────────────────────────────────
         train_dataset = SequenceDataset(X_train, y_train, seq_len)
@@ -113,7 +116,7 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
         alpha     = compute_alpha_from_labels(y_train, num_classes=3, device=DEVICE)
         criterion = FocalLossWithSmoothing(alpha=alpha, gamma=2.0, smoothing=0.1)
 
-        optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
+        optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
         amp_scaler = torch.amp.GradScaler('cuda')
 
