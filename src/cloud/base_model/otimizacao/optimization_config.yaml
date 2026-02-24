@@ -14,9 +14,9 @@ optimization:
 # TCN+LSTM search space
 search_space:
   # 1. Expansão Controlada (Dando cérebro onde há correlação positiva)
-  tcn_channels: [64, 128]             # Removemos 16/32. Subimos o piso para 64 e testamos 128.
-  lstm_hidden: [128, 256]             # Removemos 32/64. Subimos o piso para 128 e testamos 256.
-  num_lstm_layers: [2]                # Fixamos em 2. Layers=1 não apareceu no Top 5 de elite.
+  tcn_channels: [64, 128, 256]         # Expandido para 256. A 4000 Ada (20GB) aguenta modelos mais profundos.
+  lstm_hidden: [128, 256, 512]         # Expandido para 512. Mais "músculo" para processar microestrutura.
+  num_lstm_layers: [2]
   
   # 2. Refinamento de Velocidade
   lr: [0.00005, 0.0003]               # Estreitamos a faixa. LR alto demais gera instabilidade com Focal Loss.
