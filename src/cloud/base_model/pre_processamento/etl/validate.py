@@ -10,6 +10,13 @@ class DataValidator:
         """Performs basic integrity checks on the processed data."""
         logger.info(f"--- Validating {name} ---")
         
+        # 0. Check for Duplicate Columns (FATAL)
+        if df.columns.duplicated().any():
+            dupes = df.columns[df.columns.duplicated()].unique().tolist()
+            msg = f"❌ FATAL: Dataset {name} has duplicate columns: {dupes}"
+            logger.error(msg)
+            raise ValueError(msg)
+        
         # 1. Check for NaNs
         nans = df.isna().sum().sum()
         if nans > 0:
@@ -56,7 +63,11 @@ class DataValidator:
             # transform.py uses: final_df['ofi_delta_5'] = final_df['ofi'].diff(5)
             # We verify this in-situ
             reconstructed_delta = df['ofi'].diff(5).fillna(0)
-            diff_check = (df['ofi_delta_5'].fillna(0) - reconstructed_delta).abs().max()
+            # Use .values to ensure we are comparing arrays if duplication somehow happens, 
+            # and .max().max() if it's a DataFrame
+            check_val = (df['ofi_delta_5'].fillna(0) - reconstructed_delta).abs()
+            diff_check = check_val.max().max() if isinstance(check_val, pd.DataFrame) else check_val.max()
+            
             if diff_check > 1e-7:
                  logger.warning(f"⚠️ CROSS-SCALE INCONSISTENCY: ofi_delta_5 drift detected ({diff_check})")
             else:

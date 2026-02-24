@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 import logging
 from typing import Dict, List, Optional
-from scipy.stats import zscore
 import pickle
 from pathlib import Path
 
@@ -396,9 +395,19 @@ class L2Transformer:
         ] + dynamic_features
 
         # Keep aggregated features + 'close' (label base) + raw orderbook levels
-        ob_cols = [c for c in final_df.columns if any(x in c for x in ['bid_', 'ask_'])
-                   and not c.endswith(('_slope', '_rdi'))]
-        final_cols = [c for c in agg_features + ['close'] + ob_cols if c in final_df.columns]
+        # Fix: exclude processed sniper/institutional columns from raw ob_cols to prevent duplicates
+        ob_cols = [c for c in final_df.columns if (('bid_' in c or 'ask_' in c) 
+                   and not any(x in c for x in ['_slope', '_rdi', '_delta_', '_asymmetry', '_convexity']))]
+        
+        # Build final list and deduplicate while preserving order
+        raw_final_cols = agg_features + ['close'] + ob_cols
+        final_cols = []
+        seen = set()
+        for c in raw_final_cols:
+            if c in final_df.columns and c not in seen:
+                final_cols.append(c)
+                seen.add(c)
+        
         final_df = final_df[final_cols]
 
         # Log the new column set for traceability
