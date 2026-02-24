@@ -23,8 +23,9 @@ def get_test_files():
 # DEFINIÇÃO DE CONSTANTES DO DATASET (QuantGod v10 - 16 Features)
 # =============================================================================
 DYNAMIC_FEATURES = [
-    'ofi', 'micro_price_momentum', 'bid_slope', 'ask_slope',
-    'bid_rdi', 'ask_rdi', 'pressure_ratio'
+    'ofi', 'ofi_delta_5', 'micro_price_momentum', 'micro_price_delta_5',
+    'bid_slope', 'ask_slope', 'bid_rdi', 'bid_rdi_delta_5', 'ask_rdi', 'ask_rdi_delta_5',
+    'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5', 'pressure_ratio'
 ]
 AGG_FEATURES = [
     'body', 'upper_wick', 'lower_wick', 'log_ret_close',
@@ -38,7 +39,7 @@ OB_COLS = []
 for i in range(OB_LEVELS):
     OB_COLS.extend([f"bid_{i}_p", f"bid_{i}_s", f"ask_{i}_p", f"ask_{i}_s"])
 
-# Total esperado: 16 features + 1 close + 800 OB = 817 colunas
+# Total esperado: 23 features + 1 close + 800 OB = 824 colunas
 EXPECTED_COL_COUNT = len(ALL_FEATURES) + 1 + len(OB_COLS)
 
 # =============================================================================

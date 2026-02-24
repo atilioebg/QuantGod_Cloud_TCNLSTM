@@ -21,12 +21,16 @@ model:
     - ofi
     - ofi_delta_5
     - micro_price_momentum
+    - micro_price_delta_5
     - bid_slope
     - ask_slope
     - bid_rdi
     - bid_rdi_delta_5
     - ask_rdi
     - ask_rdi_delta_5
+    - book_asymmetry_v5
+    - spread_zscore_60
+    - vpin_lite_5
     - pressure_ratio
 
 training:

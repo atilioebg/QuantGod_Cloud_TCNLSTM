@@ -129,9 +129,9 @@ Os arquivos Parquet produzidos pelo ETL (`data/L2/pre_processed/*.parquet`) poss
 | **Orderbook Bids** | `bid_{i}_s` | 200 | Quantidade (size) do i-ésimo nível de Bid |
 | **Orderbook Asks** | `ask_{i}_p` | 200 | Preço do i-ésimo nível de Ask (i=0 é o best ask) |
 | **Orderbook Asks** | `ask_{i}_s` | 200 | Quantidade (size) do i-ésimo nível de Ask |
-| **Features Derivadas** | *(ver seção 5)* | 9 | Features de treinamento calculadas no resampling |
+| **Features Derivadas** | *(ver seção 5)* | 23 | Features de treinamento calculadas no resampling |
 | **Referência de Preço** | `close` | 1 | Micro-price de fechamento do candle de 1min |
-| **TOTAL** | | **810** | |
+| **TOTAL** | | **824** | |
 
 **Exemplo de nomes de colunas de orderbook:**
 ```
@@ -229,6 +229,45 @@ log_volume = np.log1p(tick_count)
 Onde `tick_count` é o **número de mensagens L2 recebidas** no minuto (snapshot + deltas).
 - Usado como proxy de volume e atividade de mercado (dados L2 não contêm trade volume diretamente).
 
+### 5.4 Sniper Features (Aceleração de Fluxo)
+
+#### `ofi_delta_5` — Aceleração da Agressão
+```python
+ofi_delta_5 = ofi - ofi.shift(5)
+```
+- Captura o "susto" ou aceleração na agressão líquida. Variações repentinas costumam preceder rompimentos de 1h.
+
+#### `bid_rdi_delta_5` / `ask_rdi_delta_5` — Choque de Profundidade
+- Variação do *Relative Depth Imbalance* nos últimos 5 minutos. Identifica quando a liquidez de um lado está sendo removida/adicionada rapidamente de forma direcional.
+
+---
+
+### 5.5 Advanced Institutional Microstructure (🏛️ Nível 4)
+
+#### `micro_price_delta_5` — Momentum do Preço Real
+```python
+micro_price_delta_5 = (MP_atual / MP_5min_atras) - 1
+```
+- Micro-Price pende para o lado com menos liquidez no topo. Se ela se move rapidamente, o preço do mercado deve acompanhá-la em breve (Alpha de convergência).
+
+#### `book_asymmetry_v5` — Detecção de Absorção (L5)
+```python
+book_asymmetry_v5 = log((sum_bids_L5 + epsilon) / (sum_asks_L5 + epsilon))
+```
+- Captura se há "paredes" ocultas nos 5 primeiros níveis. Valores positivos altos indicam forte suporte de volume que pode estar absorvendo vendas.
+
+#### `spread_zscore_60` — Termômetro de Estresse
+```python
+spread_zscore_60 = (spread_atual - mean_spread_60) / (std_spread_60 + 1e-9)
+```
+- Identifica anomalias de spread (ex: falta abrupta de market makers). Essencial para o modelo saber quando o mercado está "esticado" ou ilíquido.
+
+#### `vpin_lite_5` — Toxicidade de Fluxo (V-PIN)
+```python
+vpin_lite_5 = sum(abs(ofi), 5min) / (total_depth_L5 + epsilon)
+```
+- Mede o quão "tóxico" é o fluxo: se o OFI está girando muito capital em relação à liquidez disponível no book, indicando possível exaustão ou predação institucional.
+
 ---
 
 ## 6. Micro-Price — Variável Auxiliar (não é input direto)
@@ -246,20 +285,20 @@ micro_price = (bid_0_p * ask_0_s + ask_0_p * bid_0_s) / (bid_0_s + ask_0_s)
 
 ## 7. Inputs Diretos do Modelo (QuantGodModel)
 
-### 7.1 Feature Columns (9 colunas)
-O modelo recebe **exclusivamente estas 9 colunas** como input:
+### 7.1 Feature Columns (23 colunas)
+O modelo recebe **exclusivamente estas 23 colunas** como input:
 
 ```python
 feature_cols = [
-    'body',           # Retorno log do corpo da vela
-    'upper_wick',     # Sombra superior normalizada
-    'lower_wick',     # Sombra inferior normalizada
-    'log_ret_close',  # Log-retorno do fechamento
-    'volatility',     # Desvio padrão intra-candle da micro-price
-    'max_spread',     # Spread máximo no minuto
-    'mean_obi',       # OBI médio (top 1 nível)
-    'mean_deep_obi',  # OBI médio (top 5 níveis)
-    'log_volume'      # Log do count de ticks L2
+    # Core OHLC + OBI (9)
+    'body', 'upper_wick', 'lower_wick', 'log_ret_close', 
+    'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi', 'log_volume',
+    # Sniper Alpha (3)
+    'ofi', 'ofi_delta_5', 'micro_price_momentum',
+    # Institutional (11)
+    'micro_price_delta_5', 'bid_slope', 'ask_slope',
+    'bid_rdi', 'bid_rdi_delta_5', 'ask_rdi', 'ask_rdi_delta_5',
+    'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5', 'pressure_ratio'
 ]
 ```
 
