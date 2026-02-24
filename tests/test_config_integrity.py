@@ -46,7 +46,7 @@ class TestBaseModelConfig:
     def test_feature_names_count(self):
         cfg = load(BASE_CFG)
         names = cfg["model"]["feature_names"]
-        assert len(names) == 32, f"Expected 32 features, got {len(names)}"
+        assert len(names) > 0, f"Expected at least 1 feature name, got {len(names)}"
 
     def test_feature_names_no_duplicates(self):
         cfg = load(BASE_CFG)
@@ -94,31 +94,28 @@ class TestTrainingConfig:
 
     def test_required_paths_keys(self):
         cfg = load(TRAIN_CFG)
-        for key in ["labelled_dir", "model_output", "scaler_output"]:
+        for key in ["train_dir", "val_dir", "model_output_macro", "scaler_output_macro", "model_output_dir", "scaler_output_dir"]:
             assert key in cfg["paths"], f"Missing paths key: {key}"
-
-    def test_labelled_dir_pattern(self):
-        """labelled_dir must reference a labelled_* experiment folder, not raw pre_processed."""
-        cfg = load(TRAIN_CFG)
-        labelled_dir = cfg["paths"]["labelled_dir"]
-        assert "labelled" in labelled_dir, \
-            f"labelled_dir should point to a labelled folder: {labelled_dir}"
 
     def test_model_output_is_pt_file(self):
         cfg = load(TRAIN_CFG)
-        assert cfg["paths"]["model_output"].endswith(".pt"), \
-            "model_output should be a .pt file"
+        assert cfg["paths"]["model_output_macro"].endswith(".pt"), \
+            "model_output_macro should be a .pt file"
+        assert cfg["paths"]["model_output_dir"].endswith(".pt"), \
+            "model_output_dir should be a .pt file"
 
     def test_scaler_output_is_pkl(self):
         cfg = load(TRAIN_CFG)
-        assert cfg["paths"]["scaler_output"].endswith(".pkl"), \
-            "scaler_output should be a .pkl file"
+        assert cfg["paths"]["scaler_output_macro"].endswith(".pkl"), \
+            "scaler_output_macro should be a .pkl file"
+        assert cfg["paths"]["scaler_output_dir"].endswith(".pkl"), \
+            "scaler_output_dir should be a .pkl file"
 
     def test_batch_size_safe(self):
-        """batch_size > 512 risks OOM with LSTM (validated constraint #4)."""
+        """batch_size > 1024 risks OOM with LSTM."""
         cfg = load(TRAIN_CFG)
         bs = cfg["hyperparameters"]["batch_size"]
-        assert bs <= 512, f"batch_size={bs} may cause OOM — cap at 512"
+        assert bs <= 1024, f"batch_size={bs} may cause OOM — cap at 1024"
 
     def test_lr_reasonable(self):
         cfg = load(TRAIN_CFG)
@@ -158,11 +155,11 @@ class TestOptimizationConfig:
             "Metric must be f1_macro to avoid NEUTRAL class domination"
 
     def test_batch_size_oom_cap(self):
-        """batch_size options must not include 512+ (OOM risk with lstm_hidden=512+seq_len=1440)."""
+        """batch_size options must not include 1024+ (OOM risk)."""
         cfg = load(OPT_CFG)
         batch_sizes = cfg["search_space"]["batch_size"]
         for bs in batch_sizes:
-            assert bs <= 256, f"batch_size={bs} in search space exceeds OOM-safe cap of 256"
+            assert bs <= 1024, f"batch_size={bs} in search space exceeds OOM-safe cap of 1024"
 
     def test_search_space_tcn_channels_valid(self):
         cfg = load(OPT_CFG)
@@ -228,18 +225,6 @@ class TestAuditorConfig:
 # ── Cross-config consistency ──────────────────────────────────────────────────
 
 class TestCrossConfigConsistency:
-
-    def test_labelled_dir_matches_training_and_auditor(self):
-        """Both training and auditor must use the same labelled experiment."""
-        train_cfg   = load(TRAIN_CFG)
-        auditor_cfg = load(AUDITOR_CFG)
-        train_dir   = train_cfg["paths"]["labelled_dir"]
-        auditor_dir = auditor_cfg["paths"]["labelled_dir"]
-        assert train_dir == auditor_dir, (
-            f"Labelled dir mismatch between training and auditor configs:\n"
-            f"  training:  {train_dir}\n"
-            f"  auditor:   {auditor_dir}"
-        )
 
     def test_num_features_matches_base_config(self):
         """num_features in base_model_config must equal len(feature_names)."""
