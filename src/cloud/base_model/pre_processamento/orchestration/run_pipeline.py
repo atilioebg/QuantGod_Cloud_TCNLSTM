@@ -60,6 +60,11 @@ def process_single_zip(zip_path, config):
         zip_p = Path(zip_path)
         if sampled_rows:
             df_sampled = pd.DataFrame(sampled_rows)
+
+            if df_sampled.empty:
+                logger.warning(f"⚠️  No rows sampled in {zip_p.name} (file might be empty or missing 1min thresholds). Skipping.")
+                return f"⚠️  No data in {zip_p.name}"
+
             df_final = transformer.apply_feature_engineering(df_sampled)
             
             if config['features']['apply_zscore']:
