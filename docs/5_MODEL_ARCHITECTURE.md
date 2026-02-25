@@ -106,17 +106,20 @@ The output's right side (size = padding) is trimmed after convolution. This ensu
 All shared constants live in **`base_model_config.yaml`** — the single source of truth:
 ```yaml
 training:
-  class_weights: [2.0, 1.0, 2.0]   # SELL / NEUTRAL / BUY
-  seq_len: 720                       # 12h lookback
-  gradient_clip_norm: 1.0            # LSTM stability
+  foundation_weights:
+    use_auto_class_weights: true       # Dynamic balanced weights
+  specialization_weights:
+    use_auto_class_weights: true
+  seq_len: 720                         # 12h lookback (1min bars) or 3h (5min bars)
+  gradient_clip_norm: 1.0              # LSTM stability
 ```
-Both `run_training.py` and `run_optuna.py` load from this file. **Never hardcode class_weights** elsewhere.
+Both `run_training.py` and `run_optuna.py` load from this file. **Never hardcode class_weights** elsewhere, rely on `use_auto_class_weights: true` to compute them natively from the parquet definitions.
 
 ### 4.2 Key Design Decisions
 
 | Decision | Rationale |
 |:---|:---|
-| `CrossEntropyLoss(weight=[2.0,1.0,2.0])` | Penalizes false SELL/BUY misclassifications 2× more than false NEUTRAL |
+| `FocalLossWithSmoothing` (dynamic alpha) | Auto-computes inverse frequency weights and penalizes easy NEUTRAL classifications |
 | `AdamW(weight_decay=0.01)` | Proper L2 regularization for sequence models |
 | `CosineAnnealingLR` | Smooth LR decay; avoids sharp steps that destabilize LSTM |
 | `clip_grad_norm=1.0` | Prevents exploding gradients in LSTM backprop through time |

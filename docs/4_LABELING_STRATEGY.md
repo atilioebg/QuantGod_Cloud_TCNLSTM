@@ -111,15 +111,21 @@ pytest tests/test_labelling_output.py \
 
 ## ⚖️ Class Weights (Compensação de Desbalanceamento)
 
-A classe NEUTRAL domina o dataset (~60-80% dependendo dos thresholds). Para compensar:
+A classe NEUTRAL domina o dataset (cerca de 60-80% dependendo dos thresholds). Para compensar, a função de `FocalLoss` utiliza a estratégia de inverse-frequency "Balanced", calculando o peso dinamicamente a cada execução.
+
+Isso é configurado no arquivo central `base_model_config.yaml`:
 
 ```yaml
-# base_model_config.yaml
 training:
-  class_weights: [2.0, 1.0, 2.0]   # SELL / NEUTRAL / BUY
+  foundation_weights:
+    use_auto_class_weights: true  # ← Calcula matematicamente do y_train_raw
+    class_weights: [1.32, 0.40, 1.30]  # Apenas lido se use_auto = false
+  specialization_weights:
+    use_auto_class_weights: true
+    class_weights: [4.85, 0.38, 4.61]
 ```
 
-`CrossEntropyLoss(weight=[2.0, 1.0, 2.0])` penaliza erros em SELL e BUY com **2× mais peso** que erros em NEUTRAL.
+Para forçar um teste manual, o usuário pode definir `use_auto_class_weights: false` e inserir seus pesos (`SELL, NEUTRAL, BUY`). Se `use_auto_class_weights: true` e houver erro de leitura do dataset, o script irá abortar para **evitar treino no escuro (Silent Failure)**.
 
 ---
 
