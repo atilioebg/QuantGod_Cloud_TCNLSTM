@@ -11,20 +11,20 @@ optimization:
   metric: "f1_macro"
   run_specialized_after: false
 
-# Sniper Alpha - Search Space (Minimalist & Rigid)
+# Sniper Pro - Calibrado para RTX A4500 + 833 Colunas
 search_space:
-  tcn_channels: [16, 32, 64]          # "Slim" TCN: Reduced capacity to fight overfitting
-  lstm_hidden: [64, 128]              # "Slim" LSTM: Essential temporal features only
+  tcn_channels: [32, 64, 128]         # Aumentado: Mais filtros para as 833 colunas
+  lstm_hidden: [128, 256]             # Aumentado: Precisamos de mais "cérebro" para correlações L200
   num_lstm_layers: [2]
   
-  lr: [0.00001, 0.0001]               # Conservative LR
-  weight_decay: [0.00001, 0.001]      # L2 Regularization tuned
+  lr: [0.00001, 0.00008]              # Mais conservador: Evita que o modelo "se perca" no início
+  weight_decay: [0.0001, 0.01]        # L2 agressivo para manter a rede magra
   
-  batch_size: [512, 1024]
+  batch_size: [1024]                  # Travado: Sua GPU lida com 1024 rindo, melhor estabilidade
   
-  # Sniper Horizon (1h to 6h lookback)
-  seq_len: [60, 120, 180, 240, 300, 360]
+  # Foco no Horizonte de Alpha (4h a 6h)
+  seq_len: [240, 300, 360]
   
-  dropout: [0.70, 0.85]               # Extreme Dropout: Forcing structural robustness
+  dropout: [0.75, 0.82]               # Estreitado: O "Sweet Spot" identificado nos logs
   epochs: 10
-  early_stopping_patience: 3          # Stricter pruning to avoid "rotting" overfits
+  early_stopping_patience: 3
