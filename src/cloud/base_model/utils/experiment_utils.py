@@ -3,17 +3,11 @@ import logging
 from pathlib import Path
 import os
 import re
+from src.cloud.base_model.utils.logging_utils import get_labelling_suffix
 
 logger = logging.getLogger(__name__)
 
-def get_labelling_suffix(params: dict) -> str:
-    """
-    Generates standard suffix: _SELL_0004_BUY_0004_1h
-    """
-    s_val = int(round(abs(params.get('threshold_short', 0)) * 1000))
-    b_val = int(round(abs(params.get('threshold_long', 0)) * 1000))
-    h_val = int(params.get('lookahead', 60) / 60)
-    return f"_SELL_{s_val:04d}_BUY_{b_val:04d}_{h_val}h"
+
 
 def resolve_active_labelled_dir() -> Path:
     """
