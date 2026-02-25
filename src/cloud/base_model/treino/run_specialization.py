@@ -187,16 +187,18 @@ def run_specialization():
     logger.info(f"Model: Hybrid_TCN_LSTM | Parameters: {total_params:,}")
 
     # ── Loss: dynamic alpha from training labels ───────────────────────────────
-    use_auto_class_weights = base_cfg['training'].get('use_auto_class_weights', True)
+    spec_cfg = base_cfg['training'].get('specialization_weights', {})
+    use_auto_class_weights = spec_cfg.get('use_auto_class_weights', True)
     
     if use_auto_class_weights:
         try:
             alpha = compute_alpha_from_labels(y_train_raw, num_classes=3, device=DEVICE)
             logger.info(f"FocalLoss alpha (AUTO computed from specialization labels): {alpha.cpu().tolist()}")
         except Exception as e:
-            logger.warning(f"compute_alpha_from_labels failed ({e}). Falling back to ZERO division protection.")
-            alpha = torch.tensor(class_weights, dtype=torch.float32).to(DEVICE)
+            logger.error(f"compute_alpha_from_labels failed ({e}). Breaking process as requested by user.")
+            raise
     else:
+        class_weights = spec_cfg.get('class_weights', [1.0, 1.0, 1.0])
         alpha = torch.tensor(class_weights, dtype=torch.float32).to(DEVICE)
         logger.info(f"FocalLoss alpha (MANUAL from config): {class_weights}")
 

@@ -120,9 +120,11 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
         ).to(DEVICE)
 
         # ── Loss: dynamic alpha per trial or manual weights from config ─────────
-        if base_cfg['training'].get('use_auto_class_weights', True):
+        foundation_cfg = base_cfg['training'].get('foundation_weights', {})
+        if foundation_cfg.get('use_auto_class_weights', True):
             alpha = compute_alpha_from_labels(y_train, num_classes=3, device=DEVICE)
         else:
+            class_weights = foundation_cfg.get('class_weights', [1.0, 1.0, 1.0])
             alpha = torch.tensor(class_weights, dtype=torch.float32).to(DEVICE)
         
         criterion = FocalLossWithSmoothing(alpha=alpha, gamma=2.0, smoothing=0.1)
@@ -309,10 +311,13 @@ def run_optimization():
     # ── Log Alpha Class Weights Globally ─────────────────────────────────────
     import torch
     dummy_device = torch.device("cpu")
-    if base_cfg['training'].get('use_auto_class_weights', True):
+    foundation_cfg = base_cfg['training'].get('foundation_weights', {})
+    if foundation_cfg.get('use_auto_class_weights', True):
+        # Fail fast approach if auto fails here.
         alpha_base = compute_alpha_from_labels(y_train, num_classes=3, device=dummy_device)
         logger.info(f"FocalLoss alpha (AUTO computed from foundation labels): {alpha_base.tolist()}")
     else:
+        class_weights = foundation_cfg.get('class_weights', [1.0, 1.0, 1.0])
         logger.info(f"FocalLoss alpha (MANUAL from config): {class_weights}")
 
 

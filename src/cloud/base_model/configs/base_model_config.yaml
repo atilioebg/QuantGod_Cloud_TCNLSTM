@@ -46,5 +46,9 @@ model:
     - pressure_ratio      # Razão de Pressão L2
 
 training:
-  use_auto_class_weights: true
-  class_weights: [3.03, 0.43, 3.03]
+  foundation_weights:
+    use_auto_class_weights: true
+    class_weights: [1.32, 0.40, 1.30]  # Example fallback/manual
+  specialization_weights:
+    use_auto_class_weights: true
+    class_weights: [4.85, 0.38, 4.61]  # Example fallback/manual
