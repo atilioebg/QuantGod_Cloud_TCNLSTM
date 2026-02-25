@@ -141,17 +141,37 @@ def transfer_results(log_filename: str, run_type: str):
             project_root / "data" / "models" / "treino_scaler_finetuning.pkl"
         ])
         
-        # Relatorio de Feature Importance
-        fi_csv = project_root / "docs" / "reports" / "feature_importance.csv"
-        if fi_csv.exists():
-            files_to_transfer.append(fi_csv)
+    # Relatorio de Feature Importance (comum a ambos, mas gerado no foundation agora)
+    fi_csv = project_root / "docs" / "reports" / "feature_importance.csv"
+    if fi_csv.exists():
+        files_to_transfer.append(fi_csv)
+
+    # ── Validação e Filtro Tolerante a Falhas ──────────────────────────────────
+    valid_files = set()
+    missing_files = set()
+    
+    for f in files_to_transfer:
+        if f.exists():
+            valid_files.add(f)
         else:
-            print("   ⚠️ Aviso: docs/reports/feature_importance.csv não encontrado. Não será transferido.")
+            missing_files.add(f)
+            
+    if missing_files:
+        print("\n⚠️ AVISO: Os seguintes arquivos não foram encontrados e serão ignorados:")
+        for mf in sorted(list(missing_files)):
+            try:
+                print(f"   -> {mf.relative_to(project_root)}")
+            except ValueError:
+                print(f"   -> {mf.name}")
+    
+    files_to_transfer = sorted(list(valid_files))
+    
+    if not files_to_transfer:
+        print("❌ Nenhum arquivo válido para transferir. Abortando.")
+        return
 
     # ── Executar Transferência ───────────────────────────────────────────────
     try:
-        # Remover duplicatas e arquivos inexistentes
-        files_to_transfer = sorted(list(set([f for f in files_to_transfer if f.exists()])))
 
         if os.name != 'nt':
             temp_staging = project_root / "data" / "temp_results" / run_type

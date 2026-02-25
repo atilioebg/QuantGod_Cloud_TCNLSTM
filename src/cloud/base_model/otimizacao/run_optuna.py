@@ -404,6 +404,15 @@ def run_optimization():
             
     logger.info(f"Log-ancora identificado para a transferencia: {log_filename}")
     
+    # 0.5 Feature Importance (Optuna Best Model)
+    if config['optimization'].get('run_feature_importance_after', False):
+        logger.info("-> Analisando Feature Importance do Melhor Modelo do Optuna...")
+        try:
+            # Roda o feature importance focando no modelo campeao MACRO da base
+            subprocess.run([sys.executable, "src/cloud/base_model/treino/feature_importance.py", "data/models/best_tcn_lstm.pt"], check=True)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"⚠️ Feature importance falhou (o pipeline continuara): {e}")
+
     # 1. Transfer Foundation
     try:
         subprocess.run([sys.executable, "src/cloud/base_model/utils/transfer.py", log_filename, "foundation"], check=True)
@@ -425,14 +434,6 @@ def run_optimization():
             logger.info("-> 2/3 Treinando Modelo Especialista...")
             subprocess.run([sys.executable, "src/cloud/base_model/treino/run_specialization.py"], check=True)
             
-            # 2.2.5 Feature Importance
-            if config['optimization'].get('run_feature_importance_after', False):
-                logger.info("-> 2.8/3 Analisando Feature Importance do Especialista...")
-                try:
-                    subprocess.run([sys.executable, "src/cloud/base_model/treino/feature_importance.py", "data/models/treino_best_model.pt"], check=True)
-                except subprocess.CalledProcessError as e:
-                    logger.error(f"⚠️ Feature importance falhou (o pipeline continuara): {e}")
-
             # 2.3 Transfer Specialized
             logger.info("-> 3/3 Transferindo Especialista pro Drive...")
             subprocess.run([sys.executable, "src/cloud/base_model/utils/transfer.py", log_filename, "specialized"], check=True)
