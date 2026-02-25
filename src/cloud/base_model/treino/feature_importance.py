@@ -22,7 +22,7 @@ from src.cloud.base_model.models.model import Hybrid_TCN_LSTM
 from src.cloud.base_model.utils.logging_utils import setup_logger
 from src.cloud.base_model.utils.experiment_utils import resolve_data_paths
 
-logger = setup_logger("feature_importance", level=logging.INFO)
+logger = setup_logger("feature_importance")
 
 class SequenceDataset(torch.utils.data.Dataset):
     def __init__(self, X, y, seq_len):
