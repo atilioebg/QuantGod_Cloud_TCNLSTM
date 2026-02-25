@@ -156,6 +156,22 @@ def run_labelling():
             
             logger.info(f"🚀 Starting automated export to Drive: {folder_name}...")
             
+            # --- Run QA Tests Before Export ---
+            logger.info("🧪 Running Automated Health QA (pytest)...")
+            qa_log_path = Path(local_src) / "labelling_health_QA.log"
+            try:
+                # Capture terminal output of pytest directly to the labelling folder
+                with open(qa_log_path, 'w', encoding='utf-8') as qa_file:
+                    subprocess.run(
+                        ["pytest", "tests/labelling/test_labelling_output.py", "-v"],
+                        stdout=qa_file,
+                        stderr=subprocess.STDOUT,
+                        env=dict(os.environ, PRE_PROCESSED_DIR=str(Path(config['paths']['data_dir']).parent / "pre_processed"))
+                    )
+                logger.info(f"✅ QA Report saved to {qa_log_path}")
+            except Exception as e:
+                logger.error(f"⚠️ QA Report generation failed: {e}")
+
             import subprocess
             cmd = ["rclone", "copy", str(local_src), remote_dest, "-P"]
             if rclone_cfg.exists():
