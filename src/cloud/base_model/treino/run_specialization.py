@@ -100,7 +100,7 @@ def run_specialization():
 
     # ── Config values ──────────────────────────────────────────────────────────
     feature_cols   = base_cfg['model']['feature_names']
-    class_weights  = base_cfg['training'].get('class_weights', [1.0, 1.0, 1.0])
+    # weights are handled dynamically per the new yaml schema further below
     seq_len        = train_cfg['hyperparameters'].get('seq_len', base_cfg['training'].get('seq_len', 24))
     epochs         = 10 # Enforced 10 epochs for specialization
     patience       = base_cfg['training'].get('early_stopping_patience', 3)

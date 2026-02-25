@@ -83,8 +83,9 @@ def train_tcn_lstm_on_fold(
     Train Hybrid_TCN_LSTM on a single fold's training split.
     Returns the trained model for OOF prediction on the held-out fold.
     """
-    seq_len     = base_cfg['training']['seq_len']
-    class_weights = base_cfg['training']['class_weights']
+    seq_len     = base_cfg['training']['seq_len'] # class_weights logic updated for the new yaml schema
+    foundation_cfg = base_cfg['training'].get('foundation_weights', {})
+    class_weights = foundation_cfg.get('class_weights', [1.0, 1.0, 1.0])
     hp          = aud_cfg['base_model_hyperparameters']
 
     dataset     = SequenceDataset(X_train, y_train, seq_len)

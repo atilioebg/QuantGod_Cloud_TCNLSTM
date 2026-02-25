@@ -274,8 +274,9 @@ def run_optimization():
     with open(base_cfg_path, 'r') as f:
         base_cfg = yaml.safe_load(f)
 
-    # class_weights from single source of truth
-    class_weights = base_cfg['training']['class_weights']
+    # class_weights from single source of truth (now nested under foundation_weights)
+    foundation_cfg = base_cfg['training'].get('foundation_weights', {})
+    class_weights = foundation_cfg.get('class_weights', [1.0, 1.0, 1.0])
     feature_cols  = base_cfg['model']['feature_names']
 
     # ── Suffix Extraction & Logging Setup ──────────────────────────────────
