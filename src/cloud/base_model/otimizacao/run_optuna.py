@@ -302,6 +302,13 @@ def run_optimization():
     X_train = scaler.transform(X_train_raw).astype(np.float32)
     X_val   = scaler.transform(X_val_raw).astype(np.float32)
 
+    # ── Log Alpha Class Weights Globally ─────────────────────────────────────
+    import torch
+    dummy_device = torch.device("cpu")
+    alpha_base = compute_alpha_from_labels(y_train, num_classes=3, device=dummy_device)
+    logger.info(f"FocalLoss alpha (computed from foundation labels): {alpha_base.tolist()}")
+
+
     # ── Optuna study ──────────────────────────────────────────────────────────
     study = optuna.create_study(
         study_name=config['paths']['study_name'],
