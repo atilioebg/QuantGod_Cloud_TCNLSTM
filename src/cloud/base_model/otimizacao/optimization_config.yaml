@@ -9,7 +9,7 @@ optimization:
   n_trials: 40
   timeout: 72000  # 20 hours
   metric: "f1_macro"
-  run_specialized_after: false
+  run_specialized_after: true
 
 # Sniper Pro - Fine-Tuning (Exploitation Phase based on v0 Trial 33 & 11)
 search_space:
