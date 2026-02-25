@@ -7,7 +7,7 @@ paths:
 
 etl:
   sampling_interval_ms: 1000  # 1s
-  resampling_interval: "1min"
+  resampling_interval: "5min"  # Sniper Pivot — 5min bars
   orderbook_levels: 200      # Hard Cut 200
   compression: "snappy"
   batch_size_zips: 10        # Number of zips to process in a single batch

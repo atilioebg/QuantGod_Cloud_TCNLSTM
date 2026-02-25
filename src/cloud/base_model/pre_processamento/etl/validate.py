@@ -57,19 +57,15 @@ class DataValidator:
                 logger.warning(f"⚠️ STALE DATA ALERT: Possible feed lock detected at: {stale_indices[:3].tolist()}...")
 
         # 5. Cross-Scale Validation (Mathematical Consistency)
-        # Validate if 5min features (delta_5) match the rolling window of 1min features
-        if 'ofi' in df.columns and 'ofi_delta_5' in df.columns:
-            # Reconstruct what ofi_delta_5 should be: ofi(t) - ofi(t-5) -> this is ofi.diff(5)
-            # transform.py uses: final_df['ofi_delta_5'] = final_df['ofi'].diff(5)
-            # We verify this in-situ
-            reconstructed_delta = df['ofi'].diff(5).fillna(0)
-            # Use .values to ensure we are comparing arrays if duplication somehow happens, 
-            # and .max().max() if it's a DataFrame
-            check_val = (df['ofi_delta_5'].fillna(0) - reconstructed_delta).abs()
+        # Validate ofi_delta_1 = ofi.diff(1) on the 5min pipeline
+        if 'ofi' in df.columns and 'ofi_delta_1' in df.columns:
+            # transform.py: final_df['ofi_delta_1'] = final_df['ofi'].diff(1)
+            reconstructed_delta = df['ofi'].diff(1).fillna(0)
+            check_val = (df['ofi_delta_1'].fillna(0) - reconstructed_delta).abs()
             diff_check = check_val.max().max() if isinstance(check_val, pd.DataFrame) else check_val.max()
             
             if diff_check > 1e-7:
-                 logger.warning(f"⚠️ CROSS-SCALE INCONSISTENCY: ofi_delta_5 drift detected ({diff_check})")
+                 logger.warning(f"⚠️ CROSS-SCALE INCONSISTENCY: ofi_delta_1 drift detected ({diff_check})")
             else:
                  logger.info("Cross-scale consistency verified (OFI).")
 
@@ -82,11 +78,11 @@ class DataValidator:
                 if p99 > 0 and max_val > 50 * p99:
                     logger.warning(f"☢️ CRITICAL OUTLIER: {feat} max ({max_val:.2f}) is > 50x P99 ({p99:.2f}). Potential destructive signal.")
 
-        # 7. Check for Time Gaps (assuming 1min resampled)
+        # 7. Check for Time Gaps (5min resampled — alert if gap > 25min = 5 bars)
         diffs = df.index.to_series().diff().dropna()
         if not diffs.empty:
             max_gap = diffs.max()
-            if not pd.isna(max_gap) and max_gap > pd.Timedelta(minutes=5):
+            if not pd.isna(max_gap) and max_gap > pd.Timedelta(minutes=25):
                 logger.warning(f"Found large time gap: {max_gap}")
         
         logger.info(f"Validation complete for {name}. Total rows: {len(df)}")
