@@ -36,8 +36,15 @@ logger = logging.getLogger(__name__)
 from src.cloud.base_model.utils.logging_utils import setup_logger
 from src.cloud.base_model.utils.experiment_utils import resolve_data_paths
 
+# Remove basicConfig leftover interference to avoid duplicate logs in loops
 logger = logging.getLogger(__name__)
 
+# Stop Optuna's default logger from duplicating messages natively
+optuna.logging.disable_propagation()
+# Instead, add our centralized logger explicitly so Optuna uses our formatting and handlers 
+# (and only ours) without compounding on the root logger.
+optuna.logging.enable_default_handler()
+optuna.logging.set_verbosity(optuna.logging.INFO)
 
 class SequenceDataset(torch.utils.data.Dataset):
     def __init__(self, X, y, seq_len):
