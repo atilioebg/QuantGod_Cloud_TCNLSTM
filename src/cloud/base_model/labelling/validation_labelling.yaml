@@ -1,9 +1,4 @@
 # Labelling Configuration for Validation Subset
+# This file inherits all thresholds and `params` dynamically from labelling_config.yaml
 paths:
-  input_dir: "data/L2/pre_processed"
   output_dir: "data/L2/labelled_test"
-
-params:
-  lookahead: 3             # 15min lookahead for 5min candles (3 bars × 5min)
-  threshold_long: 0.002   # +0.2% for Buy signal (2)
-  threshold_short: -0.002 # -0.2% for Sell signal (0)

@@ -73,18 +73,31 @@ def apply_labelling(file_path, config):
         }
 
 def run_labelling():
-    # 1. Load Config
-    if len(sys.argv) > 1:
-        config_path = Path(sys.argv[1])
-    else:
-        config_path = Path("src/cloud/base_model/labelling/labelling_config.yaml")
-
-    if not config_path.exists():
-        logger.error(f"Config file not found at {config_path}")
+    # 1. Load Config (Base always loaded)
+    base_config_path = Path("src/cloud/base_model/labelling/labelling_config.yaml")
+    if not base_config_path.exists():
+        logger.error(f"Base Config file not found at {base_config_path}")
         return
 
-    with open(config_path, 'r') as f:
+    with open(base_config_path, 'r') as f:
         config = yaml.safe_load(f)
+
+    # 1.5 Merge Custom Config if provided
+    if len(sys.argv) > 1:
+        custom_config_path = Path(sys.argv[1])
+        if not custom_config_path.exists():
+            logger.error(f"Custom Config file not found at {custom_config_path}")
+            return
+            
+        with open(custom_config_path, 'r') as f:
+            custom_config = yaml.safe_load(f)
+            
+        if custom_config:
+            if 'paths' in custom_config:
+                config['paths'].update(custom_config['paths'])
+            if 'params' in custom_config:
+                config['params'].update(custom_config['params'])
+        logger.info(f"Merged base config with {custom_config_path.name}")
 
     # 2. Dynamic Output Dir Modification & Logging Setup
     suffix = get_labelling_suffix(config['params'])
