@@ -16,7 +16,7 @@ optimization:
 search_space:
   tcn_channels: [64, 128, 256]        # Travado: Venceu em F1 Macro e Dir
   lstm_hidden: [64, 128, 256]         # O modelo oscilou bem entre 128 (Dir) e 256 (Macro)
-  num_lstm_layers: [1, 2, 3]
+  num_lstm_layers: [2, 3, 4, 5, 6]
   
   lr: [0.00001, 0.00006]              # Estreitado ao redor de 5e-5 e 2e-5 dos campeões
   weight_decay: [0.0001, 0.01]        # L2 agressivo para manter a rede magra (Trial 11 amou wd alto)
