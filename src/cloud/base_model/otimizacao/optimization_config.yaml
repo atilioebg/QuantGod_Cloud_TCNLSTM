@@ -9,8 +9,8 @@ optimization:
   n_trials: 40
   timeout: 72000  # 20 hours
   metric: "f1_macro"
-  run_specialized_after: true
-  run_feature_importance_after: true
+  run_specialized_after: true         # executa o treino do modelo especialista com os melhores parametros do modelo base
+  run_feature_importance_after: true  # executa a analise de feature importance do modelo especialista
 
 # Sniper Pro - Fine-Tuning (Exploitation Phase based on v0 Trial 33 & 11)
 search_space:
