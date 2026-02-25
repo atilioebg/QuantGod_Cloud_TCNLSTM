@@ -65,7 +65,7 @@ def load_data(directory, feature_cols):
     return df, feature_cols
 
 
-def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
+def objective(trial, X_train, y_train, X_val, y_val, config, base_cfg):
     """
     Optuna objective function for TCN+LSTM hyperparameter search.
 
@@ -347,7 +347,7 @@ def run_optimization():
     start_time = datetime.now()
 
     study.optimize(
-        lambda trial: objective(trial, X_train, y_train, X_val, y_val, config, class_weights),
+        lambda trial: objective(trial, X_train, y_train, X_val, y_val, config, base_cfg),
         n_trials=config['optimization']['n_trials'],
         timeout=config['optimization']['timeout'],
     )

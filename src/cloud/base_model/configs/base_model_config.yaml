@@ -45,7 +45,7 @@ model:
     - ask_convexity       # Convexidade Ask (L10 vs L20)
     - pressure_ratio      # Razão de Pressão L2
 
-training:
+training:                 # peso das classes para o treinamento, podem ser inseridos manualmente, caso contrario serão calculados automaticamente
   foundation_weights:
     use_auto_class_weights: true
     class_weights: [1.32, 0.40, 1.30]  # Example fallback/manual
