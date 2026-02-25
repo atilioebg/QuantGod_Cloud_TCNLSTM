@@ -169,5 +169,36 @@ def run_pipeline():
     logger.info(f"Total processed files: {len(zip_files) - len(skipped_files) - len(failed_files)}")
     logger.info(f"CPUs used: {max_workers} / {total_cpus}")
 
+    # 6. Automated Export to Google Drive (QuantGod Cloud Extension)
+    try:
+        base_cfg_path = Path("src/cloud/base_model/configs/base_model_config.yaml")
+        if base_cfg_path.exists():
+            with open(base_cfg_path, 'r') as f:
+                base_cfg = yaml.safe_load(f)
+            num_features = base_cfg['model'].get('num_features', 32)
+            
+            folder_name = f"PRE_PROCESSED_L2_2023_2026_1_MINUTE_{num_features}_FEATURES"
+            local_src = config['paths']['processed_output']
+            remote_dest = f"drive:PROJETOS/{folder_name}"
+            rclone_cfg = Path("rclone.conf")
+            
+            logger.info(f"🚀 Starting automated export to Drive: {folder_name}...")
+            
+            import subprocess
+            cmd = ["rclone", "copy", str(local_src), remote_dest, "-P"]
+            if rclone_cfg.exists():
+                cmd += ["--config", str(rclone_cfg)]
+            
+            # Using rclone.exe explicitly on Windows if it exists in root
+            if os.name == 'nt' and Path("rclone.exe").exists():
+                cmd[0] = str(Path("rclone.exe").absolute())
+
+            subprocess.run(cmd, check=True)
+            logger.info(f"✅ Export completed successfully: {remote_dest}")
+        else:
+            logger.warning("base_model_config.yaml not found. Skipping automated export.")
+    except Exception as e:
+        logger.error(f"❌ Automated export failed: {e}")
+
 if __name__ == "__main__":
     run_pipeline()
