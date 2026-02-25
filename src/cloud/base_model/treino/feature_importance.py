@@ -143,10 +143,10 @@ def run_importance_analysis(model_path=None):
         tcn_channels=checkpoint.get('tcn_channels', 32), 
         lstm_hidden=checkpoint.get('lstm_hidden', 128),
         num_lstm_layers=checkpoint.get('num_lstm_layers', 2),
-        seq_len=checkpoint.get('seq_len', 720)
+        seq_len=checkpoint.get('seq_len', 36)   # default=36 (3h @ 5min bars)
     ).to(device)
     
-    model.load_state_state_dict(checkpoint['model_state_dict'])
+    model.load_state_dict(checkpoint['model_state_dict'])
     
     # 4. Load Data
     val_df = load_validation_data(val_dir, feature_cols)
@@ -163,7 +163,7 @@ def run_importance_analysis(model_path=None):
         logger.warning("No scaler found at models/scaler_finetuning.pkl. Results may be biased.")
         X_val = X_raw
 
-    val_dataset = SequenceDataset(X_val, y_raw, checkpoint.get('seq_len', 720))
+    val_dataset = SequenceDataset(X_val, y_raw, checkpoint.get('seq_len', 36))
     val_loader = DataLoader(val_dataset, batch_size=512, shuffle=False, num_workers=4)
 
     # 5. Permutation Importance
