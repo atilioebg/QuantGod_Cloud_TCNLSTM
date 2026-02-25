@@ -5,6 +5,7 @@ from pathlib import Path
 from tqdm import tqdm
 import sys
 import os
+import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from src.cloud.base_model.utils.logging_utils import setup_logger, get_labelling_suffix
@@ -179,13 +180,12 @@ def run_labelling():
                         ["pytest", "tests/labelling/test_labelling_output.py", "-v"],
                         stdout=qa_file,
                         stderr=subprocess.STDOUT,
-                        env=dict(os.environ, PRE_PROCESSED_DIR=str(Path(config['paths']['data_dir']).parent / "pre_processed"))
+                        env=dict(os.environ, PRE_PROCESSED_DIR=str(Path(config['paths']['input_dir']).absolute()))
                     )
                 logger.info(f"✅ QA Report saved to {qa_log_path}")
             except Exception as e:
                 logger.error(f"⚠️ QA Report generation failed: {e}")
 
-            import subprocess
             cmd = ["rclone", "copy", str(local_src), remote_dest, "-P"]
             if rclone_cfg.exists():
                 cmd += ["--config", str(rclone_cfg)]
