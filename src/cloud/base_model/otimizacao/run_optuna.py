@@ -119,8 +119,12 @@ def objective(trial, X_train, y_train, X_val, y_val, config, class_weights):
             dropout=dropout,
         ).to(DEVICE)
 
-        # ── Loss: dynamic alpha per trial (inverse-frequency from train labels) ─
-        alpha     = compute_alpha_from_labels(y_train, num_classes=3, device=DEVICE)
+        # ── Loss: dynamic alpha per trial or manual weights from config ─────────
+        if base_cfg['training'].get('use_auto_class_weights', True):
+            alpha = compute_alpha_from_labels(y_train, num_classes=3, device=DEVICE)
+        else:
+            alpha = torch.tensor(class_weights, dtype=torch.float32).to(DEVICE)
+        
         criterion = FocalLossWithSmoothing(alpha=alpha, gamma=2.0, smoothing=0.1)
 
         optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
@@ -305,8 +309,11 @@ def run_optimization():
     # ── Log Alpha Class Weights Globally ─────────────────────────────────────
     import torch
     dummy_device = torch.device("cpu")
-    alpha_base = compute_alpha_from_labels(y_train, num_classes=3, device=dummy_device)
-    logger.info(f"FocalLoss alpha (computed from foundation labels): {alpha_base.tolist()}")
+    if base_cfg['training'].get('use_auto_class_weights', True):
+        alpha_base = compute_alpha_from_labels(y_train, num_classes=3, device=dummy_device)
+        logger.info(f"FocalLoss alpha (AUTO computed from foundation labels): {alpha_base.tolist()}")
+    else:
+        logger.info(f"FocalLoss alpha (MANUAL from config): {class_weights}")
 
 
     # ── Optuna study ──────────────────────────────────────────────────────────

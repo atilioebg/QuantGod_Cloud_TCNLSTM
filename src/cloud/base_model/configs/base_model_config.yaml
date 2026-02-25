@@ -46,4 +46,5 @@ model:
     - pressure_ratio      # Razão de Pressão L2
 
 training:
+  use_auto_class_weights: true
   class_weights: [3.03, 0.43, 3.03]
