@@ -27,17 +27,9 @@ from src.cloud.base_model.treino.losses import FocalLossWithSmoothing, compute_a
 GLOBAL_BEST_MACRO = 0.0
 GLOBAL_BEST_DIR   = 0.0
 
-log_dir = Path("logs/optimization")
-log_dir.mkdir(parents=True, exist_ok=True)
-# basicConfig removed here - setup_logger() called later will handle this correctly
-logger = logging.getLogger(__name__)
-
-
+# ── Logging Setup ──────────────────────────────────────────────────────────
 from src.cloud.base_model.utils.logging_utils import setup_logger
 from src.cloud.base_model.utils.experiment_utils import resolve_data_paths
-
-# Remove basicConfig leftover interference to avoid duplicate logs in loops
-logger = logging.getLogger(__name__)
 
 # Stop Optuna's default logger from duplicating messages natively
 optuna.logging.disable_propagation()
@@ -45,6 +37,9 @@ optuna.logging.disable_propagation()
 # (and only ours) without compounding on the root logger.
 optuna.logging.enable_default_handler()
 optuna.logging.set_verbosity(optuna.logging.INFO)
+
+# Initial dummy logger (will be properly set up in run_optimization)
+logger = logging.getLogger("optimization")
 
 class SequenceDataset(torch.utils.data.Dataset):
     def __init__(self, X, y, seq_len):
@@ -176,21 +171,23 @@ def objective(trial, X_train, y_train, X_val, y_val, config, base_cfg):
                         all_preds.extend(preds.cpu().numpy())
                         all_targets.extend(batch_y.cpu().numpy())
 
-            f1_weighted = f1_score(all_targets, all_preds, average='weighted', zero_division=0)
-            f1_macro    = f1_score(all_targets, all_preds, average='macro',    zero_division=0)
-            f1_per_cls  = f1_score(all_targets, all_preds, average=None,       zero_division=0, labels=[0, 1, 2])
-            f1_dir      = (f1_per_cls[0] + f1_per_cls[2]) / 2
-            current_lr  = scheduler.get_last_lr()[0]
+            f1_macro   = f1_score(all_targets, all_preds, average='macro',    zero_division=0)
+            f1_per_cls = f1_score(all_targets, all_preds, average=None,       zero_division=0, labels=[0, 1, 2])
+            f1_dir     = (f1_per_cls[0] + f1_per_cls[2]) / 2
+            current_lr = scheduler.get_last_lr()[0]
+            current_val_loss = val_loss / len(val_loader)
 
-            logger.info(f"Trial {trial.number}, Epoch {epoch+1}/{epochs} | "
-                        f"Train Loss: {train_loss/len(train_loader):.4f} | "
-                        f"Val Loss: {val_loss/len(val_loader):.4f} | "
-                        f"F1 Macro: {f1_macro:.4f} | F1 Dir: {f1_dir:.4f} | "
-                        f"F1 [SELL/NEU/BUY]: [{f1_per_cls[0]:.3f}/{f1_per_cls[1]:.3f}/{f1_per_cls[2]:.3f}] | "
-                        f"LR: {current_lr:.6f}")
+            # ── Epoch Summary ─────────────────────────────────────────────────────────
+            logger.info(
+                f"Trial {trial.number}, Epoch {epoch+1}/{epochs} | "
+                f"Train Loss: {train_loss/len(train_loader):.4f} | "
+                f"Val Loss: {current_val_loss:.4f} | "
+                f"F1 Macro: {f1_macro:.4f} | F1 Dir: {f1_dir:.4f} | "
+                f"F1 [S/N/B]: [{f1_per_cls[0]:.3f}/{f1_per_cls[1]:.3f}/{f1_per_cls[2]:.3f}] | "
+                f"LR: {current_lr:.6g}"
+            )
 
             # ── Local Champion Tracking (Within this Trial) ───────────────────
-            current_val_loss = val_loss / len(val_loader)
             if current_val_loss < best_val_loss:
                 best_val_loss = current_val_loss
                 patience_counter = 0
