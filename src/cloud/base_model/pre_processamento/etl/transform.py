@@ -212,7 +212,7 @@ class L2Transformer:
         return row
 
     def apply_feature_engineering(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Applies 1min resampling, log-returns and log-volume."""
+        """Applies 5min resampling, log-returns and log-volume (Sniper Pivot)."""
         if df.empty: 
             logger.warning("apply_feature_engineering received an empty DataFrame")
             return df
@@ -220,15 +220,15 @@ class L2Transformer:
         df['datetime'] = pd.to_datetime(df['ts'], unit='ms')
         df.set_index('datetime', inplace=True)
         
-        # ── Resampling 1min ───────────────────────────────────────────────────
-        # OFI is summed (net flow per minute), most others are averaged/last
+        # ── Resampling 5min ───────────────────────────────────────────────────
+        # OFI is summed (net flow per 5min bar), most others are averaged/last
         agg_map = {
             'micro_price': 'std',
             'spread': 'max',
             'obi_l0': 'mean',
             'deep_obi_5': 'mean',
             # New dynamic features
-            'ofi': 'sum',                  # Total net flow per minute
+            'ofi': 'sum',                  # Total net flow per 5min bar
             'micro_price_momentum': 'sum', # Cumulated log-return of micro-price
             'bid_slope': 'mean',
             'ask_slope': 'mean',
@@ -242,13 +242,13 @@ class L2Transformer:
         for col in ob_cols_raw:
             agg_map[col] = 'last'
 
-        resampled_others = df.resample('1min').agg(agg_map)
+        resampled_others = df.resample('5min').agg(agg_map)
 
         # For Log Volume, we use tick count in the interval
         df['tick_count'] = 1
-        resampled_vol = df['tick_count'].resample('1min').sum()
+        resampled_vol = df['tick_count'].resample('5min').sum()
 
-        resampled_ohlc = df['micro_price'].resample('1min').ohlc()
+        resampled_ohlc = df['micro_price'].resample('5min').ohlc()
         final_df = pd.concat([resampled_ohlc, resampled_others, resampled_vol], axis=1)
 
         # ── Rename fixed aggregated columns ───────────────────────────────────
@@ -258,14 +258,14 @@ class L2Transformer:
 
         final_df.columns = agg_col_names + ob_cols_raw + ['tick_count']
         
-        # ── Time-Aware Regularization (1440 MINUTE REINDEX) ───────────────────
-        # Ensure perfect 1-minute continuity to avoid "teleportation" over missing API data
+        # ── Time-Aware Regularization (288 BAR 5MIN REINDEX) ────────────────────
+        # Ensure perfect 5-minute continuity to avoid "teleportation" over missing API data
         try:
             # Anchor to the start of the day for the first timestamp in the file
             date_anchor = final_df.index[0].floor('D')
             full_idx_start = date_anchor
-            full_idx_end = date_anchor.replace(hour=23, minute=59)
-            full_idx = pd.date_range(start=full_idx_start, end=full_idx_end, freq='1min')
+            full_idx_end = date_anchor.replace(hour=23, minute=55)  # Last 5min bar of day
+            full_idx = pd.date_range(start=full_idx_start, end=full_idx_end, freq='5min')
             
             # Reindex to full expected day
             final_df = final_df.reindex(full_idx)
@@ -313,41 +313,34 @@ class L2Transformer:
         final_df['log_ret_close'] = np.log(final_df['close'] / prev_close)
         final_df['log_volume'] = np.log1p(final_df['tick_count'])
 
-        # ── High Velocity "Sniper" Features (Acceleration) ────────────────────
-        # OFI_delta_5: Change in net flow over the last 5 minutes
-        final_df['ofi_delta_5'] = final_df['ofi'].diff(5)
-        # RDI_delta_5: Change in relative depth imbalance over 5 minutes
-        final_df['bid_rdi_delta_5'] = final_df['bid_rdi'].diff(5)
-        final_df['ask_rdi_delta_5'] = final_df['ask_rdi'].diff(5)
+        # ── Sniper Pivot: Multi-Scale Shock Features (5min bars) ─────────────
+        # _delta_1: change vs previous 5min bar (≡ old _delta_5 in 1min pipeline)
+        final_df['ofi_delta_1']      = final_df['ofi'].diff(1)
+        final_df['bid_rdi_delta_1']  = final_df['bid_rdi'].diff(1)
+        final_df['ask_rdi_delta_1']  = final_df['ask_rdi'].diff(1)
+        final_df['micro_price_delta_1'] = final_df['close'].pct_change(1)
+
+        # _delta_6: 30min medium-term context (6 bars × 5min)
+        final_df['ofi_delta_6']      = final_df['ofi'].diff(6)
+        final_df['bid_rdi_delta_6']  = final_df['bid_rdi'].diff(6)
+        final_df['ask_rdi_delta_6']  = final_df['ask_rdi'].diff(6)
+        final_df['micro_price_delta_6'] = final_df['close'].pct_change(6)
 
         # ── Institutional Microstructure Features ───────────────────────────
-        # 1. Micro-Price Delta: Momentum of the volume-weighted "true value"
-        # We already have micro_price_momentum (summed 1min log-returns)
-        # but let's add a 5min anchor for long-term drift.
-        final_df['micro_price_delta_5'] = final_df['close'].pct_change(5) # 'close' in resampled is MicroPrice
-
-        # 2. Book Asymmetry (L5): Total Volume imbalance in top 5 levels
+        # 1. Book Asymmetry (L5): Total Volume imbalance in top 5 levels
         # Formula: log(sum_bids_5 / sum_asks_5)
-        # We need the raw depth columns. We use the agg_map 'last' values.
         sum_bids_5 = sum(final_df[f"bid_{i}_s"] for i in range(5))
         sum_asks_5 = sum(final_df[f"ask_{i}_s"] for i in range(5))
         final_df['book_asymmetry_v5'] = np.log((sum_bids_5 + 1e-9) / (sum_asks_5 + 1e-9))
 
-        # 3. Spread Z-Score (60min): Volatility and Liquidity Stress thermometer
-        # Guard against div-by-zero using epsilon (1e-9) as requested.
-        rolling_spread = final_df['max_spread'].rolling(window=60, min_periods=1)
+        # 2. Spread Z-Score (60min = 12 × 5min bars): Liquidity Stress thermometer
+        # Guard against div-by-zero using epsilon (1e-9).
+        rolling_spread = final_df['max_spread'].rolling(window=12, min_periods=1)
         final_df['spread_zscore_60'] = (final_df['max_spread'] - rolling_spread.mean()) / (rolling_spread.std() + 1e-9)
 
-        # 4. Volume Toxicity (V-PIN Lite): Flow toxicity vs total liquidity
-        # Cumulative absolute OFI / Total depth over 5 minutes
+        # 3. Volume Toxicity (V-PIN Lite): Flow toxicity vs total liquidity
+        # 5 bars × 5min = 25min of flow context
         final_df['vpin_lite_5'] = final_df['ofi'].abs().rolling(5).sum() / (sum_bids_5 + sum_asks_5 + 1e-9)
-
-        # ── Multi-Scale "Trigger" Features (1min Deltas) ────────────────────
-        # Fast-reacting signals to compare against 5min contexts
-        final_df['micro_price_delta_1'] = final_df['close'].pct_change(1)
-        final_df['ofi_delta_1'] = final_df['ofi'].diff(1)
-        final_df['bid_rdi_delta_1'] = final_df['bid_rdi'].diff(1)
-        final_df['ask_rdi_delta_1'] = final_df['ask_rdi'].diff(1)
 
         # ── Phase 6: Orthogonal Deep-Book Features 🧬 ─────────────────────
         # 1. Kyle's Lambda: Resistance to flow (Price Impact)
@@ -369,22 +362,22 @@ class L2Transformer:
 
         # Final cleanup for all rolling/diff features (NaNs to 0, Infs to 0)
         sniper_institutional_cols = [
-            'ofi_delta_5', 'ofi_delta_1',
-            'bid_rdi_delta_5', 'bid_rdi_delta_1', 
-            'ask_rdi_delta_5', 'ask_rdi_delta_1',
-            'micro_price_delta_5', 'micro_price_delta_1',
+            'ofi_delta_1', 'ofi_delta_6',
+            'bid_rdi_delta_1', 'bid_rdi_delta_6',
+            'ask_rdi_delta_1', 'ask_rdi_delta_6',
+            'micro_price_delta_1', 'micro_price_delta_6',
             'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5',
             'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity'
         ]
         final_df[sniper_institutional_cols] = final_df[sniper_institutional_cols].replace([np.inf, -np.inf], 0).fillna(0)
 
-        # ── Final Feature List (including Sniper, Institutional, Multi-Scale & Phase 6) 
+        # ── Final Feature List (Sniper Pivot 5min — 1-bar & 6-bar deltas + Phase 6)
         dynamic_features = [
-            'ofi', 'ofi_delta_5', 'ofi_delta_1',
-            'micro_price_momentum', 'micro_price_delta_5', 'micro_price_delta_1',
-            'bid_slope', 'ask_slope', 
-            'bid_rdi', 'bid_rdi_delta_5', 'bid_rdi_delta_1',
-            'ask_rdi', 'ask_rdi_delta_5', 'ask_rdi_delta_1',
+            'ofi', 'ofi_delta_1', 'ofi_delta_6',
+            'micro_price_momentum', 'micro_price_delta_1', 'micro_price_delta_6',
+            'bid_slope', 'ask_slope',
+            'bid_rdi', 'bid_rdi_delta_1', 'bid_rdi_delta_6',
+            'ask_rdi', 'ask_rdi_delta_1', 'ask_rdi_delta_6',
             'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5',
             'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity',
             'pressure_ratio'
@@ -426,11 +419,11 @@ class L2Transformer:
             'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi', 'log_volume', 'log_ret_close',
         ]
         flow_cols = [
-            'ofi', 'ofi_delta_5', 'ofi_delta_1',
-            'micro_price_momentum', 'micro_price_delta_5', 'micro_price_delta_1',
-            'bid_slope', 'ask_slope', 
-            'bid_rdi', 'bid_rdi_delta_5', 'bid_rdi_delta_1',
-            'ask_rdi', 'ask_rdi_delta_5', 'ask_rdi_delta_1',
+            'ofi', 'ofi_delta_1', 'ofi_delta_6',
+            'micro_price_momentum', 'micro_price_delta_1', 'micro_price_delta_6',
+            'bid_slope', 'ask_slope',
+            'bid_rdi', 'bid_rdi_delta_1', 'bid_rdi_delta_6',
+            'ask_rdi', 'ask_rdi_delta_1', 'ask_rdi_delta_6',
             'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5',
             'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity',
             'pressure_ratio',

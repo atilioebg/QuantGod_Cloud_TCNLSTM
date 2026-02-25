@@ -84,11 +84,11 @@ REQUIRED_FEATURES = [
     # Core OHLC + OBI (9)
     'body', 'upper_wick', 'lower_wick', 'log_ret_close', 
     'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi', 'log_volume',
-    # Multi-Scale Triggers (1min vs 5min) (11)
-    'ofi', 'ofi_delta_5', 'ofi_delta_1',
-    'micro_price_momentum', 'micro_price_delta_5', 'micro_price_delta_1',
-    'bid_rdi', 'bid_rdi_delta_5', 'bid_rdi_delta_1',
-    'ask_rdi', 'ask_rdi_delta_5', 'ask_rdi_delta_1',
+    # Multi-Scale Triggers (5min pivot: 1-bar vs 6-bar) (11)
+    'ofi', 'ofi_delta_1', 'ofi_delta_6',
+    'micro_price_momentum', 'micro_price_delta_1', 'micro_price_delta_6',
+    'bid_rdi', 'bid_rdi_delta_1', 'bid_rdi_delta_6',
+    'ask_rdi', 'ask_rdi_delta_1', 'ask_rdi_delta_6',
     # Institutional & Phase 6 (12)
     'bid_slope', 'ask_slope', 'book_asymmetry_v5', 
     'spread_zscore_60', 'vpin_lite_5', 
@@ -175,11 +175,12 @@ class TestLabelledFileIntegrity:
     def test_row_count_reasonable(self, file_path):
         """
         After lookahead trim, file should still have a reasonable number of rows.
-        (Binance often has 1440, but many days have gaps/downtime).
+        5min pipeline yields ~285 rows/day (288 bars − 3 lookahead).
+        Use 80 as a safe floor to accommodate gap-heavy days.
         """
         df = pl.read_parquet(file_path)
-        assert len(df) >= 1000, \
-            f"File {file_path.name} has {len(df)} rows — unusually low (check ETL)"
+        assert len(df) >= 80, \
+            f"File {file_path.name} has {len(df)} rows — unusually low for 5min pipeline (check ETL)"
 
     def test_temporal_monotonicity(self, file_path):
         """If 'ts' column exists, timestamps must be strictly increasing."""

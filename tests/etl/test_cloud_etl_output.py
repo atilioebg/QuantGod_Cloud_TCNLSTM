@@ -20,14 +20,14 @@ def get_test_files():
     return files
 
 # =============================================================================
-# DEFINIÇÃO DE CONSTANTES DO DATASET (QuantGod v10 - 16 Features)
+# DEFINIÇÃO DE CONSTANTES DO DATASET (QuantGod v11 - Sniper Pivot 5min)
 # =============================================================================
 DYNAMIC_FEATURES = [
-    'ofi', 'ofi_delta_5', 'ofi_delta_1',
-    'micro_price_momentum', 'micro_price_delta_5', 'micro_price_delta_1',
-    'bid_slope', 'ask_slope', 
-    'bid_rdi', 'bid_rdi_delta_5', 'bid_rdi_delta_1',
-    'ask_rdi', 'ask_rdi_delta_5', 'ask_rdi_delta_1',
+    'ofi', 'ofi_delta_1', 'ofi_delta_6',
+    'micro_price_momentum', 'micro_price_delta_1', 'micro_price_delta_6',
+    'bid_slope', 'ask_slope',
+    'bid_rdi', 'bid_rdi_delta_1', 'bid_rdi_delta_6',
+    'ask_rdi', 'ask_rdi_delta_1', 'ask_rdi_delta_6',
     'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5',
     'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity',
     'pressure_ratio'

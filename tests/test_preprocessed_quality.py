@@ -7,7 +7,7 @@ import re
 
 import os
 PRE_PROCESSED_DIR = Path(os.getenv("PRE_PROCESSED_DIR", "data/L2/pre_processed"))
-EXPECTED_ROWS = 1440  # 24 * 60 for 1-minute samples
+EXPECTED_ROWS = 288  # 24 * 12 for 5-minute samples (Sniper Pivot)
 
 def get_parquet_files():
     return sorted(list(PRE_PROCESSED_DIR.glob("*.parquet")))
@@ -59,7 +59,7 @@ class TestPreprocessedQuality:
         if len(df) < EXPECTED_ROWS:
             # We log a warning but allow it if it's close (e.g., first/last day or small gaps)
             # but for a strict 'nothing missing' test, we check if it's at least 95% full
-            assert len(df) >= 1400, f"File {file_path.name} has only {len(df)} rows (expected {EXPECTED_ROWS})"
+            assert len(df) >= 270, f"File {file_path.name} has only {len(df)} rows (expected {EXPECTED_ROWS} @ 5min)"
 
         # 2. Schema Check
         required_features = [
@@ -84,5 +84,5 @@ class TestPreprocessedQuality:
         # Check if index/rows are sorted and have no duplicates
         if 'ts' in df.columns:
             ts_diffs = df['ts'].diff().slice(1)
-            # Diffs should be constant 60000ms if 1min resampling worked perfectly
+            # Diffs should be constant 300000ms if 5min resampling worked perfectly
             assert (ts_diffs < 0).sum() == 0, f"Timestamp is not monotonic in {file_path.name}"

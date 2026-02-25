@@ -22,8 +22,8 @@ search_space:
   
   batch_size: [1024]                  # Travado: Sua GPU lida com 1024 rindo, melhor estabilidade
   
-  # Foco no Horizonte de Alpha (4h a 6h)
-  seq_len: [240, 300, 360]
+  # Contexto de 1h a 3h em barras de 5min (12, 24, 36 bars × 5min)
+  seq_len: [12, 24, 36]
   
   dropout: [0.75, 0.82]               # Estreitado: O "Sweet Spot" identificado nos logs
   epochs: 10
