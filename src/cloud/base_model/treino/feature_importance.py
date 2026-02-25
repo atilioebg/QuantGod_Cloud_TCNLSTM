@@ -112,41 +112,45 @@ def run_importance_analysis(model_path=None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # 1. Load Configs
-    with open("src/cloud/base_model/configs/base_model_config.yaml", 'r') as f:
+    with open("src/cloud/base_model/configs/base_model_config.yaml", 'r', encoding='utf-8') as f:
         base_cfg = yaml.safe_load(f)
-    with open("src/cloud/base_model/otimizacao/optimization_config.yaml", 'r') as f:
+    with open("src/cloud/base_model/otimizacao/optimization_config.yaml", 'r', encoding='utf-8') as f:
         opt_cfg = yaml.safe_load(f)
+    with open("src/cloud/base_model/treino/training_config.yaml", 'r', encoding='utf-8') as f:
+        train_cfg = yaml.safe_load(f)
         
     feature_cols = base_cfg['model']['feature_names']
+    hparams = train_cfg.get('hyperparameters', {})
     
     # 2. Resolve Paths
     _, val_dir = resolve_data_paths(opt_cfg['paths'])
     
     # 3. Load Model
-    # If no model_path is provided, try to find the best trial from best_params.json or latest checkpoint
     if model_path is None:
-        model_path = Path("models/checkpoints/best_model.pt") # Adjust based on your naming
+        # Check current config for output macro path
+        model_path = Path(train_cfg['paths'].get('model_output_macro', "data/models/best_tcn_lstm.pt"))
         if not model_path.exists():
-            logger.error("No model checkpoint found at models/checkpoints/best_model.pt")
+            logger.error(f"No model checkpoint found at {model_path}")
             return
             
     logger.info(f"Loading model from {model_path}")
     checkpoint = torch.load(model_path, map_location=device)
     
-    # Initialize model with same params as checkpoint if possible, else 
-    # we might need to store hyperparameters in the checkpoint or meta file.
-    # For now, let's assume standard params or load from a specialized meta if exists.
+    # Handle state_dict key or direct state_dict
+    state_dict = checkpoint['model_state_dict'] if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint else checkpoint
+
+    # Initialize model with optimized params
     model = Hybrid_TCN_LSTM(
         num_features=len(feature_cols),
         num_classes=base_cfg['model']['num_classes'],
-        # These below should ideally be loaded from the checkpoint meta
-        tcn_channels=checkpoint.get('tcn_channels', 32), 
-        lstm_hidden=checkpoint.get('lstm_hidden', 128),
-        num_lstm_layers=checkpoint.get('num_lstm_layers', 2),
-        seq_len=checkpoint.get('seq_len', 36)   # default=36 (3h @ 5min bars)
+        tcn_channels=hparams.get('tcn_channels', 64), 
+        lstm_hidden=hparams.get('lstm_hidden', 256),
+        num_lstm_layers=hparams.get('num_lstm_layers', 2),
+        seq_len=hparams.get('seq_len', 720),
+        dropout=hparams.get('dropout', 0.1)
     ).to(device)
     
-    model.load_state_dict(checkpoint['model_state_dict'])
+    model.load_state_dict(state_dict)
     
     # 4. Load Data
     val_df = load_validation_data(val_dir, feature_cols)
@@ -154,16 +158,16 @@ def run_importance_analysis(model_path=None):
     y_raw = val_df['target'].to_numpy().astype(np.int64)
     
     # Scaling (Must use same scaler as training)
-    scaler_path = Path("models/scaler_finetuning.pkl")
+    scaler_path = Path(train_cfg['paths'].get('scaler_output_macro', "data/models/scaler_finetuning.pkl"))
     if scaler_path.exists():
         import joblib
         scaler = joblib.load(scaler_path)
         X_val = scaler.transform(X_raw)
     else:
-        logger.warning("No scaler found at models/scaler_finetuning.pkl. Results may be biased.")
+        logger.warning(f"No scaler found at {scaler_path}. Results may be biased.")
         X_val = X_raw
 
-    val_dataset = SequenceDataset(X_val, y_raw, checkpoint.get('seq_len', 36))
+    val_dataset = SequenceDataset(X_val, y_raw, hparams.get('seq_len', 720))
     val_loader = DataLoader(val_dataset, batch_size=512, shuffle=False, num_workers=4)
 
     # 5. Permutation Importance
