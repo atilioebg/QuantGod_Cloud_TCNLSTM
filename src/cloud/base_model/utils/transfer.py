@@ -140,6 +140,13 @@ def transfer_results(log_filename: str, run_type: str):
             project_root / "data" / "models" / "treino_best_model.pt",
             project_root / "data" / "models" / "treino_scaler_finetuning.pkl"
         ])
+        
+        # Relatorio de Feature Importance
+        fi_csv = project_root / "docs" / "reports" / "feature_importance.csv"
+        if fi_csv.exists():
+            files_to_transfer.append(fi_csv)
+        else:
+            print("   ⚠️ Aviso: docs/reports/feature_importance.csv não encontrado. Não será transferido.")
 
     # ── Executar Transferência ───────────────────────────────────────────────
     try:
