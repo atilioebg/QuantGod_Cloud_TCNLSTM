@@ -62,11 +62,19 @@ def setup_logger(log_module_name: str, suffix: str = ""):
 
 def get_labelling_suffix(params: dict) -> str:
     """
-    Generates standard suffix: _SELL_0002_BUY_0002_1h
-    used for both folder names and log names.
+    Generates standard suffix: _SELL_0003_BUY_0003_15min
+    Supports both 1min pipelines (lookahead in minutes) and 5min pipelines
+    (lookahead in bars). Uses 'bar_size_min' param (default=5) to convert.
     """
     s_val = int(round(abs(params.get('threshold_short', 0)) * 1000))
     b_val = int(round(abs(params.get('threshold_long', 0)) * 1000))
-    h_val = int(params.get('lookahead', 60) / 60)
-    
-    return f"_SELL_{s_val:04d}_BUY_{b_val:04d}_{h_val}h"
+
+    bar_size_min = params.get('bar_size_min', 5)  # default: 5min bars (Sniper Pivot)
+    total_minutes = int(params.get('lookahead', 3)) * bar_size_min
+
+    if total_minutes >= 60 and total_minutes % 60 == 0:
+        time_label = f"{total_minutes // 60}h"
+    else:
+        time_label = f"{total_minutes}min"
+
+    return f"_SELL_{s_val:04d}_BUY_{b_val:04d}_{time_label}"

@@ -97,8 +97,15 @@ def transfer_results(log_filename: str, run_type: str):
         if log_path.exists():
             files_to_transfer.append(log_path)
             
-        # Logs de ETL, Labelling e Tests
-        log_patterns = ["logs/etl/*.log", "logs/labelling/*.log", "logs/tests/*.log"]
+        # Logs de ETL, Labelling, Treino e Tests
+        log_patterns = [
+            "logs/etl/*.log",
+            "logs/labelling/*.log",
+            "logs/treino/*.log",           # ← logs do run_training.py (adicionado)
+            "logs/treino_specialization/*.log",  # ← especialização (foundation tb carrega)
+            "logs/optimization/*.log",     # ← todos os logs de optuna, não só o passado
+            "logs/tests/*.log",            # ← last_run.log + failed_files_report.log
+        ]
         for pattern in log_patterns:
             files_to_transfer.extend(list(project_root.glob(pattern)))
             
