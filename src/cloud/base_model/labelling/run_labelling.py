@@ -148,7 +148,8 @@ def run_labelling():
                 base_cfg = yaml.safe_load(f)
             num_features = base_cfg['model'].get('num_features', 32)
             
-            folder_name = f"LABELLED_L2_2023_2026_1_MINUTE_{num_features}_FEATURES"
+            bar_size_min = config['params'].get('bar_size_min', 5)
+            folder_name = f"LABELLED_L2_2023_2026_{bar_size_min}_MINUTE_{num_features}_FEATURES"
             local_src = config['paths']['output_dir']
             remote_dest = f"drive:PROJETOS/{folder_name}"
             rclone_cfg = Path("rclone.conf")
