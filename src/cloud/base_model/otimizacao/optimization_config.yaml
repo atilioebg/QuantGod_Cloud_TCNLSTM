@@ -2,29 +2,29 @@
 paths:
   train_dir: "AUTO"
   val_dir: "AUTO"
-  study_name: "quantgod_tcn_lstm_v0"
-  db_path: "sqlite:///optuna_tcn_lstm_v0.db"
+  study_name: "quantgod_tcn_lstm_v1_finetune"
+  db_path: "sqlite:///optuna_tcn_lstm_v1_finetune.db"
 
 optimization:
-  n_trials: 50
+  n_trials: 40
   timeout: 72000  # 20 hours
   metric: "f1_macro"
   run_specialized_after: false
 
-# Sniper Pro - Calibrado para RTX A4500 + 833 Colunas
+# Sniper Pro - Fine-Tuning (Exploitation Phase based on v0 Trial 33 & 11)
 search_space:
-  tcn_channels: [32, 64, 128]         # Aumentado: Mais filtros para as 833 colunas
-  lstm_hidden: [128, 256]             # Aumentado: Precisamos de mais "cérebro" para correlações L200
+  tcn_channels: [128]                 # Travado: Venceu em F1 Macro e Dir
+  lstm_hidden: [128, 256]             # O modelo oscilou bem entre 128 (Dir) e 256 (Macro)
   num_lstm_layers: [2]
   
-  lr: [0.00001, 0.00008]              # Mais conservador: Evita que o modelo "se perca" no início
-  weight_decay: [0.0001, 0.01]        # L2 agressivo para manter a rede magra
+  lr: [0.00001, 0.00006]              # Estreitado ao redor de 5e-5 e 2e-5 dos campeões
+  weight_decay: [0.0001, 0.01]        # L2 agressivo para manter a rede magra (Trial 11 amou wd alto)
   
-  batch_size: [1024]                  # Travado: Sua GPU lida com 1024 rindo, melhor estabilidade
+  batch_size: [1024]                  # Travado para estabilidade da GPU
   
-  # Contexto de 1h a 3h em barras de 5min (12, 24, 36 bars × 5min)
-  seq_len: [12, 24, 36]
+  # Contexto vitorioso: 2h em barras de 5min (24 bars × 5min)
+  seq_len: [24]
   
-  dropout: [0.75, 0.82]               # Estreitado: O "Sweet Spot" identificado nos logs
-  epochs: 10
-  early_stopping_patience: 3
+  dropout: [0.75, 0.80]               # Estreitado: O "Sweet Spot" (Trial 33: 0.759 / Trial 11: 0.771)
+  epochs: 15                          # Aumentado levemente pois o early_stopping poda rápido
+  early_stopping_patience: 4          # Tolerância sutilmente maior para fine-tuning
