@@ -85,7 +85,7 @@ training:
 
 optimization:
   study_name: "quantgod_tcn_lstm_v1_finetune"
-  n_trials: 40
+  n_trials: 60
   timeout: 72000  # 20 hours
   base_metric: "f1_macro"
   specialized_metric: "f1_macro" #"f1_dir"
