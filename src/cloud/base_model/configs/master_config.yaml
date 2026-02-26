@@ -107,7 +107,7 @@ optimization:
   search_space:
     tcn_channels: [64, 128, 256]
     lstm_hidden: [64, 128, 256]
-    num_lstm_layers: [2, 3, 4, 5, 6]
+    num_lstm_layers: [3, 4, 5, 6, 7, 8, 9]
     lr: [0.00001, 0.00006]
     weight_decay: [0.0001, 0.01]
     batch_size: [512, 1024, 2048]
