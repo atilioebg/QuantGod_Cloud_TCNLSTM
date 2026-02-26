@@ -120,12 +120,10 @@ def transfer_results(log_filename: str, run_type: str):
         files_to_transfer.append(project_root / db_filename)
         
         # Adding items directly from master_config mappings
-        files_to_transfer.extend([
-            project_root / config['pipeline_paths']['best_tcn_lstm_model'],
-            project_root / config['pipeline_paths']['best_tcn_lstm_dir_model'],
-            project_root / config['pipeline_paths']['scaler_foundation'],
-            project_root / config['pipeline_paths']['scaler_foundation_dir']
-        ])
+        for key in ['best_tcn_lstm_model', 'best_tcn_lstm_dir_model', 'scaler_foundation']:
+            val = config['pipeline_paths'].get(key)
+            if val:
+                files_to_transfer.append(project_root / val)
         
     elif run_type == "specialized":
         # Pega logs de specialization

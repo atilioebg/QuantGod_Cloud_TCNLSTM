@@ -7,6 +7,7 @@ pipeline_paths:
   raw_l2_source: "drive:PROJETOS/BTC_USDT_L2_2023_2026"
   db_path: "sqlite:///optuna_tcn_lstm_v1_finetune.db"
   best_tcn_lstm_model: "data/models/best_tcn_lstm.pt"
+  best_tcn_lstm_dir_model: "data/models/best_tcn_lstm_dir.pt"
   best_specialized_model: "data/models/best_specialized_model.pt"
   scaler_foundation: "data/models/scaler_foundation.pkl"
   scaler_specialized: "data/models/scaler_specialized.pkl"
