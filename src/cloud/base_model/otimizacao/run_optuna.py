@@ -136,6 +136,7 @@ def objective(trial, X_train, y_train, X_val, y_val, config, base_cfg):
         for epoch in range(epochs):
             model.train()
             train_loss = 0.0
+            log_interval = max(1, len(train_loader) // 4)
             for b_idx, (batch_X, batch_y) in enumerate(train_loader):
                 batch_X, batch_y = batch_X.to(DEVICE), batch_y.to(DEVICE)
                 optimizer.zero_grad()
@@ -148,7 +149,7 @@ def objective(trial, X_train, y_train, X_val, y_val, config, base_cfg):
                 amp_scaler.step(optimizer)
                 amp_scaler.update()
                 train_loss += loss.item()
-                if (b_idx + 1) % 100 == 0:
+                if (b_idx + 1) % log_interval == 0:
                     pct = (b_idx + 1) / len(train_loader) * 100
                     logger.info(f"Trial {trial.number} | Epoch {epoch+1} | "
                                 f"Batch {b_idx+1}/{len(train_loader)} ({pct:.1f}%) | "

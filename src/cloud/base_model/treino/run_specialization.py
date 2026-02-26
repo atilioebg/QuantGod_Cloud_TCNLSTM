@@ -222,6 +222,7 @@ def run_specialization():
         # TRAIN
         model.train()
         train_loss = 0.0
+        log_interval = max(1, len(train_loader) // 4)
         for batch_idx, (batch_X, batch_y) in enumerate(train_loader):
             batch_X, batch_y = batch_X.to(DEVICE), batch_y.to(DEVICE)
             optimizer.zero_grad()
@@ -234,7 +235,7 @@ def run_specialization():
             amp_scaler.step(optimizer)
             amp_scaler.update()
             train_loss += loss.item()
-            if (batch_idx + 1) % 50 == 0:
+            if (batch_idx + 1) % log_interval == 0:
                 pct = (batch_idx + 1) / len(train_loader) * 100
                 logger.info(f"Epoch {epoch+1} | Batch {batch_idx+1}/{len(train_loader)} ({pct:.1f}%) | Loss: {loss.item():.4f}")
 
