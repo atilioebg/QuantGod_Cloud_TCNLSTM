@@ -14,13 +14,20 @@ class RobustStreamHandler(logging.StreamHandler):
     """
     def emit(self, record):
         try:
-            super().emit(record)
+            msg = self.format(record)
+            stream = self.stream
+            # Robustly append newline if missing to avoid merged lines with tqdm
+            if not msg.endswith('\n'):
+                msg += '\n'
+            stream.write(msg)
+            self.flush()
         except OSError:
             pass
 
     def flush(self):
         try:
-            super().flush()
+            if self.stream and hasattr(self.stream, "flush"):
+                self.stream.flush()
         except OSError:
             pass
 
@@ -43,8 +50,10 @@ def setup_logger(log_module_name: str, suffix: str = ""):
     # ── UTF-8 Terminal Fix (Windows/CI Compatibility) ────────────────────────
     # We wrap stdout to ensure it handles UTF-8 even if the system default is different
     try:
-        if sys.stdout.encoding != 'utf-8':
-            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+        # Avoid double wrapping or issues in non-standard environments
+        if hasattr(sys.stdout, 'encoding') and sys.stdout.encoding != 'utf-8':
+            if hasattr(sys.stdout, 'buffer'):
+                sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True)
     except (AttributeError, io.UnsupportedOperation):
         pass
 
@@ -61,7 +70,8 @@ def setup_logger(log_module_name: str, suffix: str = ""):
     
     # Hide "INITIALIZED" message if QUIET_LOGGING is set (for cleaner subprocesses)
     if not os.environ.get('QUIET_LOGGING'):
-        logger.info(f"📝 LOGGING INITIALIZED (UTF-8-SIG): {log_file}")
+        # Leading newline (\n) ensures we don't merge with the terminal prompt
+        logger.info(f"\n📝 LOGGING INITIALIZED (UTF-8-SIG): {log_file}")
         
     return logger
 

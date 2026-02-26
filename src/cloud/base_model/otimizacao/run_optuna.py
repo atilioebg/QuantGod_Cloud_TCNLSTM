@@ -138,7 +138,15 @@ def objective(trial, X_train, y_train, X_val, y_val, config, base_cfg):
             model.train()
             train_loss = 0.0
             from tqdm import tqdm
-            pbar = tqdm(train_loader, desc=f"Trial {trial.number} | Epoch {epoch+1}", leave=False)
+            # In non-TTY environments (RunPod logs), reduce tqdm volume
+            is_tty = sys.stdout.isatty()
+            pbar = tqdm(
+                train_loader, 
+                desc=f"Trial {trial.number} | Epoch {epoch+1}", 
+                leave=False,
+                mininterval=10.0 if not is_tty else 0.1,  # 10s updates in logs
+                maxinterval=100.0 if not is_tty else 10.0
+            )
             for b_idx, (batch_X, batch_y) in enumerate(pbar):
                 batch_X, batch_y = batch_X.to(DEVICE), batch_y.to(DEVICE)
                 optimizer.zero_grad()
@@ -152,6 +160,7 @@ def objective(trial, X_train, y_train, X_val, y_val, config, base_cfg):
                 amp_scaler.update()
                 train_loss += loss.item()
                 pbar.set_postfix({'loss': f"{loss.item():.4f}"})
+            pbar.close()
             scheduler.step()
 
             # Validation
