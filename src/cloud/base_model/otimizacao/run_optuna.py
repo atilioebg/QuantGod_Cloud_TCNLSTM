@@ -346,7 +346,7 @@ def run_optimization():
         logger.info(f"Resuming study. Current records: Macro={GLOBAL_BEST_MACRO:.4f}, Dir={GLOBAL_BEST_DIR:.4f}")
 
     logger.info(f"Starting {config['optimization']['n_trials']} trials | "
-                f"Metric: {config['optimization']['metric']} | "
+                f"Metric: {config['optimization']['base_metric']} | "
                 f"Timeout: {config['optimization']['timeout']}s")
     
     start_trials = len(study.trials)
