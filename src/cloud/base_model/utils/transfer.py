@@ -81,8 +81,24 @@ def transfer_results(log_filename: str, run_type: str):
     
     # Destino Final Especifico do Tipo
     timestamp = datetime.now().strftime("%d%m%y_%H%M%S")
+    # Destino Final Especifico do Tipo
+    timestamp = datetime.now().strftime("%d%m%y_%H%M%S")
     dest_dir = drive_base / f"{folder_name}_{timestamp}" / run_type
     logger.info(f"--- Iniciando transferencia [{run_type.upper()}] para: {dest_dir} ---")
+
+    # 1.5 Gerar Landscape CSV (apenas no foundation para refletir a otimização)
+    if run_type == "foundation":
+        from src.cloud.base_model.utils.optuna_utils import export_landscape_to_csv
+        db_path = config.get('pipeline_paths', {}).get('db_path') or \
+                  config.get('optimization', {}).get('db_path', 'sqlite:///optuna_tcn_lstm_v0.db')
+        study_name = config.get('optimization', {}).get('study_name', 'quantgod_tcn_lstm_v1')
+        landscape_csv = project_root / "landscape_optuna_trials.csv"
+        
+        logger.info(f"Gerando panorama de hiperparametros em {landscape_csv.name}...")
+        if export_landscape_to_csv(db_path, study_name, str(landscape_csv)):
+            logger.info("✅ Landscape CSV gerado com sucesso.")
+        else:
+            logger.warning("⚠️ Falha ao gerar Landscape CSV.")
 
     # Lista Base (Configs comuns que vão para ambos garantindo autonomia)
     files_to_transfer = [
@@ -146,6 +162,11 @@ def transfer_results(log_filename: str, run_type: str):
     fi_csv = project_root / "docs" / "reports" / "feature_importance.csv"
     if fi_csv.exists():
         files_to_transfer.append(fi_csv)
+
+    # Landscape Optuna (gerado no passo anterior)
+    landscape_csv = project_root / "landscape_optuna_trials.csv"
+    if landscape_csv.exists():
+        files_to_transfer.append(landscape_csv)
 
     # ── Validação e Filtro Tolerante a Falhas ──────────────────────────────────
     valid_files = set()
