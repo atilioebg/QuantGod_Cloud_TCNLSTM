@@ -4,137 +4,137 @@
 
 pipeline_paths:
   # Caminhos base da arquitetura
-  raw_l2_source: "drive:PROJETOS/BTC_USDT_L2_2023_2026"  # Fonte de dados puros (Level 2) Zipados
-  db_path: "sqlite:///optuna_tcn_lstm_v1_finetune.db"    # Banco de dados do Optuna HPO
-  best_tcn_lstm_model: "data/models/best_tcn_lstm.pt"    # Campeão F1 Macro (Fundação)
-  best_tcn_lstm_dir_model: "data/models/best_tcn_lstm_dir.pt" # Campeão Direcional (Fundação)
+  raw_l2_source: "drive:PROJETOS/BTC_USDT_L2_2023_2026"           # Fonte de dados puros (Level 2) Zipados
+  db_path: "sqlite:///optuna_tcn_lstm_v1_finetune.db"             # Banco de dados do Optuna HPO
+  best_tcn_lstm_model: "data/models/best_tcn_lstm.pt"             # Campeão F1 Macro (Fundação)
+  best_tcn_lstm_dir_model: "data/models/best_tcn_lstm_dir.pt"     # Campeão Direcional (Fundação)
   best_specialized_model: "data/models/best_specialized_model.pt" # Campeão Sniper (Especialista)
-  scaler_foundation: "data/models/scaler_foundation.pkl" # Normalizador fitado no Treino (Fundação)
-  scaler_specialized: "data/models/scaler_specialized.pkl" # Normalizador fitado no Treino (Especialista)
-  auditor_model: "data/models/auditor_xgboost.json"      # Modelo de Regras XGBoost (Juiz Auditor)
-  scaler_auditor: "data/models/scaler_auditor.pkl"       # Normalizador fitado no Treino (Auditor)
+  scaler_foundation: "data/models/scaler_foundation.pkl"          # Normalizador fitado no Treino (Fundação)
+  scaler_specialized: "data/models/scaler_specialized.pkl"        # Normalizador fitado no Treino (Especialista)
+  auditor_model: "data/models/auditor_xgboost.json"               # Modelo de Regras XGBoost (Juiz Auditor)
+  scaler_auditor: "data/models/scaler_auditor.pkl"                # Normalizador fitado no Treino (Auditor)
 
 pre_processing:
   etl:
-    levels: 200             # Profundidade em níveis coletada no L2 Orderbook
-    sampling_ms: 1000       # Resolução final dos snapshots (1000ms agregados para 1min depois)
-    export_compression: "snappy"  # Algoritmo de compressão para velocidade máxima nos Parquets
+    levels: 200                                                   # Profundidade em níveis coletada no L2 Orderbook
+    sampling_ms: 1000                                             # Resolução final dos snapshots (1000ms agregados para 1min depois)
+    export_compression: "snappy"                                  # Algoritmo de compressão para velocidade máxima nos Parquets
   labelling:
     # Limiares de alvo futuro (Rentabilidade para Target 0 ou 2)
-    sell_threshold: 0.003   # Retorno exigido (-0.3%) para sinalizar SELL
-    buy_threshold: 0.003    # Retorno exigido (+0.3%) para sinalizar BUY
-    horizon_minutes: 15     # Janela de Lookahead para calcular a rentabilidade (15 minutos)
+    sell_threshold: 0.003                                         # Retorno exigido (-0.3%) para sinalizar SELL
+    buy_threshold: 0.003                                          # Retorno exigido (+0.3%) para sinalizar BUY
+    horizon_minutes: 15                                           # Janela de Lookahead para calcular a rentabilidade (15 minutos)
   split:
     base:
-      train_ratio: 0.70     # Split Cronológico de Treinamento da Fundação (TCN-LSTM)
-      val_ratio: 0.30       # Split Cronológico de Validação da Fundação OOS
+      train_ratio: 0.70                                           # Split Cronológico de Treinamento da Fundação (TCN-LSTM)
+      val_ratio: 0.30                                             # Split Cronológico de Validação da Fundação OOS
     specialized:
-      train_ratio: 0.80     # Treinamento do Especialista (TCN-LSTM) engolindo mais tempo cronológico
-      val_ratio: 0.20       # Validação Restrita do Especialista
+      train_ratio: 0.80                                           # Treinamento do Especialista (TCN-LSTM) engolindo mais tempo cronológico
+      val_ratio: 0.20                                             # Validação Restrita do Especialista
     auditor:
-      train_ratio: 0.80     # Treinamento do XGBoost na extração conjunta de features cruzadas
-      val_ratio: 0.20       # Validação Test-Final Auditor Pipeline
+      train_ratio: 0.80                                           # Treinamento do XGBoost na extração conjunta de features cruzadas
+      val_ratio: 0.20                                             # Validação Test-Final Auditor Pipeline
 
 model:
-  num_features: 32          # Quantidade de colunas injetadas nos tensores matriciais (Base model)
-  num_classes: 3            # BUY (2), NEUTRAL (1), SELL (0)
+  num_features: 32                                                # Quantidade de colunas injetadas nos tensores matriciais (Base model)
+  num_classes: 3                                                  # BUY (2), NEUTRAL (1), SELL (0)
   
-  auditor_num_features: 20  # Tensores do Juiz (6 Probabilidades Modelos + 14 Sensores Alphas)
-  auditor_num_classes: 2    # Meta-Labeling Binário: 0 (Veto/Fake), 1 (Aprovado/Acurado)
+  auditor_num_features: 20                                        # Tensores do Juiz (6 Probabilidades Modelos + 14 Sensores Alphas)
+  auditor_num_classes: 2                                          # Meta-Labeling Binário: 0 (Veto/Fake), 1 (Aprovado/Acurado)
   
-  feature_names:
+  feature_names:                                                  # Nome das colunas injetadas nos tensores matriciais (Base model)
     # --- Aggregated Features (9) ---
-    - body                # Corpo da vela: log(close/open)
-    - upper_wick          # Sombra superior normalizada
-    - lower_wick          # Sombra inferior normalizada
-    - log_ret_close       # Retorno logarítmico: log(close/prev_close)
-    - volatility          # Volatilidade intra-minuto
-    - max_spread          # Spread máximo
-    - mean_obi            # Order Book Imbalance (Top 1)
-    - mean_deep_obi       # Order Book Imbalance Profundo (L5)
-    - log_volume          # Proxy de Volume (log messages)
+    - body                                                        # Corpo da vela: log(close/open)
+    - upper_wick                                                  # Sombra superior normalizada
+    - lower_wick                                                  # Sombra inferior normalizada
+    - log_ret_close                                               # Retorno logarítmico: log(close/prev_close)
+    - volatility                                                  # Volatilidade intra-minuto
+    - max_spread                                                  # Spread máximo
+    - mean_obi                                                    # Order Book Imbalance (Top 1)
+    - mean_deep_obi                                               # Order Book Imbalance Profundo (L5)
+    - log_volume                                                  # Proxy de Volume (log messages)
     
     # --- Dynamic/Sniper Features (23) ---
-    - ofi                 # Order Flow Imbalance (L0)
-    - ofi_delta_1         # Gatilho de Fluxo (5min - 1 bar)
-    - ofi_delta_6         # Aceleração de Fluxo (30min - 6 bars)
-    - micro_price_momentum # Momentum Acumulado Micro-Price
-    - micro_price_delta_1 # Gatilho de Preço Real (5min - 1 bar)
-    - micro_price_delta_6 # Drift de Preço Real (30min - 6 bars)
-    - bid_slope           # Inclinação dos Bids
-    - ask_slope           # Inclinação dos Asks
-    - bid_rdi             # Relative Depth Imbalance (Bid)
-    - bid_rdi_delta_1     # Choque de Profundidade Bid (5min)
-    - bid_rdi_delta_6     # Contexto de Profundidade Bid (30min)
-    - ask_rdi             # Relative Depth Imbalance (Ask)
-    - ask_rdi_delta_1     # Choque de Profundidade Ask (5min)
-    - ask_rdi_delta_6     # Contexto de Profundidade Ask (30min)
-    - book_asymmetry_v5   # Assimetria L5
-    - spread_zscore_60    # Spread Relativo (60min = 12 bars)
-    - vpin_lite_5         # Toxicidade de Volume (25min = 5 bars)
-    - kyle_lambda         # Kyle's Lambda (Price resistance to flow)
-    - bid_deep_ratio      # Razão Profunda Bid (L200/L5)
-    - ask_deep_ratio      # Razão Profunda Ask (L200/L5)
-    - bid_convexity       # Convexidade Bid (L10 vs L20)
-    - ask_convexity       # Convexidade Ask (L10 vs L20)
-    - pressure_ratio      # Razão de Pressão L2
+    - ofi                                                         # Order Flow Imbalance (L0)
+    - ofi_delta_1                                                 # Gatilho de Fluxo (5min - 1 bar)
+    - ofi_delta_6                                                 # Aceleração de Fluxo (30min - 6 bars)
+    - micro_price_momentum                                        # Momentum Acumulado Micro-Price
+    - micro_price_delta_1                                         # Gatilho de Preço Real (5min - 1 bar)
+    - micro_price_delta_6                                         # Drift de Preço Real (30min - 6 bars)
+    - bid_slope                                                   # Inclinação dos Bids
+    - ask_slope                                                   # Inclinação dos Asks
+    - bid_rdi                                                     # Relative Depth Imbalance (Bid)
+    - bid_rdi_delta_1                                             # Choque de Profundidade Bid (5min)
+    - bid_rdi_delta_6                                             # Contexto de Profundidade Bid (30min)
+    - ask_rdi                                                     # Relative Depth Imbalance (Ask)
+    - ask_rdi_delta_1                                             # Choque de Profundidade Ask (5min)
+    - ask_rdi_delta_6                                             # Contexto de Profundidade Ask (30min)
+    - book_asymmetry_v5                                           # Assimetria L5
+    - spread_zscore_60                                            # Spread Relativo (60min = 12 bars)
+    - vpin_lite_5                                                 # Toxicidade de Volume (25min = 5 bars)
+    - kyle_lambda                                                 # Kyle's Lambda (Price resistance to flow)
+    - bid_deep_ratio                                              # Razão Profunda Bid (L200/L5)
+    - ask_deep_ratio                                              # Razão Profunda Ask (L200/L5)
+    - bid_convexity                                               # Convexidade Bid (L10 vs L20)
+    - ask_convexity                                               # Convexidade Ask (L10 vs L20)
+    - pressure_ratio                                              # Razão de Pressão L2
 
   auditor_features:
-    - base_prob_sell      # Logits convertidos Base Model (Sell)
-    - base_prob_neu       # Logits convertidos Base Model (Neutral)
-    - base_prob_buy       # Logits convertidos Base Model (Buy)
-    - spec_prob_sell      # Logits convertidos Specialist Model (Sell)
-    - spec_prob_neu       # Logits convertidos Specialist Model (Neutral)
-    - spec_prob_buy       # Logits convertidos Specialist Model (Buy)
-    - ema_trend           # Sinal de Regressão da EMA Cross (8, 21)
-    - ema_cross_dist      # Distância percentual do preço em relação ao cruzamento
-    - bb_pct              # Bollinger Bands Width Percentage
-    - rsi_14              # Relative Strength Index (Período 14)
-    - stoch_14            # Oscilador Estocástico (Período 14)
-    - atr_norm            # Average True Range (Normalized)
-    - vol_1h              # Sumatório do Volume na última hora
-    - vol_zscore_1h       # Z-Score Direcional do volume de 1h
-    - delta_vol_24h       # Deriva/Percentual da Aceleração do volume em 24h
-    - adx_14              # Average Directional Index (Tendência Forte/Fraca)
-    - vwap_zscore         # Distância percentual Z-Scoreizada do Preço em relação à VWAP
-    - mfi_14              # Money Flow Index (Absorção e Divergência de Volume)
-    - book_skew_bid       # Assimetria (Skewness) do Order Book nas ordens de Compra
-    - book_skew_ask       # Assimetria (Skewness) do Order Book nas ordens de Venda
+    - base_prob_sell                                              # Logits convertidos Base Model (Sell)
+    - base_prob_neu                                               # Logits convertidos Base Model (Neutral)
+    - base_prob_buy                                               # Logits convertidos Base Model (Buy)
+    - spec_prob_sell                                              # Logits convertidos Specialist Model (Sell)
+    - spec_prob_neu                                               # Logits convertidos Specialist Model (Neutral)
+    - spec_prob_buy                                               # Logits convertidos Specialist Model (Buy)
+    - ema_trend                                                   # Sinal de Regressão da EMA Cross (8, 21)
+    - ema_cross_dist                                              # Distância percentual do preço em relação ao cruzamento
+    - bb_pct                                                      # Bollinger Bands Width Percentage
+    - rsi_14                                                      # Relative Strength Index (Período 14)
+    - stoch_14                                                    # Oscilador Estocástico (Período 14)
+    - atr_norm                                                    # Average True Range (Normalized)
+    - vol_1h                                                      # Sumatório do Volume na última hora
+    - vol_zscore_1h                                               # Z-Score Direcional do volume de 1h
+    - delta_vol_24h                                               # Deriva/Percentual da Aceleração do volume em 24h
+    - adx_14                                                      # Average Directional Index (Tendência Forte/Fraca)
+    - vwap_zscore                                                 # Distância percentual Z-Scoreizada do Preço em relação à VWAP
+    - mfi_14                                                      # Money Flow Index (Absorção e Divergência de Volume)
+    - book_skew_bid                                               # Assimetria (Skewness) do Order Book nas ordens de Compra
+    - book_skew_ask                                               # Assimetria (Skewness) do Order Book nas ordens de Venda
 
 training:
   # Lógica da FocalLoss com Label Smoothing Anti-Overconfidence
   foundation_weights:
-    use_auto_class_weights: true      # Balanço automático baseado na demografia de sinais do dataset real
-    class_weights: [1.32, 0.40, 1.30] # Fallback Manual (Suprime Neutros Fortemente p/ balancear)
-    gamma: 2.0                        # Focal Loss (Aumenta o foco de gradiente nas amostras difíceis)
-    smoothing: 0.1                    # Label Smoothing (Preenche os alvos Zero/Um com 10% de ruidos suavisadores)
+    use_auto_class_weights: true                                  # Balanço automático baseado na demografia de sinais do dataset real
+    class_weights: [1.32, 0.40, 1.30]                             # Fallback Manual (Suprime Neutros Fortemente p/ balancear)
+    gamma: 2.0                                                    # Focal Loss (Aumenta o foco de gradiente nas amostras difíceis)
+    smoothing: 0.1                                                # Label Smoothing (Preenche os alvos Zero/Um com 10% de ruidos suavisadores)
   specialization_weights:
-    use_auto_class_weights: true      # Habilita balanço pro modelo Especialista
-    class_weights: [4.85, 0.38, 4.61] # Pesos draconianos para forçar saídas SELL/BUY em vez de apenas prever Neutro
-    gamma: 2.0                        # Penalidade de erro continua agressiva
-    smoothing: 0.1                    # Evita que hiperconcordância com classe desbalanceada superstime as predições
+    use_auto_class_weights: true                                  # Habilita balanço pro modelo Especialista
+    class_weights: [4.85, 0.38, 4.61]                             # Pesos draconianos para forçar saídas SELL/BUY em vez de apenas prever Neutro
+    gamma: 2.0                                                    # Penalidade de erro continua agressiva
+    smoothing: 0.1                                                # Evita que hiperconcordância com classe desbalanceada superstime as predições
 
 optimization:
-  study_name: "quantgod_tcn_lstm_v1_finetune" # Nome de identificação do experimento interno no banco SQLite
-  n_trials: 60              # Baterias máximas do HPO (Optuna) rodando pela etapa da Fundação
-  n_trials_specialist: 40   # Baterias de lapidação que herdam vizinhos paramétricos da fundação (Symmetric Delta)
-  timeout: 72000            # Teto limite cronometrado na Nuvem (Ex: Parada rígida em 20 horas de máquina ~ 72000s)
-  base_metric: "f1_macro"   # Macro F1 busca treinar a Inteligência Média global da Base com equidade
-  specialized_metric: "sniper_score" # O Otimizador customizado Híbrido que extraíremos a fundo a Ouro de Alpha do ML
+  study_name: "quantgod_tcn_lstm_v1_finetune"                     # Nome de identificação do experimento interno no banco SQLite
+  n_trials: 60                                                    # Baterias máximas do HPO (Optuna) rodando pela etapa da Fundação
+  n_trials_specialist: 40                                         # Baterias de lapidação que herdam vizinhos paramétricos da fundação (Symmetric Delta)
+  timeout: 72000                                                  # Teto limite cronometrado na Nuvem (Ex: Parada rígida em 20 horas de máquina ~ 72000s)
+  base_metric: "f1_macro"                                         # Macro F1 busca treinar a Inteligência Média global da Base com equidade
+  specialized_metric: "sniper_score"                              # O Otimizador customizado Híbrido que extraíremos a fundo a Ouro de Alpha do ML
   sniper_weights:
-    dir: 0.7                # A métrica Direcional (Buy e Sell ignorando Neutral) engole 70% do peso da F1
-    macro: 0.3              # A métrica Macro (Global F1) atua como termostato anti-sobreajuste (Overfitting) a 30%
-  run_specialized_after: true          # [AUTOMAÇÃO] Habilita Cascata Nuvem (Fundação > Especialista > Auditor XGB)
-  run_feature_importance_after: true   # Ao fim da Base, roda e salva a Força dos 32 Alphas originais (Integridade)
+    dir: 0.7                                                      # A métrica Direcional (Buy e Sell ignorando Neutral) engole 70% do peso da F1
+    macro: 0.3                                                    # A métrica Macro (Global F1) atua como termostato anti-sobreajuste (Overfitting) a 30%
+  run_specialized_after: true                                     # [AUTOMAÇÃO] Habilita Cascata Nuvem (Fundação > Especialista > Auditor XGB)
+  run_feature_importance_after: true                              # Ao fim da Base, roda e salva a Força dos 32 Alphas originais (Integridade)
 
   search_space:
-    tcn_channels: [64, 128, 256]           # Filtros Dinâmicos Captadores Visuais (TCN - Redes Residuais Causais)
-    lstm_hidden: [64, 128, 256]            # Topologia Vetorial Oculta dos Blocos Neurais em Memória Tensa (LTSM) 
-    num_lstm_layers: [3, 4, 5, 6, 7, 8, 9] # Níveis Arquiteturais Subterrâneos Empilhados (Mapeamento Complexo)
-    lr: [0.00001, 0.00006]                 # Multiplicador do Passo Gradient Descendente (AdamW) do Erro Perceptual
-    weight_decay: [0.0001, 0.01]           # Controle Punitivo de Regularização (Peso Descontado Extra sobre a Perda)
-    batch_size: [512, 1024, 2048]          # Lotes Simultâneos injetados Paralelamente na VRAM do Fio Tenson (Cuda GPU)
-    seq_len: [24, 48, 96]                  # Túnel Histórico Causal (Lookback de 24 a 96 Minutos de Micro-Estrutura do L2)
-    dropout: [0.3, 0.5, 0.75, 0.80]        # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
-    epochs: 50                             # Teto Físico Absoluto de Passes Treinamento (Epocas) por Bateria Operacional
-    early_stopping_patience: 4             # Inteligência Auxiliar que Morre a Trial após X rounds inférteis
+    tcn_channels: [64, 128, 256]                                  # Filtros Dinâmicos Captadores Visuais (TCN - Redes Residuais Causais)
+    lstm_hidden: [64, 128, 256]                                   # Topologia Vetorial Oculta dos Blocos Neurais em Memória Tensa (LTSM) 
+    num_lstm_layers: [3, 4, 5, 6, 7, 8, 9]                        # Níveis Arquiteturais Subterrâneos Empilhados (Mapeamento Complexo)
+    lr: [0.00001, 0.00006]                                        # Multiplicador do Passo Gradient Descendente (AdamW) do Erro Perceptual
+    weight_decay: [0.0001, 0.01]                                  # Controle Punitivo de Regularização (Peso Descontado Extra sobre a Perda)
+    batch_size: [512, 1024, 2048]                                 # Lotes Simultâneos injetados Paralelamente na VRAM do Fio Tenson (Cuda GPU)
+    seq_len: [24, 48, 96]                                         # Túnel Histórico Causal (Lookback de 24 a 96 Minutos de Micro-Estrutura do L2)
+    dropout: [0.3, 0.5, 0.75, 0.80]                               # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
+    epochs: 50                                                    # Teto Físico Absoluto de Passes Treinamento (Epocas) por Bateria Operacional
+    early_stopping_patience: 4                                    # Inteligência Auxiliar que Morre a Trial após X rounds inférteis
