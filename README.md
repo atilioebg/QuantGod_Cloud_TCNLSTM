@@ -39,10 +39,10 @@ Bybit L2 ZIPs (GDrive, 2023–2026)
 └──────────────────┬──────────────────────────┘
                    ↓ probs + last_step_features
 ┌─────────────────────────────────────────────┐
-│        AUDITOR MODEL — XGBoost              │
-│  14 meta-features (probs, entropy,         │
-│  candle features, RSI, EMA distances)      │
-│  Output: calibrated signal + confidence    │
+│        AUDITOR MODEL — XGBoost (v4.2)       │
+│  20 meta-features (probs + L2 Skewness,    │
+│  adx_14, vwap_zscore, mfi_14)              │
+│  Output: calibrated Meta-Veto (Executa/Nao)│
 └─────────────────────────────────────────────┘
         ↓
    Live Inference (Binance Futures WS)
@@ -225,9 +225,9 @@ python src/cloud/base_model/treino/split_dataset.py
 ```
 > **Nota de Segurança:** O script `experiment_utils.py` bloqueia tentativas de rodar o Optuna se esta pasta `splits_` não for detectada para garantir validação Out-of-Sample limpa.
 
-##### ▶️ ETAPA 4: Treinamento Pesado (Finetuning/Fundação)
+##### ▶️ ETAPA 4: Treinamento Pesado (Nó Central de Machine Learning)
 **Objetivo:** Rodar a busca Optuna, encontrar o Top 1, salvar o modelo campeão e gerar validações matemáticas.
-**ATENÇÃO:** O arquivo `src/cloud/base_model/otimizacao/optimization_config.yaml` já está configurado com os caminhos como `"AUTO"`, o que significa que o sistema descobrirá a pasta `splits_...` automaticamente.
+**Cascata Automática:** Se configurado no `master_config.yaml`, este script engatilhará **todo o ecossistema:** Fundação → Especialista → Auditor XGBoost, exportando todas as etapas e logs para o Google Drive automaticamente via Rclone ao fim do processo.
 ```bash
 python src/cloud/base_model/otimizacao/run_optuna.py
 ```
@@ -240,12 +240,15 @@ python src/cloud/base_model/otimizacao/run_optuna.py
 # Unitários (sem dados, sem GPU)
 pytest tests/test_model.py tests/test_meta_features.py tests/test_config_integrity.py -v
 
-# Qualidade de dados (requer data/L2/ populado)
-pytest tests/test_cloud_etl_output.py tests/test_preprocessed_quality.py -v
-pytest tests/test_labelling_output.py -v
+# Qualidade de dados e Reconstrução da Máquina de Estados (requer data/L2/ populado)
+pytest tests/etl/test_cloud_etl_output.py tests/test_preprocessed_quality.py -v
+pytest tests/labelling/test_labelling_output.py -v
+
+# Auditor Pipeline (Validação de Contexto e da Lógica Matemática do Meta-Target)
+pytest tests/auditor/ -v
 
 # Trocar experimento de labelling
-pytest tests/test_labelling_output.py --labelled-dir data/L2/labelled_SELL_0004_BUY_0006_1h -v
+pytest tests/labelling/test_labelling_output.py --labelled-dir data/L2/labelled_SELL_0004_BUY_0006_1h -v
 ```
 
 Consulte **[tests/README.md](tests/README.md)** para documentação completa da suite.

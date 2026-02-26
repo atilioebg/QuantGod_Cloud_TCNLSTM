@@ -471,12 +471,24 @@ def run_optimization():
                            check=True, env=env)
             
             # 2.2 Run Specialization
-            logger.info("-> 2/3 Treinando Modelo Especialista...")
+            logger.info("-> 2/4 Treinando Modelo Especialista...")
             subprocess.run([sys.executable, "src/cloud/base_model/treino/run_specialization.py"], 
                            check=True, env=env)
+                           
+            # 2.3 Run Auditor (Meta-Labeling Judge)
+            logger.info("-> 3/4 Treinando Juiz Auditor (XGBoost)...")
+            # Auditor Phase 1: Context Preprocessing
+            subprocess.run([sys.executable, "src/cloud/auditor_model/auditor_preprocessing.py"], 
+                           check=True, env=env)
+            # Auditor Phase 2: Cross-Inference Labelling
+            subprocess.run([sys.executable, "src/cloud/auditor_model/auditor_labelling.py"], 
+                           check=True, env=env)
+            # Auditor Phase 3: XGBoost Training
+            subprocess.run([sys.executable, "src/cloud/auditor_model/train_xgboost.py"], 
+                           check=True, env=env)
             
-            # 2.3 Transfer Specialized
-            logger.info("-> 3/3 Transferindo Especialista pro Drive...")
+            # 2.4 Transfer Specialized (includes Auditor logs and models)
+            logger.info("-> 4/4 Transferindo Especialista e Auditor pro Drive...")
             subprocess.run([sys.executable, "src/cloud/base_model/utils/transfer.py", log_filename, "specialized"], 
                            check=True, env=env)
             
