@@ -202,21 +202,21 @@ def objective(trial, X_train, y_train, X_val, y_val, config, base_cfg):
             if f1_macro > GLOBAL_BEST_MACRO:
                 prev_macro = GLOBAL_BEST_MACRO
                 GLOBAL_BEST_MACRO = f1_macro
-                macro_save_path = Path("data/models/best_tcn_lstm.pt")
+                macro_save_path = Path(config['pipeline_paths']['best_tcn_lstm_model'])
                 macro_save_path.parent.mkdir(parents=True, exist_ok=True)
                 torch.save(model.state_dict(), macro_save_path)
                 logger.info(f"🥇 [MACRO]  Trial {trial.number} | Global F1 Macro record: {f1_macro:.8f} "
-                            f"(prev: {prev_macro:.8f}) → saved best_tcn_lstm.pt")
+                            f"(prev: {prev_macro:.8f}) → saved {macro_save_path.name}")
 
             # DIR global best
             if f1_dir > GLOBAL_BEST_DIR:
                 prev_dir = GLOBAL_BEST_DIR
                 GLOBAL_BEST_DIR = f1_dir
-                dir_save_path = Path("data/models/best_tcn_lstm_dir.pt")
+                dir_save_path = Path(config['pipeline_paths']['best_tcn_lstm_dir_model'])
                 dir_save_path.parent.mkdir(parents=True, exist_ok=True)
                 torch.save(model.state_dict(), dir_save_path)
                 logger.info(f"🏆 [DIR]    Trial {trial.number} | Global F1 Dir record: {f1_dir:.8f} "
-                            f"(prev: {prev_dir:.8f}) → saved best_tcn_lstm_dir.pt")
+                            f"(prev: {prev_dir:.8f}) → saved {dir_save_path.name}")
 
             # Update this trial's running best_f1_dir attribute for ranking later
             if f1_dir > trial.user_attrs.get("best_f1_dir", 0.0):
