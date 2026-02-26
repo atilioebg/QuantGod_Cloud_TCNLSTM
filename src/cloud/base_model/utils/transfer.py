@@ -20,6 +20,7 @@ def cleanup_workspace():
     targets = [
         project_root / "data/L2/raw",
         project_root / "data/L2/pre_processed",
+        project_root / "data/auditor",
         project_root / "logs",
         project_root / "models",
         project_root / "artifacts",
@@ -121,6 +122,9 @@ def transfer_results(log_filename: str, run_type: str):
             "logs/labelling/*.log",
             "logs/treino/*.log",           # ← logs do run_training.py (adicionado)
             "logs/treino_specialization/*.log",  # ← especialização (foundation tb carrega)
+            "logs/auditor_preprocessing/*.log",
+            "logs/auditor_labelling/*.log",
+            "logs/train_xgboost/*.log",
             "logs/optimization/*.log",     # ← todos os logs de optuna, não só o passado
             "logs/tests/*.log",            # ← last_run.log + failed_files_report.log
         ]
@@ -145,17 +149,19 @@ def transfer_results(log_filename: str, run_type: str):
                 files_to_transfer.append(project_root / val)
         
     elif run_type == "specialized":
-        # Pega logs de specialization
-        spec_logs_dir = project_root / "logs" / "treino_specialization"
-        if spec_logs_dir.exists():
-            logs = sorted(list(spec_logs_dir.glob("*.log")))
-            if logs:
-                 files_to_transfer.append(logs[-1])
+        # Pega logs de specialization e auditoria
+        for log_folder in ["treino_specialization", "auditor_preprocessing", "auditor_labelling", "train_xgboost"]:
+            spec_logs_dir = project_root / "logs" / log_folder
+            if spec_logs_dir.exists():
+                logs = sorted(list(spec_logs_dir.glob("*.log")))
+                if logs:
+                     files_to_transfer.append(logs[-1])
 
-        # Modelos e Scalers do Especialista
+        # Modelos e Scalers do Especialista e XGBoost Auditor
         files_to_transfer.extend([
             project_root / config['pipeline_paths']['best_specialized_model'],
-            project_root / config['pipeline_paths']['scaler_specialized']
+            project_root / config['pipeline_paths']['scaler_specialized'],
+            project_root / "data/models/auditor_xgboost.json"
         ])
         
     # Relatorio de Feature Importance (comum a ambos, mas gerado no foundation agora)

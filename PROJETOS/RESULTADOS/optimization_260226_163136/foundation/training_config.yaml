@@ -1,0 +1,19 @@
+paths:
+  train_dir: AUTO
+  val_dir: AUTO
+  model_output_macro: data/models/best_tcn_lstm.pt
+  scaler_output_macro: data/models/scaler_finetuning.pkl
+  model_output_dir: data/models/best_tcn_lstm_dir.pt
+  scaler_output_dir: data/models/scaler_finetuning_dir.pkl
+selection:
+  use_best_directional_params: true
+hyperparameters:
+  seq_len: 48
+  batch_size: 1024
+  tcn_channels: 256
+  lstm_hidden: 64
+  num_lstm_layers: 3
+  dropout: 0.4195207700047905
+  lr: 3.160560841246225e-05
+  epochs: 10
+  weight_decay: 0.0024806726896314172

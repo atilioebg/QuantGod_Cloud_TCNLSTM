@@ -11,6 +11,8 @@ pipeline_paths:
   best_specialized_model: "data/models/best_specialized_model.pt"
   scaler_foundation: "data/models/scaler_foundation.pkl"
   scaler_specialized: "data/models/scaler_specialized.pkl"
+  auditor_model: "data/models/auditor_xgboost.json"
+  scaler_auditor: "data/models/scaler_auditor.pkl"
 
 pre_processing:
   etl:
@@ -25,14 +27,21 @@ pre_processing:
   split:
     base:
       train_ratio: 0.70
-      val_ratio: 0.20
+      val_ratio: 0.30
     specialized:
-      train_ratio: 0.85
-      val_ratio: 0.15
+      train_ratio: 0.80
+      val_ratio: 0.20
+    auditor:
+      train_ratio: 0.80
+      val_ratio: 0.20
 
 model:
   num_features: 32
   num_classes: 3
+  
+  auditor_num_features: 20
+  auditor_num_classes: 2
+  
   feature_names:
     # --- Aggregated Features (9) ---
     - body                # Corpo da vela: log(close/open)
@@ -70,6 +79,28 @@ model:
     - ask_convexity       # Convexidade Ask (L10 vs L20)
     - pressure_ratio      # Razão de Pressão L2
 
+  auditor_features:
+    - base_prob_sell      # Logits convertidos Base Model (Sell)
+    - base_prob_neu       # Logits convertidos Base Model (Neutral)
+    - base_prob_buy       # Logits convertidos Base Model (Buy)
+    - spec_prob_sell      # Logits convertidos Specialist Model (Sell)
+    - spec_prob_neu       # Logits convertidos Specialist Model (Neutral)
+    - spec_prob_buy       # Logits convertidos Specialist Model (Buy)
+    - ema_trend           # Sinal de Regressão da EMA Cross (8, 21)
+    - ema_cross_dist      # Distância percentual do preço em relação ao cruzamento
+    - bb_pct              # Bollinger Bands Width Percentage
+    - rsi_14              # Relative Strength Index (Período 14)
+    - stoch_14            # Oscilador Estocástico (Período 14)
+    - atr_norm            # Average True Range (Normalized)
+    - vol_1h              # Sumatório do Volume na última hora
+    - vol_zscore_1h       # Z-Score Direcional do volume de 1h
+    - delta_vol_24h       # Deriva/Percentual da Aceleração do volume em 24h
+    - adx_14              # Average Directional Index (Tendência Forte/Fraca)
+    - vwap_zscore         # Distância percentual Z-Scoreizada do Preço em relação à VWAP
+    - mfi_14              # Money Flow Index (Absorção e Divergência de Volume)
+    - book_skew_bid       # Assimetria (Skewness) do Order Book nas ordens de Compra
+    - book_skew_ask       # Assimetria (Skewness) do Order Book nas ordens de Venda
+
 training:
   # FocalLoss with Label Smoothing settings
   foundation_weights:
@@ -86,10 +117,14 @@ training:
 optimization:
   study_name: "quantgod_tcn_lstm_v1_finetune"
   n_trials: 60
+  n_trials_specialist: 40
   timeout: 72000  # 20 hours
   base_metric: "f1_macro"
-  specialized_metric: "f1_macro" #"f1_dir"
-  run_specialized_after: false
+  specialized_metric: "sniper_score"
+  sniper_weights:
+    dir: 0.7
+    macro: 0.3
+  run_specialized_after: true
   run_feature_importance_after: true
 
   search_space:
