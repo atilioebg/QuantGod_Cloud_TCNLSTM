@@ -222,8 +222,9 @@ def run_specialization():
         # TRAIN
         model.train()
         train_loss = 0.0
-        log_interval = max(1, len(train_loader) // 4)
-        for batch_idx, (batch_X, batch_y) in enumerate(train_loader):
+        from tqdm import tqdm
+        pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}", leave=False)
+        for batch_idx, (batch_X, batch_y) in enumerate(pbar):
             batch_X, batch_y = batch_X.to(DEVICE), batch_y.to(DEVICE)
             optimizer.zero_grad()
             with torch.amp.autocast('cuda'):
@@ -235,9 +236,7 @@ def run_specialization():
             amp_scaler.step(optimizer)
             amp_scaler.update()
             train_loss += loss.item()
-            if (batch_idx + 1) % log_interval == 0:
-                pct = (batch_idx + 1) / len(train_loader) * 100
-                logger.info(f"Epoch {epoch+1} | Batch {batch_idx+1}/{len(train_loader)} ({pct:.1f}%) | Loss: {loss.item():.4f}")
+            pbar.set_postfix({'loss': f"{loss.item():.4f}"})
 
         scheduler.step()
 
