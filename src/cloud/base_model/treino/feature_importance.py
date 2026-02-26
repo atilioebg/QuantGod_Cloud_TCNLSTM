@@ -124,7 +124,31 @@ def run_importance_analysis(model_path=None):
         config['paths'] = {'train_dir': 'AUTO', 'val_dir': 'AUTO'}
     _, val_dir = resolve_data_paths(config['paths'])
     
-    # 3. Load Model
+    # 3. Load Hyperparameters (Priority: best_params.json -> Master Defaults)
+    params_filename = "best_params.json"
+    best_params_path = Path("src/cloud/base_model/otimizacao") / params_filename
+    hparams = {}
+    if best_params_path.exists():
+        try:
+            import json
+            with open(best_params_path, 'r', encoding='utf-8') as f:
+                hparams = json.load(f)
+            logger.info("="*60)
+            logger.info(f"✨ [INJECT] Loading hyperparameters from: {params_filename}")
+            for k, v in hparams.items():
+                logger.info(f"   -> {k}: {v}")
+            logger.info("="*60)
+        except Exception as e:
+            logger.warning(f"⚠️ Could not load {params_filename}: {e}. Using defaults.")
+    
+    # Defaults if not in best_params
+    seq_len = hparams.get('seq_len', 24)
+    tcn_channels = hparams.get('tcn_channels', 64)
+    lstm_hidden = hparams.get('lstm_hidden', 256)
+    num_lstm_layers = hparams.get('num_lstm_layers', 2)
+    dropout = hparams.get('dropout', 0.1)
+
+    # 4. Load Model
     if model_path is None:
         # Check current config for output macro path
         model_path = Path(config['pipeline_paths']['best_tcn_lstm_model'])
@@ -132,7 +156,7 @@ def run_importance_analysis(model_path=None):
             logger.error(f"No model checkpoint found at {model_path}")
             return
             
-    logger.info(f"Loading model from {model_path}")
+    logger.info(f"Loading model state from {model_path}")
     checkpoint = torch.load(model_path, map_location=device)
     
     # Handle state_dict key or direct state_dict
@@ -142,11 +166,11 @@ def run_importance_analysis(model_path=None):
     model = Hybrid_TCN_LSTM(
         num_features=len(feature_cols),
         num_classes=config['model']['num_classes'],
-        tcn_channels=hparams.get('tcn_channels', 64), 
-        lstm_hidden=hparams.get('lstm_hidden', 256),
-        num_lstm_layers=hparams.get('num_lstm_layers', 2),
-        seq_len=hparams.get('seq_len', 720),
-        dropout=hparams.get('dropout', 0.1)
+        tcn_channels=tcn_channels, 
+        lstm_hidden=lstm_hidden,
+        num_lstm_layers=num_lstm_layers,
+        seq_len=seq_len,
+        dropout=dropout
     ).to(device)
     
     model.load_state_dict(state_dict)

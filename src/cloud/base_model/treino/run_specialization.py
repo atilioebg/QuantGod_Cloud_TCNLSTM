@@ -59,10 +59,13 @@ def load_config():
             if 'training' not in config: config['training'] = {}
             if 'hyperparameters' not in config['training']: config['training']['hyperparameters'] = {}
                 
+            logger.info("="*60)
+            logger.info(f"✨ [INJECT] Loading hyperparameters from: {params_filename}")
             for k in opt_keys:
                 if k in best_params:
                     config['training']['hyperparameters'][k] = best_params[k]
-            logger.info(f"✨ [MACRO] Loading hyperparameters from {params_filename}")
+                    logger.info(f"   -> {k}: {best_params[k]}")
+            logger.info("="*60)
         except Exception as e:
             logger.warning(f"⚠️ Could not load {params_filename}: {e}. Using YAML defaults.")
     else:

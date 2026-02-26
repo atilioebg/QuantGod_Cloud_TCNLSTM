@@ -83,18 +83,6 @@ training:
     gamma: 2.0      # Controla o foco da penalidade em amostras difíceis (focal loss)
     smoothing: 0.1  # Suaviza os labels (label smoothing) para evitar overconfidence
 
-  hyperparameters:
-    # Auto-populated by Optuna after winning trial
-    seq_len: 24
-    batch_size: 512
-    tcn_channels: 128
-    lstm_hidden: 64
-    num_lstm_layers: 6
-    dropout: 0.36928415148023724
-    lr: 5.251450566450031e-05
-    epochs: 10
-    weight_decay: 0.002984461316658856
-
 optimization:
   study_name: "quantgod_tcn_lstm_v1_finetune"
   n_trials: 40

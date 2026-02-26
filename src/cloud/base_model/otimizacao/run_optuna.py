@@ -397,25 +397,10 @@ def run_optimization():
         json.dump(study.best_params, f, indent=4, ensure_ascii=False)
     logger.info(f"🥇 [MACRO] Best params saved: {out_params_path}")
 
-    # ── Auto-update master_config.yaml ─────────────────────────────────────
-    if master_cfg_path.exists():
-        try:
-            with open(master_cfg_path, 'r', encoding='utf-8') as f:
-                train_cfg_dict = yaml.safe_load(f)
-            
-            if 'training' not in train_cfg_dict:
-                train_cfg_dict['training'] = {}
-            if 'hyperparameters' not in train_cfg_dict['training']:
-                train_cfg_dict['training']['hyperparameters'] = {}
-                
-            for k, v in study.best_params.items():
-                train_cfg_dict['training']['hyperparameters'][k] = v
-                
-            with open(master_cfg_path, 'w', encoding='utf-8') as f:
-                yaml.dump(train_cfg_dict, f, default_flow_style=False, sort_keys=False)
-            logger.info(f"🔄 Updated {master_cfg_path} with MACRO best params.")
-        except Exception as e:
-            logger.error(f"❌ Failed to auto-update master_config.yaml: {e}")
+    # ── Downstream Pipeline Automation ─────────────────────────────────────
+    # We no longer auto-update master_config.yaml to avoid Git conflicts.
+    # Downstream scripts (specialization, feature importance) now load
+    # parameters dynamically from best_params.json.
 
     # ── Save DIRECTIONAL champion params (trial with highest best_f1_dir attr) 
     completed = [t for t in study.trials if t.state.name == "COMPLETE"
