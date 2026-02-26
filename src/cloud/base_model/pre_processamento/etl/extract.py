@@ -103,7 +103,10 @@ class DataExtractor:
                     logger.warning(f"⚠️ CLEANUP WARNING: Could not delete {local_zip_path}: {e}")
 
 if __name__ == "__main__":
+    import yaml
+    with open("src/cloud/base_model/configs/master_config.yaml", 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
     # Quick test logic
-    extractor = DataExtractor("drive:PROJETOS/BTC_USDT_L2_2023_2026", rclone_config="rclone.conf")
+    extractor = DataExtractor(config['pipeline_paths']['raw_l2_source'], rclone_config="rclone.conf")
     # zips = extractor.list_zips()
     # print(zips[:5])

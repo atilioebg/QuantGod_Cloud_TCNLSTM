@@ -112,23 +112,22 @@ def run_importance_analysis(model_path=None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # 1. Load Configs
-    with open("src/cloud/base_model/configs/base_model_config.yaml", 'r', encoding='utf-8') as f:
-        base_cfg = yaml.safe_load(f)
-    with open("src/cloud/base_model/otimizacao/optimization_config.yaml", 'r', encoding='utf-8') as f:
-        opt_cfg = yaml.safe_load(f)
-    with open("src/cloud/base_model/treino/training_config.yaml", 'r', encoding='utf-8') as f:
-        train_cfg = yaml.safe_load(f)
+    master_cfg_path = Path("src/cloud/base_model/configs/master_config.yaml")
+    with open(master_cfg_path, 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
         
-    feature_cols = base_cfg['model']['feature_names']
-    hparams = train_cfg.get('hyperparameters', {})
+    feature_cols = config['model']['feature_names']
+    hparams = config['training'].get('hyperparameters', {})
     
     # 2. Resolve Paths
-    _, val_dir = resolve_data_paths(opt_cfg['paths'])
+    if 'paths' not in config:
+        config['paths'] = {'train_dir': 'AUTO', 'val_dir': 'AUTO'}
+    _, val_dir = resolve_data_paths(config['paths'])
     
     # 3. Load Model
     if model_path is None:
         # Check current config for output macro path
-        model_path = Path(train_cfg['paths'].get('model_output_macro', "data/models/best_tcn_lstm.pt"))
+        model_path = Path(config['pipeline_paths']['best_tcn_lstm_model'])
         if not model_path.exists():
             logger.error(f"No model checkpoint found at {model_path}")
             return
@@ -142,7 +141,7 @@ def run_importance_analysis(model_path=None):
     # Initialize model with optimized params
     model = Hybrid_TCN_LSTM(
         num_features=len(feature_cols),
-        num_classes=base_cfg['model']['num_classes'],
+        num_classes=config['model']['num_classes'],
         tcn_channels=hparams.get('tcn_channels', 64), 
         lstm_hidden=hparams.get('lstm_hidden', 256),
         num_lstm_layers=hparams.get('num_lstm_layers', 2),
@@ -158,7 +157,7 @@ def run_importance_analysis(model_path=None):
     y_raw = val_df['target'].to_numpy().astype(np.int64)
     
     # Scaling (Must use same scaler as training)
-    scaler_path = Path(train_cfg['paths'].get('scaler_output_macro', "data/models/scaler_finetuning.pkl"))
+    scaler_path = Path(config['pipeline_paths']['scaler_foundation'])
     if scaler_path.exists():
         import joblib
         scaler = joblib.load(scaler_path)
@@ -185,9 +184,31 @@ def run_importance_analysis(model_path=None):
         'TCN_Weight_Importance': [weight_importance[f] for f in feature_cols]
     }).sort_values(by='Permutation_Importance', ascending=False)
     
-    print("\n📊 FEATURE IMPORTANCE REPORT")
-    print("-" * 50)
-    print(results.to_string(index=False))
+    logger.info("\n📊 FEATURE IMPORTANCE REPORT")
+    logger.info("-" * 50)
+    # Using a multi-line format to ensure the table looks good in logs
+    for line in results.to_string(index=False).split('\n'):
+        logger.info(line)
+        
+    # PCA-Like 90% Context Representation
+    positive_deps = results[results['Permutation_Importance'] > 0].copy()
+    if not positive_deps.empty:
+        total_importance = positive_deps['Permutation_Importance'].sum()
+        positive_deps['Impact_Pct'] = (positive_deps['Permutation_Importance'] / total_importance) * 100
+        
+        cumulative = 0.0
+        top_features = []
+        for _, row in positive_deps.iterrows():
+            cumulative += row['Impact_Pct']
+            top_features.append(f"{row['Feature']} ({row['Impact_Pct']:.1f}%)")
+            if cumulative >= 90.0:
+                break
+                
+        logger.info("\n" + "="*50)
+        logger.info(f"⭐ TOP FEATURES PCA-LIKE (Responsáveis por >90% da predição):")
+        for i, feat in enumerate(top_features, 1):
+             logger.info(f"   {i}. {feat}")
+        logger.info("="*50 + "\n")
     
     output_path = Path("docs/reports/feature_importance.csv")
     output_path.parent.mkdir(parents=True, exist_ok=True)

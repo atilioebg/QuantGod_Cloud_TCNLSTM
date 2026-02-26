@@ -17,14 +17,19 @@ def apply_labelling(file_path, config):
     Applies asymmetric labelling logic to a single parquet file.
     """
     try:
-        input_dir = Path(config['paths']['input_dir'])
-        output_dir = Path(config['paths']['output_dir'])
+        input_dir = Path("data/L2/pre_processed_L2")
+        
+        sell_th = config['pre_processing']['labelling'].get('sell_threshold', 0.003)
+        buy_th  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
+        mins    = config['pre_processing']['labelling'].get('horizon_minutes', 15)
+        
+        suffix = f"_labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
+        output_dir = Path(f"data/L2/splits{suffix}")
         output_dir.mkdir(parents=True, exist_ok=True)
         
-        params = config['params']
-        lookahead = params['lookahead']
-        threshold_long = params['threshold_long']
-        threshold_short = params['threshold_short']
+        lookahead = mins
+        threshold_long = buy_th
+        threshold_short = -sell_th
         
         # 1. Load Parquet (Selective Load to save RAM)
         # We need all columns + the close column for labelling
@@ -75,46 +80,25 @@ def apply_labelling(file_path, config):
 
 def run_labelling():
     # 1. Load Config (Base always loaded)
-    base_config_path = Path("src/cloud/base_model/labelling/labelling_config.yaml")
+    base_config_path = Path("src/cloud/base_model/configs/master_config.yaml")
     if not base_config_path.exists():
         logger.error(f"Base Config file not found at {base_config_path}")
         return
 
-    with open(base_config_path, 'r') as f:
+    with open(base_config_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
 
-    # 1.5 Merge Custom Config if provided
-    if len(sys.argv) > 1:
-        custom_config_path = Path(sys.argv[1])
-        if not custom_config_path.exists():
-            logger.error(f"Custom Config file not found at {custom_config_path}")
-            return
-            
-        with open(custom_config_path, 'r') as f:
-            custom_config = yaml.safe_load(f)
-            
-        if custom_config:
-            if 'paths' in custom_config:
-                config['paths'].update(custom_config['paths'])
-            if 'params' in custom_config:
-                config['params'].update(custom_config['params'])
-        logger.info(f"Merged base config with {custom_config_path.name}")
-
-    # 2. Dynamic Output Dir Modification & Logging Setup
-    suffix = get_labelling_suffix(config['params'])
+    sell_th = config['pre_processing']['labelling'].get('sell_threshold', 0.003)
+    buy_th  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
+    mins    = config['pre_processing']['labelling'].get('horizon_minutes', 15)
+    suffix = f"_labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
     setup_logger("labelling", suffix)
     
-    base_output = Path(config['paths']['output_dir'])
-    
-    # If the base output dir doesn't already end with the suffix, append it
-    # This ensures we don't nest suffixes if run multiple times
-    if not base_output.name.endswith(suffix):
-        new_output = base_output.parent / f"{base_output.name}{suffix}"
-        config['paths']['output_dir'] = str(new_output)
-        logger.info(f"📁 DYNAMIC PATH: Output redirected to {new_output}")
+    # Output path based on pipeline root
+    base_output = Path(f"data/L2/splits{suffix}")
     
     # 3. List Files
-    input_dir = Path(config['paths']['input_dir'])
+    input_dir = Path("data/L2/pre_processed_L2")
     parquet_files = list(input_dir.glob("*.parquet"))
     
     if not parquet_files:
@@ -156,48 +140,42 @@ def run_labelling():
 
     # 4. Automated Export to Google Drive (QuantGod Cloud Extension)
     try:
-        base_cfg_path = Path("src/cloud/base_model/configs/base_model_config.yaml")
-        if base_cfg_path.exists():
-            with open(base_cfg_path, 'r') as f:
-                base_cfg = yaml.safe_load(f)
-            num_features = base_cfg['model'].get('num_features', 32)
-            
-            bar_size_min = config['params'].get('bar_size_min', 5)
-            folder_name = f"LABELLED_L2_2023_2026_{bar_size_min}_MINUTE_{num_features}_FEATURES"
-            local_src = config['paths']['output_dir']
-            remote_dest = f"drive:PROJETOS/{folder_name}"
-            rclone_cfg = Path("rclone.conf")
-            
-            logger.info(f"🚀 Starting automated export to Drive: {folder_name}...")
-            
-            # --- Run QA Tests Before Export ---
-            logger.info("🧪 Running Automated Health QA (pytest)...")
-            qa_log_path = Path(local_src) / "labelling_health_QA.log"
-            try:
-                # Capture terminal output of pytest directly to the labelling folder
-                with open(qa_log_path, 'w', encoding='utf-8') as qa_file:
-                    subprocess.run(
-                        ["pytest", "tests/labelling/test_labelling_output.py", "-v"],
-                        stdout=qa_file,
-                        stderr=subprocess.STDOUT,
-                        env=dict(os.environ, PRE_PROCESSED_DIR=str(Path(config['paths']['input_dir']).absolute()))
-                    )
-                logger.info(f"✅ QA Report saved to {qa_log_path}")
-            except Exception as e:
-                logger.error(f"⚠️ QA Report generation failed: {e}")
+        num_features = config['model'].get('num_features', 32)
+        
+        folder_name = f"LABELLED_L2_2023_2026_5_MINUTE_{num_features}_FEATURES"
+        local_src = str(base_output)
+        remote_dest = f"drive:PROJETOS/{folder_name}"
+        rclone_cfg = Path("rclone.conf")
+        
+        logger.info(f"🚀 Starting automated export to Drive: {folder_name}...")
+        
+        # --- Run QA Tests Before Export ---
+        logger.info("🧪 Running Automated Health QA (pytest)...")
+        qa_log_path = Path(local_src) / "labelling_health_QA.log"
+        try:
+            # Capture terminal output of pytest directly to the labelling folder
+            with open(qa_log_path, 'w', encoding='utf-8') as qa_file:
+                subprocess.run(
+                    ["pytest", "tests/labelling/test_labelling_output.py", "-v"],
+                    stdout=qa_file,
+                    stderr=subprocess.STDOUT,
+                    env=dict(os.environ, PRE_PROCESSED_DIR=str("data/L2/pre_processed_L2"), LABELLED_DIR=local_src),
+                    check=False  # Do not raise exception if tests fail - log it and continue
+                )
+            logger.info(f"✅ QA Report saved to {qa_log_path}")
+        except Exception as e:
+            logger.error(f"⚠️ QA Report generation failed: {e}")
 
-            cmd = ["rclone", "copy", str(local_src), remote_dest, "-P"]
-            if rclone_cfg.exists():
-                cmd += ["--config", str(rclone_cfg)]
-            
-            # Using rclone.exe explicitly on Windows if it exists in root
-            if os.name == 'nt' and Path("rclone.exe").exists():
-                cmd[0] = str(Path("rclone.exe").absolute())
+        cmd = ["rclone", "copy", str(local_src), remote_dest, "-P"]
+        if rclone_cfg.exists():
+            cmd += ["--config", str(rclone_cfg)]
+        
+        # Using rclone.exe explicitly on Windows if it exists in root
+        if os.name == 'nt' and Path("rclone.exe").exists():
+            cmd[0] = str(Path("rclone.exe").absolute())
 
-            subprocess.run(cmd, check=True)
-            logger.info(f"✅ Export completed successfully: {remote_dest}")
-        else:
-            logger.warning("base_model_config.yaml not found. Skipping automated export.")
+        subprocess.run(cmd, check=True)
+        logger.info(f"✅ Export completed successfully: {remote_dest}")
     except Exception as e:
         logger.error(f"❌ Automated export failed: {e}")
 

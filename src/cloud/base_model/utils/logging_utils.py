@@ -1,6 +1,7 @@
 import logging
 import sys
 import io
+import os
 from pathlib import Path
 from datetime import datetime
 
@@ -57,8 +58,25 @@ def setup_logger(log_module_name: str, suffix: str = ""):
         force=True
     )
     logger = logging.getLogger(log_module_name)
-    logger.info(f"📝 LOGGING INITIALIZED (UTF-8-SIG): {log_file}")
+    
+    # Hide "INITIALIZED" message if QUIET_LOGGING is set (for cleaner subprocesses)
+    if not os.environ.get('QUIET_LOGGING'):
+        logger.info(f"📝 LOGGING INITIALIZED (UTF-8-SIG): {log_file}")
+        
     return logger
+
+def setup_optuna_logging(logger_name: str = "optuna"):
+    """
+    Standardizes Optuna logging to use our formatting and prevent duplicates.
+    """
+    import optuna
+    # 1. Disable Optuna's default console handler to avoid double logging
+    optuna.logging.disable_default_handler()
+    # 2. Re-enable propagation so Optuna records reach our root logger (and our handlers)
+    optuna.logging.enable_propagation()
+    # 3. Set standard info level
+    optuna.logging.set_verbosity(optuna.logging.INFO)
+    return logging.getLogger(logger_name)
 
 def get_labelling_suffix(params: dict) -> str:
     """

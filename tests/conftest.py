@@ -26,17 +26,16 @@ def load_yaml(path: str) -> dict:
             return yaml.safe_load(f)
     return {}
 
-base_cfg = load_yaml("src/cloud/base_model/configs/base_model_config.yaml")
-train_cfg = load_yaml("src/cloud/base_model/treino/training_config.yaml")
+master_cfg = load_yaml("src/cloud/base_model/configs/master_config.yaml")
 
 # Read dynamically; fallback to defaults if config is not found (e.g. CI without configs)
-FEATURE_NAMES = base_cfg.get("model", {}).get("feature_names", [
+FEATURE_NAMES = master_cfg.get("model", {}).get("feature_names", [
     "body", "upper_wick", "lower_wick", "log_ret_close",
     "volatility", "max_spread", "mean_obi", "mean_deep_obi", "log_volume",
 ])
 NUM_FEATURES = len(FEATURE_NAMES)
-NUM_CLASSES  = base_cfg.get("model", {}).get("num_classes", 3)
-SEQ_LEN      = train_cfg.get("hyperparameters", {}).get("seq_len", 720)
+NUM_CLASSES  = master_cfg.get("model", {}).get("num_classes", 3)
+SEQ_LEN      = master_cfg.get("training", {}).get("hyperparameters", {}).get("seq_len", 720)
 
 from src.cloud.auditor_model.feature_engineering_meta import META_FEATURE_NAMES
 META_FEATURES = len(META_FEATURE_NAMES) # Dynamically extract Auditor dimensions

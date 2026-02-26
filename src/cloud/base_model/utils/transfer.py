@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 import argparse
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -57,11 +58,15 @@ def transfer_results(log_filename: str, run_type: str):
     e envia para a pasta de resultados hierárquica no Google Drive.
     """
     if run_type not in ["foundation", "specialized"]:
-        print(f"Erro: Tipo invalido '{run_type}'. Use 'foundation' or 'specialized'.")
+        logger.error(f"Erro: Tipo invalido '{run_type}'. Use 'foundation' or 'specialized'.")
         return
 
     # 1. Configurações de Caminhos Base
     project_root = Path(__file__).parents[4]
+    
+    master_cfg_path = project_root / "src/cloud/base_model/configs/master_config.yaml"
+    with open(master_cfg_path, 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
     
     # Nome da pasta de destino raiz
     folder_name = log_filename.replace(".log", "")
@@ -75,16 +80,13 @@ def transfer_results(log_filename: str, run_type: str):
         drive_base = project_root / "drive" / "PROJETOS" / "RESULTADOS"
     
     # Destino Final Especifico do Tipo
-    dest_dir = drive_base / folder_name / run_type
-    print(f"--- Iniciando transferencia [{run_type.upper()}] para: {dest_dir} ---")
+    timestamp = datetime.now().strftime("%d%m%y_%H%M%S")
+    dest_dir = drive_base / f"{folder_name}_{timestamp}" / run_type
+    logger.info(f"--- Iniciando transferencia [{run_type.upper()}] para: {dest_dir} ---")
 
     # Lista Base (Configs comuns que vão para ambos garantindo autonomia)
-    opt_config_path = project_root / "src/cloud/base_model/otimizacao/optimization_config.yaml"
-    
     files_to_transfer = [
-        project_root / "src/cloud/base_model/configs/base_model_config.yaml",
-        opt_config_path,
-        project_root / "src/cloud/base_model/treino/training_config.yaml",
+        master_cfg_path,
         project_root / "src/cloud/base_model/otimizacao/best_params.json",
         project_root / "src/cloud/base_model/otimizacao/best_dir_params.json",
     ]
@@ -113,18 +115,16 @@ def transfer_results(log_filename: str, run_type: str):
         files_to_transfer.extend(list((project_root / "docs/reports").glob("*.md")))
         
         # ── DATABASE & MODELS ─────────────────────────────────────────────────
-        if opt_config_path.exists():
-            with open(opt_config_path, 'r') as f:
-                opt_cfg = yaml.safe_load(f)
-            db_uri = opt_cfg['paths'].get('db_path', 'sqlite:///optuna_tcn_lstm_v0.db')
-            db_filename = db_uri.replace("sqlite:///", "")
-            files_to_transfer.append(project_root / db_filename)
-            
+        db_path = config['optimization'].get('db_path', 'sqlite:///optuna_tcn_lstm_v0.db')
+        db_filename = db_path.replace("sqlite:///", "")
+        files_to_transfer.append(project_root / db_filename)
+        
+        # Adding items directly from master_config mappings
         files_to_transfer.extend([
-            project_root / "data" / "models" / "best_tcn_lstm.pt",
-            project_root / "data" / "models" / "best_tcn_lstm_dir.pt",
-            project_root / "data" / "models" / "scaler_finetuning.pkl",
-            project_root / "data" / "models" / "scaler_finetuning_dir.pkl"
+            project_root / config['pipeline_paths']['best_tcn_lstm_model'],
+            project_root / config['pipeline_paths']['best_tcn_lstm_dir_model'],
+            project_root / config['pipeline_paths']['scaler_foundation'],
+            project_root / config['pipeline_paths']['scaler_foundation_dir']
         ])
         
     elif run_type == "specialized":
@@ -137,8 +137,8 @@ def transfer_results(log_filename: str, run_type: str):
 
         # Modelos e Scalers do Especialista
         files_to_transfer.extend([
-            project_root / "data" / "models" / "treino_best_model.pt",
-            project_root / "data" / "models" / "treino_scaler_finetuning.pkl"
+            project_root / config['pipeline_paths']['best_specialized_model'],
+            project_root / config['pipeline_paths']['scaler_specialized']
         ])
         
     # Relatorio de Feature Importance (comum a ambos, mas gerado no foundation agora)
@@ -157,17 +157,17 @@ def transfer_results(log_filename: str, run_type: str):
             missing_files.add(f)
             
     if missing_files:
-        print("\n⚠️ AVISO: Os seguintes arquivos não foram encontrados e serão ignorados:")
+        logger.warning("\n⚠️ AVISO: Os seguintes arquivos nao foram encontrados e serao ignorados:")
         for mf in sorted(list(missing_files)):
             try:
-                print(f"   -> {mf.relative_to(project_root)}")
+                logger.warning(f"   -> {mf.relative_to(project_root)}")
             except ValueError:
-                print(f"   -> {mf.name}")
+                logger.warning(f"   -> {mf.name}")
     
     files_to_transfer = sorted(list(valid_files))
     
     if not files_to_transfer:
-        print("❌ Nenhum arquivo válido para transferir. Abortando.")
+        logger.error("❌ Nenhum arquivo válido para transferir. Abortando.")
         return
 
     # ── Executar Transferência ───────────────────────────────────────────────
@@ -179,12 +179,12 @@ def transfer_results(log_filename: str, run_type: str):
                 shutil.rmtree(temp_staging)
             temp_staging.mkdir(parents=True)
 
-            print(f"Agrupando {len(files_to_transfer)} arquivos em {temp_staging.relative_to(project_root)}...")
+            logger.info(f"Agrupando {len(files_to_transfer)} arquivos em {temp_staging.relative_to(project_root)}...")
             for src in files_to_transfer:
                 shutil.copy2(src, temp_staging / src.name)
 
             rclone_cfg = project_root / "rclone.conf"
-            remote_path = f"drive:PROJETOS/RESULTADOS/{folder_name}/{run_type}"
+            remote_path = f"drive:PROJETOS/RESULTADOS/{folder_name}_{timestamp}/{run_type}"
             
             cmd = ["rclone", "copy", str(temp_staging), remote_path, "-P"]
             if rclone_cfg.exists():
@@ -193,7 +193,7 @@ def transfer_results(log_filename: str, run_type: str):
             result = subprocess.run(cmd)
 
             if result.returncode == 0:
-                print(f"SUCESSO! Resultados copiados (rclone) para: {remote_path}")
+                logger.info(f"SUCESSO! Resultados copiados (rclone) para: {remote_path}")
                 shutil.rmtree(project_root / "data" / "temp_results")
                 return
 
@@ -202,13 +202,13 @@ def transfer_results(log_filename: str, run_type: str):
             dest_dir.mkdir(parents=True, exist_ok=True)
             
         for src in files_to_transfer:
-            print(f"   📂 Copiando: {src.name}...")
+            logger.info(f"   📂 Copiando: {src.name}...")
             shutil.copy2(src, dest_dir / src.name)
 
-        print(f"\nSUCESSO! Resultados copiados localmente para: {dest_dir}")
+        logger.info(f"\nSUCESSO! Resultados copiados localmente para: {dest_dir}")
 
     except Exception as e:
-        print(f"Erro na transferencia: {e}")
+        logger.error(f"Erro na transferencia: {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Gerenciador de Resultados e Workspace QuantGod.")
@@ -222,6 +222,8 @@ if __name__ == "__main__":
         cleanup_workspace()
     
     if args.log_filename and args.run_type:
+        from src.cloud.base_model.utils.logging_utils import setup_logger
+        setup_logger("transfer", f"_{args.run_type}")
         transfer_results(args.log_filename, args.run_type)
     elif not args.clean:
         parser.print_help()

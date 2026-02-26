@@ -134,8 +134,8 @@ def extract_meta_features(
 
     Indicators use the full 720-step history — zero warm-up needed in live inference.
     """
-    assert micro_price_series.ndim == 1 and len(micro_price_series) >= 50, \
-        f"micro_price_series must be 1D with length >= 50, got {micro_price_series.shape}"
+    assert micro_price_series.ndim == 1 and len(micro_price_series) >= 20, \
+        f"micro_price_series must be 1D with length >= 20, got {micro_price_series.shape}"
     assert len(base_model_probs) == 3, "base_model_probs must have shape (3,)"
 
     prices = micro_price_series.astype(np.float64)

@@ -24,14 +24,13 @@ def process_single_zip(zip_path, config):
     try:
         # Initialize modules inside worker for process isolation
         extractor = DataExtractor(
-            config['paths']['rclone_mount'],
-            rclone_config=config['paths'].get('rclone_config')
+            config['pipeline_paths']['raw_l2_source']
         )
         transformer = L2Transformer(
-            levels=config['etl']['orderbook_levels'],
-            sampling_ms=config['etl']['sampling_interval_ms']
+            levels=config['pre_processing']['etl']['levels'],
+            sampling_ms=config['pre_processing']['etl']['sampling_ms']
         )
-        loader = DataLoader(config['paths']['processed_output'])
+        loader = DataLoader("data/L2/pre_processed_L2")
         validator = DataValidator()
 
         transformer.reset_book()
@@ -69,15 +68,14 @@ def process_single_zip(zip_path, config):
 
             df_final = transformer.apply_feature_engineering(df_sampled)
             
-            if config['features']['apply_zscore']:
-                df_final = transformer.apply_zscore(df_final, config['paths']['scaler_path'])
+            df_final = transformer.apply_zscore(df_final)
             
             validator.validate_integrity(df_final, name=zip_p.name)
             
             output_name = zip_p.with_suffix(".parquet").name
-            loader.save_parquet(df_final, output_name, config['etl']['compression'])
+            loader.save_parquet(df_final, output_name, config['pre_processing']['etl']['export_compression'])
             
-            logger.info(f"✅ Saved pre-processed data: {output_name} in {config['paths']['processed_output']}")
+            logger.info(f"✅ Saved pre-processed data: {output_name}")
             return f"✅ Processed {zip_p.name}"
         else:
             return f"⚠️  No data in {zip_p.name}"
@@ -88,16 +86,13 @@ def process_single_zip(zip_path, config):
 
 def run_pipeline():
     # 1. Load Config
-    if len(sys.argv) > 1:
-        config_path = Path(sys.argv[1])
-    else:
-        config_path = Path("src/cloud/base_model/pre_processamento/configs/cloud_config.yaml")
+    config_path = Path("src/cloud/base_model/configs/master_config.yaml")
 
     if not config_path.exists():
         logger.error(f"Config file not found at {config_path}")
         return
 
-    with open(config_path, 'r') as f:
+    with open(config_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
 
     # 2. Setup Logging
@@ -105,8 +100,7 @@ def run_pipeline():
 
     # 3. Setup parallel execution
     extractor = DataExtractor(
-        config['paths']['rclone_mount'],
-        rclone_config=config['paths'].get('rclone_config')
+        config['pipeline_paths']['raw_l2_source']
     )
     # Ensure we start with a clean temp folder
     extractor.cleanup_temp()
@@ -121,7 +115,7 @@ def run_pipeline():
     # We use CPU count minus 1 to keep the system responsive, with a minimum of 1
     total_cpus = os.cpu_count() or 1
     # max_workers = max(1, total_cpus - 1)
-    max_workers = config['etl'].get('max_workers', 4)    
+    max_workers = 4 # Defaults to 4
     logger.info(f"System detected {total_cpus} vCPUs. Using {max_workers} parallel workers.")
     logger.info(f"Found {len(zip_files)} ZIP files to process.")
 
@@ -171,33 +165,26 @@ def run_pipeline():
 
     # 6. Automated Export to Google Drive (QuantGod Cloud Extension)
     try:
-        base_cfg_path = Path("src/cloud/base_model/configs/base_model_config.yaml")
-        if base_cfg_path.exists():
-            with open(base_cfg_path, 'r') as f:
-                base_cfg = yaml.safe_load(f)
-            num_features = base_cfg['model'].get('num_features', 32)
-            
-            bar_size_min = config['etl'].get('bar_size_min', 5)
-            folder_name = f"PRE_PROCESSED_L2_2023_2026_{bar_size_min}_MINUTE_{num_features}_FEATURES"
-            local_src = config['paths']['processed_output']
-            remote_dest = f"drive:PROJETOS/{folder_name}"
-            rclone_cfg = Path("rclone.conf")
-            
-            logger.info(f"🚀 Starting automated export to Drive: {folder_name}...")
-            
-            import subprocess
-            cmd = ["rclone", "copy", str(local_src), remote_dest, "-P"]
-            if rclone_cfg.exists():
-                cmd += ["--config", str(rclone_cfg)]
-            
-            # Using rclone.exe explicitly on Windows if it exists in root
-            if os.name == 'nt' and Path("rclone.exe").exists():
-                cmd[0] = str(Path("rclone.exe").absolute())
+        num_features = config['model'].get('num_features', 32)
+        
+        folder_name = f"PRE_PROCESSED_L2_2023_2026_5_MINUTE_{num_features}_FEATURES"
+        local_src = "data/L2/pre_processed_L2"
+        remote_dest = f"drive:PROJETOS/{folder_name}"
+        rclone_cfg = Path("rclone.conf")
+        
+        logger.info(f"🚀 Starting automated export to Drive: {folder_name}...")
+        
+        import subprocess
+        cmd = ["rclone", "copy", str(local_src), remote_dest, "-P"]
+        if rclone_cfg.exists():
+            cmd += ["--config", str(rclone_cfg)]
+        
+        # Using rclone.exe explicitly on Windows if it exists in root
+        if os.name == 'nt' and Path("rclone.exe").exists():
+            cmd[0] = str(Path("rclone.exe").absolute())
 
-            subprocess.run(cmd, check=True)
-            logger.info(f"✅ Export completed successfully: {remote_dest}")
-        else:
-            logger.warning("base_model_config.yaml not found. Skipping automated export.")
+        subprocess.run(cmd, check=True)
+        logger.info(f"✅ Export completed successfully: {remote_dest}")
     except Exception as e:
         logger.error(f"❌ Automated export failed: {e}")
 

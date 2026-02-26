@@ -41,44 +41,36 @@ class SequenceDataset(Dataset):
         return torch.from_numpy(x_seq), torch.tensor(y_label, dtype=torch.long)
 
 def load_config():
-    if len(sys.argv) > 1:
-        training_cfg_path = Path(sys.argv[1])
-    else:
-        training_cfg_path = Path("src/cloud/base_model/treino/training_config.yaml")
+    master_cfg_path = Path("src/cloud/base_model/configs/master_config.yaml")
         
-    with open(training_cfg_path, 'r') as f:
-        train_cfg = yaml.safe_load(f)
-
-    # Base model config: single source of truth for class_weights, features, etc.
-    base_cfg_path = Path("src/cloud/base_model/configs/base_model_config.yaml")
-    with open(base_cfg_path, 'r') as f:
-        base_cfg = yaml.safe_load(f)
+    with open(master_cfg_path, 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
 
     # ── For Specialization: strictly load MACRO champion params ────────────────
     params_filename = "best_params.json"
     best_params_path = Path("src/cloud/base_model/otimizacao") / params_filename
     if best_params_path.exists():
         try:
-            with open(best_params_path, 'r') as f:
+            with open(best_params_path, 'r', encoding='utf-8') as f:
                 best_params = json.load(f)
             opt_keys = ['lr', 'batch_size', 'dropout', 'tcn_channels', 'lstm_hidden',
                         'num_lstm_layers', 'seq_len']
+            
+            if 'training' not in config: config['training'] = {}
+            if 'hyperparameters' not in config['training']: config['training']['hyperparameters'] = {}
+                
             for k in opt_keys:
                 if k in best_params:
-                    train_cfg['hyperparameters'][k] = best_params[k]
+                    config['training']['hyperparameters'][k] = best_params[k]
             logger.info(f"✨ [MACRO] Loading hyperparameters from {params_filename}")
         except Exception as e:
             logger.warning(f"⚠️ Could not load {params_filename}: {e}. Using YAML defaults.")
     else:
         logger.warning(f"⚠️ {params_filename} not found. Using YAML defaults.")
 
-    # ── Resolve output paths for Specialization ────────────────────────────────
-    train_cfg['_resolved_model_output']  = 'data/models/treino_best_model.pt'
-    train_cfg['_resolved_scaler_output'] = 'data/models/treino_scaler_finetuning.pkl'
-
-    logger.info(f"📦 Specialization Model  → {train_cfg['_resolved_model_output']}")
-    logger.info(f"📦 Specialization Scaler → {train_cfg['_resolved_scaler_output']}")
-    return train_cfg, base_cfg
+    logger.info(f"📦 Specialization Model  → {config['pipeline_paths']['best_specialized_model']}")
+    logger.info(f"📦 Specialization Scaler → {config['pipeline_paths']['scaler_specialized']}")
+    return config
 
 
 def load_data(directory: str, feature_cols: list):
@@ -96,25 +88,24 @@ def run_specialization():
     setup_logger("treino_specialization", "")
     
     # Load config
-    train_cfg, base_cfg = load_config()
+    config = load_config()
 
     # ── Config values ──────────────────────────────────────────────────────────
-    feature_cols   = base_cfg['model']['feature_names']
-    # weights are handled dynamically per the new yaml schema further below
-    seq_len        = train_cfg['hyperparameters'].get('seq_len', base_cfg['training'].get('seq_len', 24))
+    feature_cols   = config['model']['feature_names']
+    seq_len        = config['training']['hyperparameters'].get('seq_len', 24)
     epochs         = 10 # Enforced 10 epochs for specialization
-    patience       = base_cfg['training'].get('early_stopping_patience', 3)
-    clip_norm      = base_cfg['training'].get('gradient_clip_norm', 1.0)
+    patience       = config['optimization']['search_space'].get('early_stopping_patience', 4)
+    clip_norm      = 1.0
     
     # ── Transfer Learning: LR 10x smaller ──────────────────────────────────────
-    base_lr        = train_cfg['hyperparameters']['lr']
+    base_lr        = config['training']['hyperparameters']['lr']
     lr             = base_lr * 0.1
     
-    batch_size     = train_cfg['hyperparameters']['batch_size']
-    tcn_channels   = train_cfg['hyperparameters'].get('tcn_channels', 64)
-    lstm_hidden    = train_cfg['hyperparameters'].get('lstm_hidden', 256)
-    num_lstm_layers= train_cfg['hyperparameters'].get('num_lstm_layers', 2)
-    dropout        = train_cfg['hyperparameters'].get('dropout', 0.3)
+    batch_size     = config['training']['hyperparameters']['batch_size']
+    tcn_channels   = config['training']['hyperparameters'].get('tcn_channels', 64)
+    lstm_hidden    = config['training']['hyperparameters'].get('lstm_hidden', 256)
+    num_lstm_layers= config['training']['hyperparameters'].get('num_lstm_layers', 2)
+    dropout        = config['training']['hyperparameters'].get('dropout', 0.3)
 
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Device: {DEVICE}")
@@ -125,8 +116,16 @@ def run_specialization():
     # Standard: train = train_dir, val = val_dir
     # Specialization: Read directly from the newly generated 85/15 specialized splits
     # ── Resolve AUTO paths ─────────────────────────────────────────────────
-    train_cfg['paths']['train_dir'], train_cfg['paths']['val_dir'] = resolve_data_paths(train_cfg['paths'])
-    spec_train_dir, spec_val_dir = train_cfg['paths']['train_dir'], train_cfg['paths']['val_dir']
+    if 'paths' not in config: config['paths'] = {'train_dir': 'AUTO', 'val_dir': 'AUTO'}
+    config['paths']['train_dir'], config['paths']['val_dir'] = resolve_data_paths(config['paths'])
+    
+    # Get standard base directory, then route to the specialized counterpart
+    train_dir_path = Path(config['paths']['train_dir'])
+    dataset_parent = train_dir_path.parent
+    specialized_folder_name = f"specialized_{dataset_parent.name}"
+    
+    spec_train_dir = dataset_parent.parent / specialized_folder_name / "train"
+    spec_val_dir   = dataset_parent.parent / specialized_folder_name / "val"
 
     logger.info(f"Specialization Train Set: {spec_train_dir}")
     logger.info(f"Specialization Val Set:   {spec_val_dir}")
@@ -148,7 +147,7 @@ def run_specialization():
     X_train_norm = scaler.transform(X_train_raw).astype(np.float32)
     X_val_norm   = scaler.transform(X_val_raw).astype(np.float32)
 
-    scaler_path = Path(train_cfg['_resolved_scaler_output'])
+    scaler_path = Path(config['pipeline_paths']['scaler_specialized'])
     scaler_path.parent.mkdir(parents=True, exist_ok=True)
     with open(scaler_path, 'wb') as f:
         pickle.dump(scaler, f)
@@ -175,7 +174,7 @@ def run_specialization():
     ).to(DEVICE)
     
     # ── Load Base Model Weights (MACRO) ─────────────────────────────────────────
-    base_model_weights = Path(project_root) / "data" / "models" / "best_tcn_lstm.pt"
+    base_model_weights = Path(project_root) / config['pipeline_paths']['best_tcn_lstm_model']
     if base_model_weights.exists():
         logger.info(f"🔄 Loading pre-trained base model weights from: {base_model_weights}")
         model.load_state_dict(torch.load(base_model_weights, map_location=DEVICE))
@@ -187,7 +186,7 @@ def run_specialization():
     logger.info(f"Model: Hybrid_TCN_LSTM | Parameters: {total_params:,}")
 
     # ── Loss: dynamic alpha from training labels ───────────────────────────────
-    spec_cfg = base_cfg['training'].get('specialization_weights', {})
+    spec_cfg = config['training'].get('specialization_weights', {})
     use_auto_class_weights = spec_cfg.get('use_auto_class_weights', True)
     
     if use_auto_class_weights:
@@ -202,8 +201,10 @@ def run_specialization():
         alpha = torch.tensor(class_weights, dtype=torch.float32).to(DEVICE)
         logger.info(f"FocalLoss alpha (MANUAL from config): {class_weights}")
 
-    criterion = FocalLossWithSmoothing(alpha=alpha, gamma=2.0, smoothing=0.1)
-    logger.info(f"Loss: FocalLossWithSmoothing | gamma=2.0 | smoothing=0.1")
+    gamma = spec_cfg.get('gamma', 2.0)
+    smoothing = spec_cfg.get('smoothing', 0.1)
+    criterion = FocalLossWithSmoothing(alpha=alpha, gamma=gamma, smoothing=smoothing)
+    logger.info(f"Loss: FocalLossWithSmoothing | gamma={gamma} | smoothing={smoothing}")
 
     # ── Optimizer & Scheduler ──────────────────────────────────────────────────
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
@@ -211,10 +212,10 @@ def run_specialization():
     amp_scaler = torch.amp.GradScaler('cuda')
 
     # ── Training Loop ──────────────────────────────────────────────────────────
-    best_val_f1_dir = 0.0
+    best_val_metric = 0.0
     best_val_loss = float('inf')
-    val_loss_patience_counter = 0
-    model_output_path = Path(project_root) / train_cfg['_resolved_model_output']
+    patience_counter = 0
+    model_output_path = Path(project_root) / config['pipeline_paths']['best_specialized_model']
     model_output_path.parent.mkdir(parents=True, exist_ok=True)
 
     for epoch in range(epochs):
@@ -262,33 +263,35 @@ def run_specialization():
         current_lr = scheduler.get_last_lr()[0]
 
         logger.info(
-            f"Epoch {epoch+1}/{epochs} | "
-            f"Train Loss: {train_loss/len(train_loader):.4f} | "
-            f"Val Loss: {val_loss_epoch:.4f} | "
-            f"F1 Macro: {f1_macro:.4f} | F1 Dir: {f1_dir:.4f} | "
-            f"F1 [SELL/NEU/BUY]: [{f1_per_cls[0]:.3f}/{f1_per_cls[1]:.3f}/{f1_per_cls[2]:.3f}] | "
-            f"LR: {current_lr:.6f}"
+            f"E{epoch+1}/{epochs} | "
+            f"L: {train_loss/len(train_loader):.4f}/{val_loss_epoch:.4f} | "
+            f"F1 M: {f1_macro:.4f} D: {f1_dir:.4f} | "
+            f"[S/N/B]: [{f1_per_cls[0]:.2f}/{f1_per_cls[1]:.2f}/{f1_per_cls[2]:.2f}] | "
+            f"LR: {current_lr:.2g}"
         )
 
-        # Early stopping based on Val Loss
+        # Early stopping based on Configured Metric
+        specialized_metric = config['optimization'].get('specialized_metric', 'f1_dir')
+        current_metric_val = f1_macro if specialized_metric == 'f1_macro' else f1_dir
+
+        if current_metric_val > best_val_metric:
+            best_val_metric = current_metric_val
+            patience_counter = 0
+            torch.save(model.state_dict(), model_output_path)
+            logger.info(f"🏆 Best Specialization model saved ({specialized_metric}: {best_val_metric:.8f})")
+        else:
+            patience_counter += 1
+
+        # Checkpoint based on F1 Directional fallback info
         if val_loss_epoch < best_val_loss:
             best_val_loss = val_loss_epoch
-            val_loss_patience_counter = 0
-        else:
-            val_loss_patience_counter += 1
-
-        # Checkpoint based on F1 Directional
-        if f1_dir > best_val_f1_dir:
-            best_val_f1_dir = f1_dir
-            torch.save(model.state_dict(), model_output_path)
-            logger.info(f"🏆 Best Specialization model saved (F1 Dir: {best_val_f1_dir:.4f})")
 
         # Early stopping check
-        if val_loss_patience_counter >= patience:
-            logger.info(f"⚠️ Early stopping triggered! Val Loss did not improve for {patience} epochs.")
+        if patience_counter >= patience:
+            logger.info(f"⚠️ Early stopping triggered! {specialized_metric} did not improve for {patience} epochs.")
             break
 
-    logger.info(f"Specialization complete. Best Val F1 Direcional: {best_val_f1_dir:.4f}")
+    logger.info(f"Specialization complete. Best Val {specialized_metric}: {best_val_metric:.8f}")
     logger.info(f"Specialized Model saved: {model_output_path}")
 
 if __name__ == "__main__":

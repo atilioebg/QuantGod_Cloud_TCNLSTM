@@ -132,9 +132,9 @@ class TestExtractMetaFeatures:
         assert 0.0 <= out[11] <= 100.0, f"RSI out of bounds: {out[11]}"
 
     def test_short_series_raises(self, valid_probs):
-        """Series shorter than 50 must raise AssertionError."""
+        """Series shorter than 20 must raise AssertionError."""
         with pytest.raises(AssertionError):
-            extract_meta_features(np.ones(30), valid_probs)
+            extract_meta_features(np.ones(10), valid_probs)
 
     def test_wrong_probs_shape_raises(self, price_series):
         """Probs with wrong length must raise AssertionError."""

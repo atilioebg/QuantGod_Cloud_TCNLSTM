@@ -28,15 +28,11 @@ GLOBAL_BEST_MACRO = 0.0
 GLOBAL_BEST_DIR   = 0.0
 
 # ── Logging Setup ──────────────────────────────────────────────────────────
-from src.cloud.base_model.utils.logging_utils import setup_logger
+from src.cloud.base_model.utils.logging_utils import setup_logger, setup_optuna_logging
 from src.cloud.base_model.utils.experiment_utils import resolve_data_paths
 
 # Stop Optuna's default logger from duplicating messages natively
-optuna.logging.disable_propagation()
-# Instead, add our centralized logger explicitly so Optuna uses our formatting and handlers 
-# (and only ours) without compounding on the root logger.
-optuna.logging.enable_default_handler()
-optuna.logging.set_verbosity(optuna.logging.INFO)
+setup_optuna_logging()
 
 # Initial dummy logger (will be properly set up in run_optimization)
 logger = logging.getLogger("optimization")
@@ -65,7 +61,7 @@ def objective(trial, X_train, y_train, X_val, y_val, config, base_cfg):
     Optuna objective function for TCN+LSTM hyperparameter search.
 
     Engineering constraints enforced:
-    - class_weights loaded from centralized base_model_config.yaml (not hardcoded)
+    - class_weights loaded from centralized master_config.yaml (not hardcoded)
     - OOM intercepted: torch.cuda.empty_cache() + TrialPruned (graceful skip)
     - Gradient clipping (norm=1.0) applied on every backward pass
     """
@@ -73,27 +69,27 @@ def objective(trial, X_train, y_train, X_val, y_val, config, base_cfg):
         DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # ── Search space ───────────────────────────────────────────────────────
-        tcn_channels    = trial.suggest_categorical("tcn_channels",    config['search_space']['tcn_channels'])
-        lstm_hidden     = trial.suggest_categorical("lstm_hidden",      config['search_space']['lstm_hidden'])
+        tcn_channels    = trial.suggest_categorical("tcn_channels",    config['optimization']['search_space']['tcn_channels'])
+        lstm_hidden     = trial.suggest_categorical("lstm_hidden",      config['optimization']['search_space']['lstm_hidden'])
         num_lstm_layers = trial.suggest_int("num_lstm_layers",
-                                            min(config['search_space']['num_lstm_layers']),
-                                            max(config['search_space']['num_lstm_layers']))
-        batch_size      = trial.suggest_categorical("batch_size",       config['search_space']['batch_size'])
+                                            min(config['optimization']['search_space']['num_lstm_layers']),
+                                            max(config['optimization']['search_space']['num_lstm_layers']))
+        batch_size      = trial.suggest_categorical("batch_size",       config['optimization']['search_space']['batch_size'])
         dropout         = trial.suggest_float("dropout",
-                                              config['search_space']['dropout'][0],
-                                              config['search_space']['dropout'][1])
-        seq_len         = trial.suggest_categorical("seq_len",          config['search_space']['seq_len'])
+                                              config['optimization']['search_space']['dropout'][0],
+                                              config['optimization']['search_space']['dropout'][1])
+        seq_len         = trial.suggest_categorical("seq_len",          config['optimization']['search_space']['seq_len'])
         lr              = trial.suggest_float("lr",
-                                              config['search_space']['lr'][0],
-                                              config['search_space']['lr'][1], log=True)
+                                              config['optimization']['search_space']['lr'][0],
+                                              config['optimization']['search_space']['lr'][1], log=True)
         weight_decay    = trial.suggest_float("weight_decay",
-                                              config['search_space']['weight_decay'][0],
-                                              config['search_space']['weight_decay'][1], log=True)
-        epochs          = config['search_space']['epochs']
+                                              config['optimization']['search_space']['weight_decay'][0],
+                                              config['optimization']['search_space']['weight_decay'][1], log=True)
+        epochs          = config['optimization']['search_space']['epochs']
 
         logger.info(f"Trial {trial.number} START | tcn={tcn_channels}, lstm={lstm_hidden}, "
                     f"layers={num_lstm_layers}, batch={batch_size}, seq={seq_len}, "
-                    f"drop={dropout:.3f}, lr={lr:.6f}, wd={weight_decay:.6f}")
+                    f"drop={dropout:.8f}, lr={lr:.8f}, wd={weight_decay:.8f}")
 
         # ── Datasets ───────────────────────────────────────────────────────────
         train_dataset = SequenceDataset(X_train, y_train, seq_len)
@@ -115,14 +111,16 @@ def objective(trial, X_train, y_train, X_val, y_val, config, base_cfg):
         ).to(DEVICE)
 
         # ── Loss: dynamic alpha per trial or manual weights from config ─────────
-        foundation_cfg = base_cfg['training'].get('foundation_weights', {})
+        foundation_cfg = config['training'].get('foundation_weights', {})
         if foundation_cfg.get('use_auto_class_weights', True):
             alpha = compute_alpha_from_labels(y_train, num_classes=3, device=DEVICE)
         else:
             class_weights = foundation_cfg.get('class_weights', [1.0, 1.0, 1.0])
             alpha = torch.tensor(class_weights, dtype=torch.float32).to(DEVICE)
         
-        criterion = FocalLossWithSmoothing(alpha=alpha, gamma=2.0, smoothing=0.1)
+        gamma = foundation_cfg.get('gamma', 2.0)
+        smoothing = foundation_cfg.get('smoothing', 0.1)
+        criterion = FocalLossWithSmoothing(alpha=alpha, gamma=gamma, smoothing=smoothing)
 
         optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
@@ -179,12 +177,11 @@ def objective(trial, X_train, y_train, X_val, y_val, config, base_cfg):
 
             # ── Epoch Summary ─────────────────────────────────────────────────────────
             logger.info(
-                f"Trial {trial.number}, Epoch {epoch+1}/{epochs} | "
-                f"Train Loss: {train_loss/len(train_loader):.4f} | "
-                f"Val Loss: {current_val_loss:.4f} | "
-                f"F1 Macro: {f1_macro:.4f} | F1 Dir: {f1_dir:.4f} | "
-                f"F1 [S/N/B]: [{f1_per_cls[0]:.3f}/{f1_per_cls[1]:.3f}/{f1_per_cls[2]:.3f}] | "
-                f"LR: {current_lr:.6g}"
+                f"T{trial.number} E{epoch+1}/{epochs} | "
+                f"L: {train_loss/len(train_loader):.8f}/{current_val_loss:.8f} | "
+                f"F1 M: {f1_macro:.8f} D: {f1_dir:.8f} | "
+                f"[S/N/B]: [{f1_per_cls[0]:.4f}/{f1_per_cls[1]:.4f}/{f1_per_cls[2]:.4f}] | "
+                f"LR: {current_lr:.8f}"
             )
 
             # ── Local Champion Tracking (Within this Trial) ───────────────────
@@ -209,8 +206,8 @@ def objective(trial, X_train, y_train, X_val, y_val, config, base_cfg):
                 macro_save_path = Path("data/models/best_tcn_lstm.pt")
                 macro_save_path.parent.mkdir(parents=True, exist_ok=True)
                 torch.save(model.state_dict(), macro_save_path)
-                logger.info(f"🥇 [MACRO]  Trial {trial.number} | Global F1 Macro record: {f1_macro:.4f} "
-                            f"(prev: {prev_macro:.4f}) → saved best_tcn_lstm.pt")
+                logger.info(f"🥇 [MACRO]  Trial {trial.number} | Global F1 Macro record: {f1_macro:.8f} "
+                            f"(prev: {prev_macro:.8f}) → saved best_tcn_lstm.pt")
 
             # DIR global best
             if f1_dir > GLOBAL_BEST_DIR:
@@ -219,22 +216,26 @@ def objective(trial, X_train, y_train, X_val, y_val, config, base_cfg):
                 dir_save_path = Path("data/models/best_tcn_lstm_dir.pt")
                 dir_save_path.parent.mkdir(parents=True, exist_ok=True)
                 torch.save(model.state_dict(), dir_save_path)
-                logger.info(f"🏆 [DIR]    Trial {trial.number} | Global F1 Dir record: {f1_dir:.4f} "
-                            f"(prev: {prev_dir:.4f}) → saved best_tcn_lstm_dir.pt")
+                logger.info(f"🏆 [DIR]    Trial {trial.number} | Global F1 Dir record: {f1_dir:.8f} "
+                            f"(prev: {prev_dir:.8f}) → saved best_tcn_lstm_dir.pt")
 
             # Update this trial's running best_f1_dir attribute for ranking later
             if f1_dir > trial.user_attrs.get("best_f1_dir", 0.0):
                 trial.set_user_attr("best_f1_dir", f1_dir)
 
-            # Optimization target: F1 Macro
-            trial.report(f1_macro, epoch)
+            base_metric_name = config['optimization'].get('base_metric', 'f1_macro')
+            trial_metric_val = f1_macro if base_metric_name == 'f1_macro' else f1_dir
+            trial_best_val = best_macro_f1 if base_metric_name == 'f1_macro' else best_dir_f1
+            
+            # Optimization target
+            trial.report(trial_metric_val, epoch)
             
             # ── Sniper Alpha Early Stopping ──────────────────────────────────
             if patience_counter >= patience_limit:
                 logger.info(f"Trial {trial.number} stopped early due to patience ({patience_limit} epochs without improvement)")
                 del model, train_loader, val_loader, train_dataset, val_dataset
                 torch.cuda.empty_cache()
-                return best_macro_f1
+                return trial_best_val
 
             if trial.should_prune():
                 logger.info(f"Trial {trial.number} pruned by Optuna at epoch {epoch+1}")
@@ -245,7 +246,8 @@ def objective(trial, X_train, y_train, X_val, y_val, config, base_cfg):
         # Cleanup after trial
         del model, train_loader, val_loader, train_dataset, val_dataset
         torch.cuda.empty_cache()
-        return best_macro_f1  # Optuna ranks trials by this value (F1 Macro)
+        trial_best_val = best_macro_f1 if config['optimization'].get('base_metric', 'f1_macro') == 'f1_macro' else best_dir_f1
+        return trial_best_val  # Optuna ranks trials by this value
 
     except RuntimeError as e:
         # ── CRITICAL: OOM guard (Constraint #4) ───────────────────────────────
@@ -259,22 +261,21 @@ def objective(trial, X_train, y_train, X_val, y_val, config, base_cfg):
 
 
 def run_optimization():
-    if len(sys.argv) > 1:
-        optuna_cfg_path = Path(sys.argv[1])
-    else:
-        optuna_cfg_path = Path("src/cloud/base_model/otimizacao/optimization_config.yaml")
-
-    with open(optuna_cfg_path, 'r') as f:
+    master_cfg_path = Path("src/cloud/base_model/configs/master_config.yaml")
+    
+    with open(master_cfg_path, 'r') as f:
         config = yaml.safe_load(f)
 
-    base_cfg_path = Path("src/cloud/base_model/configs/base_model_config.yaml")
-    with open(base_cfg_path, 'r') as f:
-        base_cfg = yaml.safe_load(f)
-
-    # class_weights from single source of truth (now nested under foundation_weights)
-    foundation_cfg = base_cfg['training'].get('foundation_weights', {})
+    # config logic from master source of truth
+    foundation_cfg = config['training'].get('foundation_weights', {})
     class_weights = foundation_cfg.get('class_weights', [1.0, 1.0, 1.0])
-    feature_cols  = base_cfg['model']['feature_names']
+    feature_cols  = config['model']['feature_names']
+    
+    # ensure "paths" dict exists just in case it's nested or we use config directly
+    if 'paths' not in config:
+        config['paths'] = {}
+        config['paths']['train_dir'] = 'AUTO'
+        config['paths']['val_dir'] = 'AUTO'
 
     # ── Suffix Extraction & Logging Setup ──────────────────────────────────
     suffix = ""
@@ -305,24 +306,32 @@ def run_optimization():
     scaler.fit(X_train_raw)
     X_train = scaler.transform(X_train_raw).astype(np.float32)
     X_val   = scaler.transform(X_val_raw).astype(np.float32)
+    
+    import joblib
+    scaler_path = Path(config['pipeline_paths']['scaler_foundation'])
+    scaler_path.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(scaler, scaler_path)
+    logger.info(f"💾 Scaler saved properly to: {scaler_path}")
 
     # ── Log Alpha Class Weights Globally ─────────────────────────────────────
     import torch
     dummy_device = torch.device("cpu")
-    foundation_cfg = base_cfg['training'].get('foundation_weights', {})
     if foundation_cfg.get('use_auto_class_weights', True):
         # Fail fast approach if auto fails here.
         alpha_base = compute_alpha_from_labels(y_train, num_classes=3, device=dummy_device)
         logger.info(f"FocalLoss alpha (AUTO computed from foundation labels): {alpha_base.tolist()}")
     else:
-        class_weights = foundation_cfg.get('class_weights', [1.0, 1.0, 1.0])
         logger.info(f"FocalLoss alpha (MANUAL from config): {class_weights}")
+        
+    gamma = foundation_cfg.get('gamma', 2.0)
+    smoothing = foundation_cfg.get('smoothing', 0.1)
+    logger.info(f"Loss: FocalLossWithSmoothing | gamma={gamma} | smoothing={smoothing}")
 
 
     # ── Optuna study ──────────────────────────────────────────────────────────
     study = optuna.create_study(
-        study_name=config['paths']['study_name'],
-        storage=config['paths']['db_path'],
+        study_name=config['optimization']['study_name'],
+        storage=config['pipeline_paths']['db_path'],
         direction="maximize",
         load_if_exists=True,
         pruner=optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=2),
@@ -344,7 +353,7 @@ def run_optimization():
     start_time = datetime.now()
 
     study.optimize(
-        lambda trial: objective(trial, X_train, y_train, X_val, y_val, config, base_cfg),
+        lambda trial: objective(trial, X_train, y_train, X_val, y_val, config, config),
         n_trials=config['optimization']['n_trials'],
         timeout=config['optimization']['timeout'],
     )
@@ -368,8 +377,11 @@ def run_optimization():
     logger.info(f"Trials Executados nesta Sessao: {trials_run}")
     logger.info("="*60)
 
-    logger.info(f"Optimization complete | Melhor F1 Macro: {study.best_trial.value:.4f}")
-    logger.info(f"Melhores Parametros Macro: {study.best_params}")
+    logger.info(f"Optimization complete | Melhor F1 Macro: {study.best_trial.value:.8f}")
+    
+    # Clean precision formatted string for logger
+    formatted_best_params = {k: f"{v:.8f}" if isinstance(v, float) else v for k, v in study.best_params.items()}
+    logger.info(f"Melhores Parametros Macro: {formatted_best_params}")
 
     # ── Save MACRO champion params (trial ranked by study objective) ─────────
     out_params_path = Path("src/cloud/base_model/otimizacao") / "best_params.json"
@@ -377,24 +389,25 @@ def run_optimization():
         json.dump(study.best_params, f, indent=4, ensure_ascii=False)
     logger.info(f"🥇 [MACRO] Best params saved: {out_params_path}")
 
-    # ── Auto-update training_config.yaml ─────────────────────────────────────
-    training_cfg_path = Path("src/cloud/base_model/treino/training_config.yaml")
-    if training_cfg_path.exists():
+    # ── Auto-update master_config.yaml ─────────────────────────────────────
+    if master_cfg_path.exists():
         try:
-            with open(training_cfg_path, 'r', encoding='utf-8') as f:
+            with open(master_cfg_path, 'r', encoding='utf-8') as f:
                 train_cfg_dict = yaml.safe_load(f)
             
-            if 'hyperparameters' not in train_cfg_dict:
-                train_cfg_dict['hyperparameters'] = {}
+            if 'training' not in train_cfg_dict:
+                train_cfg_dict['training'] = {}
+            if 'hyperparameters' not in train_cfg_dict['training']:
+                train_cfg_dict['training']['hyperparameters'] = {}
                 
             for k, v in study.best_params.items():
-                train_cfg_dict['hyperparameters'][k] = v
+                train_cfg_dict['training']['hyperparameters'][k] = v
                 
-            with open(training_cfg_path, 'w', encoding='utf-8') as f:
+            with open(master_cfg_path, 'w', encoding='utf-8') as f:
                 yaml.dump(train_cfg_dict, f, default_flow_style=False, sort_keys=False)
-            logger.info(f"🔄 Updated {training_cfg_path} with MACRO best params.")
+            logger.info(f"🔄 Updated {master_cfg_path} with MACRO best params.")
         except Exception as e:
-            logger.error(f"❌ Failed to auto-update training_config.yaml: {e}")
+            logger.error(f"❌ Failed to auto-update master_config.yaml: {e}")
 
     # ── Save DIRECTIONAL champion params (trial with highest best_f1_dir attr) 
     completed = [t for t in study.trials if t.state.name == "COMPLETE"
@@ -403,8 +416,9 @@ def run_optimization():
         best_dir_trial = max(completed, key=lambda t: t.user_attrs["best_f1_dir"])
         best_dir_params = best_dir_trial.params
         best_dir_val    = best_dir_trial.user_attrs["best_f1_dir"]
-        logger.info(f"🏆 [DIR]   Best trial: {best_dir_trial.number} | F1 Dir: {best_dir_val:.4f}")
-        logger.info(f"🏆 [DIR]   Best params: {best_dir_params}")
+        formatted_dir_params = {k: f"{v:.8f}" if isinstance(v, float) else v for k, v in best_dir_params.items()}
+        logger.info(f"🏆 [DIR]   Best trial: {best_dir_trial.number} | F1 Dir: {best_dir_val:.8f}")
+        logger.info(f"🏆 [DIR]   Best params: {formatted_dir_params}")
         out_dir_path = Path("src/cloud/base_model/otimizacao") / "best_dir_params.json"
         with open(out_dir_path, "w", encoding='utf-8') as f:
             json.dump(best_dir_params, f, indent=4, ensure_ascii=False)
@@ -433,13 +447,19 @@ def run_optimization():
         logger.info("-> Analisando Feature Importance do Melhor Modelo do Optuna...")
         try:
             # Roda o feature importance focando no modelo campeao MACRO da base
-            subprocess.run([sys.executable, "src/cloud/base_model/treino/feature_importance.py", "data/models/best_tcn_lstm.pt"], check=True)
+            env = os.environ.copy()
+            env["QUIET_LOGGING"] = "1"
+            subprocess.run([sys.executable, "src/cloud/base_model/treino/feature_importance.py", "data/models/best_tcn_lstm.pt"], 
+                           check=True, env=env)
         except subprocess.CalledProcessError as e:
             logger.error(f"⚠️ Feature importance falhou (o pipeline continuara): {e}")
 
     # 1. Transfer Foundation
     try:
-        subprocess.run([sys.executable, "src/cloud/base_model/utils/transfer.py", log_filename, "foundation"], check=True)
+        env = os.environ.copy()
+        env["QUIET_LOGGING"] = "1"
+        subprocess.run([sys.executable, "src/cloud/base_model/utils/transfer.py", log_filename, "foundation"], 
+                       check=True, env=env)
     except subprocess.CalledProcessError as e:
         logger.error(f"Falha no transfer base (foundation): {e}")
         
@@ -452,15 +472,20 @@ def run_optimization():
             # 2.1 Create Splits
             dataset_path = str(Path(config['paths']['train_dir']).parent)
             logger.info("-> 1/3 Gerando Splits Especializados...")
-            subprocess.run([sys.executable, "src/cloud/base_model/treino/create_specialized_splits.py", dataset_path], check=True)
+            env = os.environ.copy()
+            env["QUIET_LOGGING"] = "1"
+            subprocess.run([sys.executable, "src/cloud/base_model/treino/create_specialized_splits.py", dataset_path], 
+                           check=True, env=env)
             
             # 2.2 Run Specialization
             logger.info("-> 2/3 Treinando Modelo Especialista...")
-            subprocess.run([sys.executable, "src/cloud/base_model/treino/run_specialization.py"], check=True)
+            subprocess.run([sys.executable, "src/cloud/base_model/treino/run_specialization.py"], 
+                           check=True, env=env)
             
             # 2.3 Transfer Specialized
             logger.info("-> 3/3 Transferindo Especialista pro Drive...")
-            subprocess.run([sys.executable, "src/cloud/base_model/utils/transfer.py", log_filename, "specialized"], check=True)
+            subprocess.run([sys.executable, "src/cloud/base_model/utils/transfer.py", log_filename, "specialized"], 
+                           check=True, env=env)
             
             logger.info("PIPELINE 100%% COMPLETO E EXECUTADO COM SUCESSO!")
         except subprocess.CalledProcessError as e:

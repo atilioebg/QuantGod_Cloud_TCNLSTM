@@ -1,9 +1,33 @@
+# =============================================================================
+# MASTER CONFIGURATION — Single Source of Truth for QuantGod TCN+LSTM Pipeline
+# =============================================================================
 
-# =============================================================================
-# Base Model Configuration — Single Source of Truth
-# Both run_optuna.py and run_training.py load from this file.
-# To change class weights, edit ONLY here.
-# =============================================================================
+pipeline_paths:
+  # Base directories and files
+  raw_l2_source: "drive:PROJETOS/BTC_USDT_L2_2023_2026"
+  db_path: "sqlite:///optuna_tcn_lstm_v1_finetune.db"
+  best_tcn_lstm_model: "data/models/best_tcn_lstm.pt"
+  best_specialized_model: "data/models/best_specialized_model.pt"
+  scaler_foundation: "data/models/scaler_foundation.pkl"
+  scaler_specialized: "data/models/scaler_specialized.pkl"
+
+pre_processing:
+  etl:
+    levels: 200
+    sampling_ms: 1000
+    export_compression: "snappy"
+  labelling:
+    # Set thresholds and windows here
+    sell_threshold: 0.003
+    buy_threshold: 0.003
+    horizon_minutes: 15
+  split:
+    base:
+      train_ratio: 0.70
+      val_ratio: 0.20
+    specialized:
+      train_ratio: 0.85
+      val_ratio: 0.15
 
 model:
   num_features: 32
@@ -45,10 +69,48 @@ model:
     - ask_convexity       # Convexidade Ask (L10 vs L20)
     - pressure_ratio      # Razão de Pressão L2
 
-training:                 # peso das classes para o treinamento, podem ser inseridos manualmente, caso contrario serão calculados automaticamente
+training:
+  # FocalLoss with Label Smoothing settings
   foundation_weights:
     use_auto_class_weights: true
-    class_weights: [1.32, 0.40, 1.30]  # Example fallback/manual
+    class_weights: [1.32, 0.40, 1.30]
+    gamma: 2.0      # Controla o foco da penalidade em amostras difíceis (focal loss)
+    smoothing: 0.1  # Suaviza os labels (label smoothing) para evitar overconfidence
   specialization_weights:
     use_auto_class_weights: true
-    class_weights: [4.85, 0.38, 4.61]  # Example fallback/manual
+    class_weights: [4.85, 0.38, 4.61]
+    gamma: 2.0      # Controla o foco da penalidade em amostras difíceis (focal loss)
+    smoothing: 0.1  # Suaviza os labels (label smoothing) para evitar overconfidence
+
+  hyperparameters:
+    # Auto-populated by Optuna after winning trial
+    seq_len: 24
+    batch_size: 512
+    tcn_channels: 128
+    lstm_hidden: 64
+    num_lstm_layers: 6
+    dropout: 0.36928415148023724
+    lr: 5.251450566450031e-05
+    epochs: 10
+    weight_decay: 0.002984461316658856
+
+optimization:
+  study_name: "quantgod_tcn_lstm_v1_finetune"
+  n_trials: 40
+  timeout: 72000  # 20 hours
+  base_metric: "f1_macro"
+  specialized_metric: "f1_dir"
+  run_specialized_after: true
+  run_feature_importance_after: true
+
+  search_space:
+    tcn_channels: [64, 128, 256]
+    lstm_hidden: [64, 128, 256]
+    num_lstm_layers: [2, 3, 4, 5, 6]
+    lr: [0.00001, 0.00006]
+    weight_decay: [0.0001, 0.01]
+    batch_size: [512, 1024, 2048]
+    seq_len: [24, 48, 96]
+    dropout: [0.3, 0.5, 0.75, 0.80]
+    epochs: 50
+    early_stopping_patience: 4
