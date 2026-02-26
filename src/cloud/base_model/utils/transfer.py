@@ -115,7 +115,10 @@ def transfer_results(log_filename: str, run_type: str):
         files_to_transfer.extend(list((project_root / "docs/reports").glob("*.md")))
         
         # ── DATABASE & MODELS ─────────────────────────────────────────────────
-        db_path = config['optimization'].get('db_path', 'sqlite:///optuna_tcn_lstm_v0.db')
+        # Priority: pipeline_paths -> optimization -> default fallback
+        db_path = config.get('pipeline_paths', {}).get('db_path') or \
+                  config.get('optimization', {}).get('db_path', 'sqlite:///optuna_tcn_lstm_v0.db')
+        
         db_filename = db_path.replace("sqlite:///", "")
         files_to_transfer.append(project_root / db_filename)
         

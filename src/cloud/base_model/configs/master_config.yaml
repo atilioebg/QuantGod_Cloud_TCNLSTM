@@ -100,7 +100,7 @@ optimization:
   n_trials: 40
   timeout: 72000  # 20 hours
   base_metric: "f1_macro"
-  specialized_metric: "f1_dir"
+  specialized_metric: "f1_macro" #"f1_dir"
   run_specialized_after: true
   run_feature_importance_after: true
 
