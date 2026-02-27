@@ -444,8 +444,10 @@ class L2Transformer:
             (final_df['max_spread'] - rolling_spread.mean()) / (rolling_spread.std() + 1e-9)
         )
 
-        # 3. V-PIN Lite (vpin_window bars)
-        final_df['vpin_lite_5'] = (
+        # 3. V-PIN Lite (vpin_window bars) — nome dinâmico em MINUTOS REAIS para consistência com config
+        vpin_lbl = f"{cfg.get('vpin_window_min', 25)}"  # ex: 25 → 'vpin_lite_25'
+        vpin_col = f'vpin_lite_{vpin_lbl}'
+        final_df[vpin_col] = (
             final_df['ofi'].abs().rolling(self._vpin_window).sum() / (sum_bids_n + sum_asks_n + 1e-9)
         )
 
@@ -480,7 +482,7 @@ class L2Transformer:
             f'bid_rdi_delta_{ds_lbl}', f'bid_rdi_delta_{dl_lbl}',
             f'ask_rdi_delta_{ds_lbl}', f'ask_rdi_delta_{dl_lbl}',
             f'micro_price_delta_{ds_lbl}', f'micro_price_delta_{dl_lbl}',
-            'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5',
+            'book_asymmetry_v5', 'spread_zscore_60', vpin_col,
             'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity'
         ]
         final_df[sniper_institutional_cols] = final_df[sniper_institutional_cols].replace([np.inf, -np.inf], 0).fillna(0)
@@ -489,12 +491,10 @@ class L2Transformer:
         dynamic_features = [
             'ofi', f'ofi_delta_{ds_lbl}', f'ofi_delta_{dl_lbl}',
             'micro_price_momentum', f'micro_price_delta_{ds_lbl}', f'micro_price_delta_{dl_lbl}',
-            'bid_slope', 'ask_slope',
             'bid_rdi', f'bid_rdi_delta_{ds_lbl}', f'bid_rdi_delta_{dl_lbl}',
             'ask_rdi', f'ask_rdi_delta_{ds_lbl}', f'ask_rdi_delta_{dl_lbl}',
-            'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5',
-            'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity',
-            'pressure_ratio'
+            'spread_zscore_60', vpin_col,
+            'kyle_lambda'
         ]
         agg_features = [
             'body', 'upper_wick', 'lower_wick', 'log_ret_close',
