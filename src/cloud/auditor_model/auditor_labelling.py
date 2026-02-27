@@ -1,3 +1,23 @@
+"""
+auditor_labelling.py — Geração do Dataset Fundido para o Auditor XGBoost
+
+Modo de operação detectado automaticamente via master_config.yaml:
+
+  kfold.enabled = true  →  MODO K-FOLD OOF (Fase 2 Engorda Total)
+    Fonte de predições: data/auditor/oof_predictions/full_oof.parquet
+    Alinhamento: inner join por `original_row_idx` com context features.
+    Resultado: ~100% do Foundation Val disponível para o Auditor (~60k–300k rows).
+
+  kfold.enabled = false →  MODO LEGADO (Holdout Especialista)
+    Fonte de predições: inferência direta do modelo Especialista no spec_val_dir.
+    Alinhamento: offset posicional por seq_len.
+    Resultado: ~20% do Foundation Val (~10k rows).
+
+Output (ambos os modos):
+  data/auditor/dataset_fused/train/fused_auditor.parquet
+  data/auditor/dataset_fused/val/fused_auditor.parquet
+"""
+
 import torch
 from torch.utils.data import DataLoader, Dataset
 import polars as pl
@@ -6,8 +26,6 @@ import pandas as pd
 import yaml
 import logging
 from pathlib import Path
-import sys
-import pickle
 import sys
 import pickle
 import json
@@ -22,17 +40,21 @@ from src.cloud.base_model.utils.experiment_utils import resolve_data_paths
 
 logger = logging.getLogger(__name__)
 
+
 class SequenceDataset(Dataset):
     def __init__(self, X: np.ndarray, y: np.ndarray, seq_len: int):
         self.X = X
         self.y = y
         self.seq_len = seq_len
+
     def __len__(self):
         return len(self.X) - self.seq_len
+
     def __getitem__(self, idx):
         x_seq = self.X[idx: idx + self.seq_len]
         y_label = self.y[idx + self.seq_len - 1]
         return torch.from_numpy(x_seq), torch.tensor(y_label, dtype=torch.long)
+
 
 def load_config():
     master_cfg_path = Path("src/cloud/base_model/configs/master_config.yaml")
@@ -40,11 +62,11 @@ def load_config():
         config = yaml.safe_load(f)
     return config
 
+
 def generate_predictions(model, loader, device):
     model.eval()
     all_probs = []
     all_targets = []
-    
     with torch.no_grad():
         for batch_X, batch_y in loader:
             batch_X = batch_X.to(device)
@@ -53,65 +75,232 @@ def generate_predictions(model, loader, device):
             probs = torch.softmax(outputs["logits"], dim=1)
             all_probs.append(probs.cpu().numpy())
             all_targets.append(batch_y.numpy())
-            
     return np.vstack(all_probs), np.concatenate(all_targets)
 
+
+def _build_fused_and_save(df_fused: pd.DataFrame, config: dict, output_dir: str):
+    """Common post-processing: meta-target, split and save to parquet."""
+    # ── Meta-Labeling Logic ───────────────────────────────────────────────────
+    # meta_target = 1 if Specialist prediction matches real target, else 0.
+    spec_probs_cols = ['spec_prob_sell', 'spec_prob_neu', 'spec_prob_buy']
+    spec_preds_class = np.argmax(df_fused[spec_probs_cols].values, axis=1)
+    df_fused["meta_target"] = np.where(spec_preds_class == df_fused["true_target"].values, 1, 0)
+
+    logger.info(
+        f"📊 Fused Dataset: {len(df_fused):,} rows | "
+        f"Meta-Target Accuracy: {df_fused['meta_target'].mean():.2%}"
+    )
+
+    # ── Chronological Split ───────────────────────────────────────────────────
+    split_pct = config['pre_processing']['split']['auditor']['train_ratio']
+    split_idx = int(len(df_fused) * split_pct)
+
+    train_fused = df_fused.iloc[:split_idx]
+    val_fused   = df_fused.iloc[split_idx:]
+
+    out_path = Path(output_dir)
+    train_path = out_path / "train"
+    val_path   = out_path / "val"
+    train_path.mkdir(parents=True, exist_ok=True)
+    val_path.mkdir(parents=True, exist_ok=True)
+
+    pl.DataFrame(train_fused).write_parquet(train_path / "fused_auditor.parquet")
+    pl.DataFrame(val_fused).write_parquet(val_path / "fused_auditor.parquet")
+
+    logger.info(f"📦 Treino Fused salvo: {train_path / 'fused_auditor.parquet'} ({len(train_fused):,} rows)")
+    logger.info(f"📦 Val   Fused salvo: {val_path / 'fused_auditor.parquet'} ({len(val_fused):,} rows)")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MODO K-FOLD OOF (primary path — Engorda Total)
+# ══════════════════════════════════════════════════════════════════════════════
+def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
+    """
+    K-Fold Mode: loads full_oof.parquet (Specialist OOF predictions) and
+    joins with context features (ADX, Skewness, VWAP) via original_row_idx.
+
+    Also runs the Foundation model inference on the SAME Foundation Val rows
+    so the Auditor has BOTH base and specialist signal for its meta-labeling.
+
+    The join is implemented as an INNER JOIN to guarantee timestamp alignment —
+    only rows present in BOTH the OOF predictions AND the context features
+    are included in the final dataset. No positional-offset assumptions.
+    """
+    kfold_cfg   = config['pre_processing']['kfold']
+    oof_dir     = Path(kfold_cfg.get('oof_output_dir', 'data/auditor/oof_predictions'))
+    full_oof_path = oof_dir / "full_oof.parquet"
+
+    if not full_oof_path.exists():
+        logger.error(
+            f"❌ full_oof.parquet not found at {full_oof_path}. "
+            "Run run_kfold_specialist.py first (Phase 2)."
+        )
+        return
+
+    logger.info(f"🔗 K-Fold Mode: loading OOF predictions from {full_oof_path}")
+    df_oof = pl.read_parquet(full_oof_path)
+    logger.info(f"  ↳ OOF rows: {len(df_oof):,} (covering {df_oof['fold'].n_unique()} folds)")
+
+    # ── Load Context Features (ADX, Skewness, VWAP, etc.) ────────────────────
+    # Context features indexed by original row order (no timestamp in OOF itself).
+    # We use `original_row_idx` as the join key.
+    context_files = sorted(list(Path(context_dir).glob("*.parquet")))
+    if not context_files:
+        logger.error(f"❌ Context files not found in {context_dir}. Run auditor_preprocessing.py first.")
+        return
+
+    df_ctx_list = [pl.read_parquet(cf) for cf in context_files]
+    df_ctx = pl.concat(df_ctx_list)
+
+    # Add integer row index to context for joining
+    df_ctx = df_ctx.with_row_index(name="original_row_idx")
+    logger.info(f"  ↳ Context rows: {len(df_ctx):,} | Columns: {df_ctx.columns[:5]}...")
+
+    # ── Foundation Model Inference on Foundation Val ──────────────────────────
+    # The OOF covers Foundation Val rows. We need Foundation model probs too
+    # for the Auditor to have both signals. We run inference on the same rows.
+    feature_cols = config['model']['feature_names']
+    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    sell_th = config['pre_processing']['labelling'].get('sell_threshold', 0.003)
+    buy_th  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
+    mins    = config['pre_processing']['labelling'].get('horizon_minutes', 15)
+    base_labelled_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
+    foundation_val_dir = Path(f"data/L2/splits_{base_labelled_name}/val")
+
+    base_params_path = Path("src/cloud/base_model/otimizacao/best_params.json")
+    with open(base_params_path, 'r') as f:
+        base_params = json.load(f)
+
+    val_files = sorted(list(foundation_val_dir.glob("*.parquet")))
+    dfs_val   = [pl.read_parquet(vf, columns=feature_cols + ['target']) for vf in val_files]
+    df_fval   = pl.concat(dfs_val)
+
+    X_val_raw = df_fval.select(feature_cols).to_numpy().astype(np.float32)
+    y_val_raw = df_fval.select('target').to_numpy().flatten().astype(np.int64)
+
+    scaler_path = Path(config['pipeline_paths']['scaler_foundation'])
+    with open(scaler_path, 'rb') as f:
+        scaler_base = pickle.load(f)
+    X_val_norm = scaler_base.transform(X_val_raw).astype(np.float32)
+
+    seq_len      = base_params['seq_len']
+    dataset_base = SequenceDataset(X_val_norm, y_val_raw, seq_len)
+    loader_base  = DataLoader(dataset_base, batch_size=2048, shuffle=False, num_workers=4)
+
+    num_features = len(feature_cols)
+    model_base = Hybrid_TCN_LSTM(
+        num_features=num_features,
+        seq_len=base_params['seq_len'],
+        tcn_channels=base_params['tcn_channels'],
+        lstm_hidden=base_params['lstm_hidden'],
+        num_lstm_layers=base_params['num_lstm_layers'],
+        num_classes=3,
+        dropout=base_params['dropout'],
+    ).to(DEVICE)
+
+    base_model_path = Path(config['pipeline_paths']['best_tcn_lstm_model'])
+    try:
+        model_base.load_state_dict(torch.load(base_model_path, map_location=DEVICE))
+    except KeyError:
+        sd = torch.load(base_model_path, map_location=DEVICE)
+        model_base.load_state_dict(sd.get('model_state_dict', sd))
+
+    logger.info("🤖 Generating Foundation Model probabilities over Foundation Val...")
+    probs_base, _ = generate_predictions(model_base, loader_base, DEVICE)
+
+    # SequenceDataset offsets: first valid prediction corresponds to original_row_idx = seq_len - 1
+    # i-th prediction corresponds to original_row_idx = seq_len - 1 + i
+    n_preds = len(probs_base)
+    base_row_idx = np.arange(seq_len - 1, seq_len - 1 + n_preds, dtype=np.int64)
+
+    df_base_probs = pl.DataFrame({
+        "original_row_idx": base_row_idx,
+        "base_prob_sell":   probs_base[:, 0],
+        "base_prob_neu":    probs_base[:, 1],
+        "base_prob_buy":    probs_base[:, 2],
+    })
+
+    # ── Inner Join: OOF ∩ Base Probs ∩ Context ────────────────────────────────
+    # The join key `original_row_idx` is the common index across all three sources.
+    # inner join guarantees only rows present in ALL three sources are included.
+    logger.info("🔗 Inner joining OOF predictions × Foundation probs × Context features...")
+
+    df_joined = (
+        df_oof
+        .join(df_base_probs, on="original_row_idx", how="inner")
+        .join(df_ctx, on="original_row_idx", how="inner")
+        .sort("original_row_idx")
+    )
+
+    logger.info(f"✅ Fused rows after inner join: {len(df_joined):,}")
+    logger.info(f"   OOF had: {len(df_oof):,} | Base had: {len(df_base_probs):,} | Context had: {len(df_ctx):,}")
+
+    # Rename OOF target column to true_target for consistency with legacy mode
+    if "true_target" not in df_joined.columns and "true_target" in df_oof.columns:
+        pass  # already renamed by OOF parquet
+
+    df_fused = df_joined.to_pandas()
+    df_fused = df_fused.rename(columns={"true_target": "true_target"})  # explicit
+
+    _build_fused_and_save(df_fused, config, output_dir)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MODO LEGADO (Holdout Especialista)
+# ══════════════════════════════════════════════════════════════════════════════
 def load_and_predict(config, val_dir, context_dir, output_dir):
+    """
+    Legacy Mode: loads the specialist validation directory and runs inference
+    with the Foundation + Specialist models. Alignment is positional (seq_len offset).
+    Used when kfold.enabled = false.
+    """
     # ── Load Context Data ──────────────────────────────────────────────────────
     context_files = sorted(list(Path(context_dir).glob("*.parquet")))
     if not context_files:
         logger.error(f"❌ Context files not found in {context_dir}. Run auditor_preprocessing first.")
         return
-        
-    df_context_list = []
-    for cf in context_files:
-        df_c = pl.read_parquet(cf).to_pandas()
-        df_context_list.append(df_c)
+
+    df_context_list = [pl.read_parquet(cf).to_pandas() for cf in context_files]
     full_context_df = pd.concat(df_context_list, ignore_index=True)
-    
-    # ── Load Raw Feature Data (For Inference) ──────────────────────────────────
+
+    # ── Load Raw Feature Data ──────────────────────────────────────────────────
     feature_cols = config['model']['feature_names']
-    val_files = sorted(list(Path(val_dir).glob("*.parquet")))
-    dfs_val = [pl.read_parquet(vf, columns=feature_cols + ['target']) for vf in val_files]
-    df_val = pl.concat(dfs_val).to_pandas()
-    
-    seq_len = config['optimization']['search_space']['seq_len'][0]
-    X_val_raw = df_val[feature_cols].to_numpy().astype(np.float32)
-    y_val_raw = df_val['target'].to_numpy().astype(np.int64)
-    
-    # ── Normalization ────────────────────────────────────────────────────────
-    scaler_foundation_path = Path(config['pipeline_paths']['scaler_foundation'])
+    val_files    = sorted(list(Path(val_dir).glob("*.parquet")))
+    dfs_val      = [pl.read_parquet(vf, columns=feature_cols + ['target']) for vf in val_files]
+    df_val       = pl.concat(dfs_val).to_pandas()
+
+    seq_len    = config['optimization']['search_space']['seq_len'][0]
+    X_val_raw  = df_val[feature_cols].to_numpy().astype(np.float32)
+    y_val_raw  = df_val['target'].to_numpy().astype(np.int64)
+
+    # ── Normalization ─────────────────────────────────────────────────────────
+    scaler_foundation_path  = Path(config['pipeline_paths']['scaler_foundation'])
     scaler_specialized_path = Path(config['pipeline_paths']['scaler_specialized'])
-    
+
     with open(scaler_foundation_path, 'rb') as f:
         scaler_base = pickle.load(f)
     with open(scaler_specialized_path, 'rb') as f:
         scaler_spec = pickle.load(f)
-        
+
     X_val_base_norm = scaler_base.transform(X_val_raw).astype(np.float32)
     X_val_spec_norm = scaler_spec.transform(X_val_raw).astype(np.float32)
-    
-    # ── Datasets ──────────────────────────────────────────────────────────────
+
     dataset_base = SequenceDataset(X_val_base_norm, y_val_raw, seq_len)
     dataset_spec = SequenceDataset(X_val_spec_norm, y_val_raw, seq_len)
-    
+
     loader_base = DataLoader(dataset_base, batch_size=2048, shuffle=False, num_workers=4)
     loader_spec = DataLoader(dataset_spec, batch_size=2048, shuffle=False, num_workers=4)
-    
-    # ── Models Loading ────────────────────────────────────────────────────────
+
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    logger.info("loading Base and Specialist Models...")
-    
-    # ── Reconstrução Dinâmica da Arquitetura via best_params.json ─────────────
-    # Conforme solicitado, utilizaremos os parâmetros gerados naotimização em vez do índice [0] hardcoded.
+
     base_params_path = Path("src/cloud/base_model/otimizacao/best_params.json")
     spec_params_path = Path("src/cloud/base_model/otimizacao/best_params_specialist.json")
-    
+
     if not base_params_path.exists() or not spec_params_path.exists():
-        logger.error("❌ best_params.json ou best_params_specialist.json não encontrados. Rode a otimização primeiro.")
+        logger.error("❌ best_params.json ou best_params_specialist.json não encontrados.")
         return
-        
+
     with open(base_params_path, 'r') as f:
         base_params = json.load(f)
     with open(spec_params_path, 'r') as f:
@@ -120,121 +309,80 @@ def load_and_predict(config, val_dir, context_dir, output_dir):
     num_features = len(feature_cols)
 
     model_base = Hybrid_TCN_LSTM(
-        num_features=num_features, 
-        seq_len=base_params['seq_len'], 
-        tcn_channels=base_params['tcn_channels'], 
-        lstm_hidden=base_params['lstm_hidden'], 
-        num_lstm_layers=base_params['num_lstm_layers'], 
-        num_classes=3, 
-        dropout=base_params['dropout']
+        num_features=num_features, seq_len=base_params['seq_len'],
+        tcn_channels=base_params['tcn_channels'], lstm_hidden=base_params['lstm_hidden'],
+        num_lstm_layers=base_params['num_lstm_layers'], num_classes=3, dropout=base_params['dropout']
     ).to(DEVICE)
-    
+
     model_spec = Hybrid_TCN_LSTM(
-        num_features=num_features, 
-        seq_len=spec_params['seq_len'], 
-        tcn_channels=spec_params['tcn_channels'], 
-        lstm_hidden=spec_params['lstm_hidden'], 
-        num_lstm_layers=spec_params['num_lstm_layers'], 
-        num_classes=3, 
-        dropout=spec_params['dropout']
+        num_features=num_features, seq_len=spec_params['seq_len'],
+        tcn_channels=spec_params['tcn_channels'], lstm_hidden=spec_params['lstm_hidden'],
+        num_lstm_layers=spec_params['num_lstm_layers'], num_classes=3, dropout=spec_params['dropout']
     ).to(DEVICE)
-    
-    # Try multiple paths for robust loading
+
     base_path = Path(config['pipeline_paths']['best_tcn_lstm_model'])
     spec_path = Path(config['pipeline_paths']['best_specialized_model'])
-    
+
     try:
         model_base.load_state_dict(torch.load(base_path, map_location=DEVICE))
         model_spec.load_state_dict(torch.load(spec_path, map_location=DEVICE))
     except KeyError:
-        # Fallback if saved as dict with 'model_state_dict'
         base_dict = torch.load(base_path, map_location=DEVICE)
         spec_dict = torch.load(spec_path, map_location=DEVICE)
         model_base.load_state_dict(base_dict.get('model_state_dict', base_dict))
         model_spec.load_state_dict(spec_dict.get('model_state_dict', spec_dict))
-        
-    # ── Inference ────────────────────────────────────────────────────────────
+
     logger.info("Generating Foundation Probabilities...")
     probs_base, targets_aligned = generate_predictions(model_base, loader_base, DEVICE)
-    
+
     logger.info("Generating Specialist Probabilities...")
     probs_spec, _ = generate_predictions(model_spec, loader_spec, DEVICE)
-    
-    # ── Align Context Features (SeqLen offset) ────────────────────────────────
-    logger.info(f"Aligning {len(full_context_df)} context rows to {len(targets_aligned)} predictions...")
-    # Because SequenceDataset drops the first `seq_len - 1` targets and the last item
-    # y_label = y[idx + seq_len - 1]
-    # idx goes from 0 to len(X) - seq_len - 1
-    # Thus targets correspond to original index from `seq_len - 1` to `len(X) - 2`
-    
-    aligned_context_df = full_context_df.iloc[seq_len - 1 : len(full_context_df) - 1].reset_index(drop=True)
-    
-    # Verify alignment
+
+    # Positional alignment (seq_len offset)
+    aligned_context_df = full_context_df.iloc[seq_len - 1: len(full_context_df) - 1].reset_index(drop=True)
+
     if len(aligned_context_df) != len(targets_aligned):
         logger.warning(f"Feature alignment mismatch! Context: {len(aligned_context_df)}, Targets: {len(targets_aligned)}")
-        # Truncate to min
         min_len = min(len(aligned_context_df), len(targets_aligned))
         aligned_context_df = aligned_context_df.iloc[:min_len]
-        probs_base = probs_base[:min_len]
-        probs_spec = probs_spec[:min_len]
-        targets_aligned = targets_aligned[:min_len]
-        
-    # ── Construct Fused Dataset ────────────────────────────────────────────────
-    df_fused = aligned_context_df.copy()
-    
-    df_fused["base_prob_sell"] = probs_base[:, 0]
-    df_fused["base_prob_neu"] = probs_base[:, 1]
-    df_fused["base_prob_buy"] = probs_base[:, 2]
-    
-    df_fused["spec_prob_sell"] = probs_spec[:, 0]
-    df_fused["spec_prob_neu"] = probs_spec[:, 1]
-    df_fused["spec_prob_buy"] = probs_spec[:, 2]
-    
-    # ── Meta-Labeling Logic ────────────────────────────────────────────────────
-    # User Request: Meta_Target = 1 se Pred(Especialista) == Target_Real, senão 0.
-    spec_preds_class = np.argmax(probs_spec, axis=1)
-    df_fused["meta_target"] = np.where(spec_preds_class == targets_aligned, 1, 0)
-    df_fused["true_target"] = targets_aligned
-    
-    logger.info(f"Fused Dataset Size: {len(df_fused)}. Meta-Target Accuracy: {df_fused['meta_target'].mean():.2%}")
-    
-    # ── Split Auditor Fused Data ───────────────────────────────────────────────
-    split_pct = config['pre_processing']['split']['auditor']['train_ratio']
-    split_idx = int(len(df_fused) * split_pct)
-    
-    train_fused = df_fused.iloc[:split_idx]
-    val_fused = df_fused.iloc[split_idx:]
-    
-    out_path = Path(output_dir)
-    train_path = out_path / "train"
-    val_path = out_path / "val"
-    train_path.mkdir(parents=True, exist_ok=True)
-    val_path.mkdir(parents=True, exist_ok=True)
-    
-    train_file = train_path / "fused_auditor.parquet"
-    val_file = val_path / "fused_auditor.parquet"
-    
-    pl.DataFrame(train_fused).write_parquet(train_file)
-    pl.DataFrame(val_fused).write_parquet(val_file)
-    
-    logger.info(f"📦 Treino Fused salvo: {train_file} ({len(train_fused)} samples)")
-    logger.info(f"📦 Val Fused salvo: {val_file} ({len(val_fused)} samples)")
+        probs_base        = probs_base[:min_len]
+        probs_spec        = probs_spec[:min_len]
+        targets_aligned   = targets_aligned[:min_len]
 
+    df_fused = aligned_context_df.copy()
+    df_fused["base_prob_sell"] = probs_base[:, 0]
+    df_fused["base_prob_neu"]  = probs_base[:, 1]
+    df_fused["base_prob_buy"]  = probs_base[:, 2]
+    df_fused["spec_prob_sell"] = probs_spec[:, 0]
+    df_fused["spec_prob_neu"]  = probs_spec[:, 1]
+    df_fused["spec_prob_buy"]  = probs_spec[:, 2]
+    df_fused["true_target"]    = targets_aligned
+
+    _build_fused_and_save(df_fused, config, output_dir)
+
+
+# ── Entry Point ────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     setup_logger("auditor_labelling", "")
     conf = load_config()
-    
-    sell_th = conf['pre_processing']['labelling'].get('sell_threshold', 0.003)
-    buy_th  = conf['pre_processing']['labelling'].get('buy_threshold', 0.003)
-    mins    = conf['pre_processing']['labelling'].get('horizon_minutes', 15)
-    base_labelled_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
-    spec_val_dir = Path(f"data/L2/splits_specialized_{base_labelled_name}/val")
-    
+
     context_dir = "data/auditor/context"
-    fused_dir = "data/auditor/dataset_fused"
-    
-    if spec_val_dir.exists():
-        logger.info(f"Gerando dataset fundido a partir da Base de Validacao Isolada (Strict OOF): {spec_val_dir}")
-        load_and_predict(conf, spec_val_dir, context_dir, fused_dir)
+    fused_dir   = "data/auditor/dataset_fused"
+
+    kfold_enabled = conf.get('pre_processing', {}).get('kfold', {}).get('enabled', False)
+
+    if kfold_enabled:
+        logger.info("🔁 K-Fold Mode detected (kfold.enabled=true) → loading full_oof.parquet")
+        load_and_fuse_kfold(conf, context_dir, fused_dir)
     else:
-        logger.error(f"❌ {spec_val_dir} not found for Auditor inference. Rode o pipeline novamente.")
+        sell_th = conf['pre_processing']['labelling'].get('sell_threshold', 0.003)
+        buy_th  = conf['pre_processing']['labelling'].get('buy_threshold', 0.003)
+        mins    = conf['pre_processing']['labelling'].get('horizon_minutes', 15)
+        base_labelled_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
+        spec_val_dir = Path(f"data/L2/splits_specialized_{base_labelled_name}/val")
+
+        if spec_val_dir.exists():
+            logger.info(f"📂 Legado Mode: {spec_val_dir}")
+            load_and_predict(conf, spec_val_dir, context_dir, fused_dir)
+        else:
+            logger.error(f"❌ {spec_val_dir} not found. Rode o pipeline novamente.")

@@ -59,16 +59,127 @@ class TestAuditorLabelling:
 
     def test_data_leakage_specialist_vs_auditor(self):
         """
-        [ v4.3 EXPERIMENTAL - Cuidado contra Vazamentos de Out-Of-Fold ]
-        O Auditor deve ser treinado onde a rede neural NUNCA FOI OTIMIZADA.
-        Se os datasets de Treino do Especialista e Treino do Auditor convergirem para os mesmos
-        Timestamps, o XGBoost vai decorar os falsos positivos como sendo Deuses (High-Confidence Overfitting).
+        🛡️  TESTE DE COLISÃO DE HASHES — Anti-Leakage K-Fold OOF
+
+        Verifica que NENHUM dado usado no TREINO dos Clones do Especialista
+        apareceu como dado de TREINO do Auditor (dataset_fused).
+
+        Algoritmo:
+          1. Para cada fold k, carregamos fold_k.parquet (predições OOF do bloco TESTE).
+          2. Derivamos os índices de TREINO daquele fold via blocked_purged_kfold_indices().
+          3. Calculamos SHA256 dos bytes do array de indices de treino de cada fold.
+          4. Calculamos SHA256 dos original_row_idx presentes no fused_auditor.parquet (treino).
+          5. Verificamos que os índices de treino do Especialista
+             NÃO aparecem no fused_auditor.parquet de treino do Auditor.
+
+        Regra de Ouro: O Auditor só vê os blocos TESTE do K-Fold
+        (as predições OOF). Os blocos TREINO dos Clones são irrelevantes
+        para o Auditor e jamais foram injetados no dataset_fused.
         """
-        logger.warning(
-            "\\n🛡️ ALERTA ENGENHARIA [v4.3 PREP] 🛡️"
-            "\\nTeste TDD de 'Data Leakage' reservado.\\n"
-            "Implementaremos colisão de hashings do TS (`time_stamp`) em breve quando a "
-            "K-Fold Cross Validation em `master_config.yaml` for ativada."
+        import yaml
+        import hashlib
+
+        # ── Load config ───────────────────────────────────────────────────────
+        cfg_path = Path("src/cloud/base_model/configs/master_config.yaml")
+        if not cfg_path.exists():
+            pytest.skip("master_config.yaml not found")
+
+        with open(cfg_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+
+        kfold_cfg = config.get('pre_processing', {}).get('kfold', {})
+        if not kfold_cfg.get('enabled', False):
+            pytest.skip("K-Fold not enabled in master_config.yaml (kfold.enabled=false)")
+
+        # ── Verify required files exist ───────────────────────────────────────
+        oof_dir       = Path(kfold_cfg.get('oof_output_dir', 'data/auditor/oof_predictions'))
+        full_oof_path = oof_dir / "full_oof.parquet"
+        fused_train   = Path("data/auditor/dataset_fused/train/fused_auditor.parquet")
+
+        if not full_oof_path.exists():
+            pytest.skip(f"full_oof.parquet not found (run K-Fold first): {full_oof_path}")
+        if not fused_train.exists():
+            pytest.skip(f"fused_auditor.parquet not found (run auditor_labelling first): {fused_train}")
+
+        # ── Load OOF test indices (safe to be in Auditor) ─────────────────────
+        # full_oof.parquet contains ONLY the test-block predictions from each fold.
+        # These are the rows the Auditor CAN see — they were never used for training.
+        df_oof       = pl.read_parquet(full_oof_path)
+        oof_test_idx = set(df_oof['original_row_idx'].to_list())
+
+        # ── Load Auditor training indices ─────────────────────────────────────
+        df_fused_train = pl.read_parquet(fused_train)
+
+        # fused_auditor.parquet should have original_row_idx if K-Fold mode produced it
+        if 'original_row_idx' not in df_fused_train.columns:
+            pytest.skip(
+                "fused_auditor.parquet has no 'original_row_idx' column. "
+                "Possibly generated in legacy mode — leakage test not applicable."
+            )
+
+        auditor_train_idx = set(df_fused_train['original_row_idx'].to_list())
+
+        # ── Per-fold hash verification ────────────────────────────────────────
+        # For each fold, reconstruct which original rows were used for TRAINING
+        # (not testing). These rows MUST NOT appear in the Auditor's training data.
+        n_splits        = kfold_cfg.get('n_splits', 5)
+        sell_th = config['pre_processing']['labelling'].get('sell_threshold', 0.003)
+        buy_th  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
+        mins    = config['pre_processing']['labelling'].get('horizon_minutes', 15)
+        base_labelled_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
+        foundation_val_dir = Path(f"data/L2/splits_{base_labelled_name}/val")
+
+        if not foundation_val_dir.exists():
+            pytest.skip(f"Foundation val not found: {foundation_val_dir}")
+
+        val_files = sorted(list(foundation_val_dir.glob("*.parquet")))
+        n_total   = sum(pl.read_parquet(f, columns=['target']).shape[0] for f in val_files)
+
+        freq     = config['pre_processing']['etl'].get('resample_freq', '1min')
+        r_min    = max(1, int(freq.replace('min', '').replace('T', '')))
+        purge_m  = kfold_cfg.get('purge_minutes', 15)
+        purge_b  = max(1, purge_m // r_min)
+
+        # Lazy import to avoid circular dependency in test discovery
+        sys.path.insert(0, str(Path(".").resolve()))
+        from src.cloud.base_model.treino.run_kfold_specialist import blocked_purged_kfold_indices
+
+        specialist_train_all  = set()
+        fold_train_hashes     = {}
+
+        for fold_k, (train_idx, test_idx) in enumerate(
+            blocked_purged_kfold_indices(n_total, n_splits, purge_b)
+        ):
+            # SHA256 of training indices for this fold (deterministic fingerprint)
+            idx_bytes  = train_idx.tobytes()
+            fold_hash  = hashlib.sha256(idx_bytes).hexdigest()[:16]
+            fold_train_hashes[fold_k] = fold_hash
+            specialist_train_all.update(train_idx.tolist())
+
+        # ── The Core Leakage Check ─────────────────────────────────────────────
+        # Auditor trains on OOF test blocks — which must be fully disjoint from
+        # the specialist training blocks.
+        leakage_rows = auditor_train_idx & specialist_train_all
+
+        assert len(leakage_rows) == 0, (
+            f"\n🚨 DATA LEAKAGE DETECTADO!\n"
+            f"   {len(leakage_rows)} linhas que foram usadas no TREINO do Especialista\n"
+            f"   aparecem no TREINO do Auditor (dataset_fused/train).\n"
+            f"   Amostra de índices vazados: {sorted(list(leakage_rows))[:10]}\n"
+            f"   Hashes por fold: {fold_train_hashes}\n"
+            f"   → Revise o inner join em auditor_labelling.py e o blocked_purged_kfold_indices()."
         )
-        # Passa o script como True/Válido porque a arquitetura atual permite o teste
-        assert True, "O stub lógico de Anti-Vazamento (Data Leakage) está a postos."
+
+        # Verify OOF test indices ARE the source for auditor (non-zero intersection)
+        oof_in_auditor = auditor_train_idx & oof_test_idx
+        assert len(oof_in_auditor) > 0, (
+            "Auditor training set has zero intersection with OOF test predictions. "
+            "Something went wrong in the fusion join."
+        )
+
+        logger.info(
+            f"✅ HASH COLLISION TEST PASSED\n"
+            f"   Fold hashes: {fold_train_hashes}\n"
+            f"   Auditor train uses {len(auditor_train_idx):,} of {len(oof_test_idx):,} OOF test rows.\n"
+            f"   Specialist training rows in Auditor training: 0 (CLEAN)"
+        )

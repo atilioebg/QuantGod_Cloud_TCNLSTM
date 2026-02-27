@@ -92,17 +92,32 @@ def main():
     
     if manage_gpu: free_memory()
     
-    # ── FASE 2: Specialist Optuna ──────────────────────────────────────────────
-    success = run_phase(
-        name="Specialist Optuna (Symmetric Delta)",
-        script_path="src/cloud/base_model/treino/run_specialization.py",
-        check_exists=best_spec_model,
-        force_retrain=force_retrain
-    )
+    # ── FASE 2: Specialist ─────────────────────────────────────────────────────
+    # Auto-detect: K-Fold OOF (Engorda Total) vs Legado (Holdout 80/20)
+    kfold_cfg     = config.get('pre_processing', {}).get('kfold', {})
+    kfold_enabled = kfold_cfg.get('enabled', False)
+    oof_check     = kfold_cfg.get('oof_output_dir', 'data/auditor/oof_predictions') + '/full_oof.parquet'
+
+    if kfold_enabled:
+        logger.info("🔁 K-Fold Mode ativado (kfold.enabled=true) → Executando 5-Fold Purged K-Fold Specialist")
+        success = run_phase(
+            name="K-Fold Specialist OOF (5 Folds + Purge 15min)",
+            script_path="src/cloud/base_model/treino/run_kfold_specialist.py",
+            check_exists=oof_check,
+            force_retrain=force_retrain
+        )
+    else:
+        logger.info("📂 Legado Mode (kfold.enabled=false) → Executando Specialist Optuna (Holdout 80/20)")
+        success = run_phase(
+            name="Specialist Optuna (Symmetric Delta)",
+            script_path="src/cloud/base_model/treino/run_specialization.py",
+            check_exists=best_spec_model,
+            force_retrain=force_retrain
+        )
     if not success and not skip_qa_on_fail: sys.exit(1)
-    
+
     if manage_gpu: free_memory()
-    
+
     # ── FASE 3: Auditor (Meta-Labeling & XGBoost) ──────────────────────────────
     # Check if models exist (OOF Condition)
     if not Path(best_base_model).exists() or not Path(best_spec_model).exists():
