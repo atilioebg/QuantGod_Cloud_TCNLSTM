@@ -64,6 +64,16 @@ pre_processing:
       train_ratio: 0.80                                           # Treinamento do XGBoost na extração conjunta de features cruzadas
       val_ratio: 0.20                                             # Validação Test-Final Auditor Pipeline
 
+  kfold:
+    enabled: true                                                 # Liga K-Fold OOF no Especialista. Se false: usa run_specialization.py legado (Holdout 80/20).
+    n_splits: 5                                                   # Número de folds cronológicos (Blocked K-Fold). Cada fold cobre ~20% do Foundation Val.
+    purge_minutes: 15                                             # Janela de Purga em minutos. Deve ser >= horizon_minutes para quebrar correlação serial.
+                                                                  # Garante: max(treino_ts) + purge_min < min(teste_ts). Default = horizon_minutes = 15min.
+    specialist_epochs: 30                                         # Épocas por fold (menor que Optuna full para manter custo de 5 folds razoável em GPU).
+    use_best_foundation_arch: true                                # Se true: usa best_params.json da Fundação sem re-otimizar (Symmetric Delta não é executado).
+                                                                  # Poupa GPU: cada fold treina a MESMA arquitetura vencedora, variando apenas os pesos.
+    oof_output_dir: "data/auditor/oof_predictions"                # Diretório onde os logits de cada fold e o full_oof.parquet serão salvos.
+
 model:
   num_features: 32                                                # Quantidade de colunas injetadas nos tensores matriciais (Base model)
   num_classes: 3                                                  # BUY (2), NEUTRAL (1), SELL (0)
