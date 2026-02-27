@@ -75,7 +75,7 @@ pre_processing:
     oof_output_dir: "data/auditor/oof_predictions"                # Diretório onde os logits de cada fold e o full_oof.parquet serão salvos.
 
 model:
-  num_features: 32                                                # Quantidade de colunas injetadas nos tensores matriciais (Base model)
+  num_features: 24                                                # Quantidade de colunas injetadas nos tensores matriciais (Base model) — ETL v4.3 (1min)
   num_classes: 3                                                  # BUY (2), NEUTRAL (1), SELL (0)
   
   auditor:
@@ -85,6 +85,9 @@ model:
     manual_threshold: 0.65                                        # Fallback caso use_dynamic_threshold seja false
   
   feature_names:                                                  # Nome das colunas injetadas nos tensores matriciais (Base model)
+                                                                  # IMPORTANTE: Nomes baseados em MINUTOS REAIS (ETL v4.3).
+                                                                  # Ex: ofi_delta_5 = OFI com lookback de 5 minutos reais.
+                                                                  # ETL calcula: suffix = delta_short_min (5min) ou delta_long_min (30min).
     # --- Aggregated Features (9) ---
     - body                                                        # Corpo da vela: log(close/open)
     - upper_wick                                                  # Sombra superior normalizada
@@ -96,30 +99,22 @@ model:
     - mean_deep_obi                                               # Order Book Imbalance Profundo (L5)
     - log_volume                                                  # Proxy de Volume (log messages)
     
-    # --- Dynamic/Sniper Features (23) ---
+    # --- Dynamic/Sniper Features (15) — nomes em MINUTOS REAIS ---
     - ofi                                                         # Order Flow Imbalance (L0)
-    - ofi_delta_1                                                 # Gatilho de Fluxo (5min - 1 bar)
-    - ofi_delta_6                                                 # Aceleração de Fluxo (30min - 6 bars)
+    - ofi_delta_5                                                 # Gatilho de Fluxo: delta_short_min=5min (ETL v4.3)
+    - ofi_delta_30                                                # Aceleração de Fluxo: delta_long_min=30min (ETL v4.3)
     - micro_price_momentum                                        # Momentum Acumulado Micro-Price
-    - micro_price_delta_1                                         # Gatilho de Preço Real (5min - 1 bar)
-    - micro_price_delta_6                                         # Drift de Preço Real (30min - 6 bars)
-    - bid_slope                                                   # Inclinação dos Bids
-    - ask_slope                                                   # Inclinação dos Asks
+    - micro_price_delta_5                                         # Gatilho de Preço Real: delta_short_min=5min
+    - micro_price_delta_30                                        # Drift de Preço Real: delta_long_min=30min
     - bid_rdi                                                     # Relative Depth Imbalance (Bid)
-    - bid_rdi_delta_1                                             # Choque de Profundidade Bid (5min)
-    - bid_rdi_delta_6                                             # Contexto de Profundidade Bid (30min)
+    - bid_rdi_delta_5                                             # Choque de Profundidade Bid: 5min
+    - bid_rdi_delta_30                                            # Contexto de Profundidade Bid: 30min
     - ask_rdi                                                     # Relative Depth Imbalance (Ask)
-    - ask_rdi_delta_1                                             # Choque de Profundidade Ask (5min)
-    - ask_rdi_delta_6                                             # Contexto de Profundidade Ask (30min)
-    - book_asymmetry_v5                                           # Assimetria L5
-    - spread_zscore_60                                            # Spread Relativo (60min = 12 bars)
-    - vpin_lite_5                                                 # Toxicidade de Volume (25min = 5 bars)
+    - ask_rdi_delta_5                                             # Choque de Profundidade Ask: 5min
+    - ask_rdi_delta_30                                            # Contexto de Profundidade Ask: 30min
+    - spread_zscore_60                                            # Spread Relativo: spread_zscore_window_min=60min
+    - vpin_lite_25                                                # Toxicidade de Volume: vpin_window_min=25min
     - kyle_lambda                                                 # Kyle's Lambda (Price resistance to flow)
-    - bid_deep_ratio                                              # Razão Profunda Bid (L200/L5)
-    - ask_deep_ratio                                              # Razão Profunda Ask (L200/L5)
-    - bid_convexity                                               # Convexidade Bid (L10 vs L20)
-    - ask_convexity                                               # Convexidade Ask (L10 vs L20)
-    - pressure_ratio                                              # Razão de Pressão L2
 
   auditor_features:
     - base_prob_sell                                              # Logits convertidos Base Model (Sell)
