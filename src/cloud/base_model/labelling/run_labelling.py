@@ -105,12 +105,17 @@ def run_labelling():
         logger.error(f"No parquet files found in {input_dir}")
         return
 
-    # Dynamic CPU Detection
+    # Worker count: controlled by master_config.yaml
+    # use_dynamic_workers=true  → os.cpu_count()-1 para máxima portabilidade
+    # use_dynamic_workers=false → max_workers do config (útil em cloud com CPUs fixas)
     total_cpus = os.cpu_count() or 1
-    # max_workers = max(1, total_cpus - 1)
-    max_workers = 14
-    
-    logger.info(f"System detected {total_cpus} vCPUs. Using {max_workers} parallel workers for labelling.")
+    use_dynamic = config['pre_processing']['labelling'].get('use_dynamic_workers', False)
+    if use_dynamic:
+        max_workers = max(1, total_cpus - 1)
+    else:
+        max_workers = config['pre_processing']['labelling'].get('max_workers', 14)
+
+    logger.info(f"System detected {total_cpus} vCPUs. Using {max_workers} parallel workers for labelling (use_dynamic_workers={use_dynamic}).")
     logger.info(f"Found {len(parquet_files)} files to label.")
 
     # 3. Parallel Execution

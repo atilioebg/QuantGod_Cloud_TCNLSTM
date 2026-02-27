@@ -2,6 +2,7 @@ import json
 import pandas as pd
 import numpy as np
 import logging
+import yaml
 from typing import Dict, List, Optional
 import pickle
 from pathlib import Path
@@ -9,13 +10,26 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Microstructure feature depth (top-N levels for OFI/Slope/RDI)
-_FLOW_DEPTH = 5
+# Loaded dynamically from master_config.yaml at import time.
+# Fallback to 5 if config is unavailable (e.g., unit test environments).
+def _load_flow_depth() -> int:
+    cfg_path = Path("src/cloud/base_model/configs/master_config.yaml")
+    try:
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f)
+        return int(cfg["pre_processing"]["etl"].get("flow_depth", 5))
+    except Exception:
+        return 5
+
+_FLOW_DEPTH = _load_flow_depth()
 
 
 class L2Transformer:
-    def __init__(self, levels: int = 200, sampling_ms: int = 1000):
+    def __init__(self, levels: int = 200, sampling_ms: int = 1000, flow_depth: int = None):
         self.levels = levels
         self.sampling_ms = sampling_ms
+        # Allow caller to override flow_depth; fall back to module-level value from config
+        self.flow_depth = flow_depth if flow_depth is not None else _FLOW_DEPTH
         self.bids_book: Dict[float, float] = {}
         self.asks_book: Dict[float, float] = {}
         self.last_sample_ts: int = -1
@@ -107,7 +121,7 @@ class L2Transformer:
         row['obi_l0'] = obi_l0
 
         # ── Top-N aggregates for OFI, Slope, RDI ─────────────────────────────
-        n = _FLOW_DEPTH
+        n = self.flow_depth
         top_bids = [(p, self.bids_book[p]) for p in sorted_bids[:n]]
         top_asks = [(p, self.asks_book[p]) for p in sorted_asks[:n]]
 

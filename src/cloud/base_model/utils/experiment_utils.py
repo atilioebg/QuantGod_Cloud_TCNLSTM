@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 def resolve_active_labelled_dir() -> Path:
     """
     Determines the correct labelled directory based on labelling_config.yaml.
+    Falls back to the most recent labelled_* folder if the config file is
+    missing, empty, or deprecated (contains only comments → YAML parses to None).
     """
     config_path = Path("src/cloud/base_model/labelling/labelling_config.yaml")
     if not config_path.exists():
@@ -22,10 +24,16 @@ def resolve_active_labelled_dir() -> Path:
 
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
-    
+
+    # Guard: deprecated file (only comments) parses to None — use fallback
+    if config is None or 'params' not in config or 'paths' not in config:
+        base = Path("data/L2")
+        dirs = sorted(list(base.glob("labelled_*")))
+        return dirs[-1] if dirs else base / "labelled"
+
     suffix = get_labelling_suffix(config['params'])
     base_output = Path(config['paths']['output_dir'])
-    
+
     # If the base output dir doesn't already end with the suffix, append it
     if not base_output.name.endswith(suffix):
         return base_output.parent / f"{base_output.name}{suffix}"

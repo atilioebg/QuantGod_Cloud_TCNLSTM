@@ -67,8 +67,9 @@ class TestMasterConfig:
 
     def test_batch_size_safe(self):
         cfg = load(MASTER_CFG)
-        bs = cfg["training"]["hyperparameters"]["batch_size"]
-        assert bs <= 2048, f"batch_size={bs} may cause OOM — cap at 2048"
+        bs_list = cfg["optimization"]["search_space"]["batch_size"]
+        assert isinstance(bs_list, list), "batch_size deve ser uma lista no search_space"
+        assert max(bs_list) <= 2048, f"O batch_size máximo ({max(bs_list)}) excede o limite de segurança para evitar OOM"
 
 # ── auditor_config.yaml ───────────────────────────────────────────────────────
 class TestAuditorConfig:
