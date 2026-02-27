@@ -113,7 +113,7 @@ model:
     - ask_rdi_delta_5                                             # Choque de Profundidade Ask: 5min
     - ask_rdi_delta_30                                            # Contexto de Profundidade Ask: 30min
     - spread_zscore_60                                            # Spread Relativo: spread_zscore_window_min=60min
-    - vpin_lite_25                                                # Toxicidade de Volume: vpin_window_min=25min
+    - vpin_min25                                                  # Toxicidade de Volume: vpin_window_min=25min
     - kyle_lambda                                                 # Kyle's Lambda (Price resistance to flow)
 
   auditor_features:

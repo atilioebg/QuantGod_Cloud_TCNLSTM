@@ -112,6 +112,7 @@ class L2Transformer:
         self._resample_min         = int(cfg["resample_min"])          # minutes per bar (e.g. 1 or 5)
         self._spread_zscore_window = int(cfg["spread_zscore_window"])  # in bars, resolved from *_min
         self._vpin_window          = int(cfg["vpin_window"])           # in bars, resolved from *_min
+        self._vpin_window_min      = int(cfg.get("vpin_window_min", 25))
         self._delta_short          = int(cfg["delta_short"])           # in bars, resolved from *_min
         self._delta_long           = int(cfg["delta_long"])            # in bars, resolved from *_min
         # Real-minute values kept for column-name labels (e.g. ofi_delta_5, ofi_delta_30)
@@ -445,8 +446,8 @@ class L2Transformer:
         )
 
         # 3. V-PIN Lite (vpin_window bars) — nome dinâmico em MINUTOS REAIS para consistência com config
-        vpin_lbl = f"{cfg.get('vpin_window_min', 25)}"  # ex: 25 → 'vpin_lite_25'
-        vpin_col = f'vpin_lite_{vpin_lbl}'
+        vpin_lbl = f"{getattr(self, '_vpin_window_min', 25)}"  # ex: 25 → 'vpin_min25'
+        vpin_col = f'vpin_min{vpin_lbl}'
         final_df[vpin_col] = (
             final_df['ofi'].abs().rolling(self._vpin_window).sum() / (sum_bids_n + sum_asks_n + 1e-9)
         )

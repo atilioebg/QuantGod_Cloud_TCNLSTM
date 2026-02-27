@@ -61,6 +61,37 @@ def execute_split(stage_name, source_files, target_base_dir, train_ratio):
         
     return train_files, val_files
 
+def enforce_purge_gap(train_dir, config, stage_name):
+    """
+    Aplica o Purge Gap: Remove `horizon_minutes` barras do FINAL do último arquivo 
+    do bloco de treino para garantir que o lookahead de rótulos não vaze para a validação.
+    """
+    import polars as pl
+    from src.cloud.base_model.pre_processamento.etl.transform import _parse_resample_minutes
+
+    train_files = sorted(list(Path(train_dir).glob("*.parquet")))
+    if not train_files:
+        return 0
+
+    last_file = train_files[-1]
+    df = pl.read_parquet(last_file)
+    
+    horizon_min = config['pre_processing']['labelling'].get('horizon_minutes', 15)
+    resample_freq = config['pre_processing']['etl'].get('resample_freq', '1min')
+    resample_min = _parse_resample_minutes(resample_freq)
+    
+    purge_bars = max(1, horizon_min // resample_min)
+    
+    if len(df) > purge_bars:
+        df_purged = df.slice(0, len(df) - purge_bars)
+        df_purged.write_parquet(last_file)
+        logger.info(f"🛡️ [{stage_name}] PURGE GAP APLICADO: {purge_bars} barras ({horizon_min} min) removidas do final de {last_file.name}")
+        return purge_bars
+    else:
+        logger.warning(f"⚠️ [{stage_name}] O último arquivo {last_file.name} tem menos barras que o purge_gap ({len(df)} < {purge_bars}). Ele será deletado.")
+        last_file.unlink()
+        return len(df)
+
 def split_and_segregate():
     # Setup logger
     setup_logger("split_dataset", "")
@@ -116,6 +147,10 @@ def split_and_segregate():
         train_ratio=spec_train_pct
     )
     
+    # ── 2.5 APLICAÇÃO DO PURGE GAP TEMPORAL ──────────────────────────────
+    base_purged_bars = enforce_purge_gap(base_split_dir / "train", config, "Foundation")
+    spec_purged_bars = enforce_purge_gap(spec_split_dir / "train", config, "Specialist")
+    
     # ── 3. Checklists & Hashing (split_summary.json) ────────────────────
     logger.info("⏳ Generating split_summary.json with hashes and timestamp boundaries...")
     
@@ -147,6 +182,11 @@ def split_and_segregate():
                 "last_file": spec_val_files[-1].name if spec_val_files else None,
                 "files": {f.name: sha256_file(spec_split_dir/"val"/f.name) for f in spec_val_files}
             }
+        },
+        "purge_gap_proof": {
+            "Foundation": f"{base_purged_bars} barras descartadas da borda do Treino para barrar Leakage",
+            "Specialist": f"{spec_purged_bars} barras descartadas da borda do Treino para barrar Leakage",
+            "gap_minutes_applied": config['pre_processing']['labelling'].get('horizon_minutes', 15)
         }
     }
     

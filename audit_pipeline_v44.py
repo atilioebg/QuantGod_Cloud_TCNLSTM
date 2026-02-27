@@ -404,8 +404,17 @@ def fase_3_kfold_warmstart(df_val: pl.DataFrame, config: dict) -> pl.DataFrame:
 
         # Purge gap log
         if len(train_idx) and len(test_idx):
-            gap_bars = test_idx.min() - train_idx.max() - 1
-            logger.info(f"  ✅ Purge gap: {gap_bars} barras = {gap_bars * resample_min} minutos")
+            test_min = test_idx.min()
+            test_max = test_idx.max()
+            left_train = train_idx[train_idx < test_min]
+            right_train = train_idx[train_idx > test_max]
+
+            if len(left_train) > 0:
+                gap_left = test_min - left_train.max() - 1
+                logger.info(f"  ✅ Purge gap (L): {gap_left} barras = {gap_left * resample_min} minutos")
+            if len(right_train) > 0:
+                gap_right = right_train.min() - test_max - 1
+                logger.info(f"  ✅ Purge gap (R): {gap_right} barras = {gap_right * resample_min} minutos")
 
         # Per-fold scaler (NUNCA global — anti-leakage)
         X_tr = X_raw[train_idx]
@@ -647,27 +656,44 @@ def fase_5_compliance(df_train: pl.DataFrame, df_val: pl.DataFrame,
         fold_hashes[fold_k] = fold_hash
         specialist_train_all.update(train_idx.tolist())
 
-    # Índices OOF (o que o Auditor usa como treino)
+    # ── Avaliação Per-Fold (Stacking Verdadeiro) ──────────────────────────────
+    # Leakage real só existe se o OOF do Fold K conter linhas do Treino do Fold K.
+    total_colisoes = 0
+    colisoes_por_fold = {}
+    
+    for fold_k, (train_idx, test_idx) in enumerate(
+        blocked_purged_kfold_indices(n_total, n_splits, purge_bars)
+    ):
+        # OOF test subset for this fold
+        oof_k_idx = set(
+            full_oof.filter(pl.col("fold") == fold_k)["original_row_idx"].to_list()
+        )
+        train_k_idx = set(train_idx.tolist())
+        
+        colisao_k = train_k_idx & oof_k_idx
+        colisoes_por_fold[fold_k] = len(colisao_k)
+        total_colisoes += len(colisao_k)
+
+    all_disjoint = total_colisoes == 0
+
+    # SHA256 dos conjuntos globais (para log de auditoria institucional)
+    specialist_train_all_sorted = np.array(sorted(specialist_train_all))
+    train_set_hash = sha256_bytes(specialist_train_all_sorted.tobytes())[:16]
+    
     oof_test_idx = set(full_oof["original_row_idx"].to_list())
-
-    # Interseção: treino do Especialista ∩ treino do Auditor (deve ser ZERO)
-    collision = specialist_train_all & oof_test_idx
-    all_disjoint = len(collision) == 0
-
-    # SHA256 dos conjuntos
-    train_set_hash = sha256_bytes(np.array(sorted(specialist_train_all)).tobytes())[:16]
     oof_set_hash   = sha256_bytes(np.array(sorted(oof_test_idx)).tobytes())[:16]
 
     result = {
         "status":              "PASS" if all_disjoint else "FAIL",
-        "colisoes":            len(collision),
+        "colisoes":            total_colisoes,
+        "colisoes_detalhe":    colisoes_por_fold,
         "specialist_train_n":  len(specialist_train_all),
         "oof_test_n":          len(oof_test_idx),
         "sha256_specialist_train": train_set_hash,
         "sha256_oof_test":         oof_set_hash,
         "fold_hashes":             fold_hashes,
-        "veredicto": "✅ ZERO colisões — Auditor treina APENAS em dados que o Especialista nunca viu." if all_disjoint
-                     else f"🚨 {len(collision)} COLISÕES DETECTADAS! Data leakage!"
+        "veredicto": "✅ ZERO colisões Intra-Fold — Auditor treina APENAS em dados OOF limpos." if all_disjoint
+                     else f"🚨 {total_colisoes} COLISÕES LOCAIS DETECTADAS! Data leakage real!"
     }
 
     compliance_path = AUDIT_OUT / "compliance_collision_test.json"
@@ -767,7 +793,7 @@ desde o `.zip` bruto. Ele é transportado via `fold_k.parquet` → `full_oof.par
 | Labelled Consolidado | {label_meta.get('rows','N/A'):,} | `{lb.get('sha256_labelled','N/A')}` |
 | Foundation Train | {sp.get('n_train','N/A'):,} | `{sp.get('sha256_train','N/A')}` |
 | Foundation Val | {sp.get('n_val','N/A'):,} | `{sp.get('sha256_val','N/A')}` |
-| full\_oof.parquet | {kfold_meta.get('rows','N/A'):,} | `{kfold_meta.get('sha256','N/A')}` |
+| full_oof.parquet | {kfold_meta.get('rows','N/A'):,} | `{kfold_meta.get('sha256','N/A')}` |
 
 ---
 

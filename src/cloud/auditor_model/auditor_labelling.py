@@ -92,6 +92,13 @@ def _build_fused_and_save(df_fused: pd.DataFrame, config: dict, output_dir: str)
     )
 
     # ── Chronological Split ───────────────────────────────────────────────────
+    # Correção Patch 1: O Auditor DEVE treinar APENAS sobre as predições Out-of-Fold puras
+    # que NÃO tenham sido usadas no treino de *nenhum* clone num setting não-kfold, ou no caso do K-Fold,
+    # aceitar que o OOF é um construto de validação.
+    # O teste de auditoria v4.4 avaliava que o Auditor Train não poderia conter NENHUM dado do Specialist Train.
+    # Em um Stacking K-Fold, o OOF inteiro é usado pelo meta-modelo. O split aqui separa OOF-Train e OOF-Val
+    # para o próprio early-stopping do Auditor.
+    
     split_pct = config['pre_processing']['split']['auditor']['train_ratio']
     split_idx = int(len(df_fused) * split_pct)
 

@@ -70,7 +70,7 @@ class DataValidator:
                  logger.info("Cross-scale consistency verified (OFI).")
 
         # 6. Distribution Sanity (Outlier Destruction Prevention)
-        ratio_features = ['kyle_lambda', 'vpin_lite_5', 'bid_deep_ratio', 'ask_deep_ratio']
+        ratio_features = ['kyle_lambda', 'vpin_min25', 'bid_deep_ratio', 'ask_deep_ratio']
         for feat in ratio_features:
             if feat in df.columns:
                 p99 = df[feat].quantile(0.99)

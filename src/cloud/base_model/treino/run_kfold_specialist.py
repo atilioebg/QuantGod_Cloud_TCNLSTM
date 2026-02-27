@@ -197,7 +197,37 @@ def train_specialist_fold(
         num_lstm_layers=num_lstm_layers,
         num_classes=3,
         dropout=dropout,
-    ).to(DEVICE)
+    )
+    
+    # ── Safe Warm-start Injection ─────────────────────────────────────────────
+    # Load Foundation model weights if shapes match
+    base_model_path = Path(config['pipeline_paths']['best_tcn_lstm_model'])
+    if base_model_path.exists():
+        try:
+            state_dict = torch.load(base_model_path, map_location='cpu')
+            if 'model_state_dict' in state_dict:
+                state_dict = state_dict['model_state_dict']
+            
+            # Check shape compatibility (especially input features)
+            incompatible = False
+            for name, param in model.state_dict().items():
+                if name in state_dict and param.shape != state_dict[name].shape:
+                    incompatible = True
+                    break
+            
+            if incompatible:
+                logger.warning(
+                    f"⚠️ [Fold {fold_k}] WARM-START ABORTED: Checkpoint features shape mismatch. "
+                    f"Expected input features: {num_features}. "
+                    f"Falling back to COLD-START (Random Initialization) for this clone."
+                )
+            else:
+                model.load_state_dict(state_dict)
+                logger.info(f"🔥 [Fold {fold_k}] WARM-START SUCCESS: Base weights initialized.")
+        except Exception as e:
+            logger.error(f"⚠️ [Fold {fold_k}] WARM-START FAILURE: {e}. Falling back to COLD-START.")
+    
+    model = model.to(DEVICE)
 
     # Loss & Optimizer
     alpha    = torch.tensor(class_weights, dtype=torch.float32).to(DEVICE)
@@ -381,16 +411,26 @@ def run_kfold_specialist():
 
         # Temporal Leakage Guard (logged for test_no_temporal_leakage)
         if len(train_idx) > 0 and len(test_idx) > 0:
-            train_max = train_idx.max()
-            test_min  = test_idx.min()
-            if train_max >= test_min:
-                logger.warning(
-                    f"[Fold {fold_k}] ⚠️  Gap VIOLATION: train_max={train_max} >= test_min={test_min}! "
-                    f"Purge may be insufficient. purge_bars={purge_bars}"
-                )
-            else:
-                gap_bars = test_min - train_max - 1
-                logger.info(f"[Fold {fold_k}] ✅ Purge Gap: {gap_bars} bars ({gap_bars * resample_min} min)")
+            test_min = test_idx.min()
+            test_max = test_idx.max()
+
+            left_train = train_idx[train_idx < test_min]
+            right_train = train_idx[train_idx > test_max]
+
+            # Print gaps for validation
+            if len(left_train) > 0:
+                gap_left = test_min - left_train.max() - 1
+                if gap_left < purge_bars:
+                    logger.warning(f"[Fold {fold_k}] ⚠️ Left Gap VIOLATION: {gap_left} < {purge_bars} bars!")
+                else:
+                    logger.info(f"[Fold {fold_k}] ✅ Left Purge Gap OK: {gap_left} bars ({gap_left * resample_min} min)")
+                    
+            if len(right_train) > 0:
+                gap_right = right_train.min() - test_max - 1
+                if gap_right < purge_bars:
+                    logger.warning(f"[Fold {fold_k}] ⚠️ Right Gap VIOLATION: {gap_right} < {purge_bars} bars!")
+                else:
+                    logger.info(f"[Fold {fold_k}] ✅ Right Purge Gap OK: {gap_right} bars ({gap_right * resample_min} min)")
 
         X_train_raw = X_raw[train_idx]
         y_train     = y_raw[train_idx]
