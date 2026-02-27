@@ -58,8 +58,8 @@ def transfer_results(log_filename: str, run_type: str):
     Coleta os artefatos baseados no tipo de corrida ('foundation' ou 'specialized')
     e envia para a pasta de resultados hierárquica no Google Drive.
     """
-    if run_type not in ["foundation", "specialized"]:
-        logger.error(f"Erro: Tipo invalido '{run_type}'. Use 'foundation' or 'specialized'.")
+    if run_type not in ["foundation", "specialized", "all"]:
+        logger.error(f"Erro: Tipo invalido '{run_type}'. Use 'foundation', 'specialized' or 'all'.")
         return
 
     # 1. Configurações de Caminhos Base
@@ -157,12 +157,36 @@ def transfer_results(log_filename: str, run_type: str):
                 if logs:
                      files_to_transfer.append(logs[-1])
 
-        # Modelos e Scalers do Especialista e XGBoost Auditor
         files_to_transfer.extend([
             project_root / config['pipeline_paths']['best_specialized_model'],
             project_root / config['pipeline_paths']['scaler_specialized'],
             project_root / "data/models/auditor_xgboost.json"
         ])
+        
+    elif run_type == "all":
+        # ── COLECAO ABSOLUTA (PIPELINE COMPLETO V4.3) ─────────────────────────
+        log_patterns = [
+            "logs/etl/*.log", "logs/labelling/*.log", "logs/treino/*.log", 
+            "logs/treino_specialization/*.log", "logs/auditor_preprocessing/*.log",
+            "logs/auditor_labelling/*.log", "logs/train_xgboost/*.log",
+            "logs/optimization/*.log", "logs/tests/*.log",
+            "logs/QA/*.log",                  # Strict OOF QA Reports
+            "logs/run_manager/*.log",
+            "data/L2/split_summary_*.json"    # Temporal integrity checksums
+        ]
+        for pattern in log_patterns:
+            files_to_transfer.extend(list(project_root.glob(pattern)))
+            
+        files_to_transfer.extend(list((project_root / "docs/reports").glob("*.md")))
+        
+        # All databases
+        files_to_transfer.extend(list(project_root.glob("*.db")))
+        
+        # All models & scalers
+        for key in ['best_tcn_lstm_model', 'best_tcn_lstm_dir_model', 'best_specialized_model', 
+                    'scaler_foundation', 'scaler_specialized', 'auditor_model', 'scaler_auditor']:
+            val = config['pipeline_paths'].get(key)
+            if val: files_to_transfer.append(project_root / val)
         
     # Relatorio de Feature Importance (comum a ambos, mas gerado no foundation agora)
     fi_csv = project_root / "docs" / "reports" / "feature_importance.csv"
@@ -242,7 +266,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Gerenciador de Resultados e Workspace QuantGod.")
     parser.add_argument("--clean", action="store_true", help="Limpa o workspace e as pastas de dados/logs.")
     parser.add_argument("log_filename", type=str, nargs='?', help="Nome do log base para exportação.")
-    parser.add_argument("run_type", type=str, nargs='?', choices=["foundation", "specialized"], help="Tipo de exportação.")
+    parser.add_argument("run_type", type=str, nargs='?', choices=["foundation", "specialized", "all"], help="Tipo de exportação.")
     
     args = parser.parse_args()
 

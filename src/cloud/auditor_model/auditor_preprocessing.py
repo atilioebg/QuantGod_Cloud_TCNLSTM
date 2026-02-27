@@ -236,17 +236,21 @@ if __name__ == "__main__":
     config = load_config()
     
     # ── Resolve Paths ──────────────────────────────────────────────────────────
-    # O user especificou que o auditor usara como dataset de treino os dados completos
-    # do treino do base_model e fara os devidos splits mais tarde.
+    # O user especificou que o auditor usara como dataset de treino o VAL de SPECIALIZED
+    # (Strict OOF) para gerar o contexto neutro e seguro.
     
-    from src.cloud.base_model.utils.experiment_utils import resolve_data_paths
-    paths = resolve_data_paths({'train_dir': 'AUTO', 'val_dir': 'AUTO'})
+    sell_th = config['pre_processing']['labelling'].get('sell_threshold', 0.003)
+    buy_th  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
+    mins    = config['pre_processing']['labelling'].get('horizon_minutes', 15)
+    base_labelled_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
+    spec_val_dir = Path(f"data/L2/splits_specialized_{base_labelled_name}/val")
     
-    base_train_dir = Path(paths[0])  # 'data/L2/splits_labelled.../train'
-    out_context_train = Path("data/auditor/context/train")
+    out_context_dir = Path("data/auditor/context")
     
-    if base_train_dir.exists():
-        logger.info(f"Processando contexto do Auditor a partir dos dados de TREINO base: {base_train_dir}")
-        process_and_save_context(base_train_dir, out_context_train)
+    if spec_val_dir.exists():
+        logger.info(f"Processando contexto do Auditor a partir dos dados OOF: {spec_val_dir}")
+        process_and_save_context(spec_val_dir, out_context_dir)
+    else:
+        logger.error(f"❌ Nao encontrou {spec_val_dir}. Rode o split_dataset.py primeiro.")
         
-    logger.info("✅ Auditor Preprocessing (Context Engineering) Finalizado no Dataset de Treino Base.")
+    logger.info("✅ Auditor Preprocessing (Context Engineering) Finalizado OOF.")

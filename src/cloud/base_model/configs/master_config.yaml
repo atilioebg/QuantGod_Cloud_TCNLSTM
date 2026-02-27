@@ -14,6 +14,12 @@ pipeline_paths:
   auditor_model: "data/models/auditor_xgboost.json"               # Modelo de Regras XGBoost (Juiz Auditor)
   scaler_auditor: "data/models/scaler_auditor.pkl"                # Normalizador fitado no Treino (Auditor)
 
+pipeline_control:
+  force_full_retrain: true                                        # Se false, tenta carregar estágios já concluídos usando checkpoints
+  skip_qa_on_failure: false                                       # Aborta o processo se um log de QA apontar anomalia grave
+  retention_policy: "keep_all"                                    # Mantém logs de rodadas anteriores (evita sobrescrever blindly)
+  gpu_memory_management: true                                     # Ativa limpezas agressivas de cache (gc.collect/empty_cache) entre fases
+
 pre_processing:
   etl:
     levels: 200                                                   # Profundidade em níveis coletada no L2 Orderbook
@@ -39,8 +45,11 @@ model:
   num_features: 32                                                # Quantidade de colunas injetadas nos tensores matriciais (Base model)
   num_classes: 3                                                  # BUY (2), NEUTRAL (1), SELL (0)
   
-  auditor_num_features: 20                                        # Tensores do Juiz (6 Probabilidades Modelos + 14 Sensores Alphas)
-  auditor_num_classes: 2                                          # Meta-Labeling Binário: 0 (Veto/Fake), 1 (Aprovado/Acurado)
+  auditor:
+    num_features: 20                                              # Tensores do Juiz (6 Probabilidades Modelos + 14 Sensores Alphas)
+    num_classes: 2                                                # Meta-Labeling Binário: 0 (Veto/Fake), 1 (Aprovado/Acurado)
+    use_dynamic_threshold: true                                   # Se true, procura limiar F-Beta (0.5) dinamicamente na Precision-Recall curve
+    manual_threshold: 0.65                                        # Fallback caso use_dynamic_threshold seja false
   
   feature_names:                                                  # Nome das colunas injetadas nos tensores matriciais (Base model)
     # --- Aggregated Features (9) ---

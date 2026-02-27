@@ -224,9 +224,17 @@ if __name__ == "__main__":
     setup_logger("auditor_labelling", "")
     conf = load_config()
     
-    base_paths = resolve_data_paths({'train_dir': 'AUTO', 'val_dir': 'AUTO'})
-    base_train_dir = base_paths[0]
-    context_dir = "data/auditor/context/train"
+    sell_th = conf['pre_processing']['labelling'].get('sell_threshold', 0.003)
+    buy_th  = conf['pre_processing']['labelling'].get('buy_threshold', 0.003)
+    mins    = conf['pre_processing']['labelling'].get('horizon_minutes', 15)
+    base_labelled_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
+    spec_val_dir = Path(f"data/L2/splits_specialized_{base_labelled_name}/val")
+    
+    context_dir = "data/auditor/context"
     fused_dir = "data/auditor/dataset_fused"
     
-    load_and_predict(conf, base_train_dir, context_dir, fused_dir)
+    if spec_val_dir.exists():
+        logger.info(f"Gerando dataset fundido a partir da Base de Validacao Isolada (Strict OOF): {spec_val_dir}")
+        load_and_predict(conf, spec_val_dir, context_dir, fused_dir)
+    else:
+        logger.error(f"❌ {spec_val_dir} not found for Auditor inference. Rode o pipeline novamente.")

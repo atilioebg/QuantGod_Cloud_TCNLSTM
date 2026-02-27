@@ -419,86 +419,10 @@ def run_optimization():
     else:
         logger.warning("⚠️ No completed trials with f1_dir attribute found. best_dir_params.json not updated.")
 
-    # ── Pipeline Automation ───────────────────────────────────────────────────
+    # ── Pipeline Execution Finished ──────────────────────────────────────────
     logger.info("="*60)
-    logger.info("--- INICIANDO TRANSFERENCIA BASE (FOUNDATION) ---")
-    
-    # 0. Descobrir o nome exato do arquivo de log (.log) gerado pelo setup_logger
-    log_filename = "optimization.log" # Fallback
-    opt_logger = logging.getLogger("optimization")
-    
-    # Busca o FileHandler atrelado ao logger
-    for handler in opt_logger.handlers:
-        if isinstance(handler, logging.FileHandler):
-            log_filename = Path(handler.baseFilename).name
-            break
-            
-    logger.info(f"Log-ancora identificado para a transferencia: {log_filename}")
-    
-    # 0.5 Feature Importance (Optuna Best Model)
-    if config['optimization'].get('run_feature_importance_after', False):
-        logger.info("-> Analisando Feature Importance do Melhor Modelo do Optuna...")
-        try:
-            # Roda o feature importance focando no modelo campeao MACRO da base
-            env = os.environ.copy()
-            env["QUIET_LOGGING"] = "1"
-            subprocess.run([sys.executable, "src/cloud/base_model/treino/feature_importance.py", "data/models/best_tcn_lstm.pt"], 
-                           check=True, env=env)
-        except subprocess.CalledProcessError as e:
-            logger.error(f"⚠️ Feature importance falhou (o pipeline continuara): {e}")
-
-    # 1. Transfer Foundation
-    try:
-        env = os.environ.copy()
-        env["QUIET_LOGGING"] = "1"
-        subprocess.run([sys.executable, "src/cloud/base_model/utils/transfer.py", log_filename, "foundation"], 
-                       check=True, env=env)
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Falha no transfer base (foundation): {e}")
-        
-    # 2. Check if Specialization should run
-    if config['optimization'].get('run_specialized_after', False):
-        logger.info("="*60)
-        logger.info("--- INICIANDO PIPELINE DE ESPECIALIZACAO AUTOMATICA ---")
-        
-        try:
-            # 2.1 Create Splits
-            dataset_path = str(Path(config['paths']['train_dir']).parent)
-            logger.info("-> 1/3 Gerando Splits Especializados...")
-            env = os.environ.copy()
-            env["QUIET_LOGGING"] = "1"
-            subprocess.run([sys.executable, "src/cloud/base_model/treino/create_specialized_splits.py", dataset_path], 
-                           check=True, env=env)
-            
-            # 2.2 Run Specialization
-            logger.info("-> 2/4 Treinando Modelo Especialista...")
-            subprocess.run([sys.executable, "src/cloud/base_model/treino/run_specialization.py"], 
-                           check=True, env=env)
-                           
-            # 2.3 Run Auditor (Meta-Labeling Judge)
-            logger.info("-> 3/4 Treinando Juiz Auditor (XGBoost)...")
-            # Auditor Phase 1: Context Preprocessing
-            subprocess.run([sys.executable, "src/cloud/auditor_model/auditor_preprocessing.py"], 
-                           check=True, env=env)
-            # Auditor Phase 2: Cross-Inference Labelling
-            subprocess.run([sys.executable, "src/cloud/auditor_model/auditor_labelling.py"], 
-                           check=True, env=env)
-            # Auditor Phase 3: XGBoost Training
-            subprocess.run([sys.executable, "src/cloud/auditor_model/train_xgboost.py"], 
-                           check=True, env=env)
-            
-            # 2.4 Transfer Specialized (includes Auditor logs and models)
-            logger.info("-> 4/4 Transferindo Especialista e Auditor pro Drive...")
-            subprocess.run([sys.executable, "src/cloud/base_model/utils/transfer.py", log_filename, "specialized"], 
-                           check=True, env=env)
-            
-            logger.info("PIPELINE 100%% COMPLETO E EXECUTADO COM SUCESSO!")
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Falha na cascata de especializacao: {e}")
-    else:
-        logger.info("--- Pipeline parado no Foundation (run_specialized_after = False/Nao configurado) ---")
+    logger.info("✅ Optuna Foundation Training completed. Orchestration is now handled by run_manager.py")
     logger.info("="*60)
-
 
 if __name__ == "__main__":
     run_optimization()

@@ -123,30 +123,40 @@ def train_auditor():
     # Probabilidades de SER UM ACERTO (meta_target = 1)
     y_pred_proba = model.predict_proba(X_val)[:, 1]
     
-    logger.info("=== Calibração de Threshold do Auditor ===")
-    best_threshold = 0.5
-    best_score = 0.0
+    use_dyn = master_cfg['model']['auditor'].get('use_dynamic_threshold', True)
+    fallback_th = master_cfg['model']['auditor'].get('manual_threshold', 0.65)
     
-    for t in np.arange(0.5, 0.85, 0.05):
-        y_pred_t = (y_pred_proba >= t).astype(int)
-        acc_t = accuracy_score(y_val, y_pred_t)
-        prec_t = precision_score(y_val, y_pred_t, zero_division=0)
-        f1_t = f1_score(y_val, y_pred_t, zero_division=0)
+    if use_dyn:
+        logger.info("=== Calibração de Threshold do Auditor (F-Beta 0.5) ===")
+        best_threshold = 0.5
+        best_fbeta = 0.0
         
-        # Usaremos F1-Score como métrica guia de balanço, ou a própria precisão multiplicada pela proporção.
-        # Muitas vezes o lucro exige alta precisão nos disparos autorizados.
-        score_t = f1_t 
+        # Maximizando Beta = 0.5 (peso maior na precisão para evitar veto falso positivo)
+        beta = 0.5
+        beta_sq = beta ** 2
         
-        logger.info(f"Threshold {t:.2f} -> Precisão de Disparo: {prec_t:.4f} | F1: {f1_t:.4f} | Acc: {acc_t:.4f}")
-        
-        if score_t > best_score:
-            best_score = score_t
-            best_threshold = t
+        for t in np.arange(0.50, 0.95, 0.02):
+            y_pred_t = (y_pred_proba >= t).astype(int)
+            acc_t = accuracy_score(y_val, y_pred_t)
+            prec_t = precision_score(y_val, y_pred_t, zero_division=0)
             
-    logger.info(f"🚀 Melhor Threshold Automático Escolhido (F1 Máximo): {best_threshold:.2f}\n")
-    
-    # Threshold final definido
-    threshold = best_threshold
+            # Recall customizado via class report
+            rep = classification_report(y_val, y_pred_t, output_dict=True, zero_division=0)
+            rec_t = rep['1']['recall'] if '1' in rep else 0.0
+            
+            fbeta_t = (1 + beta_sq) * (prec_t * rec_t) / ((beta_sq * prec_t) + rec_t + 1e-9)
+            
+            logger.info(f"Threshold {t:.2f} -> Prec: {prec_t:.4f} | Rec: {rec_t:.4f} | F-0.5: {fbeta_t:.4f}")
+            
+            if fbeta_t > best_fbeta:
+                best_fbeta = fbeta_t
+                best_threshold = t
+                
+        logger.info(f"🚀 Melhor Threshold Automático Escolhido (F-0.5 Máximo): {best_threshold:.2f} (F: {best_fbeta:.4f})\n")
+        threshold = best_threshold
+    else:
+        threshold = fallback_th
+        logger.info(f"=== Fallback Threshold Manual do master_config.yaml: {threshold:.2f} ===")
     y_pred = (y_pred_proba >= threshold).astype(int)
     
     acc = accuracy_score(y_val, y_pred)
