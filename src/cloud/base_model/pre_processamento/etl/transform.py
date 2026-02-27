@@ -9,33 +9,77 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# ── ETL config loader ─────────────────────────────────────────
+# ── ETL config loader ───────────────────────────────────────────
+def _parse_resample_minutes(freq: str) -> int:
+    """
+    Converts a resample frequency string (e.g. '1min', '5min') to integer minutes.
+    Supports Pandas offset aliases: min, T, h, H.
+    """
+    freq = freq.strip()
+    for suffix in ('min', 'T', 'Min'):
+        if freq.endswith(suffix):
+            return max(1, int(freq.replace(suffix, '')))
+    if freq.endswith(('h', 'H')):
+        return int(freq[:-1]) * 60
+    return 1  # safe fallback: assume 1 minute
+
+
 def _load_etl_config() -> dict:
     """
-    Loads all ETL parameters from master_config.yaml at import time.
-    Falls back to safe defaults if the config file is unavailable
-    (e.g., isolated unit-test environments).
+    Loads all ETL parameters from master_config.yaml at import time and converts
+    window parameters from real-minutes (*_min) to bars (dividing by resample_freq).
+
+    This ensures every indicator maintains its intended temporal meaning regardless
+    of which resample_freq is active. Example:
+      spread_zscore_window_min=60 + resample_freq='1min'  -> 60 bars
+      spread_zscore_window_min=60 + resample_freq='5min'  -> 12 bars  (backward-compatible)
+
+    Falls back to safe defaults expressed in minutes when the config is unavailable.
     """
+    _DEFAULT_MINS = {
+        "spread_zscore_window_min": 60,
+        "vpin_window_min":           25,
+        "delta_short_min":            5,
+        "delta_long_min":            30,
+    }
     _DEFAULTS = {
         "flow_depth":            5,
         "resample_freq":         "5min",
-        "spread_zscore_window":   12,
-        "vpin_window":            5,
-        "delta_short":            1,
-        "delta_long":             6,
-        "book_asymmetry_depth":   5,
-        "deep_book_start":        50,
-        "convexity_near_end":     10,
-        "convexity_far_end":      20,
+        "book_asymmetry_depth":  5,
+        "deep_book_start":       50,
+        "convexity_near_end":    10,
+        "convexity_far_end":     20,
     }
     cfg_path = Path("src/cloud/base_model/configs/master_config.yaml")
     try:
         with open(cfg_path, "r", encoding="utf-8") as f:
             cfg = yaml.safe_load(f)
         etl = cfg["pre_processing"]["etl"]
-        return {k: etl.get(k, v) for k, v in _DEFAULTS.items()}
+
+        resample_freq = etl.get("resample_freq", _DEFAULTS["resample_freq"])
+        resample_min  = _parse_resample_minutes(resample_freq)
+
+        resolved = {k: etl.get(k, v) for k, v in _DEFAULTS.items()}
+        resolved["resample_freq"] = resample_freq
+        resolved["resample_min"]  = resample_min
+
+        for min_key, default_min in _DEFAULT_MINS.items():
+            real_minutes      = int(etl.get(min_key, default_min))
+            bar_key           = min_key.replace("_min", "")
+            resolved[bar_key] = max(1, real_minutes // resample_min)
+            resolved[min_key] = real_minutes
+
+        return resolved
     except Exception:
-        return _DEFAULTS
+        resample_min = _parse_resample_minutes(_DEFAULTS["resample_freq"])
+        fallback = dict(_DEFAULTS)
+        fallback["resample_min"] = resample_min
+        for min_key, default_min in _DEFAULT_MINS.items():
+            bar_key           = min_key.replace("_min", "")
+            fallback[bar_key] = max(1, default_min // resample_min)
+            fallback[min_key] = default_min
+        return fallback
+
 
 _ETL_CFG = _load_etl_config()
 # Module-level shortcut kept for backward compatibility
@@ -65,10 +109,14 @@ class L2Transformer:
 
         # Store all ETL parameters for use inside apply_feature_engineering
         self._resample_freq        = cfg["resample_freq"]
-        self._spread_zscore_window = int(cfg["spread_zscore_window"])
-        self._vpin_window          = int(cfg["vpin_window"])
-        self._delta_short          = int(cfg["delta_short"])
-        self._delta_long           = int(cfg["delta_long"])
+        self._resample_min         = int(cfg["resample_min"])          # minutes per bar (e.g. 1 or 5)
+        self._spread_zscore_window = int(cfg["spread_zscore_window"])  # in bars, resolved from *_min
+        self._vpin_window          = int(cfg["vpin_window"])           # in bars, resolved from *_min
+        self._delta_short          = int(cfg["delta_short"])           # in bars, resolved from *_min
+        self._delta_long           = int(cfg["delta_long"])            # in bars, resolved from *_min
+        # Real-minute values kept for column-name labels (e.g. ofi_delta_5, ofi_delta_30)
+        self._delta_short_min      = int(cfg["delta_short_min"])       # real minutes (e.g. 5)
+        self._delta_long_min       = int(cfg["delta_long_min"])        # real minutes (e.g. 30)
         self._book_asym_depth      = int(cfg["book_asymmetry_depth"])
         self._deep_book_start      = int(cfg["deep_book_start"])
         self._convexity_near_end   = int(cfg["convexity_near_end"])
@@ -278,8 +326,10 @@ class L2Transformer:
             return df
 
         freq   = self._resample_freq
-        ds     = self._delta_short
-        dl     = self._delta_long
+        ds     = self._delta_short          # bars
+        dl     = self._delta_long           # bars
+        ds_lbl = str(self._delta_short_min) # label = real minutes (e.g. "5")
+        dl_lbl = str(self._delta_long_min)  # label = real minutes (e.g. "30")
 
         df['datetime'] = pd.to_datetime(df['ts'], unit='ms')
         df.set_index('datetime', inplace=True)
@@ -375,8 +425,7 @@ class L2Transformer:
         final_df[f'ask_rdi_delta_{ds_lbl}']       = final_df['ask_rdi'].diff(ds)
         final_df[f'micro_price_delta_{ds_lbl}']   = final_df['close'].pct_change(ds)
 
-        # Long lookback (delta_long bars)
-        dl_lbl = str(dl)
+        # Long lookback (dl bars = delta_long_min real minutes)
         final_df[f'ofi_delta_{dl_lbl}']           = final_df['ofi'].diff(dl)
         final_df[f'bid_rdi_delta_{dl_lbl}']       = final_df['bid_rdi'].diff(dl)
         final_df[f'ask_rdi_delta_{dl_lbl}']       = final_df['ask_rdi'].diff(dl)
@@ -425,23 +474,24 @@ class L2Transformer:
         final_df['ask_convexity'] = sum_asks_near / (sum_asks_far + 1e-9)
 
         # Final cleanup for all rolling/diff features (NaNs to 0, Infs to 0)
+        # Column names are built dynamically from real-minute labels.
         sniper_institutional_cols = [
-            'ofi_delta_1', 'ofi_delta_6',
-            'bid_rdi_delta_1', 'bid_rdi_delta_6',
-            'ask_rdi_delta_1', 'ask_rdi_delta_6',
-            'micro_price_delta_1', 'micro_price_delta_6',
+            f'ofi_delta_{ds_lbl}', f'ofi_delta_{dl_lbl}',
+            f'bid_rdi_delta_{ds_lbl}', f'bid_rdi_delta_{dl_lbl}',
+            f'ask_rdi_delta_{ds_lbl}', f'ask_rdi_delta_{dl_lbl}',
+            f'micro_price_delta_{ds_lbl}', f'micro_price_delta_{dl_lbl}',
             'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5',
             'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity'
         ]
         final_df[sniper_institutional_cols] = final_df[sniper_institutional_cols].replace([np.inf, -np.inf], 0).fillna(0)
 
-        # ── Final Feature List (Sniper Pivot 5min — 1-bar & 6-bar deltas + Phase 6)
+        # ── Final Feature List (dynamic delta labels based on real minutes) ──────────
         dynamic_features = [
-            'ofi', 'ofi_delta_1', 'ofi_delta_6',
-            'micro_price_momentum', 'micro_price_delta_1', 'micro_price_delta_6',
+            'ofi', f'ofi_delta_{ds_lbl}', f'ofi_delta_{dl_lbl}',
+            'micro_price_momentum', f'micro_price_delta_{ds_lbl}', f'micro_price_delta_{dl_lbl}',
             'bid_slope', 'ask_slope',
-            'bid_rdi', 'bid_rdi_delta_1', 'bid_rdi_delta_6',
-            'ask_rdi', 'ask_rdi_delta_1', 'ask_rdi_delta_6',
+            'bid_rdi', f'bid_rdi_delta_{ds_lbl}', f'bid_rdi_delta_{dl_lbl}',
+            'ask_rdi', f'ask_rdi_delta_{ds_lbl}', f'ask_rdi_delta_{dl_lbl}',
             'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5',
             'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity',
             'pressure_ratio'

@@ -28,15 +28,18 @@ pre_processing:
     flow_depth: 5                                                 # Top-N níveis usados para OFI, Slope e RDI — Wall liquidity sem ruído profundo
 
     # ── Agregação temporal ──────────────────────────────────────
-    resample_freq: "5min"                                         # Frequência do resample final das barras (ex: '1min', '5min', '15min'). Altera o número de barras/dia e deve ser consistente com horizon_minutes.
+    resample_freq: "1min"                                         # Frequência do resample: '1min' (alta capilaridade, ~1440 barras/dia) ou '5min' (modo legado, ~288 barras/dia).
+                                                                  # IMPACTO: alterar este valor é seguro — todas as janelas abaixo são em MINUTOS REAIS e o ETL converte para barras automaticamente.
 
-    # ── Janelas de features derivadas ───────────────────────────────
-    # Todas as janelas são em número de BARRAS (não minutos). Com resample_freq=5min:
-    #   12 barras = 60min | 6 barras = 30min | 5 barras = 25min | 1 barra = 5min
-    spread_zscore_window: 12                                      # Janela de barras para calcular Z-Score do spread (termômetro de stress de liquidez). 12 × 5min = 60min rolling.
-    vpin_window: 5                                                # Janela de barras para VPIN Lite (toxicidade de fluxo). 5 × 5min = 25min de contexto de fluxo.
-    delta_short: 1                                                # Lookback curto (barras) para diff/pct_change das features dinâmicas (ofi_delta_1, micro_price_delta_1, etc.)
-    delta_long: 6                                                 # Lookback longo (barras) para diff/pct_change de médio prazo (ofi_delta_6, etc.). 6 × 5min = 30min.
+    # ── Janelas de features derivadas (em MINUTOS REAIS) ─────────────
+    # As janelas abaixo definem TEMPO REAL, não barras. O ETL calcula:
+    #   barras = janela_min / resample_freq_minutos
+    # Isso garante que o significado econômico de cada indicador se preserve
+    # independentemente da frequência escolhida em resample_freq.
+    spread_zscore_window_min: 60                                  # Stress de liquidez: Z-Score do spread em janela de 60 minutos reais (termômetro de squeeze de mercado).
+    vpin_window_min: 25                                           # Toxicidade de fluxo: VPIN Lite em janela de 25 minutos reais (détecção de ordem informada).
+    delta_short_min: 5                                            # Lookback curto: diff/pct_change de 5 minutos reais — captura choques e gatilhos de microestrutura.
+    delta_long_min: 30                                            # Lookback longo: diff/pct_change de 30 minutos reais — captura drift e contexto de momentum.
 
     # ── Estrutura do livro para features de profundidade ────────────
     book_asymmetry_depth: 5                                       # Número de níveis usados para Book Asymmetry V5: log(sum_bids_N / sum_asks_N)
