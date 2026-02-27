@@ -26,6 +26,8 @@ logs/debug_plots/
 !logs/LOGS_README.md
 !logs/**/.gitkeep
 plots/
+tmp/
+PROJETOS/
 
 # Scripts & Configs
 rclone.exe
