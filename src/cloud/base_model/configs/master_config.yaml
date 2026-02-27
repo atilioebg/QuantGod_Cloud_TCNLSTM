@@ -22,10 +22,27 @@ pipeline_control:
 
 pre_processing:
   etl:
-    levels: 200                                                   # Profundidade em níveis coletada no L2 Orderbook
-    sampling_ms: 1000                                             # Resolução final dos snapshots (1000ms agregados para 1min depois)
-    export_compression: "snappy"                                  # Algoritmo de compressão para velocidade máxima nos Parquets
-    flow_depth: 5                                                 # Top-N níveis do Order Book usados pelo L2Transformer para calcular OFI, Slope e RDI (Order Flow Imbalance, Elasticidade e Relative Depth Imbalance). Aumentar aumenta a captação de liquidez profunda, mas eleva o custo computacional do ETL.
+    levels: 200                                                   # Profundidade em níveis coletada no L2 Orderbook (max 500 na Binance)
+    sampling_ms: 1000                                             # Cadência de captura dos snapshots em ms (1000ms = 1 snap/s antes do resample)
+    export_compression: "snappy"                                  # Algoritmo de compressão dos Parquets (snappy=rápido, gzip=menor)
+    flow_depth: 5                                                 # Top-N níveis usados para OFI, Slope e RDI — Wall liquidity sem ruído profundo
+
+    # ── Agregação temporal ──────────────────────────────────────
+    resample_freq: "5min"                                         # Frequência do resample final das barras (ex: '1min', '5min', '15min'). Altera o número de barras/dia e deve ser consistente com horizon_minutes.
+
+    # ── Janelas de features derivadas ───────────────────────────────
+    # Todas as janelas são em número de BARRAS (não minutos). Com resample_freq=5min:
+    #   12 barras = 60min | 6 barras = 30min | 5 barras = 25min | 1 barra = 5min
+    spread_zscore_window: 12                                      # Janela de barras para calcular Z-Score do spread (termômetro de stress de liquidez). 12 × 5min = 60min rolling.
+    vpin_window: 5                                                # Janela de barras para VPIN Lite (toxicidade de fluxo). 5 × 5min = 25min de contexto de fluxo.
+    delta_short: 1                                                # Lookback curto (barras) para diff/pct_change das features dinâmicas (ofi_delta_1, micro_price_delta_1, etc.)
+    delta_long: 6                                                 # Lookback longo (barras) para diff/pct_change de médio prazo (ofi_delta_6, etc.). 6 × 5min = 30min.
+
+    # ── Estrutura do livro para features de profundidade ────────────
+    book_asymmetry_depth: 5                                       # Número de níveis usados para Book Asymmetry V5: log(sum_bids_N / sum_asks_N)
+    deep_book_start: 50                                           # Nível de início da janela "profunda" do livro para Deep-to-Front Ratio (L{start}–L{levels})
+    convexity_near_end: 10                                        # Limite superior dos níveis "perto" para Book Convexity (L1–L{near_end} vs L{near_end+1}–L{far_end})
+    convexity_far_end: 20                                         # Limite superior dos níveis "longe" para Book Convexity
   labelling:
     # Limiares de alvo futuro (Rentabilidade para Target 0 ou 2)
     sell_threshold: 0.003                                         # Retorno exigido (-0.3%) para sinalizar SELL

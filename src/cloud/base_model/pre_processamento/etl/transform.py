@@ -9,27 +9,71 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Microstructure feature depth (top-N levels for OFI/Slope/RDI)
-# Loaded dynamically from master_config.yaml at import time.
-# Fallback to 5 if config is unavailable (e.g., unit test environments).
-def _load_flow_depth() -> int:
+# ── ETL config loader ─────────────────────────────────────────
+def _load_etl_config() -> dict:
+    """
+    Loads all ETL parameters from master_config.yaml at import time.
+    Falls back to safe defaults if the config file is unavailable
+    (e.g., isolated unit-test environments).
+    """
+    _DEFAULTS = {
+        "flow_depth":            5,
+        "resample_freq":         "5min",
+        "spread_zscore_window":   12,
+        "vpin_window":            5,
+        "delta_short":            1,
+        "delta_long":             6,
+        "book_asymmetry_depth":   5,
+        "deep_book_start":        50,
+        "convexity_near_end":     10,
+        "convexity_far_end":      20,
+    }
     cfg_path = Path("src/cloud/base_model/configs/master_config.yaml")
     try:
         with open(cfg_path, "r", encoding="utf-8") as f:
             cfg = yaml.safe_load(f)
-        return int(cfg["pre_processing"]["etl"].get("flow_depth", 5))
+        etl = cfg["pre_processing"]["etl"]
+        return {k: etl.get(k, v) for k, v in _DEFAULTS.items()}
     except Exception:
-        return 5
+        return _DEFAULTS
 
-_FLOW_DEPTH = _load_flow_depth()
+_ETL_CFG = _load_etl_config()
+# Module-level shortcut kept for backward compatibility
+_FLOW_DEPTH = _ETL_CFG["flow_depth"]
 
 
 class L2Transformer:
-    def __init__(self, levels: int = 200, sampling_ms: int = 1000, flow_depth: int = None):
+    def __init__(self, levels: int = 200, sampling_ms: int = 1000,
+                 flow_depth: int = None, etl_cfg: dict = None):
+        """
+        Args:
+            levels:      Number of orderbook levels to capture per snapshot.
+            sampling_ms: Snapshot interval in milliseconds.
+            flow_depth:  Override for top-N levels used in OFI/Slope/RDI.
+                         Defaults to master_config.yaml → pre_processing.etl.flow_depth.
+            etl_cfg:     Full ETL config dict (all parameters). If None, loads
+                         from master_config.yaml automatically.
+        """
+        # Merge caller overrides on top of the module-level config
+        cfg = dict(_ETL_CFG)  # copy
+        if etl_cfg:
+            cfg.update(etl_cfg)
+
         self.levels = levels
         self.sampling_ms = sampling_ms
-        # Allow caller to override flow_depth; fall back to module-level value from config
-        self.flow_depth = flow_depth if flow_depth is not None else _FLOW_DEPTH
+        self.flow_depth  = flow_depth if flow_depth is not None else cfg["flow_depth"]
+
+        # Store all ETL parameters for use inside apply_feature_engineering
+        self._resample_freq        = cfg["resample_freq"]
+        self._spread_zscore_window = int(cfg["spread_zscore_window"])
+        self._vpin_window          = int(cfg["vpin_window"])
+        self._delta_short          = int(cfg["delta_short"])
+        self._delta_long           = int(cfg["delta_long"])
+        self._book_asym_depth      = int(cfg["book_asymmetry_depth"])
+        self._deep_book_start      = int(cfg["deep_book_start"])
+        self._convexity_near_end   = int(cfg["convexity_near_end"])
+        self._convexity_far_end    = int(cfg["convexity_far_end"])
+
         self.bids_book: Dict[float, float] = {}
         self.asks_book: Dict[float, float] = {}
         self.last_sample_ts: int = -1
@@ -226,88 +270,84 @@ class L2Transformer:
         return row
 
     def apply_feature_engineering(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Applies 5min resampling, log-returns and log-volume (Sniper Pivot)."""
-        if df.empty: 
+        """Applies temporal resampling (resample_freq), log-returns and log-volume.
+        All parameters are driven by master_config.yaml → pre_processing.etl.
+        """
+        if df.empty:
             logger.warning("apply_feature_engineering received an empty DataFrame")
             return df
 
+        freq   = self._resample_freq
+        ds     = self._delta_short
+        dl     = self._delta_long
+
         df['datetime'] = pd.to_datetime(df['ts'], unit='ms')
         df.set_index('datetime', inplace=True)
-        
-        # ── Resampling 5min ───────────────────────────────────────────────────
-        # OFI is summed (net flow per 5min bar), most others are averaged/last
+
+        # ── Resampling (freq from config) ─────────────────────────────────────
+        # OFI is summed (net flow per bar), most others are averaged/last
         agg_map = {
             'micro_price': 'std',
             'spread': 'max',
             'obi_l0': 'mean',
             'deep_obi_5': 'mean',
-            # New dynamic features
-            'ofi': 'sum',                  # Total net flow per 5min bar
-            'micro_price_momentum': 'sum', # Cumulated log-return of micro-price
+            'ofi': 'sum',
+            'micro_price_momentum': 'sum',
             'bid_slope': 'mean',
             'ask_slope': 'mean',
             'bid_rdi': 'mean',
             'ask_rdi': 'mean',
             'pressure_ratio': 'mean',
         }
-        # Include all raw orderbook levels (using 'last' to represent best state at EOM)
         ob_cols_raw = [c for c in df.columns if ('bid_' in c or 'ask_' in c)
                        and not c.endswith(('_slope', '_rdi'))]
         for col in ob_cols_raw:
             agg_map[col] = 'last'
 
-        resampled_others = df.resample('5min').agg(agg_map)
-
-        # For Log Volume, we use tick count in the interval
+        resampled_others = df.resample(freq).agg(agg_map)
         df['tick_count'] = 1
-        resampled_vol = df['tick_count'].resample('5min').sum()
-
-        resampled_ohlc = df['micro_price'].resample('5min').ohlc()
+        resampled_vol  = df['tick_count'].resample(freq).sum()
+        resampled_ohlc = df['micro_price'].resample(freq).ohlc()
         final_df = pd.concat([resampled_ohlc, resampled_others, resampled_vol], axis=1)
 
-        # ── Rename fixed aggregated columns ───────────────────────────────────
-        # The ohlc comes first, then the agg_map columns in insertion order
-        new_dynamic_cols = ['ofi', 'micro_price_momentum', 'bid_slope', 'ask_slope', 'bid_rdi', 'ask_rdi', 'pressure_ratio']
-        agg_col_names = ['open', 'high', 'low', 'close', 'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi'] + new_dynamic_cols
-
+        # ── Rename columns ─────────────────────────────────────────────────────
+        new_dynamic_cols = ['ofi', 'micro_price_momentum', 'bid_slope', 'ask_slope',
+                            'bid_rdi', 'ask_rdi', 'pressure_ratio']
+        agg_col_names = ['open', 'high', 'low', 'close',
+                         'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi'] + new_dynamic_cols
         final_df.columns = agg_col_names + ob_cols_raw + ['tick_count']
-        
-        # ── Time-Aware Regularization (288 BAR 5MIN REINDEX) ────────────────────
-        # Ensure perfect 5-minute continuity to avoid "teleportation" over missing API data
+
+        # ── Time-Aware Regularization (full-day reindex at resample_freq) ────────
+        # Ensures perfect bar continuity to avoid "teleportation" over missing API data.
         try:
-            # Anchor to the start of the day for the first timestamp in the file
-            date_anchor = final_df.index[0].floor('D')
-            full_idx_start = date_anchor
-            full_idx_end = date_anchor.replace(hour=23, minute=55)  # Last 5min bar of day
-            full_idx = pd.date_range(start=full_idx_start, end=full_idx_end, freq='5min')
-            
-            # Reindex to full expected day
+            date_anchor    = final_df.index[0].floor('D')
+            # Compute last bar of the day dynamically from freq
+            freq_minutes   = pd.tseries.frequencies.to_offset(freq).nanos // 60_000_000_000
+            last_minute    = 24 * 60 - freq_minutes
+            full_idx_end   = date_anchor + pd.Timedelta(minutes=last_minute)
+            full_idx       = pd.date_range(start=date_anchor, end=full_idx_end, freq=freq)
+
             final_df = final_df.reindex(full_idx)
-            
-            # 1. Flow Imputation (ZERO FILL)
-            # If there's a gap, there is NO flow.
-            # Do this BEFORE log_volume calculation to ensure log1p(0) = 0
+
+            # 1. Flow Imputation (ZERO FILL) — no data in a gap = no flow
             flow_features = ['ofi', 'micro_price_momentum', 'tick_count', 'pressure_ratio']
             if 'tick_count' in final_df.columns:
                 final_df[flow_features] = final_df[flow_features].fillna(0)
-            
+
             # 2. Price/Static Imputation (FORWARD FILL)
-            # If there's a gap, orderbook state remains the same as the last seen
             price_state_features = [c for c in final_df.columns if c not in flow_features]
             final_df[price_state_features] = final_df[price_state_features].ffill()
-            
-            # For open/high/low in gap periods (where ffill propagated the LAST period's values),
-            # logically, a gap minute should have open=high=low=close of the LAST close.
-            # We enforce this constraint: if tick_count is 0, then open=high=low=close
+
+            # Gap bars: open=high=low=close (no movement while book was frozen)
             is_gap = final_df['tick_count'] == 0
             if is_gap.any():
                 final_df.loc[is_gap, 'open'] = final_df.loc[is_gap, 'close']
                 final_df.loc[is_gap, 'high'] = final_df.loc[is_gap, 'close']
-                final_df.loc[is_gap, 'low'] = final_df.loc[is_gap, 'close']
-                
+                final_df.loc[is_gap, 'low']  = final_df.loc[is_gap, 'close']
+
         except Exception as e:
             logger.warning(f"[transform] Time-Aware reindexing failed: {e}. Falling back to dropna.")
-            
+
         # Any residual NaNs at the very start of the day (before first trade) are dropped
         final_df.dropna(inplace=True)
 
@@ -327,52 +367,62 @@ class L2Transformer:
         final_df['log_ret_close'] = np.log(final_df['close'] / prev_close)
         final_df['log_volume'] = np.log1p(final_df['tick_count'])
 
-        # ── Sniper Pivot: Multi-Scale Shock Features (5min bars) ─────────────
-        # _delta_1: change vs previous 5min bar (≡ old _delta_5 in 1min pipeline)
-        final_df['ofi_delta_1']      = final_df['ofi'].diff(1)
-        final_df['bid_rdi_delta_1']  = final_df['bid_rdi'].diff(1)
-        final_df['ask_rdi_delta_1']  = final_df['ask_rdi'].diff(1)
-        final_df['micro_price_delta_1'] = final_df['close'].pct_change(1)
+        # ── Sniper Pivot: Multi-Scale Shock Features ──────────────────────────
+        # Short lookback (delta_short bars)
+        ds_lbl = str(ds)
+        final_df[f'ofi_delta_{ds_lbl}']           = final_df['ofi'].diff(ds)
+        final_df[f'bid_rdi_delta_{ds_lbl}']       = final_df['bid_rdi'].diff(ds)
+        final_df[f'ask_rdi_delta_{ds_lbl}']       = final_df['ask_rdi'].diff(ds)
+        final_df[f'micro_price_delta_{ds_lbl}']   = final_df['close'].pct_change(ds)
 
-        # _delta_6: 30min medium-term context (6 bars × 5min)
-        final_df['ofi_delta_6']      = final_df['ofi'].diff(6)
-        final_df['bid_rdi_delta_6']  = final_df['bid_rdi'].diff(6)
-        final_df['ask_rdi_delta_6']  = final_df['ask_rdi'].diff(6)
-        final_df['micro_price_delta_6'] = final_df['close'].pct_change(6)
+        # Long lookback (delta_long bars)
+        dl_lbl = str(dl)
+        final_df[f'ofi_delta_{dl_lbl}']           = final_df['ofi'].diff(dl)
+        final_df[f'bid_rdi_delta_{dl_lbl}']       = final_df['bid_rdi'].diff(dl)
+        final_df[f'ask_rdi_delta_{dl_lbl}']       = final_df['ask_rdi'].diff(dl)
+        final_df[f'micro_price_delta_{dl_lbl}']   = final_df['close'].pct_change(dl)
 
-        # ── Institutional Microstructure Features ───────────────────────────
-        # 1. Book Asymmetry (L5): Total Volume imbalance in top 5 levels
-        # Formula: log(sum_bids_5 / sum_asks_5)
-        sum_bids_5 = sum(final_df[f"bid_{i}_s"] for i in range(5))
-        sum_asks_5 = sum(final_df[f"ask_{i}_s"] for i in range(5))
-        final_df['book_asymmetry_v5'] = np.log((sum_bids_5 + 1e-9) / (sum_asks_5 + 1e-9))
+        # ── Institutional Microstructure Features ─────────────────────────────
+        # 1. Book Asymmetry (top book_asymmetry_depth levels)
+        n_asym = self._book_asym_depth
+        sum_bids_n = sum(final_df[f"bid_{i}_s"] for i in range(n_asym))
+        sum_asks_n = sum(final_df[f"ask_{i}_s"] for i in range(n_asym))
+        final_df['book_asymmetry_v5'] = np.log((sum_bids_n + 1e-9) / (sum_asks_n + 1e-9))
 
-        # 2. Spread Z-Score (60min = 12 × 5min bars): Liquidity Stress thermometer
-        # Guard against div-by-zero using epsilon (1e-9).
-        rolling_spread = final_df['max_spread'].rolling(window=12, min_periods=1)
-        final_df['spread_zscore_60'] = (final_df['max_spread'] - rolling_spread.mean()) / (rolling_spread.std() + 1e-9)
+        # 2. Spread Z-Score (spread_zscore_window bars)
+        rolling_spread = final_df['max_spread'].rolling(window=self._spread_zscore_window, min_periods=1)
+        final_df['spread_zscore_60'] = (
+            (final_df['max_spread'] - rolling_spread.mean()) / (rolling_spread.std() + 1e-9)
+        )
 
-        # 3. Volume Toxicity (V-PIN Lite): Flow toxicity vs total liquidity
-        # 5 bars × 5min = 25min of flow context
-        final_df['vpin_lite_5'] = final_df['ofi'].abs().rolling(5).sum() / (sum_bids_5 + sum_asks_5 + 1e-9)
+        # 3. V-PIN Lite (vpin_window bars)
+        final_df['vpin_lite_5'] = (
+            final_df['ofi'].abs().rolling(self._vpin_window).sum() / (sum_bids_n + sum_asks_n + 1e-9)
+        )
 
-        # ── Phase 6: Orthogonal Deep-Book Features 🧬 ─────────────────────
-        # 1. Kyle's Lambda: Resistance to flow (Price Impact)
-        final_df['kyle_lambda'] = final_df['micro_price_delta_1'] / (final_df['ofi_delta_1'].abs() + 1e-9)
+        # ── Deep-Book Features ──────────────────────────────────────────────
+        # 1. Kyle's Lambda (uses delta_short column names)
+        final_df['kyle_lambda'] = (
+            final_df[f'micro_price_delta_{ds_lbl}'] /
+            (final_df[f'ofi_delta_{ds_lbl}'].abs() + 1e-9)
+        )
 
-        # 2. Deep-to-Front Ratio (L200/L5): Structural intent vs short-term walls
-        sum_bids_50_200 = sum(final_df[f"bid_{i}_s"] for i in range(50, 200))
-        sum_asks_50_200 = sum(final_df[f"ask_{i}_s"] for i in range(50, 200))
-        final_df['bid_deep_ratio'] = sum_bids_50_200 / (sum_bids_5 + 1e-9)
-        final_df['ask_deep_ratio'] = sum_asks_50_200 / (sum_asks_5 + 1e-9)
+        # 2. Deep-to-Front Ratio (deep_book_start → levels)
+        dbs = self._deep_book_start
+        sum_bids_deep = sum(final_df[f"bid_{i}_s"] for i in range(dbs, self.levels))
+        sum_asks_deep = sum(final_df[f"ask_{i}_s"] for i in range(dbs, self.levels))
+        final_df['bid_deep_ratio'] = sum_bids_deep / (sum_bids_n + 1e-9)
+        final_df['ask_deep_ratio'] = sum_asks_deep / (sum_asks_n + 1e-9)
 
-        # 3. Book Convexity: Gradient between L1-L10 and L11-L20
-        sum_bids_1_10 = sum(final_df[f"bid_{i}_s"] for i in range(1, 11))
-        sum_bids_11_20 = sum(final_df[f"bid_{i}_s"] for i in range(11, 21))
-        sum_asks_1_10 = sum(final_df[f"ask_{i}_s"] for i in range(1, 11))
-        sum_asks_11_20 = sum(final_df[f"ask_{i}_s"] for i in range(11, 21))
-        final_df['bid_convexity'] = sum_bids_1_10 / (sum_bids_11_20 + 1e-9)
-        final_df['ask_convexity'] = sum_asks_1_10 / (sum_asks_11_20 + 1e-9)
+        # 3. Book Convexity (convexity_near_end and convexity_far_end)
+        cn = self._convexity_near_end
+        cf = self._convexity_far_end
+        sum_bids_near = sum(final_df[f"bid_{i}_s"] for i in range(1, cn + 1))
+        sum_bids_far  = sum(final_df[f"bid_{i}_s"] for i in range(cn + 1, cf + 1))
+        sum_asks_near = sum(final_df[f"ask_{i}_s"] for i in range(1, cn + 1))
+        sum_asks_far  = sum(final_df[f"ask_{i}_s"] for i in range(cn + 1, cf + 1))
+        final_df['bid_convexity'] = sum_bids_near / (sum_bids_far + 1e-9)
+        final_df['ask_convexity'] = sum_asks_near / (sum_asks_far + 1e-9)
 
         # Final cleanup for all rolling/diff features (NaNs to 0, Infs to 0)
         sniper_institutional_cols = [
