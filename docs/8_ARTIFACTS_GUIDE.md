@@ -37,15 +37,22 @@ Este guia serve como uma referência rápida e exaustiva para localizar todos os
 | **Logs Treino** | `logs/training/train_*.log` | Métricas por época (Loss, F1, Accuracy). |
 | **Melhores HPs** | `src/cloud/base_model/configs/best_params.json` | Parâmetros vencedores injetados no treino final. |
 
-### B. Modelos Digitais Individuais (Pesos + Scalers)
+### B. Modelos Digitais & Sinergia (Pesos + Scalers)
+> [!IMPORTANT]
+> Modelos e Scalers são tratados como uma única unidade lógica de inferência.
+
+| Componente | Pesos (Model Weights) | Normalizador (Scaler) | Descrição |
+| :--- | :--- | :--- | :--- |
+| **Fundação** | `data/models/best_tcn_lstm.pt` | `data/models/scaler_foundation.pkl` | Treinado em todo o dataset (Generalista). |
+| **Especialista** | `data/models/best_tcn_lstm_dir.pt` | `data/models/scaler_specialized.pkl` | Foco em Sniper de Direção. |
+| **Auditor** | `data/models/auditor_xgboost.json` | `data/models/scaler_auditor.pkl` | O "Juiz" final da operação. |
+
+### C. Auditoria de Governança Gold v4.6
 | Artefato | Caminho (Path) | Descrição |
 | :--- | :--- | :--- |
-| **Modelo Base** | `data/models/best_tcn_lstm.pt` | Pesos do modelo TCN-LSTM (Fundação). |
-| **Modelo Especialista** | `data/models/best_tcn_lstm_dir.pt` | Pesos do modelo TCN-LSTM (Especialista Sniper). |
-| **Modelo Auditor** | `data/models/auditor_xgboost.json` | O "Juiz" XGBoost final. |
-| **Scaler Fundação** | `data/models/scaler_foundation.pkl` | Normalizador fitado no Treino da Base. |
-| **Scaler Especialista** | `data/models/scaler_specialized.pkl` | Normalizador fitado no Treino do Especialista. |
-| **Scaler Auditor** | `data/models/scaler_auditor.pkl` | Normalizador fitado no Treino do Auditor. |
+| **Resumo Executivo** | `docs/reports/audit_summary.csv` | **Tabela mestre** com status `VALID`, `INVALID` ou `FIXED`. 🆕<br>Colunas: `status`, `max_gap_before`, `max_gap_after`, `features_healed`, `healing_details`. |
+| **Quality Report** | `docs/reports/data_quality_report.json` | JSON detalhado com anomalias de cauda (Z-Score) e linhagem. |
+| **Logs ETL** | `logs/etl/*.log` | Rastro técnico do processamento diário. |
 
 ### C. Metadados e Logs de Treino
 | Artefato | Caminho (Path) | Descrição |

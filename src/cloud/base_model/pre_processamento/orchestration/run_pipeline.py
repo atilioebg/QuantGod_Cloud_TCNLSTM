@@ -188,6 +188,50 @@ def run_pipeline():
     report_dir = Path("docs/reports")
     report_dir.mkdir(parents=True, exist_ok=True)
     
+    # 5a. Executive Audit Table (CSV)
+    if quality_audits:
+        audit_csv_path = report_dir / "audit_summary.csv"
+        summary_rows = []
+        for audit in quality_audits:
+            h = audit.get("health_stats", {})
+            
+            # Status Logic
+            is_valid = h.get("is_valid", False)
+            is_healed = audit.get("healed", False)
+            
+            # Refined Status v4.6
+            status = "VALID" if is_valid else "INVALID"
+            if is_healed and is_valid:
+                status = "FIXED"
+                
+            # Alert Type Priority
+            alert_type = "NONE"
+            if h.get("ghost_features"): alert_type = "GHOST_FEATURE"
+            elif h.get("dead_features"): alert_type = "DEAD_FEATURE"
+            elif h.get("high_tail_count", 0) > 10: alert_type = "HIGH_TAIL_VOL"
+            elif h.get("max_gap_minutes", 0) > 25: alert_type = "TIME_GAP"
+            
+            summary_rows.append({
+                "file_name": audit.get("file_id", "unknown"),
+                "status": status,
+                "alert_type": alert_type,
+                "max_gap_before": f"{audit.get('max_gap_before', 0.0):.2f}",
+                "max_gap_after": f"{audit.get('max_gap_after', 0.0):.2f}",
+                "clipping_density": f"{audit.get('outlier_density', 0.0):.4f}%",
+                "features_healed": ", ".join(audit.get("features_healed", [])),
+                "healing_details": " | ".join(audit.get("healing_details", [])),
+                "integrity_comment": h.get("integrity_comment", "Passed")
+            })
+            
+        df_summary = pd.DataFrame(summary_rows)
+        # Sort by status to show INVALID/FIXED at the top
+        if not df_summary.empty:
+            df_summary['sort_idx'] = df_summary['status'].map({"INVALID": 0, "FIXED": 1, "VALID": 2})
+            df_summary = df_summary.sort_values("sort_idx").drop(columns=['sort_idx'])
+            
+        df_summary.to_csv(audit_csv_path, index=False)
+        logger.info(f"📊 [GOLD] Executive Audit Summary saved to {audit_csv_path}")
+
     if skipped_files:
         manifest_path = report_dir / "pipeline_skip_manifest.json"
         with open(manifest_path, "w") as f:

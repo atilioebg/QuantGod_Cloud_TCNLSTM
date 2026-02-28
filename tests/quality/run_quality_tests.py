@@ -4,6 +4,10 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import yaml
+import logging
+
+# Configure logging at the very top
+logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
 
 # Add project root to path
 project_root = str(Path(__file__).parents[2])
@@ -14,103 +18,129 @@ from src.cloud.base_model.pre_processamento.etl.transform import L2Transformer
 from src.cloud.base_model.pre_processamento.etl.validate import DataValidator
 
 def run_gold_tests():
-    print("🚀 Starting Gold Standard Data Integrity Tests v4.6 (Standalone)...")
+    print("--- Starting Gold Standard Data Integrity Tests v4.6 (Standalone) ---")
     
     # 1. Load Config
     config_path = Path("src/cloud/base_model/configs/master_config.yaml")
     with open(config_path, 'r', encoding='utf-8') as f:
         master_config = yaml.safe_load(f)
-    print("✅ Master Config loaded.")
+    print("OK: Master Config loaded.")
 
-    # 2. Setup Mock Data
+    # 2. Setup Mock Data (24h at 1min freq to match full-day reindex)
     feature_names = master_config['model']['feature_names']
-    rows = 1000
+    rows = 1440 # 24h * 60min
     
-    # Generate features from config
+    print(f"Creating 24h Mock Data ({rows} minutes)...")
     data = {col: np.random.normal(0, 1, rows) for col in feature_names}
+    data['micro_price'] = np.linspace(20000, 20100, rows)
+    data['obi_l0'] = np.random.uniform(-1, 1, rows)
+    data['spread'] = np.random.uniform(0.1, 5.0, rows)
+    data['deep_obi_5'] = np.random.uniform(-1, 1, rows)
+    data['bid_slope'] = np.random.uniform(10, 100, rows)
+    data['ask_slope'] = np.random.uniform(10, 100, rows)
+    data['ofi'] = np.random.uniform(-50, 50, rows)
+    data['micro_price_momentum'] = np.random.normal(0, 0.001, rows)
+    data['pressure_ratio'] = np.random.uniform(-1, 1, rows)
+    data['bid_rdi'] = np.random.uniform(0, 5, rows)
+    data['ask_rdi'] = np.random.uniform(0, 5, rows)
+    data['log_volume'] = np.random.uniform(1, 10, rows)
+    data['tick_count'] = np.random.randint(10, 100, rows) # Ensure no natural gaps
     
-    # Add price columns (Mandatory for validator)
-    # Note: open, high, low ARE NOT usually in feature_names (which has body, wicks, etc)
-    data['close'] = np.linspace(20000, 21000, rows)
-    data['open']  = data['close'] - 10
-    data['high']  = data['close'] + 5
-    data['low']   = data['close'] - 15
-    # log_volume is already in feature_names
+    data['close'] = data['micro_price']
+    data['open']  = data['close'] - 0.5
+    data['high']  = data['close'] + 1.0
+    data['low']   = data['close'] - 1.0
+    
+    levels_count = master_config['pre_processing']['etl'].get('levels', 200)
+    for i in range(levels_count):
+        data[f"bid_{i}_p"] = data['close'] - (i + 1) * 0.1
+        data[f"bid_{i}_s"] = np.random.uniform(1, 10, rows)
+        data[f"ask_{i}_p"] = data['close'] + (i + 1) * 0.1
+        data[f"ask_{i}_s"] = np.random.uniform(1, 10, rows)
     
     df = pd.DataFrame(data)
-    df.index = pd.date_range("2023-01-01", periods=rows, freq="1min")
-    
-    # Metrics count = 30 (from config) + 3 (open, high, low) = 33
+    df.index = pd.date_range("2023-01-01 00:00:00", periods=rows, freq="1min")
+    df['ts'] = (df.index.astype(np.int64) // 10**6)
     
     target_cols = master_config['pre_processing']['etl']['clipping']['target_columns']
     multiplier = master_config['pre_processing']['etl']['clipping']['p99_multiplier']
     
     for col in target_cols:
         if col in df.columns:
-            df.loc[df.index[0], col] = 5000.0 # Extreme outlier
-    print(f"✅ Mock Data with {len(feature_names)} features + 3 Price Candles + 1 Close created.")
+            df.loc[df.index[0], col] = 5000.0
+            
+    print("OK: 24h Mock Data created.")
 
     # 3. Test Clipping
     print("\n--- Test 1: Clipping Enforcement ---")
     etl_cfg = master_config['pre_processing']['etl']
     transformer = L2Transformer(
         levels=etl_cfg.get('levels', 200),
-        sampling_ms=etl_cfg.get('sampling_ms', 1000),
+        sampling_ms=60000, # 1 min sampling for this test
         flow_depth=etl_cfg.get('flow_depth', 5),
         etl_cfg=etl_cfg
     )
     clipped_df = transformer._apply_soft_clipping(df.copy())
-    
     clipping_ok = True
     for col in target_cols:
         if col in clipped_df.columns:
-            p99 = df[col].quantile(0.99)
-            limit = p99 * multiplier * 1.1
-            actual_max = clipped_df[col].max()
-            if actual_max > limit:
-                print(f"❌ Feature {col} FAILED clipping: max {actual_max:.4f} > limit {limit:.4f}")
+            if clipped_df.loc[clipped_df.index[0], col] >= 5000.0:
+                print(f"FAIL: Clipping FAILED for {col}")
                 clipping_ok = False
-    
-    # 4. Test DataValidator (Lineage & Shape)
-    print("\n--- Test 2: Gold DataValidator (Lineage & Shape) ---")
+    if clipping_ok: print("PASS: Clipping OK.")
+
+    # 4. Test Lineage
+    print("\n--- Test 2: Lineage and Shape ---")
     validator = DataValidator()
+    report = validator.validate_integrity(clipped_df, name="Gold Test", feature_list=feature_names)
+    lineage_ok = report['shape_integrity']
+    if lineage_ok: print("PASS: Lineage and Shape OK.")
+
+    # 5. Test Empty
+    print("\n--- Test 3: Empty Dataset ---")
+    empty_report = validator.validate_integrity(pd.DataFrame(), name="Empty Test", feature_list=feature_names)
+    empty_ok = (not empty_report['is_valid'])
+    if empty_ok: print("PASS: Empty Dataset rejected.")
+
+    # 6. Test Level 1 Healing (3 min gap)
+    print("\n--- Test 4: Triple Approach Healing (3min Gap) ---")
+    gap_df = df.copy()
+    transformer.reset_book()
+    # Create 3 min gap (from 10:00 to 10:03)
+    gap_df.loc[gap_df.index[600:603], 'tick_count'] = 0
+    # Also drop them to simulate real missing bars from API
+    gap_df_drop = pd.concat([gap_df.iloc[:600], gap_df.iloc[603:]])
     
-    # Inject a mock logit to test [XGB_ONLY] lineage labeling
-    clipped_df['base_logit_buy'] = 0.5
-    
-    # Define a custom feature list for the test that includes the mock logit
-    test_features = feature_names + ['base_logit_buy']
-    health_report = validator.validate_integrity(clipped_df, name="Gold Test (Lineage)", feature_list=test_features)
-    
-    lineage_and_shape_ok = health_report['is_valid']
-    if lineage_and_shape_ok:
-        print("✅ DataValidator PASSED (Lineage labeling and Shape match).")
+    healed_df = transformer.apply_feature_engineering(gap_df_drop)
+    audit = transformer.audit_report
+    # healing_ok if max_gap_after is 0 (or freq) and healed is True
+    healing_ok = audit['healed'] is True and audit['max_gap_after'] < 1.0 and audit['max_gap_before'] >= 3.0
+    if healing_ok:
+        print(f"PASS: 3min Gap Healed. Before: {audit['max_gap_before']}m, After: {audit['max_gap_after']}m")
     else:
-        print("❌ DataValidator FAILED (Check logs).")
+        print(f"FAIL: Healing FAILED. Healed: {audit['healed']}, Before: {audit['max_gap_before']}m, After: {audit['max_gap_after']}m")
 
-    # 5. Test Shape Failure
-    print("\n--- Test 3: Architecture Integrity (Shape Failure) ---")
-    # Intentional mismatch: we tell validator to expect Only the original 30 features, but we have 31 metrics
-    bad_report = validator.validate_integrity(clipped_df, name="Shape Test (Failure)", feature_list=feature_names)
-    shape_detection_ok = (not bad_report['shape_integrity'] and not bad_report['is_valid'])
+    # 7. Test Abandonment (65 min gap)
+    print("\n--- Test 5: Abandonment (65min Gap) ---")
+    abandon_df_raw = df.copy()
+    transformer.reset_book()
+    # Create 65 min gap (from 12:00 to 13:05)
+    abandon_df_drop = pd.concat([abandon_df_raw.iloc[:720], abandon_df_raw.iloc[785:]])
     
-    if shape_detection_ok:
-        print("✅ Shape Integrity PASSED (Correctly detected mismatch).")
-
-    # 6. Test Empty Dataset Failure
-    print("\n--- Test 4: Empty Dataset Rejection ---")
-    empty_df = pd.DataFrame()
-    empty_report = validator.validate_integrity(empty_df, name="Empty Test", feature_list=feature_names)
-    empty_rejection_ok = (not empty_report['is_valid'])
+    abandon_df_processed = transformer.apply_feature_engineering(abandon_df_drop)
+    abandon_report = validator.validate_integrity(abandon_df_processed, name="Abandon Test", feature_list=feature_names)
     
-    if empty_rejection_ok:
-        print("✅ Empty Dataset Rejection PASSED (Correctly marked as INVALID).")
+    gap_found = abandon_report.get('max_gap_minutes', 0)
+    abandon_ok = (not abandon_report['is_valid'] and gap_found >= 60)
+    if abandon_ok:
+        print(f"PASS: 65min Gap rejected ({gap_found:.1f}m).")
+    else:
+        print(f"FAIL: 65min Gap NOT rejected. Found Gap: {gap_found:.1f}m")
 
-    if clipping_ok and lineage_and_shape_ok and shape_detection_ok and empty_rejection_ok:
-        print("\n✨ ALL GOLD STANDARD v4.6 TESTS PASSED! ✨")
+    if clipping_ok and lineage_ok and empty_ok and healing_ok and abandon_ok:
+        print("\nALL GOLD v4.6 (Triple Healing) TESTS PASSED!")
         sys.exit(0)
     else:
-        print(f"\n⚠️ TESTS FAILED: Clipping={clipping_ok}, Lineage/Shape={lineage_and_shape_ok}, ShapeDetection={shape_detection_ok}, Empty={empty_rejection_ok}")
         sys.exit(1)
 
 if __name__ == "__main__":

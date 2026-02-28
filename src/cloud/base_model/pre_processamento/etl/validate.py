@@ -46,6 +46,7 @@ class DataValidator:
             logger.error(f"❌ ARCHITECTURE INTEGRITY FAILURE: Dataset {name} is empty.")
             report['is_valid'] = False
             report['shape_integrity'] = False
+            report['integrity_comment'] = "Empty dataset (Level 1 Healing failed or no data found)."
             return report
 
         # 0.1 Check for Duplicate Columns (FATAL)
@@ -85,6 +86,7 @@ class DataValidator:
             logger.error(f"❌ ARCHITECTURE INTEGRITY FAILURE: Detected {len(ghost_features)} unauthorized ghost features: {ghost_features}")
             report['shape_integrity'] = False
             report['is_valid'] = False
+            report['integrity_comment'] = f"Ghost features detected: {len(ghost_features)}"
 
         if report['shape_integrity']:
             total_cols = len(df.columns)
@@ -171,13 +173,44 @@ class DataValidator:
                  report['dead_features_lineage'][col] = lineage
                  logger.warning(f"🧟 DEAD FEATURE: {lineage} {col} (Zero Variance detected)")
 
-        # 9. Time Gaps
+        # 9. Time Gaps & Abandonment (Hardening v4.6)
+        # Check index continuity
         diffs = df.index.to_series().diff().dropna()
-        if not diffs.empty:
-            max_gap = diffs.max()
-            report['max_gap_minutes'] = float(max_gap.total_seconds() / 60)
-            if max_gap > pd.Timedelta(minutes=25):
-                logger.warning(f"Found large time gap: {max_gap}")
+        max_idx_gap = float(diffs.max().total_seconds() / 60) if not diffs.empty else 0.0
         
-        logger.info(f"🏆 Gold Validation complete for {name}. Status: {'VALID' if report['is_valid'] else 'INVALID'}")
+        # Check for gaps in "real" data (consecutive zero-trade bars)
+        max_vol_gap = 0.0
+        if 'tick_count' in df.columns:
+            is_zero = (df['tick_count'] == 0)
+            if is_zero.any():
+                # Group consecutive zeros
+                zero_groups = (is_zero != is_zero.shift()).cumsum()
+                gaps = is_zero[is_zero].groupby(zero_groups[is_zero])
+                if not gaps.groups:
+                    max_vol_gap = 0.0
+                else:
+                    # freq_min is usually 1 min or similar. Let's compute it.
+                    if not diffs.empty:
+                        freq_min = diffs.median().total_seconds() / 60
+                        max_vol_gap = gaps.size().max() * freq_min
+        
+        report['max_gap_minutes'] = max(max_idx_gap, max_vol_gap)
+        logger.info(f"DEBUG: max_idx_gap={max_idx_gap}, max_vol_gap={max_vol_gap} (freq={freq_min if 'freq_min' in locals() else 'N/A'})")
+        
+        # v4.6 Gold: Abandon Threshold (60 min)
+        # Even if healed, if a >60m gap remains (not healable by L1), it's INVALID
+        abandon_threshold = 60.0
+        if report['max_gap_minutes'] > abandon_threshold:
+            logger.error(f"❌ GAP ABANDONMENT: Max gap {report['max_gap_minutes']:.1f}min exceeds 60min limit.")
+            report['is_valid'] = False
+            report['shape_integrity'] = False
+            report['integrity_comment'] = f"Critical gap: {report['max_gap_minutes']:.1f}min (> 60min limit)."
+
+        # Final Gold Status (Status: VALID / INVALID / FIXED)
+        is_healed = report.get('healed', False)
+        status = 'VALID' if report['is_valid'] else 'INVALID'
+        if is_healed and report['is_valid']:
+            status = 'FIXED'
+            
+        logger.info(f"🏆 Gold Validation complete for {name}. Status: {status}")
         return report
