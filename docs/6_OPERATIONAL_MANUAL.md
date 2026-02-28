@@ -20,7 +20,7 @@ Antes de qualquer execução:
 ```mermaid
 flowchart LR
     A[ZIPs GDrive] --> B[ETL\nrun_pipeline.py]
-    B --> C[pre_processed/\n810 cols Parquet]
+    B --> C[pre_processed_L2/\n831 cols Parquet]
     C --> D[Labelling\nrun_labelling.py]
     D --> E[labelled_*/\n+target col]
     E --> F[Optuna\nrun_optuna.py]
@@ -47,7 +47,7 @@ python -m src.cloud.base_model.pre_processamento.orchestration.run_pipeline
 ```
 
 - **Input:** ZIPs do GDrive (via rclone mount)
-- **Output:** `data/L2/pre_processed/YYYY-MM-DD_*.parquet` (833 colunas, ~1440 linhas/arquivo)
+- **Output:** `data/L2/pre_processed_L2/YYYY-MM-DD_*.parquet` (831 colunas: 30 Features + 800 Raw L2 + Price)
 - **Duração:** ~2–4 horas para o dataset completo (2023–2026) em 14 vCPUs
 
 **Validar:**
@@ -199,7 +199,8 @@ Logs são salvos automaticamente em `logs/`:
 
 | Log | Localização | Atualização |
 |:---|:---|:---|
-| ETL progress | `logs/etl/etl_YYYYMMDD.log` | A cada arquivo processado |
+| ETL progress | `logs/etl/etl_YYYYMMDD_HHMMSS.log` | A cada arquivo processado |
+| Quality Metrics | `docs/reports/data_quality_report.json` | Ao fim da rodada (JSON estruturado) |
 | Labelling | `logs/labelling/labelling_YYYYMMDD.log` | A cada arquivo labelled |
 | Optuna trial | `logs/optimization/optuna_<study>_<timestamp>.log` | A cada trial |
 | Training epoch | `logs/training/train_YYYYMMDD.log` | A cada época |

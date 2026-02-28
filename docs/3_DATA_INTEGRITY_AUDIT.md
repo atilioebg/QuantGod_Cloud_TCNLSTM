@@ -1,40 +1,48 @@
-# QuantGod v4.5: Filosofia de Integridade e Auditoria "Gold Standard"
+# QuantGod v4.6: Filosofia de Integridade e Auditoria "Gold Standard"
 
-Este documento detalha o motor de **Data Quality Assurance** do projeto QuantGod, distinguindo falhas técnicas de anomalias reais de mercado (Microestrutura de Choque).
+Este documento detalha o motor de **Data Quality Assurance** do projeto QuantGod v4.6 Gold, distinguindo falhas técnicas de anomalias reais de mercado.
 
-## 1. Erro Técnico (Bug) vs. Anomalia de Mercado (Insight)
+## 1. Erro Técnico vs. Anomalia de Mercado
 
-O pipeline v4.5 distingue corrupção física de dados de eventos de volatilidade real.
+O pipeline v4.6 distingue corrupção física de dados de eventos de volatilidade real.
 
 ### A. Erros Técnicos: Rejeição Total (Hard Skip)
-Quando estas condições são detectadas, o arquivo é ignorado para preservar a sanidade do dataset:
-- **Gaps Temporais**: Ausência de dados > 5 minutos em arquivos de 24h.
-- **Preço Estático (Stale Data)**: Zero variação de preço/volume por janelas longas (indica feed travado).
-- **Livro Cruzado (Crossed Book)**: Bid > Ask, indicando snapshot L2 corrompido na fonte.
+- **Gaps Temporais**: Ausência de dados > 25 minutos.
+- **Preço Estático (Stale Data)**: Zero variação de preço/volume (feed travado).
+- **Inconsistência de Shape**: Quantidade de colunas divergente do `master_config.yaml`.
+- **Ghost Features**: Detecção de sinais/logits não autorizados no config.
 - **NaNs/Infs**: Nulos/Infinitos em campos vitais.
 
-### B. Anomalias de Mercado: Domesticação (Soft Clipping)
-Estes são eventos **REAIS** na Binance, mas estatisticamente nocivos para o treinamento de modelos de IA (TCN/LSTM/XGBoost):
-- **Microestrutura de Choque**: Momentos onde a liquidez some e ordens pequenas causam saltos gigantescos de preço (ex: `kyle_lambda` saltando de 0.5 para 1400.0 em 1 segundo).
-- **Flash Crashes/Squeezes**: Movimentos extremos que destorcem a escala do Z-Score, "esmagando" a sensibilidade do modelo para movimentos normais.
+### B. Linhagem de Dados (Feature Lineage)
+Cada métrica é rotulada para auditoria profunda:
+- **`[DNN_INPUT]`**: As 30 features que alimentam o "cérebro" TCN-LSTM.
+- **`[XGB_ONLY]`**: Sinais e Probabilidades cruzadas usadas apenas pelo Juiz Auditor.
+- **`[RAW_DATA]`**: Dados brutos do Order Book (L2) preservados para suporte mas ignorados pelo modelo.
 
 ---
 
-## 2. Estratégia de Clipping (Winsorization)
+## 2. Mapa de Artefatos Gerados (Auditoria Gold)
 
-**Racional**: Descartar 24h de dados úteis por causa de 1 minuto de caos é ineficiente. O Clipping mantém o contexto histórico "domando" os extremos.
+Ao final de cada etapa do pipeline, os seguintes arquivos são gerados para rastro permanente:
 
-### Lógica do Teto Dinâmico
-1. O sistema calcula o **Percentil 99 (P99)** do arquivo atual.
-2. Define o **Teto** como `P99 * 10` (Parametrizável via `master_config.yaml`).
-3. Valores acima do teto são reduzidos para o limite superior antes da normalização.
+### A. Logs de Processamento
+*   **Caminho**: `logs/etl/etl_YYYYMMDD_HHMMSS.log`
+*   **Conteúdo**: Registro temporal de download, streaming, clipping e validação de integridade.
+*   **Uso**: Debug operacional e verificação de fluxo.
+
+### B. Relatório de Métricas de Sanidade (JSON)
+*   **Caminho**: `docs/reports/data_quality_report.json`
+*   **Conteúdo**: 
+    - `lineage_summary`: Contagem de colunas por origem.
+    - `high_tails_detail`: Registro de anomalias de cauda (Z-Score > 12).
+    - `dead_features_lineage`: Mapeamento de features sem variância.
+    - `is_valid`: Selo final de qualidade.
+
+### C. Datasets Finais
+*   **Local**: `data/L2/pre_processed_L2/*.parquet`
+*   **Nuvem**: `drive:PROJETOS/PRE_PROCESSED_L2_V4.6_GOLD_1min_30F`
 
 ---
 
-## 3. Auditoria e Rastreabilidade
-
-Ao final de cada processamento, o arquivo `docs/reports/data_quality_report.json` serve de certificado final:
-- **`outlier_density`**: Prova quanto do dataset foi "domado".
-- **`clipping_events`**: Detalha qual coluna foi corrigida e qual era o valor bizarro inicial.
-
-Este processo garante que o dataset v4.5 seja o mais limpo e profissional possível para o fundo de investimento.
+## 3. Estratégia de Soft Clipping (Winsorization)
+O sistema calcula o **P99** e aplica um teto de `10x P99` para "domar" extremos de liquidez sem perder o sinal econômico. Este processo é totalmente registrado no JSON de auditoria acima.
