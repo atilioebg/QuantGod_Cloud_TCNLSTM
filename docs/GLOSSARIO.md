@@ -55,12 +55,14 @@ Registros de execução para depuração e auditoria de treinamento.
 
 ---
 
-## ⚙️ 5. Configurações (`configs/`)
+## ⚙️ 5. Configurações e Métricas de Auditoria (`configs/`)
 A "Fonte Única de Verdade" para hiperparâmetros e execução.
 
-| Arquivo | Formato | Uso |
+| Arquivo/Métrica | Formato | Uso |
 |:---|:---|:---|
 | `master_config.yaml` | `.yaml` | Configuração mestra: thresholds, features, janelas e paths. |
+| **`max_idx_gap`** | Float (min) | Auditoria: Maior distância entre timestamps consecutivos (Alvo: 1.0). |
+| **`max_vol_gap`** | Float (min) | Auditoria: Maior intervalo contínuo com zero trades (`tick_count=0`). |
 | `pytest.ini` | `.ini` | Flags de execução dos testes automatizados. |
 | `rclone.conf` | `.conf` | Chaves e tokens para acesso ao Google Drive Cloud. |
 

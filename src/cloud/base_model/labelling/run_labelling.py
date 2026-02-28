@@ -32,39 +32,53 @@ def apply_labelling(file_path, config):
         threshold_short = -sell_th
         
         # 1. Load Parquet (Selective Load to save RAM)
-        # We need all columns + the close column for labelling
         df = pl.read_parquet(file_path)
         
-        # 2. Calculate Future Returns
-        # We want the cumulative log return from t+1 up to t+lookahead.
-        # rolling_sum(60) at index t+60 gives sum(t+1...t+60).
-        # shifting that back to index t gives exactly the future 60-min return.
+        # 2. Future Logic - Sniper v4.6 Gold
+        # Lookahead: calculate max high and min low in the next 'lookahead' minutes
+        # Zero Tolerance Rule: Invalidate if any minute has tick_count == 0 (market silence)
+        
+        # We use shifting windows to look into the future
+        # horizontal_max/min doesn't exist for windows in polars easily across rows without shifts
+        # But we can use rolling_max/min and shift back
+        
         df = df.with_columns([
-            pl.col("log_ret_close").rolling_sum(window_size=lookahead).shift(-lookahead).alias("future_return")
+            pl.col("high").rolling_max(window_size=lookahead).shift(-lookahead).alias("future_max_high"),
+            pl.col("low").rolling_min(window_size=lookahead).shift(-lookahead).alias("future_min_low"),
+            pl.col("tick_count").rolling_min(window_size=lookahead).shift(-lookahead).alias("future_min_ticks")
         ])
         
-        # 3. Apply Thresholds
+        # 3. Apply Thresholds & Zero Tolerance
+        # Target = 2 (BUY) if max high >= close * (1 + buy_th)
+        # Target = 0 (SELL) if min low <= close * (1 - sell_th)
+        # Target = NaN (INVALID) if future_min_ticks == 0 (Apagão no futuro)
+        
         df = df.with_columns([
-            pl.when(pl.col("future_return") > threshold_long).then(2) # BUY
-            .when(pl.col("future_return") < threshold_short).then(0) # SELL
+            pl.when(pl.col("future_min_ticks") == 0).then(None) # ZERO TOLERANCE: Gap no futuro = Inválido
+            .when(pl.col("future_max_high") >= pl.col("close") * (1 + threshold_long)).then(2) # BUY
+            .when(pl.col("future_min_low") <= pl.col("close") * (1 - sell_th)).then(0) # SELL (using sell_th positive from config)
             .otherwise(1) # NEUTRAL
             .alias("target")
         ])
         
-        # 4. Cleanup
-        # Remove the lookahead rows at the end (where future_return is NaN)
-        df_final = df.slice(0, len(df) - lookahead).drop("future_return")
+        # 4. Calculation of Invalidation Rate
+        total_valid_rows = len(df) - lookahead
+        invalidated_rows = df.slice(0, total_valid_rows).filter(pl.col("target").is_null()).height
+        invalidation_rate = invalidated_rows / total_valid_rows if total_valid_rows > 0 else 0
         
-        # 5. Save
+        # 5. Cleanup
+        # Remove the lookahead rows + drop the invalid ones (Gold Standard Policy)
+        # drop_nulls ensures the model is NOT trained with doubtful futures
+        df_final = df.slice(0, total_valid_rows).drop_nulls(subset=["target"]).drop(["future_max_high", "future_min_low", "future_min_ticks"])
+        
+        # 6. Save
         output_path = output_dir / file_path.name
         df_final.write_parquet(output_path)
         
         return {
             "status": "success",
             "file": file_path.name,
-            # Converter para dict simples {class: count}
-            # value_counts retorna struct com colunas "target" e "count"
-            # Precisamos iterar
+            "invalidation_rate": invalidation_rate,
             "counts": {
                 row['target']: row['count'] 
                 for row in df_final['target'].value_counts().to_dicts()
@@ -120,6 +134,8 @@ def run_labelling():
 
     # 3. Parallel Execution
     label_counts_total = {}
+    total_invalidation_sum = 0
+    valid_file_count = 0
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_file = {executor.submit(apply_labelling, pf, config): pf for pf in parquet_files}
@@ -133,8 +149,14 @@ def run_labelling():
                  # Aggregate counts
                  for label_class, count in result['counts'].items():
                      label_counts_total[label_class] = label_counts_total.get(label_class, 0) + count
+                 
+                 total_invalidation_sum += result.get('invalidation_rate', 0)
+                 valid_file_count += 1
+
+    avg_invalidation = (total_invalidation_sum / valid_file_count * 100) if valid_file_count > 0 else 0
 
     logger.info("Labelling phase finished.")
+    logger.info(f"📊 Sniper Audit: Average Target Invalidation Rate: {avg_invalidation:.2f}%")
     logger.info("Final Label Distribution:")
     for label_class, count in sorted(label_counts_total.items()):
         label_name = {0: "SELL", 1: "NEUTRAL", 2: "BUY"}.get(label_class, f"Class {label_class}")

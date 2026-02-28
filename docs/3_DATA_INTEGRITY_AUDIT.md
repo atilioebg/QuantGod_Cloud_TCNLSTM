@@ -7,7 +7,7 @@ Este documento detalha o motor de **Data Quality Assurance** do projeto QuantGod
 O pipeline v4.6 distingue corrupção física de dados de eventos de volatilidade real.
 
 ### A. Erros Técnicos: Rejeição Total (Hard Skip)
-- **Gaps Temporais Críticos**: Ausência de dados > 60 minutos após tentativa de cura. (Threshold v4.6 Gold).
+- **Gaps Temporais Críticos**: Ausência de dados reais > 60 minutos (medido via `max_vol_gap`) após tentativa de cura.
 - **Preço Estático (Stale Data)**: Zero variação de preço/volume (feed travado).
 - **Inconsistência de Shape**: Quantidade de colunas divergente do `master_config.yaml`.
 - **Ghost Features**: Detecção de sinais/logits não autorizados no config.
@@ -17,7 +17,21 @@ O pipeline v4.6 distingue corrupção física de dados de eventos de volatilidad
 Para gaps curtos (< 5 minutos), o sistema aplica a **Tratativa Tripla** para evitar o descarte desnecessário de dados:
 1.  **Grupo A (Interpolação Linear):** Aplicada a colunas de OHLC e volatilidade para suavizar a transição de preços.
 2.  **Grupo B (Median-Fill):** Aplicada a métricas de microestrutura (OBI, VPIN, RDI) usando a mediana do arquivo atual para neutralidade estatística.
-3.  **Grupo C (Zero-Fill):** Aplicada a fluxos de eventos (OFI, tick_count, momentum) para sinalizar ausência de atividade.
+3.  **Grupo C (Zero-Fill):** Aplicada a fluxos de eventos (OFI, `tick_count`, momentum) para sinalizar ausência de atividade.
+
+---
+
+## 2.1 Semântica de Gaps (Audit Metrics)
+
+Para garantir que o pipeline não seja "enganado" por um índice contínuo mas sem dados (silêncio de mercado), o v4.6 utiliza duas métricas complementares:
+
+| Métrica | O que mede? | Alvo Gold | Significado |
+| :--- | :--- | :--- | :--- |
+| **`max_idx_gap`** | Continuidade do Índice | **1.0 min** | Garante que o calendário do dia foi preenchido. Não existem "buracos" no DataFrame. |
+| **`max_vol_gap`** | Silêncio de Mercado | **< 60.0 min** | Mede o maior intervalo contínuo com zero trades (`tick_count=0`). É o critério real de abandono. |
+
+> [!IMPORTANT]
+> Um arquivo pode ter `max_idx_gap = 1.0` (índice perfeito) e ser **INVÁLIDO** se o `max_vol_gap > 60.0`. Isso protege o modelo contra períodos excessivos de falta de liquidez ou falhas de feed que mantêm o timestamp mas perdem o conteúdo.
 
 ---
 

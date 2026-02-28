@@ -78,18 +78,24 @@ def process_single_zip(zip_path, config):
             
             # Merge validator stats into the audit report
             transformer.audit_report["health_stats"] = health_report
-            
+
+            # Save only if VALID (Gold Standard v4.6 Policy)
+            is_valid = health_report['is_valid']
             output_name = zip_p.with_suffix(".parquet").name
-            saved = loader.save_parquet(df_final, output_name, config['pre_processing']['etl']['export_compression'])
             
-            if saved:
-                logger.info(f"✅ Saved pre-processed data: {output_name}")
+            if is_valid:
+                saved = loader.save_parquet(df_final, output_name, config['pre_processing']['etl']['export_compression'])
+                if saved:
+                    logger.info(f"✅ Saved pre-processed data: {output_name}")
+            else:
+                saved = False
+                logger.warning(f"❌ REJECTED: {zip_p.name} failed integrity check. Parquet NOT saved.")
             
             return {
                 "status": "success" if saved else "skipped",
-                "message": f"✅ Processed {zip_p.name}" if saved else f"⚠️  No rows saved in {zip_p.name}",
+                "message": f"✅ Processed {zip_p.name}" if is_valid else f"❌ Rejected {zip_p.name}",
                 "audit": transformer.audit_report,
-                "is_valid": health_report['is_valid']
+                "is_valid": is_valid
             }
         else:
             return {"status": "skipped", "message": f"⚠️  No data in {zip_p.name}"}

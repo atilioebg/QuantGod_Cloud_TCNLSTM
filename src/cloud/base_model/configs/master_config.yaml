@@ -59,9 +59,9 @@ pre_processing:
     convexity_far_end: 20                                         # Limite superior dos níveis "longe" para Book Convexity
   labelling:
     # Limiares de alvo futuro (Rentabilidade para Target 0 ou 2)
-    sell_threshold: 0.0005                                        # REDUZIDO: Para ter sinais em dataset de 1 dia
-    buy_threshold: 0.0005                                         # REDUZIDO
-    horizon_minutes: 15                                           # Janela de Lookahead para calcular a rentabilidade (15 minutos)
+    sell_threshold: 0.003                                         # Sniper Gold: 0.3% alvo
+    buy_threshold: 0.003                                          # Sniper Gold: 0.3% alvo
+    horizon_minutes: 15                                           # Janela de Lookahead de 15 minutos
     use_dynamic_workers: false                                    # Se true: usa os.cpu_count()-1 dinâmico; se false: usa max_workers abaixo
     max_workers: 14                                               # Número de workers paralelos quando use_dynamic_workers=false (útil em cloud com CPUs fixas conhecidas)
   split:
@@ -188,7 +188,7 @@ optimization:
     lr: [0.00001, 0.00006]                                        # Multiplicador do Passo Gradient Descendente (AdamW) do Erro Perceptual
     weight_decay: [0.0001, 0.01]                                  # Controle Punitivo de Regularização (Peso Descontado Extra sobre a Perda)
     batch_size: [512, 1024, 2048]                                 # Lotes Simultâneos injetados Paralelamente na VRAM do Fio Tenson (Cuda GPU)
-    seq_len: [24, 48, 96]                                         # Túnel Histórico Causal (Lookback de 24 a 96 Minutos de Micro-Estrutura do L2)
+    seq_len: [24, 48, 96, 120]                                    # Túnel Histórico: 24min a 120min (2h contexto Sniper)
     dropout: [0.3, 0.5, 0.75, 0.80]                               # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
     epochs: 1                                                     # REDUZIDO: Modo de teste E2E
     early_stopping_patience: 4                                    # Inteligência Auxiliar que Morre a Trial após X rounds inférteis
