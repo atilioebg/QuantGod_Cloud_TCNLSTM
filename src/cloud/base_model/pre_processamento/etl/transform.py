@@ -69,6 +69,10 @@ def _load_etl_config() -> dict:
             resolved[bar_key] = max(1, real_minutes // resample_min)
             resolved[min_key] = real_minutes
 
+        # Explicitly include nesting for clipping and audit
+        resolved["clipping"] = etl.get("clipping", {"enabled": False})
+        resolved["audit"] = etl.get("audit", {"generate_report": False})
+
         return resolved
     except Exception:
         resample_min = _parse_resample_minutes(_DEFAULTS["resample_freq"])
