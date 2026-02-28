@@ -1,0 +1,10 @@
+{
+    "tcn_channels": 256,
+    "lstm_hidden": 256,
+    "num_lstm_layers": 4,
+    "batch_size": 2048,
+    "dropout": 0.4753267543144081,
+    "seq_len": 48,
+    "lr": 1.1071426039720827e-05,
+    "weight_decay": 0.0006873563757980647
+}
