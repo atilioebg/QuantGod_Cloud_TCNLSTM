@@ -114,10 +114,17 @@ def run_pipeline():
     )
     # Ensure we start with a clean temp folder
     extractor.cleanup_temp()
+
+    # GOLD CLEANUP: Auto-clean local output folder to prevent rclone from syncing old debris
+    local_output = Path("data/L2/pre_processed_L2")
+    if local_output.exists():
+        logger.info(f"🧹 GOLD CLEANUP: Clearing old parquets in {local_output}")
+        for p in local_output.glob("*.parquet"):
+            p.unlink()
+    else:
+        local_output.mkdir(parents=True, exist_ok=True)
     
     zip_files = extractor.list_zips()
-    # SMOKE TEST: Process only 1 ZIP for log verification
-    zip_files = zip_files[:1]
     
     if not zip_files:
         logger.error("No data to process.")
