@@ -1,6 +1,6 @@
 # 📒 8. Artifacts & Audit Guide — QuantGod v4.6 Gold
 
-Este guia serve como uma referência rápida para localizar todos os logs e relatórios gerados pelo pipeline em tempo de execução.
+Este guia serve como uma referência rápida e exaustiva para localizar todos os artefatos (logs, JSONs, modelos e datasets) gerados pelo pipeline em tempo de execução.
 
 ---
 
@@ -20,7 +20,7 @@ Este guia serve como uma referência rápida para localizar todos os logs e rela
 
 | Artefato | Caminho (Path) | Descrição |
 | :--- | :--- | :--- |
-| **Log de Labelling** | `logs/labeling/labeling_YYYYMMDD_HHMMSS.log` | Status do processamento paralelo de rótulos. |
+| **Log de Labelling** | `logs/labelling/labelling_YYYYMMDD_HHMMSS.log` | Status do processamento paralelo de rótulos. |
 | **Relatório de Classes** | `docs/reports/labelling_audit.json` | Distribuição de sinais BUY/SELL/NEUTRAL. |
 | **Summary de Split** | `data/splits/split_summary.json` | Prova de isolamento temporal (Purge Gap) e K-Fold. |
 
@@ -29,19 +29,39 @@ Este guia serve como uma referência rápida para localizar todos os logs e rela
 ## 🧠 3. Estágio: Treino & Otimização
 **Scripts**: `run_optuna.py`, `run_training.py`, `train_xgboost.py`
 
+### A. Metadados e Logs
 | Artefato | Caminho (Path) | Descrição |
 | :--- | :--- | :--- |
 | **Banco Optuna** | `sqlite:///optuna_tcn_lstm_v1_finetune.db` | Histórico completo de todos os trials e hiperparâmetros. |
-| **Melhores HPs** | `src/cloud/base_model/configs/best_params.json` | Parâmetros vencedores injetados no treino. |
-| **Pesos do Modelo** | `data/models/*.pt` (TCN) / `*.json` (XGB) | O cérebro da IA e do Juiz Auditor final. |
-| **Scalers** | `data/models/scaler_*.pkl` | Normalizadores cruciais para live inference. |
+| **Logs Optuna** | `logs/optimization/optuna_*.log` | Detalhes técnicos de cada trial de otimização. |
+| **Logs Treino** | `logs/training/train_*.log` | Métricas por época (Loss, F1, Accuracy). |
+| **Melhores HPs** | `src/cloud/base_model/configs/best_params.json` | Parâmetros vencedores injetados no treino final. |
+
+### B. Binários de Modelos (Checkpoints)
+| Artefato | Caminho (Path) | Descrição |
+| :--- | :--- | :--- |
+| **Modelo Base** | `data/models/best_tcn_lstm.pt` | Pesos do modelo TCN-LSTM (Fundação). |
+| **Modelo Especialista** | `data/models/best_tcn_lstm_dir.pt` | Pesos do modelo TCN-LSTM (Especialista Sniper). |
+| **Modelo Auditor** | `data/models/auditor_xgboost.json` | O "Juiz" XGBoost final. |
+
+### C. Normalizadores (Scalers)
+| Artefato | Caminho (Path) | Descrição |
+| :--- | :--- | :--- |
+| **Scaler Fundação** | `data/models/scaler_foundation.pkl` | Fitado no Treino da Base. |
+| **Scaler Especialista** | `data/models/scaler_specialized.pkl` | Fitado no Treino do Especialista. |
+| **Scaler Auditor** | `data/models/scaler_auditor.pkl` | Fitado no Treino do Auditor. |
+
+### D. Dados Intermediários de Auditoria
+| Artefato | Caminho (Path) | Descrição |
+| :--- | :--- | :--- |
+| **OOF Predictions** | `data/auditor/oof_predictions/*.parquet` | Predições fora-da-amostra usadas para treinar o Auditor sem leakage. |
+| **Fused Dataset** | `data/auditor/dataset_fused/*.parquet` | Dataset final consolidado (Features + Logits). |
 
 ---
 
-## 🛡️ 4. Guia de Tags de Auditoria (v4.6)
-Ao ler os logs ou JSONs, atente-se a estas tags:
-*   `[DNN_INPUT]`: Refere-se às 30 features obrigatórias do modelo.
-*   `[XGB_ONLY]`: Refere-se aos 6 logits de cada modelo (Base e Especialista).
-*   `[RAW_DATA]`: Refere-se aos logs brutos do Order Book (suporte).
-*   `🧟 DEAD FEATURE`: Feature sem variância (coluna estática).
+## 🛡️ 4. Guia de Tags de Auditoria (v4.6 Gold)
+*   `[DNN_INPUT]`: As 30 features do modelo TCN-LSTM.
+*   `[XGB_ONLY]`: Os 6 logits (Buy/Sell/Neu) gerados por cada modelo.
+*   `[RAW_DATA]`: Dados brutos de suporte do Order Book.
+*   `🧟 DEAD FEATURE`: Feature sem variância (bug ou feed travado).
 *   `⚠️ HIGH TAIL`: Outliers extremos (Z-Score > 12).
