@@ -4,7 +4,7 @@
 
 pipeline_paths:
   # Caminhos base da arquitetura
-  raw_l2_source: "drive:PROJETOS/BTC_USDT_L2_2023_2026"         # Fonte Remota via Rclone (Mode: Streaming)
+  raw_l2_source: "drive:PROJETOS/BTC_USDT_L2_2023_2026"           # Fonte Remota via Rclone (Mode: Streaming)
   db_path: "sqlite:///optuna_tcn_lstm_v1_finetune.db"             # Banco de dados do Optuna HPO
   best_tcn_lstm_model: "data/models/best_tcn_lstm.pt"             # Local path for stress test
   best_tcn_lstm_dir_model: "data/models/best_tcn_lstm_dir.pt"
@@ -33,7 +33,8 @@ pre_processing:
     clipping:
       enabled: true                                               # Ativa Soft-Clipping (Winsorization)
       p99_multiplier: 10                                          # Teto: 10x o Percentil 99
-      target_columns: ['kyle_lambda', 'vpin_min25', 'spread', 'ofi'] # Colunas críticas para clipping
+      target_columns: ['kyle_lambda', 'vpin_min25', 'spread', 'ofi', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity', 'book_asymmetry_v5']
+      noise_floor: 0.00001                                        # Piso de ruído: não clippar se o P99 for menor que isso
     audit:
       generate_report: true                                       # Gera docs/reports/data_quality_report.json
 

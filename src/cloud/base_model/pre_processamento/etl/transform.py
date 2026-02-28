@@ -350,6 +350,7 @@ class L2Transformer:
 
         target_cols = self._clipping_cfg.get("target_columns", [])
         multiplier = self._clipping_cfg.get("p99_multiplier", 10)
+        noise_floor = self._clipping_cfg.get("noise_floor", 1e-6)
         
         total_cells = df.shape[0] * len(target_cols) if target_cols else 1
         clipped_count = 0
@@ -359,7 +360,8 @@ class L2Transformer:
                 continue
             
             p99 = df[col].quantile(0.99)
-            if pd.isna(p99) or p99 <= 0:
+            # Skip if P99 is negligible (noise floor)
+            if pd.isna(p99) or p99 < noise_floor:
                 continue
                 
             threshold = p99 * multiplier
@@ -377,7 +379,9 @@ class L2Transformer:
                     "threshold": float(threshold)
                 }
                 
-                logger.warning(f"☢️ [CLIPPING] {self.audit_report['file_id']}: {col} max ({max_val:.2f}) reduced to {threshold:.2f} (10x P99)")
+                # Dynamic format: use scientific if value is very small
+                fmt = ".2e" if max_val < 0.01 else ".2f"
+                logger.warning(f"☢️ [CLIPPING] {self.audit_report['file_id']}: {col} max ({max_val:{fmt}}) reduced to {threshold:{fmt}} (10x P99)")
                 df.loc[outliers_mask, col] = threshold
                 
         self.audit_report["outlier_density"] = (clipped_count / total_cells) * 100 if total_cells > 0 else 0.0
