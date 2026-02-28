@@ -114,11 +114,21 @@ def run_pipeline():
         return
 
     # Dynamic CPU Detection
-    # We use CPU count minus 1 to keep the system responsive, with a minimum of 1
-    total_cpus = os.cpu_count() or 1
-    # max_workers = max(1, total_cpus - 1)
-    max_workers = 4 # Defaults to 4
-    logger.info(f"System detected {total_cpus} vCPUs. Using {max_workers} parallel workers.")
+    # In some cloud environments, os.cpu_count() returns the host count (192), 
+    # but we want the actual quota allocated to the pod (e.g., 16).
+    try:
+        total_cpus = len(os.sched_getaffinity(0))
+    except AttributeError:
+        total_cpus = os.cpu_count() or 1
+        
+    config_workers = config['pre_processing']['etl'].get('max_workers')
+    if config_workers:
+        max_workers = config_workers
+    else:
+        # Default: Use all available minus 1 for system breathing room
+        max_workers = max(1, total_cpus - 1)
+        
+    logger.info(f"System detected {total_cpus} vCPUs allocated. Using {max_workers} parallel workers.")
     logger.info(f"Found {len(zip_files)} ZIP files to process.")
 
     # 4. Parallel Execution with ProcessPool

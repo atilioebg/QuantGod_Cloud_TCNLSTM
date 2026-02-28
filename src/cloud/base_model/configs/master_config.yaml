@@ -26,6 +26,7 @@ pre_processing:
     sampling_ms: 1000                                             # Cadência de captura dos snapshots em ms (1000ms = 1 snap/s antes do resample)
     export_compression: "snappy"                                  # Algoritmo de compressão dos Parquets (snappy=rápido, gzip=menor)
     flow_depth: 5                                                 # Top-N níveis usados para OFI, Slope e RDI — Wall liquidity sem ruído profundo
+    max_workers: 15                                               # (Nova) Número de vCPUs para o ETL Paralelo (Recomendado: vCPUs - 1)
 
     # ── Agregação temporal ──────────────────────────────────────
     resample_freq: "1min"                                         # Frequência do resample: '1min' (alta capilaridade, ~1440 barras/dia) ou '5min' (modo legado, ~288 barras/dia).
