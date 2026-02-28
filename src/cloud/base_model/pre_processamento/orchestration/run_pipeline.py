@@ -80,12 +80,14 @@ def process_single_zip(zip_path, config):
             transformer.audit_report["health_stats"] = health_report
             
             output_name = zip_p.with_suffix(".parquet").name
-            loader.save_parquet(df_final, output_name, config['pre_processing']['etl']['export_compression'])
+            saved = loader.save_parquet(df_final, output_name, config['pre_processing']['etl']['export_compression'])
             
-            logger.info(f"✅ Saved pre-processed data: {output_name}")
+            if saved:
+                logger.info(f"✅ Saved pre-processed data: {output_name}")
+            
             return {
-                "status": "success",
-                "message": f"✅ Processed {zip_p.name}",
+                "status": "success" if saved else "skipped",
+                "message": f"✅ Processed {zip_p.name}" if saved else f"⚠️  No rows saved in {zip_p.name}",
                 "audit": transformer.audit_report,
                 "is_valid": health_report['is_valid']
             }

@@ -37,19 +37,23 @@ Este guia serve como uma referência rápida e exaustiva para localizar todos os
 | **Logs Treino** | `logs/training/train_*.log` | Métricas por época (Loss, F1, Accuracy). |
 | **Melhores HPs** | `src/cloud/base_model/configs/best_params.json` | Parâmetros vencedores injetados no treino final. |
 
-### B. Binários de Modelos (Checkpoints)
+### B. Modelos Digitais Individuais (Pesos + Scalers)
 | Artefato | Caminho (Path) | Descrição |
 | :--- | :--- | :--- |
 | **Modelo Base** | `data/models/best_tcn_lstm.pt` | Pesos do modelo TCN-LSTM (Fundação). |
 | **Modelo Especialista** | `data/models/best_tcn_lstm_dir.pt` | Pesos do modelo TCN-LSTM (Especialista Sniper). |
 | **Modelo Auditor** | `data/models/auditor_xgboost.json` | O "Juiz" XGBoost final. |
+| **Scaler Fundação** | `data/models/scaler_foundation.pkl` | Normalizador fitado no Treino da Base. |
+| **Scaler Especialista** | `data/models/scaler_specialized.pkl` | Normalizador fitado no Treino do Especialista. |
+| **Scaler Auditor** | `data/models/scaler_auditor.pkl` | Normalizador fitado no Treino do Auditor. |
 
-### C. Normalizadores (Scalers)
+### C. Metadados e Logs de Treino
 | Artefato | Caminho (Path) | Descrição |
 | :--- | :--- | :--- |
-| **Scaler Fundação** | `data/models/scaler_foundation.pkl` | Fitado no Treino da Base. |
-| **Scaler Especialista** | `data/models/scaler_specialized.pkl` | Fitado no Treino do Especialista. |
-| **Scaler Auditor** | `data/models/scaler_auditor.pkl` | Fitado no Treino do Auditor. |
+| **Banco Optuna** | `sqlite:///optuna_tcn_lstm_v1_finetune.db` | Histórico de trials e hiperparâmetros. |
+| **Logs Optuna** | `logs/optimization/optuna_*.log` | Detalhes técnicos de cada trial. |
+| **Logs Treino** | `logs/training/train_*.log` | Métricas por época (Loss, F1, Accuracy). |
+| **Melhores HPs** | `src/cloud/base_model/configs/best_params.json` | Parâmetros vencedores do treino final. |
 
 ### D. Dados Intermediários de Auditoria
 | Artefato | Caminho (Path) | Descrição |

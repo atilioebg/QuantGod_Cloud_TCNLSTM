@@ -97,11 +97,20 @@ def run_gold_tests():
     if shape_detection_ok:
         print("✅ Shape Integrity PASSED (Correctly detected mismatch).")
 
-    if clipping_ok and lineage_and_shape_ok and shape_detection_ok:
+    # 6. Test Empty Dataset Failure
+    print("\n--- Test 4: Empty Dataset Rejection ---")
+    empty_df = pd.DataFrame()
+    empty_report = validator.validate_integrity(empty_df, name="Empty Test", feature_list=feature_names)
+    empty_rejection_ok = (not empty_report['is_valid'])
+    
+    if empty_rejection_ok:
+        print("✅ Empty Dataset Rejection PASSED (Correctly marked as INVALID).")
+
+    if clipping_ok and lineage_and_shape_ok and shape_detection_ok and empty_rejection_ok:
         print("\n✨ ALL GOLD STANDARD v4.6 TESTS PASSED! ✨")
         sys.exit(0)
     else:
-        print(f"\n⚠️ TESTS FAILED: Clipping={clipping_ok}, Lineage/Shape={lineage_and_shape_ok}, ShapeDetection={shape_detection_ok}")
+        print(f"\n⚠️ TESTS FAILED: Clipping={clipping_ok}, Lineage/Shape={lineage_and_shape_ok}, ShapeDetection={shape_detection_ok}, Empty={empty_rejection_ok}")
         sys.exit(1)
 
 if __name__ == "__main__":

@@ -41,7 +41,14 @@ class DataValidator:
             }
         }
 
-        # 0. Check for Duplicate Columns (FATAL)
+        # 0. Check for Empty Dataset (FATAL)
+        if df.empty:
+            logger.error(f"❌ ARCHITECTURE INTEGRITY FAILURE: Dataset {name} is empty.")
+            report['is_valid'] = False
+            report['shape_integrity'] = False
+            return report
+
+        # 0.1 Check for Duplicate Columns (FATAL)
         if df.columns.duplicated().any():
             dupes = df.columns[df.columns.duplicated()].unique().tolist()
             msg = f"❌ FATAL: Dataset {name} has duplicate columns: {dupes}"
