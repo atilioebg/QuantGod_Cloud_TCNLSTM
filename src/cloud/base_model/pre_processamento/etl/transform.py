@@ -496,6 +496,7 @@ class L2Transformer:
             # IDENTIFY AND TREAT GAPS
             flow_cols = ['tick_count', 'ofi', 'micro_price_momentum', 'volatility']
             actual_flow_cols = [c for c in flow_cols if c in final_df.columns]
+            healed_any = False
             
             for _, group in gaps:
                 gap_len_min = len(group) * freq_min
@@ -532,11 +533,11 @@ class L2Transformer:
                 self.audit_report["features_healed"] = ["Group A: Linear", "Group B: Median", "Group C: Zero"]
                 logger.info(f"🩹 [HEALING] Group A: Linear | Group B: Median | Grupo C: Zero aplicado ao arquivo {self.audit_report['file_id']}")
 
-            # ── STANDARD FILLING (FFILL) for residual state vars ─────────────
-            # We already filled Median/Zero for B and C. 
+            # ── SELECTIVE FILLING (FFILL) for residual state vars ────────────
             # Anything else (like ob_cols_raw) might need ffill if it was a LONG gap.
-            final_df.ffill(inplace=True)
-            final_df.bfill(inplace=True)
+            # We strictly EXCLUDE actual_flow_cols from forward-filling zero-values.
+            state_cols = [c for c in final_df.columns if c not in actual_flow_cols]
+            final_df[state_cols] = final_df[state_cols].ffill().bfill()
 
             # Fix OHLC logic for zero-trade bars (High/Low should match last Close)
             is_gap_post = (final_df['tick_count'] == 0)
@@ -567,7 +568,12 @@ class L2Transformer:
         except Exception as e:
             logger.warning(f"[transform] Level 1 Healing or reindexing failed: {e}. Falling back to clean dropna.")
 
+        # ── Post-Healing Audit and Cleanup ───────────────────────────────
+        # Ensure 'volatility' and other flow cols have NO NaNs (default to 0.0)
+        final_df[actual_flow_cols] = final_df[actual_flow_cols].fillna(0.0)
+
         # Final cleanup: drop rows that STILL have NaNs (usually just first DS bars)
+        # we only expect NaNs now in state variables that couldn't be bfilled (start of day)
         final_df.dropna(inplace=True)
 
         # Stationarity & Candle Shape
@@ -667,7 +673,7 @@ class L2Transformer:
         ]
         agg_features = [
             'body', 'upper_wick', 'lower_wick', 'log_ret_close',
-            'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi', 'log_volume'
+            'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi', 'log_volume', 'tick_count'
         ] + dynamic_features
 
         # Keep aggregated features + 'close' (label base) + raw orderbook levels
@@ -692,7 +698,12 @@ class L2Transformer:
         # ── Strategic Clipping (v4.5 Patch) ───────────────────────────
         final_df = self._apply_soft_clipping(final_df)
 
-        return final_df.dropna()
+        # ── Final Safety Sweep ───────────────────────────────────────────
+        # Replace any residual Infs or NaNs created during feature eng (e.g. log(0))
+        final_df.replace([np.inf, -np.inf], 0, inplace=True)
+        final_df.fillna(0, inplace=True)
+
+        return final_df
 
     def apply_zscore(self, df: pd.DataFrame, scaler_path: Optional[str] = None) -> pd.DataFrame:
         """
