@@ -128,6 +128,8 @@ def run_pipeline():
         local_output.mkdir(parents=True, exist_ok=True)
     
     zip_files = extractor.list_zips()
+    # SMOKE TEST: Process only 1 ZIP for final log/folder verification
+    zip_files = zip_files[:1]
     
     if not zip_files:
         logger.error("No data to process.")
