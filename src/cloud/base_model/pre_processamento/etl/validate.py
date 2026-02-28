@@ -28,10 +28,17 @@ class DataValidator:
             'nan_count': 0,
             'inf_count': 0,
             'dead_features': [],
+            'dead_features_lineage': {},
             'high_tail_count': 0,
+            'high_tails_detail': {},
             'stale_data_detected': False,
             'max_gap_minutes': 0.0,
-            'shape_integrity': True
+            'shape_integrity': True,
+            'lineage_summary': {
+                '[DNN_INPUT]': 0,
+                '[XGB_ONLY]': 0,
+                '[RAW_DATA]': 0
+            }
         }
 
         # 0. Check for Duplicate Columns (FATAL)
@@ -41,6 +48,20 @@ class DataValidator:
             logger.error(msg)
             raise ValueError(msg)
         
+        # Lineage Mapping Logic (v4.6 Gold)
+        def get_lineage(col):
+            if col in feature_list:
+                # XGB_ONLY features are usually logits or specialized model outputs
+                if any(x in col.lower() for x in ['logit', 'prob_', 'prediction', 'conf_']):
+                    return "[XGB_ONLY]"
+                return "[DNN_INPUT]"
+            return "[RAW_DATA]"
+
+        # Populate Lineage Summary
+        for col in df.columns:
+            l = get_lineage(col)
+            report['lineage_summary'][l] += 1
+
         # 0.1 Architecture Integrity Check (SHAPE)
         # We verify that ALL expected features are present.
         missing_features = [f for f in feature_list if f not in df.columns]
@@ -63,15 +84,6 @@ class DataValidator:
             raw_count = total_cols - expected_count - (1 if 'close' in df.columns else 0)
             logger.info(f"✅ ARCHITECTURE INTEGRITY: {expected_count}/{expected_count} features present. "
                         f"Audit Scope: {total_cols} columns ({expected_count} Features + {raw_count} Raw/Price).")
-
-        # Lineage Mapping Logic (v4.6 Gold)
-        def get_lineage(col):
-            if col in feature_list:
-                # XGB_ONLY features are usually logits or specialized model outputs
-                if any(x in col.lower() for x in ['logit', 'prob_', 'prediction', 'conf_']):
-                    return "[XGB_ONLY]"
-                return "[DNN_INPUT]"
-            return "[RAW_DATA]"
 
         # 1. Check for NaNs
         report['nan_count'] = int(df.isna().sum().sum())
@@ -140,6 +152,7 @@ class DataValidator:
             extreme_counts = high_tail_mask.sum()
             for col, count in extreme_counts[extreme_counts > 0].items():
                 lineage = get_lineage(col)
+                report['high_tails_detail'][col] = {'count': int(count), 'lineage': lineage}
                 logger.warning(f"⚠️ HIGH TAIL INTENSITY: {lineage} {col} has {count} points with Z-Score > 12.")
 
         # 8. Zero-Variance Detection (Dead Features)
@@ -148,6 +161,7 @@ class DataValidator:
         if report['dead_features']:
              for col in report['dead_features']:
                  lineage = get_lineage(col)
+                 report['dead_features_lineage'][col] = lineage
                  logger.warning(f"🧟 DEAD FEATURE: {lineage} {col} (Zero Variance detected)")
 
         # 9. Time Gaps
