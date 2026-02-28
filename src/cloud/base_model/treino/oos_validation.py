@@ -51,11 +51,11 @@ def run_oos_validation(test_dir: str, permutation: bool = False):
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # 1. Load Configurations
-    base_cfg_path = Path("src/cloud/base_model/configs/base_model_config.yaml")
-    with open(base_cfg_path, 'r') as f:
-        base_cfg = yaml.safe_load(f)
+    master_cfg_path = Path("src/cloud/base_model/configs/master_config.yaml")
+    with open(master_cfg_path, 'r', encoding='utf-8') as f:
+        master_cfg = yaml.safe_load(f)
     
-    feature_cols = base_cfg['model']['feature_names']
+    feature_cols = master_cfg['model']['feature_names']
     
     # Try to load best params from Optuna if available, else fallback
     params_filename = "best_params.json"
