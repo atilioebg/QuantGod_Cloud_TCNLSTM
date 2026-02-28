@@ -78,8 +78,9 @@ def run_gold_tests():
     # Inject a mock logit to test [XGB_ONLY] lineage labeling
     clipped_df['base_logit_buy'] = 0.5
     
-    # Metrics count = 30 (config) + 3 (candles) + 1 (logit) = 34
-    health_report = validator.validate_integrity(clipped_df, name="Gold Test (Lineage)", expected_cols=34)
+    # Define a custom feature list for the test that includes the mock logit
+    test_features = feature_names + ['base_logit_buy']
+    health_report = validator.validate_integrity(clipped_df, name="Gold Test (Lineage)", feature_list=test_features)
     
     lineage_and_shape_ok = health_report['is_valid']
     if lineage_and_shape_ok:
@@ -89,7 +90,8 @@ def run_gold_tests():
 
     # 5. Test Shape Failure
     print("\n--- Test 3: Architecture Integrity (Shape Failure) ---")
-    bad_report = validator.validate_integrity(clipped_df, name="Shape Test (Failure)", expected_cols=30)
+    # Intentional mismatch: we tell validator to expect Only the original 30 features, but we have 31 metrics
+    bad_report = validator.validate_integrity(clipped_df, name="Shape Test (Failure)", feature_list=feature_names)
     shape_detection_ok = (not bad_report['shape_integrity'] and not bad_report['is_valid'])
     
     if shape_detection_ok:
