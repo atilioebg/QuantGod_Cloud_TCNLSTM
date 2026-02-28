@@ -11,6 +11,7 @@ import json
 from tqdm import tqdm
 import sys
 import os
+import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from src.cloud.base_model.utils.logging_utils import setup_logger
@@ -205,7 +206,23 @@ def run_pipeline():
 
     logger.info("Pipeline execution finished.")
     logger.info(f"Total processed files: {len(zip_files) - len(skipped_files) - len(failed_files)}")
-    logger.info(f"CPUs used: {max_workers} / {total_cpus}")
+    logger.info(f"CPUs used: {max_workers} / {cpu_count}")
+
+    # 5c. RUN GOLD STANDARD DATA INTEGRITY TESTS
+    try:
+        logger.info("🧪 Starting Automated Gold Standard Data Integrity Tests...")
+        test_script = "tests/quality/run_quality_tests.py"
+        if Path(test_script).exists():
+            result = subprocess.run([sys.executable, test_script], check=False, capture_output=True, text=True)
+            if result.returncode == 0:
+                logger.info("✅ GOLD STANDARD CERTIFICATION: All integrity tests passed!")
+            else:
+                logger.error("❌ GOLD STANDARD FAILURE: Integrity tests did not pass.")
+                logger.error(f"Test Output: {result.stdout}")
+        else:
+            logger.warning(f"⚠️ Test script {test_script} not found. Skipping Gold Certification.")
+    except Exception as e:
+        logger.error(f"⚠️ Gold Standard testing execution failed: {e}")
 
     # 6. Automated Export to Google Drive (QuantGod Cloud Extension)
     try:
@@ -218,7 +235,6 @@ def run_pipeline():
         
         logger.info(f"🚀 Starting automated export to Drive: {folder_name}...")
         
-        import subprocess
         cmd = ["rclone", "copy", str(local_src), remote_dest, "-P"]
         if rclone_cfg.exists():
             cmd += ["--config", str(rclone_cfg)]
