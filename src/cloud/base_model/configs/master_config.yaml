@@ -4,11 +4,11 @@
 
 pipeline_paths:
   # Caminhos base da arquitetura
-  raw_l2_source: "G:/Meu Drive/PROJETOS/BTC_USDT_L2_2023_2026"  # Fonte de dados puros (Level 2) Zipados
+  raw_l2_source: "data/L2/raw"                                 # Fonte LOCAL (apenas o arquivo zip de teste)
   db_path: "sqlite:///optuna_tcn_lstm_v1_finetune.db"             # Banco de dados do Optuna HPO
-  best_tcn_lstm_model: "G:/Meu Drive/PROJETOS/RESULTADOS/optimization_v0_035/foundation/best_tcn_lstm.pt"
-  best_tcn_lstm_dir_model: "G:/Meu Drive/PROJETOS/RESULTADOS/optimization_v0_035/foundation/best_tcn_lstm_dir.pt"
-  best_specialized_model: "G:/Meu Drive/PROJETOS/RESULTADOS/optimization_v0_035/specialized/treino_best_model.pt"
+  best_tcn_lstm_model: "data/models/best_tcn_lstm.pt"             # Local path for stress test
+  best_tcn_lstm_dir_model: "data/models/best_tcn_lstm_dir.pt"
+  best_specialized_model: "data/models/treino_best_model.pt"
   scaler_foundation: "data/models/scaler_foundation.pkl"          # Normalizador fitado no Treino (Fundação)
   scaler_specialized: "data/models/scaler_specialized.pkl"        # Normalizador fitado no Treino (Especialista)
   auditor_model: "data/models/auditor_xgboost.json"               # Modelo de Regras XGBoost (Juiz Auditor)
@@ -48,8 +48,8 @@ pre_processing:
     convexity_far_end: 20                                         # Limite superior dos níveis "longe" para Book Convexity
   labelling:
     # Limiares de alvo futuro (Rentabilidade para Target 0 ou 2)
-    sell_threshold: 0.003                                         # Retorno exigido (-0.3%) para sinalizar SELL
-    buy_threshold: 0.003                                          # Retorno exigido (+0.3%) para sinalizar BUY
+    sell_threshold: 0.0005                                        # REDUZIDO: Para ter sinais em dataset de 1 dia
+    buy_threshold: 0.0005                                         # REDUZIDO
     horizon_minutes: 15                                           # Janela de Lookahead para calcular a rentabilidade (15 minutos)
     use_dynamic_workers: false                                    # Se true: usa os.cpu_count()-1 dinâmico; se false: usa max_workers abaixo
     max_workers: 14                                               # Número de workers paralelos quando use_dynamic_workers=false (útil em cloud com CPUs fixas conhecidas)
@@ -69,7 +69,7 @@ pre_processing:
     n_splits: 5                                                   # Número de folds cronológicos (Blocked K-Fold). Cada fold cobre ~20% do Foundation Val.
     purge_minutes: 15                                             # Janela de Purga em minutos. Deve ser >= horizon_minutes para quebrar correlação serial.
                                                                   # Garante: max(treino_ts) + purge_min < min(teste_ts). Default = horizon_minutes = 15min.
-    specialist_epochs: 30                                         # Épocas por fold (menor que Optuna full para manter custo de 5 folds razoável em GPU).
+    specialist_epochs: 1                                          # REDUZIDO: Modo de teste E2E
     use_best_foundation_arch: true                                # Se true: usa best_params.json da Fundação sem re-otimizar (Symmetric Delta não é executado).
                                                                   # Poupa GPU: cada fold treina a MESMA arquitetura vencedora, variando apenas os pesos.
     oof_output_dir: "data/auditor/oof_predictions"                # Diretório onde os logits de cada fold e o full_oof.parquet serão salvos.
@@ -153,8 +153,8 @@ training:
 
 optimization:
   study_name: "quantgod_tcn_lstm_v1_finetune"                     # Nome de identificação do experimento interno no banco SQLite
-  n_trials: 60                                                    # Baterias máximas do HPO (Optuna) rodando pela etapa da Fundação
-  n_trials_specialist: 40                                         # Baterias de lapidação que herdam vizinhos paramétricos da fundação (Symmetric Delta)
+  n_trials: 2                                                       # REDUZIDO: Modo de teste E2E
+  n_trials_specialist: 2                                          # REDUZIDO: Modo de teste E2E
   timeout: 72000                                                  # Teto limite cronometrado na Nuvem (Ex: Parada rígida em 20 horas de máquina ~ 72000s)
   base_metric: "f1_macro"                                         # Macro F1 busca treinar a Inteligência Média global da Base com equidade
   specialized_metric: "sniper_score"                              # O Otimizador customizado Híbrido que extraíremos a fundo a Ouro de Alpha do ML
@@ -173,5 +173,5 @@ optimization:
     batch_size: [512, 1024, 2048]                                 # Lotes Simultâneos injetados Paralelamente na VRAM do Fio Tenson (Cuda GPU)
     seq_len: [24, 48, 96]                                         # Túnel Histórico Causal (Lookback de 24 a 96 Minutos de Micro-Estrutura do L2)
     dropout: [0.3, 0.5, 0.75, 0.80]                               # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
-    epochs: 50                                                    # Teto Físico Absoluto de Passes Treinamento (Epocas) por Bateria Operacional
+    epochs: 1                                                     # REDUZIDO: Modo de teste E2E
     early_stopping_patience: 4                                    # Inteligência Auxiliar que Morre a Trial após X rounds inférteis

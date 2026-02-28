@@ -66,7 +66,7 @@ def train_auditor():
     xgb_params = aud_cfg.get('xgboost', {})
     
     
-    fused_dir = "data/auditor/dataset_fused"
+    fused_dir = master_cfg['pipeline_paths'].get('fused_dataset_dir', "data/auditor/dataset_fused")
     df_train, df_val = load_data(fused_dir)
     
     # Busca a lista oficial de features do XGBoost cadastrada no yaml

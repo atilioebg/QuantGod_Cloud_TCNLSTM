@@ -369,7 +369,7 @@ def run_kfold_specialist():
     buy_th  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
     mins    = config['pre_processing']['labelling'].get('horizon_minutes', 15)
     base_labelled_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
-    foundation_val_dir = Path(f"data/audit_output/splits/val")
+    foundation_val_dir = Path(f"data/L2/splits_{base_labelled_name}/val")
 
     if not foundation_val_dir.exists():
         logger.error(f"❌ Foundation Val not found: {foundation_val_dir}. Run split_dataset.py first.")
@@ -523,6 +523,24 @@ def run_kfold_specialist():
         logger.warning(f"⚠️  {n_oof - n_unique} duplicate rows in full_oof.parquet!")
     else:
         logger.info("✅ No duplicate rows in full_oof.parquet")
+
+    # ── 6. Integrated Security QA ─────────────────────────────────────────────
+    logger.info("🧪 Running Automated Specialist Security QA (pytest)...")
+    try:
+        import subprocess
+        import os
+        qa_log_path = oof_dir / "kfold_security_QA.log"
+        with open(qa_log_path, 'w', encoding='utf-8') as qa_file:
+            subprocess.run(
+                ["pytest", "tests/kfold/test_kfold_security.py", "-v"],
+                stdout=qa_file,
+                stderr=subprocess.STDOUT,
+                env=os.environ.copy(),
+                check=False
+            )
+        logger.info(f"✅ Specialist QA Report saved to {qa_log_path}")
+    except Exception as e:
+        logger.error(f"⚠️ Specialist QA Report generation failed: {e}")
 
     logger.info("🏁 K-Fold Specialist finished. Auditor fusion ready.")
 

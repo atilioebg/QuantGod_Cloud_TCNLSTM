@@ -106,10 +106,15 @@ def split_and_segregate():
     mins    = config['pre_processing']['labelling'].get('horizon_minutes', 15)
     
     base_labelled_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
-    source_dir = Path(f"data/L2/{base_labelled_name}")
+    # O script run_labelling cria a pasta com prefixo 'splits_'
+    source_dir = Path(f"data/L2/splits_{base_labelled_name}")
 
     if not source_dir.exists():
-        logger.error(f"❌ Source labelled (Master Dataset) directory not found: {source_dir}")
+        # Fallback para o nome sem prefixo caso ja exista de outra forma
+        source_dir = Path(f"data/L2/{base_labelled_name}")
+        
+    if not source_dir.exists():
+        logger.error(f"❌ Source labelled (Master Dataset) directory not found: data/L2/splits_{base_labelled_name}")
         return
 
     # Garante a ordem do timestamp puramente baseando no texto da filename (arquivos parquet nomeados temporalmente)

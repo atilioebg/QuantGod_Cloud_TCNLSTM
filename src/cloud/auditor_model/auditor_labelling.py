@@ -186,9 +186,9 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
     X_val_raw = df_fval.select(feature_cols).to_numpy().astype(np.float32)
     y_val_raw = df_fval.select('target').to_numpy().flatten().astype(np.int64)
 
+    import joblib
     scaler_path = Path(config['pipeline_paths']['scaler_foundation'])
-    with open(scaler_path, 'rb') as f:
-        scaler_base = pickle.load(f)
+    scaler_base = joblib.load(scaler_path)
     X_val_norm = scaler_base.transform(X_val_raw).astype(np.float32)
 
     seq_len      = base_params['seq_len']

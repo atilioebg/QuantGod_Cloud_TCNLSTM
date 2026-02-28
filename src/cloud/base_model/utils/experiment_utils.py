@@ -11,33 +11,27 @@ logger = logging.getLogger(__name__)
 
 def resolve_active_labelled_dir() -> Path:
     """
-    Determines the correct labelled directory based on labelling_config.yaml.
-    Falls back to the most recent labelled_* folder if the config file is
-    missing, empty, or deprecated (contains only comments → YAML parses to None).
+    Determines the correct labelled directory based on master_config.yaml.
     """
-    config_path = Path("src/cloud/base_model/labelling/labelling_config.yaml")
-    if not config_path.exists():
+    master_cfg_path = Path("src/cloud/base_model/configs/master_config.yaml")
+    if not master_cfg_path.exists():
         # Fallback to most recent folder if config missing
         base = Path("data/L2")
         dirs = sorted(list(base.glob("labelled_*")))
         return dirs[-1] if dirs else base / "labelled"
 
-    with open(config_path, 'r') as f:
+    with open(master_cfg_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
 
-    # Guard: deprecated file (only comments) parses to None — use fallback
-    if config is None or 'params' not in config or 'paths' not in config:
-        base = Path("data/L2")
-        dirs = sorted(list(base.glob("labelled_*")))
-        return dirs[-1] if dirs else base / "labelled"
-
-    suffix = get_labelling_suffix(config['params'])
-    base_output = Path(config['paths']['output_dir'])
-
-    # If the base output dir doesn't already end with the suffix, append it
-    if not base_output.name.endswith(suffix):
-        return base_output.parent / f"{base_output.name}{suffix}"
-    return base_output
+    # Resolve name matching split_dataset.py logic
+    pre = config.get('pre_processing', {})
+    lab = pre.get('labelling', {})
+    sell_th = lab.get('sell_threshold', 0.003)
+    buy_th  = lab.get('buy_threshold', 0.003)
+    mins    = lab.get('horizon_minutes', 15)
+    
+    base_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
+    return Path("data/L2") / base_name
 
 def resolve_data_paths(config_paths: dict) -> tuple:
     """
