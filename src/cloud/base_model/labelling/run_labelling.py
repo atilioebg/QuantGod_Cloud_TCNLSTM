@@ -145,9 +145,11 @@ def run_labelling():
 
     # 4. Automated Export to Google Drive (QuantGod Cloud Extension)
     try:
-        num_features = config['model'].get('num_features', 32)
+        num_features = config['model'].get('num_features', 30)
+        res_freq = config['pre_processing']['etl'].get('resample_freq', '1min')
         
-        folder_name = f"LABELLED_L2_2023_2026_5_MINUTE_{num_features}_FEATURES"
+        # Padrão Gold v4.5: LABELLED_L2_V4.5_GOLD_1min_30F
+        folder_name = f"LABELLED_L2_V4.5_GOLD_{res_freq}_{num_features}F"
         local_src = str(base_output)
         remote_dest = f"drive:PROJETOS/{folder_name}"
         rclone_cfg = Path("rclone.conf")
