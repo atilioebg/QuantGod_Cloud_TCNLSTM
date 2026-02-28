@@ -72,10 +72,9 @@ def process_single_zip(zip_path, config):
 
             df_final = transformer.apply_feature_engineering(df_sampled)
             
-            df_final = transformer.apply_zscore(df_final)
-            
-            expected_features = config['model'].get('num_features', 30)
-            health_report = validator.validate_integrity(df_final, name=zip_p.name, expected_cols=expected_features)
+            # Architecture Integrity (Gold v4.6): Check if all required features are present
+            feature_list = config['model'].get('feature_names', [])
+            health_report = validator.validate_integrity(df_final, name=zip_p.name, feature_list=feature_list)
             
             # Merge validator stats into the audit report
             transformer.audit_report["health_stats"] = health_report
