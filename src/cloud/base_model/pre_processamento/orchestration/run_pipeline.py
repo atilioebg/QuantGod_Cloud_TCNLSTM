@@ -29,7 +29,8 @@ def process_single_zip(zip_path, config):
         )
         transformer = L2Transformer(
             levels=config['pre_processing']['etl']['levels'],
-            sampling_ms=config['pre_processing']['etl']['sampling_ms']
+            sampling_ms=config['pre_processing']['etl']['sampling_ms'],
+            etl_cfg=config['pre_processing']['etl']
         )
         loader = DataLoader("data/L2/pre_processed_L2")
         validator = DataValidator()
