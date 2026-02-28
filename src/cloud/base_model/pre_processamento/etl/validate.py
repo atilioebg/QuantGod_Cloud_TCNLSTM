@@ -6,8 +6,6 @@ logger = logging.getLogger(__name__)
 
 class DataValidator:
     @staticmethod
-    @staticmethod
-    @staticmethod
     def validate_integrity(df: pd.DataFrame, name: str = "Dataset", feature_list: list = None) -> dict:
         """
         Performs basic integrity checks and returns a structured quality report.
@@ -172,6 +170,7 @@ class DataValidator:
                  lineage = get_lineage(col)
                  report['dead_features_lineage'][col] = lineage
                  logger.warning(f"🧟 DEAD FEATURE: {lineage} {col} (Zero Variance detected)")
+                 # Warning only as requested - not invalidating the dataset for this
 
         # 9. Time Gaps & Abandonment (Hardening v4.6)
         # Check index continuity
