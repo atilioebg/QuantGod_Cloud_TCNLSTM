@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 class DataValidator:
     @staticmethod
     @staticmethod
+    @staticmethod
     def validate_integrity(df: pd.DataFrame, name: str = "Dataset", feature_list: list = None) -> dict:
         """
         Performs basic integrity checks and returns a structured quality report.
@@ -47,7 +48,17 @@ class DataValidator:
             logger.error(f"❌ ARCHITECTURE INTEGRITY FAILURE: Missing {len(missing_features)} features: {missing_features}")
             report['shape_integrity'] = False
             report['is_valid'] = False
-        else:
+        
+        # 0.2 Ghost Feature Detection (Strict Governance)
+        # Any column that looks like a model output/signal but isn't in feature_list
+        ghost_patterns = ['logit', 'prob_', 'prediction', 'conf_']
+        ghost_features = [c for c in df.columns if c not in feature_list and any(p in c.lower() for p in ghost_patterns)]
+        if ghost_features:
+            logger.error(f"❌ ARCHITECTURE INTEGRITY FAILURE: Detected {len(ghost_features)} unauthorized ghost features: {ghost_features}")
+            report['shape_integrity'] = False
+            report['is_valid'] = False
+
+        if report['shape_integrity']:
             total_cols = len(df.columns)
             raw_count = total_cols - expected_count - (1 if 'close' in df.columns else 0)
             logger.info(f"✅ ARCHITECTURE INTEGRITY: {expected_count}/{expected_count} features present. "
