@@ -380,8 +380,9 @@ class L2Transformer:
                 }
                 
                 # Dynamic format: use scientific if value is very small
-                fmt = ".2e" if max_val < 0.01 else ".2f"
-                logger.warning(f"☢️ [CLIPPING] {self.audit_report['file_id']}: {col} max ({max_val:{fmt}}) reduced to {threshold:{fmt}} (10x P99)")
+                fmt_max = ".4e" if max_val < 0.01 else ".4f"
+                fmt_thr = ".4e" if threshold < 0.01 else ".4f"
+                logger.warning(f"☢️ [CLIPPING] {self.audit_report['file_id']}: {col} max ({max_val:{fmt_max}}) reduced to {threshold:{fmt_thr}} (10x P99)")
                 df.loc[outliers_mask, col] = threshold
                 
         self.audit_report["outlier_density"] = (clipped_count / total_cells) * 100 if total_cells > 0 else 0.0
@@ -564,7 +565,7 @@ class L2Transformer:
             'bid_rdi', f'bid_rdi_delta_{ds_lbl}', f'bid_rdi_delta_{dl_lbl}',
             'ask_rdi', f'ask_rdi_delta_{ds_lbl}', f'ask_rdi_delta_{dl_lbl}',
             'spread_zscore_60', vpin_col,
-            'kyle_lambda'
+            'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity', 'book_asymmetry_v5'
         ]
         agg_features = [
             'body', 'upper_wick', 'lower_wick', 'log_ret_close',
