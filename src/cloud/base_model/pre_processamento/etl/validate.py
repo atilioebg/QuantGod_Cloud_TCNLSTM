@@ -88,12 +88,26 @@ class DataValidator:
                 # Tolerance of 0.1 for floating point / quantile variations
                 logger.info(f"✅ Clipping verified for {feat}: max is bounded at ~10x P99.")
 
-        # 7. Check for Time Gaps (5min resampled — alert if gap > 25min = 5 bars)
+        # 7. Z-Score Intensity (Tail Check)
+        # Gold Level: Detect if distributions are too wide even after clipping
+        numeric_df = df.select_dtypes(include=[np.number])
+        z_scores = (numeric_df - numeric_df.mean()) / (numeric_df.std() + 1e-9)
+        extreme_points = (z_scores.abs() > 12).sum().sum()
+        if extreme_points > 0:
+            logger.warning(f"⚠️ HIGH TAIL INTENSITY: {extreme_points} data points have Z-Score > 12. Potential volatility shock.")
+
+        # 8. Zero-Variance Detection (Dead Features)
+        std_zero = numeric_df.std()
+        dead_cols = std_zero[std_zero == 0].index.tolist()
+        if dead_cols:
+             logger.warning(f"🧟 DEAD FEATURES DETECTED (Zero Variance): {dead_cols}")
+
+        # 9. Time Gaps (5min resampled — alert if gap > 25min = 5 bars)
         diffs = df.index.to_series().diff().dropna()
         if not diffs.empty:
             max_gap = diffs.max()
             if not pd.isna(max_gap) and max_gap > pd.Timedelta(minutes=25):
                 logger.warning(f"Found large time gap: {max_gap}")
         
-        logger.info(f"Validation complete for {name}. Total rows: {len(df)}")
+        logger.info(f"🏆 Gold Validation complete for {name}. Total rows: {len(df)}")
         return nans == 0 and infs == 0
