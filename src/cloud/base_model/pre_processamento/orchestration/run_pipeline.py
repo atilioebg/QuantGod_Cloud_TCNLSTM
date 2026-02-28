@@ -73,7 +73,7 @@ def process_single_zip(zip_path, config):
             
             df_final = transformer.apply_zscore(df_final)
             
-            validator.validate_integrity(df_final, name=zip_p.name)
+            is_valid = validator.validate_integrity(df_final, name=zip_p.name)
             
             output_name = zip_p.with_suffix(".parquet").name
             loader.save_parquet(df_final, output_name, config['pre_processing']['etl']['export_compression'])
@@ -82,7 +82,8 @@ def process_single_zip(zip_path, config):
             return {
                 "status": "success",
                 "message": f"✅ Processed {zip_p.name}",
-                "audit": transformer.audit_report
+                "audit": transformer.audit_report,
+                "is_valid": is_valid
             }
         else:
             return {"status": "skipped", "message": f"⚠️  No data in {zip_p.name}"}
@@ -143,6 +144,7 @@ def run_pipeline():
     skipped_files = []
     failed_files = []
     quality_audits = []
+    validation_failures = []
     
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         # Create a list of future tasks
@@ -155,6 +157,8 @@ def run_pipeline():
             
             if res_obj["status"] == "success":
                 quality_audits.append(res_obj["audit"])
+                if not res_obj.get("is_valid", True):
+                    validation_failures.append(result)
             
             # Optional: Log errors if any
             if res_obj["status"] == "error":
@@ -187,6 +191,8 @@ def run_pipeline():
                 "timestamp": pd.Timestamp.now().isoformat(),
                 "total_files": len(quality_audits),
                 "clipping_enabled": True,
+                "validation_failures_count": len(validation_failures),
+                "validation_failures": validation_failures,
                 "reports": quality_audits
             }, f, indent=4)
         logger.info(f"📊 Saved data quality report to {audit_path}")

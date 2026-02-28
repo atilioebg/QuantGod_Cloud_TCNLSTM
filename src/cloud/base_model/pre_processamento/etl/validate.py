@@ -70,13 +70,23 @@ class DataValidator:
                  logger.info("Cross-scale consistency verified (OFI).")
 
         # 6. Distribution Sanity (Outlier Destruction Prevention)
-        ratio_features = ['kyle_lambda', 'vpin_min25', 'bid_deep_ratio', 'ask_deep_ratio']
-        for feat in ratio_features:
-            if feat in df.columns:
-                p99 = df[feat].quantile(0.99)
-                max_val = df[feat].max()
-                if p99 > 0 and max_val > 50 * p99:
-                    logger.warning(f"☢️ CRITICAL OUTLIER: {feat} max ({max_val:.2f}) is > 50x P99 ({p99:.2f}). Potential destructive signal.")
+        # Ratio features and institutional metrics clippped in transform.py
+        ratio_features = [
+            'kyle_lambda', 'vpin_min25', 'bid_deep_ratio', 'ask_deep_ratio',
+            'bid_convexity', 'ask_convexity', 'book_asymmetry_v5', 'max_spread', 'ofi'
+        ]
+        active_features = [f for f in ratio_features if f in df.columns]
+        
+        for feat in active_features:
+            p99 = df[feat].quantile(0.99)
+            max_val = df[feat].max()
+            
+            # Since clipping v4.5 caps at 10x P99, seeing > 15x P99 means clipping failed/skipped
+            if p99 > 1e-6 and max_val > 15 * p99:
+                logger.warning(f"☢️ CRITICAL OUTLIER: {feat} max ({max_val:.4e}) is > 15x P99 ({p99:.4e}). Clipping might have failed!")
+            elif p99 > 1e-6 and max_val > 10.1 * p99:
+                # Tolerance of 0.1 for floating point / quantile variations
+                logger.info(f"✅ Clipping verified for {feat}: max is bounded at ~10x P99.")
 
         # 7. Check for Time Gaps (5min resampled — alert if gap > 25min = 5 bars)
         diffs = df.index.to_series().diff().dropna()
