@@ -24,7 +24,8 @@ def process_single_zip(zip_path, config):
     try:
         # Initialize modules inside worker for process isolation
         extractor = DataExtractor(
-            config['pipeline_paths']['raw_l2_source']
+            config['pipeline_paths']['raw_l2_source'],
+            rclone_config="rclone.conf"
         )
         transformer = L2Transformer(
             levels=config['pre_processing']['etl']['levels'],
@@ -100,7 +101,8 @@ def run_pipeline():
 
     # 3. Setup parallel execution
     extractor = DataExtractor(
-        config['pipeline_paths']['raw_l2_source']
+        config['pipeline_paths']['raw_l2_source'],
+        rclone_config="rclone.conf"
     )
     # Ensure we start with a clean temp folder
     extractor.cleanup_temp()

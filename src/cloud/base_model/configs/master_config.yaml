@@ -4,7 +4,7 @@
 
 pipeline_paths:
   # Caminhos base da arquitetura
-  raw_l2_source: "data/L2/raw"                                 # Fonte LOCAL (apenas o arquivo zip de teste)
+  raw_l2_source: "drive:PROJETOS/BTC_USDT_L2_2023_2026"         # Fonte Remota via Rclone (Mode: Streaming)
   db_path: "sqlite:///optuna_tcn_lstm_v1_finetune.db"             # Banco de dados do Optuna HPO
   best_tcn_lstm_model: "data/models/best_tcn_lstm.pt"             # Local path for stress test
   best_tcn_lstm_dir_model: "data/models/best_tcn_lstm_dir.pt"
