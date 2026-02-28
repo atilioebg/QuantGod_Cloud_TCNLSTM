@@ -116,6 +116,8 @@ def run_pipeline():
     extractor.cleanup_temp()
     
     zip_files = extractor.list_zips()
+    # SMOKE TEST: Process only 1 ZIP for log verification
+    zip_files = zip_files[:1]
     
     if not zip_files:
         logger.error("No data to process.")
