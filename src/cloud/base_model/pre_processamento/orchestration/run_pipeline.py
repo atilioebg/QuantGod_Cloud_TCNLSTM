@@ -113,22 +113,24 @@ def run_pipeline():
         logger.error("No data to process.")
         return
 
-    # Dynamic CPU Detection
-    # In some cloud environments, os.cpu_count() returns the host count (192), 
-    # but we want the actual quota allocated to the pod (e.g., 16).
+    # Dynamic CPU Detection Logic (Consistent with labelling approach)
     try:
-        total_cpus = len(os.sched_getaffinity(0))
+        cpu_count = len(os.sched_getaffinity(0))
     except AttributeError:
-        total_cpus = os.cpu_count() or 1
+        cpu_count = os.cpu_count() or 1
         
-    config_workers = config['pre_processing']['etl'].get('max_workers')
-    if config_workers:
-        max_workers = config_workers
+    etl_cfg = config['pre_processing']['etl']
+    use_dynamic = etl_cfg.get('use_dynamic_workers', False)
+    
+    if use_dynamic:
+        max_workers = max(1, cpu_count - 1)
+        worker_mode = "Dynamic (vCPUs - 1)"
     else:
-        # Default: Use all available minus 1 for system breathing room
-        max_workers = max(1, total_cpus - 1)
+        max_workers = etl_cfg.get('max_workers', 4)
+        worker_mode = "Manual (Static)"
         
-    logger.info(f"System detected {total_cpus} vCPUs allocated. Using {max_workers} parallel workers.")
+    logger.info(f"System detected {cpu_count} vCPUs allocated.")
+    logger.info(f"ETL Worker Mode: {worker_mode} -> Using {max_workers} processes.")
     logger.info(f"Found {len(zip_files)} ZIP files to process.")
 
     # 4. Parallel Execution with ProcessPool
