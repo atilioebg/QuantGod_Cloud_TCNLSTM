@@ -86,7 +86,7 @@ pre_processing:
     oof_output_dir: "data/auditor/oof_predictions"                # Diretório onde os logits de cada fold e o full_oof.parquet serão salvos.
 
 model:
-  num_features: 24                                                # Quantidade de colunas injetadas nos tensores matriciais (Base model) — ETL v4.3 (1min)
+  num_features: 30                                                # QuantGod v4.5: 9 Aggregated + 21 Dynamic (Sniper)
   num_classes: 3                                                  # BUY (2), NEUTRAL (1), SELL (0)
   
   auditor:
@@ -110,7 +110,7 @@ model:
     - mean_deep_obi                                               # Order Book Imbalance Profundo (L5)
     - log_volume                                                  # Proxy de Volume (log messages)
     
-    # --- Dynamic/Sniper Features (15) — nomes em MINUTOS REAIS ---
+    # --- Dynamic/Sniper Features (21) — nomes em MINUTOS REAIS ---
     - ofi                                                         # Order Flow Imbalance (L0)
     - ofi_delta_5                                                 # Gatilho de Fluxo: delta_short_min=5min (ETL v4.3)
     - ofi_delta_30                                                # Aceleração de Fluxo: delta_long_min=30min (ETL v4.3)
@@ -126,6 +126,12 @@ model:
     - spread_zscore_60                                            # Spread Relativo: spread_zscore_window_min=60min
     - vpin_min25                                                  # Toxicidade de Volume: vpin_window_min=25min
     - kyle_lambda                                                 # Kyle's Lambda (Price resistance to flow)
+    - bid_deep_ratio                                              # Liquidez Profunda Bid
+    - ask_deep_ratio                                              # Liquidez Profunda Ask
+    - bid_convexity                                               # Convexidade do Livro Bid
+    - ask_convexity                                               # Convexidade do Livro Ask
+    - book_asymmetry_v5                                           # Assimetria Logarítmica de Profundidade
+    - pressure_ratio                                              # Aceleração de Desequilíbrio (OBI Velocity)
 
   auditor_features:
     - base_prob_sell                                              # Logits convertidos Base Model (Sell)

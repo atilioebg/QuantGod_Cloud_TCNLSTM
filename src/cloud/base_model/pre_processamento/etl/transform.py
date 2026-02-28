@@ -565,7 +565,7 @@ class L2Transformer:
             'bid_rdi', f'bid_rdi_delta_{ds_lbl}', f'bid_rdi_delta_{dl_lbl}',
             'ask_rdi', f'ask_rdi_delta_{ds_lbl}', f'ask_rdi_delta_{dl_lbl}',
             'spread_zscore_60', vpin_col,
-            'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity', 'book_asymmetry_v5'
+            'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity', 'book_asymmetry_v5', 'pressure_ratio'
         ]
         agg_features = [
             'body', 'upper_wick', 'lower_wick', 'log_ret_close',
