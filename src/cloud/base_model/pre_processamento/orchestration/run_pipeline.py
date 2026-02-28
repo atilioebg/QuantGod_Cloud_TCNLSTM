@@ -74,7 +74,10 @@ def process_single_zip(zip_path, config):
             
             df_final = transformer.apply_zscore(df_final)
             
-            is_valid = validator.validate_integrity(df_final, name=zip_p.name)
+            health_report = validator.validate_integrity(df_final, name=zip_p.name)
+            
+            # Merge validator stats into the audit report
+            transformer.audit_report["health_stats"] = health_report
             
             output_name = zip_p.with_suffix(".parquet").name
             loader.save_parquet(df_final, output_name, config['pre_processing']['etl']['export_compression'])
@@ -84,7 +87,7 @@ def process_single_zip(zip_path, config):
                 "status": "success",
                 "message": f"✅ Processed {zip_p.name}",
                 "audit": transformer.audit_report,
-                "is_valid": is_valid
+                "is_valid": health_report['is_valid']
             }
         else:
             return {"status": "skipped", "message": f"⚠️  No data in {zip_p.name}"}

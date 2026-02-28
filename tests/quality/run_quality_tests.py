@@ -70,14 +70,14 @@ def run_gold_tests():
     # 4. Test DataValidator (Gold Level)
     print("\n--- Test 2: Gold DataValidator ---")
     validator = DataValidator()
-    # Should log Gold Validation success but also warnings for high tails in other columns if any
-    is_valid = validator.validate_integrity(clipped_df, name="Gold Test (Clipped)")
-    if is_valid:
+    # Should return a report dict
+    health_report = validator.validate_integrity(clipped_df, name="Gold Test (Clipped)")
+    if health_report['is_valid']:
         print("✅ DataValidator PASSED (Clipped dataset is clean).")
     else:
         print("❌ DataValidator FAILED (Found NaNs/Infs).")
 
-    if not failed and is_valid:
+    if not failed and health_report['is_valid']:
         print("\n✨ ALL GOLD STANDARD TESTS PASSED! ✨")
         sys.exit(0)
     else:
