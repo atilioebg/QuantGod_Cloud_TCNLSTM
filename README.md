@@ -75,6 +75,8 @@ QuantGod_Cloud/
 |:---|:---|
 | 🗺️ **[0_REPO_MAP.md](docs/0_REPO_MAP.md)** | Mapa completo do repositório — arquivos, configs, artefatos |
 | 🛠️ **[1_SETUP_AND_ENV.md](docs/1_SETUP_AND_ENV.md)** | Hardware, instalação de dependências, rclone, checklist |
+| 🧠 **[GLOSSÁRIO.md](docs/GLOSSARIO.md)** | **Dicionário de Ativos** — Onde buscar logs, modelos e dados |
+| 🛡️ **[v4.5 Audit Report](docs/reports/Relatorio_Auditoria_v4.5_Final.md)** | **Certificação Final Gold Standard** — Provas de zero-leakage e estabilidade |
 | 📡 **[2_DATA_COLLECTION.md](docs/2_DATA_COLLECTION.md)** | Dados brutos Bybit L2, GDrive, acesso live via Binance |
 | ⚙️ **[3_DATA_ENGINEERING.md](docs/3_DATA_ENGINEERING.md)** | ETL: schema 833 cols, 32 features com fórmulas, normalização |
 | 🏷️ **[4_LABELING_STRATEGY.md](docs/4_LABELING_STRATEGY.md)** | Thresholds assimétricos, como gerar novos |

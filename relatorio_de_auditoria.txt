@@ -1,0 +1,7 @@
+
+otimo, agora teremos o teste de fogo pois ao final temos que ter um relatório completo, robusto e detalhado o suficiente para que os auditores do fundo de investimento que estão pagando pela solução analisarem. Quero um teste de ponta a ponta rigorosamente completo e detalhado, conforme:
+- quero uma atenção especial ao passos de pre-processamentos, labellings e splits, principalmente no quesito de data leakge  e não pode e nem deve ocorrer de forma nenhuma
+- ao final de cada um desses passos quero um snapshot para conferencia
+- como não vamos processar todos os dados mas precisamos validar o fluxo voce pode pegar os dados brutos no drive na pasta PROJETOS\BTC_USDT_L2_2023_2026 que contem subpastass por ano (_2023 a _2026) com os dados L2 brutos em .zips por dia
+- como de fato não vamos treinar a rede pois aqui no local a GPU é pequena pode usar os dados no drive na pasta PROJETOS\RESULTADOS\optimization_v0_035 que contem o modelo base e o especialista treinado bem como os logs, parametros e demais itens de treinos anteriores
+- faça as correções necessárias nos bugs encontrados e no final faça um relatório técnico de auditoria para os auditores indepentes analisarem. 

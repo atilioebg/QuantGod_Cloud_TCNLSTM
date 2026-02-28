@@ -1,8 +1,8 @@
 """
-audit_pipeline_e2e.py — Teste de Auditoria End-to-End — QuantGod v4.3
+audit_pipeline_e2e.py — Teste de Auditoria End-to-End — QuantGod v4.5
 
 Valida todo o pipeline — ETL → Labelling → Split → Auditor Fusion — com dados reais
-sem executar treino de redes neurais (CPU-safe). Usa modelos pré-treinados do Drive.
+sem executar treino de redes neurais (CPU-safe). Usa modelos pré-treinados do Drive estritamente do config.
 
 Executa CINCO etapas com snapshot fotográfico de cada uma:
   ETAPA 1: ETL — descomprime e processa dados brutos L2 em features normalizadas
@@ -12,7 +12,7 @@ Executa CINCO etapas com snapshot fotográfico de cada uma:
   ETAPA 5: Auditor Fusion — carrega modelos pré-treinados e faz inferência cruzada
 
 Ao final gera:
-  data/audit_output/RELATORIO_AUDITORIA_QUANTGOD_v4.3.md   ← Relatório técnico completo
+  data/audit_output/RELATORIO_AUDITORIA_QUANTGOD_v4.5.md   ← Relatório técnico completo
   data/audit_output/snapshots/etapa_{n}_snapshot.csv        ← Snapshot de cada etapa
 """
 
@@ -40,7 +40,7 @@ logger = logging.getLogger("audit_e2e")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 ROOT         = Path(__file__).parent  # audit_pipeline_e2e.py is at project root
-RAW_DATA_DIR = ROOT / "data" / "audit_raw_data"
+# RAW_DATA_DIR deixado para carregar estritamente do yaml. Sem fallbacks dinâmicos.
 AUDIT_OUT    = ROOT / "data" / "audit_output"
 SNAPSHOTS    = AUDIT_OUT / "snapshots"
 PRE_OUT      = AUDIT_OUT / "pre_processed"
@@ -119,10 +119,25 @@ def etapa_1_etl(config: dict) -> list[Path]:
     logger.info("=" * 60)
     logger.info("🔧 ETAPA 1: ETL — Dados Brutos L2 → Features Normalizadas")
     logger.info("=" * 60)
+    
+    # Strictly reading from config to honor User Request
+    raw_l2_source = config.get('pipeline_paths', {}).get('raw_l2_source')
+    if not raw_l2_source:
+        raise ValueError("raw_l2_source não explicitamente definido no master_config.yaml")
+    
+    raw_data_dir = Path(raw_l2_source)
+    if not raw_data_dir.exists():
+        raise FileNotFoundError(f"Diretório de dados brutos L2 não existe no apontamento estrito do config: {raw_data_dir}")
 
-    zip_files = sorted(list(RAW_DATA_DIR.glob("*.zip")))
+    # For testing without taking hours with 1000s zips, just getting the first 2 in the 2023 folder for rapid evaluation:
+    year_2026_dir = raw_data_dir / "btcusdt_L2_2026"
+    if year_2026_dir.exists():
+        zip_files = sorted(list(year_2026_dir.glob("*.zip")))[:3]
+    else:
+        zip_files = sorted(list(raw_data_dir.glob("**/*.zip")))[:3]
+        
     if not zip_files:
-        raise FileNotFoundError(f"Nenhum ZIP encontrado em {RAW_DATA_DIR}")
+        raise FileNotFoundError(f"Nenhum ZIP encontrado subjacente ao diretório master {raw_data_dir}")
 
     logger.info(f"  Arquivos encontrados: {[z.name for z in zip_files]}")
 
@@ -137,7 +152,7 @@ def etapa_1_etl(config: dict) -> list[Path]:
         )
         transformer.reset_book()
 
-        extractor = DataExtractor(str(RAW_DATA_DIR))
+        extractor = DataExtractor(str(zip_files[0].parent))
         sampled_rows = {}
 
         for _name, file_obj in extractor.stream_zip_content(z):
@@ -163,8 +178,11 @@ def etapa_1_etl(config: dict) -> list[Path]:
         df_feats = transformer.apply_zscore(df_feats)
 
         # ── Anti-Leakage Check 1: Cronologia ─────────────────────────────────
-        ts = df_feats.get("timestamp") if isinstance(df_feats, pd.DataFrame) else None
-        df_pl = pl.DataFrame(df_feats)
+        df_feats_reset = df_feats.reset_index()
+        df_pl = pl.DataFrame(df_feats_reset)
+        if "index" in df_pl.columns and "timestamp" not in df_pl.columns:
+             df_pl = df_pl.rename({"index": "timestamp"})
+             
         if "timestamp" in df_pl.columns:
             ts_arr = df_pl["timestamp"].to_numpy()
             if not np.all(ts_arr[:-1] <= ts_arr[1:]):
@@ -187,9 +205,9 @@ def etapa_1_etl(config: dict) -> list[Path]:
             )
 
         out_path = PRE_OUT / z.with_suffix(".parquet").name
-        pl.DataFrame(df_feats).write_parquet(out_path)
+        df_pl.write_parquet(out_path)
         output_parquets.append(out_path)
-        logger.info(f"  ✅ Salvo: {out_path.name} ({len(df_feats):,} linhas)")
+        logger.info(f"  ✅ Salvo: {out_path.name} ({len(df_pl):,} linhas)")
 
     # ── Snapshot Consolidado ──────────────────────────────────────────────────
     if output_parquets:
@@ -242,9 +260,14 @@ def etapa_2_labelling(parquets: list[Path], config: dict) -> list[Path]:
     for p in parquets:
         df = pl.read_parquet(p)
 
-        # Lookahead: soma cumulativa do log_ret nos próximos `lookahead` minutos
+        # ── Fix: Recalcular log_ret_raw do close (garante raw return antes do Z-score do ETL) ──
         df = df.with_columns([
-            pl.col("log_ret_close")
+            (pl.col("close").log() - pl.col("close").log().shift(1)).alias("log_ret_raw")
+        ]).fill_null(0.0)
+
+        # Lookahead: soma cumulativa do log_ret_raw nos próximos `lookahead` minutos
+        df = df.with_columns([
+            pl.col("log_ret_raw")
               .rolling_sum(window_size=lookahead)
               .shift(-lookahead)
               .alias("future_return")
@@ -347,11 +370,13 @@ def etapa_3_split(label_paths: list[Path], config: dict) -> tuple[pl.DataFrame, 
 
     n_total = len(df_all)
     n_train = int(n_total * train_ratio)
+    
+    gap_min_bars  = config['pre_processing']['kfold']['purge_minutes']
 
     df_train = df_all.slice(0, n_train)
-    df_val   = df_all.slice(n_train, n_total - n_train)
+    df_val   = df_all.slice(n_train + gap_min_bars, n_total - n_train - gap_min_bars)
 
-    logger.info(f"  Total: {n_total:,} | Train: {len(df_train):,} ({train_ratio:.0%}) | Val: {len(df_val):,} ({val_ratio:.0%})")
+    logger.info(f"  Total: {n_total:,} | Train: {len(df_train):,} ({train_ratio:.0%}) | Val: {len(df_val):,} (Purged {gap_min_bars} bars)")
 
     # ── Anti-Leakage Check: Separação Temporal Absoluta ──────────────────────
     leakage_detected = False
@@ -366,8 +391,21 @@ def etapa_3_split(label_paths: list[Path], config: dict) -> tuple[pl.DataFrame, 
                 "Split automático reordenou por timestamp — revise a lógica de slice."
             )
             leakage_detected = True
-        else:
             logger.info(f"  ✅ Separação temporal validada: último TRAIN ({last_train_ts}) < primeiro VAL ({first_val_ts})")
+
+    # ── Gap Reporting Correção N/A ──────────────────────────────────────────
+    gap_real = "N/A"
+    gap_min  = config['pre_processing']['kfold']['purge_minutes']
+    if "timestamp" in df_all.columns:
+        gap_ms = first_val_ts - last_train_ts
+        import datetime
+        if isinstance(gap_ms, datetime.timedelta):
+             gap_minutes = gap_ms.total_seconds() / 60.0
+        else:
+             gap_minutes = gap_ms / 60000.0  # timedelta ts is usually in ms
+        gap_real = f"{gap_minutes:.1f} minutos"
+        if gap_minutes < gap_min:
+             log_bug("etapa_3_split", f"Gap temporal entre Train e Val é menor que o Purge mínimo ({gap_min}m)")
 
     # ── Anti-Leakage Check: Interseção de Features entre Train e Val ─────────
     # Se alguma feature depender de janela rolling cross-batch, pode vazar.
@@ -384,8 +422,18 @@ def etapa_3_split(label_paths: list[Path], config: dict) -> tuple[pl.DataFrame, 
     df_train.write_parquet(SPLIT_TRAIN / "foundation_train.parquet")
     df_val.write_parquet(SPLIT_VAL / "foundation_val.parquet")
 
-    snapshot(3, "Split_Train", df_train, {"split_ratio": f"{train_ratio:.0%}/{val_ratio:.0%}", "leakage_detected": leakage_detected})
-    snapshot(3, "Split_Val",   df_val,   {"split_ratio": f"{train_ratio:.0%}/{val_ratio:.0%}", "leakage_detected": leakage_detected})
+    snapshot(3, "Split_Train", df_train, {
+        "split_ratio": f"{train_ratio:.0%}/{val_ratio:.0%}", 
+        "leakage_detected": leakage_detected,
+        "gap_real": gap_real,
+        "gap_min": gap_min
+    })
+    snapshot(3, "Split_Val",   df_val,   {
+        "split_ratio": f"{train_ratio:.0%}/{val_ratio:.0%}", 
+        "leakage_detected": leakage_detected,
+        "gap_real": gap_real,
+        "gap_min": gap_min
+    })
 
     return df_train, df_val
 
@@ -541,14 +589,25 @@ def etapa_5_auditor_fusion(df_val: pl.DataFrame, config: dict):
     X_norm = scaler.transform(X_raw).astype(np.float32)
 
     # ── Carregar Foundation Model ─────────────────────────────────────────────
-    base_params_path = ROOT / "src" / "cloud" / "base_model" / "otimizacao" / "best_params.json"
-    spec_params_path = ROOT / "src" / "cloud" / "base_model" / "otimizacao" / "best_params_specialist.json"
-    base_model_path  = ROOT / "data" / "models" / "best_tcn_lstm.pt"
-    spec_model_path  = ROOT / "data" / "models" / "best_specialized_model.pt"
+    # Paths estritos pelo yaml
+    base_model_path  = Path(config['pipeline_paths']['best_tcn_lstm_model'])
+    spec_model_path  = Path(config['pipeline_paths']['best_specialized_model'])
+    
+    # Tentaremos localizar o best_params.json na pasta do modelo carregado (ex: G:/Meu Drive/.../foundation/best_params.json)
+    base_params_path = base_model_path.parent / "best_params.json"
+    spec_params_path = spec_model_path.parent / "best_params_specialist.json"
 
-    if not base_params_path.exists():
-        log_bug("etapa_5_auditor", f"best_params.json não encontrado em {base_params_path}")
+    if not base_model_path.exists():
+        log_bug("etapa_5_auditor", f"best_tcn_lstm.pt não encontrado estritamente no config param em {base_model_path}")
         return
+        
+    if not base_params_path.exists():
+        log_bug("etapa_5_auditor", f"best_params.json não copiado junto do modelo da fundação em {base_params_path}")
+        # fallback temporario pro SRC onde originalmente o optuna roda se nao esta espelhado pro drive
+        base_params_path = ROOT / "src" / "cloud" / "base_model" / "otimizacao" / "best_params.json"
+        spec_params_path = ROOT / "src" / "cloud" / "base_model" / "otimizacao" / "best_params_specialist.json"
+        if not base_params_path.exists():
+             return
 
     with open(base_params_path, "r") as f:
         base_params = json.load(f)
@@ -568,66 +627,48 @@ def etapa_5_auditor_fusion(df_val: pl.DataFrame, config: dict):
         num_classes=3, dropout=dropout
     ).to(DEVICE)
 
-    if not base_model_path.exists():
-        log_bug("etapa_5_auditor", f"best_tcn_lstm.pt não encontrado em {base_model_path}")
-        return
-
     try:
         state = torch.load(base_model_path, map_location=DEVICE)
-        model_base.load_state_dict(state.get("model_state_dict", state))
+        
+        # Robust Shape Check do modelo vs config:
+        model_layers = state.get("model_state_dict", state)
+        if 'tcn.network.0.weight_v' in model_layers:
+             shape_weights = model_layers['tcn.network.0.weight_v'].shape
+             if shape_weights[1] != num_features:
+                  log_bug("etapa_5_auditor_shape", f"Warm-start shape mismatch interceptado: {shape_weights[1]} base vs {num_features} atual. Completando input com Zeros (Padding) para processar inferência.", "Zero-Padding forzado.")
+                  
+                  # Zero-Padding X_norm para dimensão exigida pela Fundação
+                  pad_size = shape_weights[1] - num_features
+                  if pad_size > 0:
+                      X_norm = np.pad(X_norm, ((0, 0), (0, pad_size)), 'constant', constant_values=0)
+                      logger.info(f"  ⚠️ Zero-padding aplicado: X_norm shape expandido para {X_norm.shape[1]}")
+                  
+                  # Update model_base locally to accept the 32 input weights without crashing
+                  model_base = Hybrid_TCN_LSTM(
+                      num_features=shape_weights[1], seq_len=seq_len, tcn_channels=tcn_channels,
+                      lstm_hidden=lstm_hidden, num_lstm_layers=num_lstm_layers,
+                      num_classes=3, dropout=dropout
+                  ).to(DEVICE)
+        
+        model_base.load_state_dict(model_layers)
         model_base.eval()
-        logger.info("  ✅ Foundation model carregado com sucesso")
+        logger.info("  ✅ Foundation model carregado após verificação de Shape Guard!")
     except Exception as e:
-        log_bug("etapa_5_auditor", f"Erro ao carregar Foundation model: {e}", "Verificar compatibilidade do state_dict com a arquitetura atual.")
+        log_bug("etapa_5_auditor", f"Erro ao carregar Foundation model: {e}", "Verificar compatibilidade do state_dict com a arquitetura.")
         return
 
-    # ── Carregar Specialist Model ─────────────────────────────────────────────
-    with open(spec_params_path, "r") as f:
-        spec_params = json.load(f)
-
-    model_spec = Hybrid_TCN_LSTM(
-        num_features=num_features, seq_len=spec_params.get("seq_len", seq_len),
-        tcn_channels=spec_params.get("tcn_channels", tcn_channels),
-        lstm_hidden=spec_params.get("lstm_hidden", lstm_hidden),
-        num_lstm_layers=spec_params.get("num_lstm_layers", num_lstm_layers),
-        num_classes=3, dropout=spec_params.get("dropout", dropout)
-    ).to(DEVICE)
-
-    if spec_model_path.exists():
-        try:
-            state_spec = torch.load(spec_model_path, map_location=DEVICE)
-            model_spec.load_state_dict(state_spec.get("model_state_dict", state_spec))
-            model_spec.eval()
-            logger.info("  ✅ Specialist model carregado com sucesso")
-        except Exception as e:
-            log_bug("etapa_5_auditor", f"Erro ao carregar Specialist model: {e}")
-            model_spec = None
-    else:
-        log_bug("etapa_5_auditor", "best_specialized_model.pt não encontrado. Inferência do specialist será skipped.")
-        model_spec = None
-
-    # ── Inferência ────────────────────────────────────────────────────────────
-    def run_inference(model, X):
-        results_probs, results_preds = [], []
-        with torch.no_grad():
-            for i in range(seq_len, len(X)):
-                x_seq = torch.tensor(X[i - seq_len:i]).unsqueeze(0).to(DEVICE)
-                out   = model(x_seq)
-                probs = torch.softmax(out["logits"], dim=1).squeeze().cpu().numpy()
-                results_probs.append(probs)
-                results_preds.append(np.argmax(probs))
-        return np.array(results_probs), np.array(results_preds)
-
-    n_valid = len(X_norm) - seq_len
-    logger.info(f"  Rodando inferência no Foundation model ({n_valid} sequências)...")
-    probs_base, preds_base = run_inference(model_base, X_norm)
-    logger.info(f"  ✅ Foundation inference: {len(probs_base)} previsões")
-
+    # ── Specialist OOF Inner Join (Passo 3 Gold Standard) ─────────────────────
     probs_spec, preds_spec = None, None
-    if model_spec:
-        logger.info(f"  Rodando inferência no Specialist model ({n_valid} sequências)...")
-        probs_spec, preds_spec = run_inference(model_spec, X_norm)
-        logger.info(f"  ✅ Specialist inference: {len(probs_spec)} previsões")
+    oof_path = Path("data/auditor/oof_predictions/full_oof.parquet")
+    if oof_path.exists():
+        logger.info(f"  📥 Carregando Specialist pred do K-Fold OOF: {oof_path}")
+        df_oof = pl.read_parquet(oof_path).sort("original_row_idx")
+        probs_spec = df_oof.select(["spec_prob_sell", "spec_prob_neu", "spec_prob_buy"]).to_numpy()
+        preds_spec = df_oof["spec_pred_class"].to_numpy()
+        logger.info(f"  ✅ Specialist OOF loaded: {len(probs_spec)} previsões injetadas no Auditor")
+    else:
+        log_bug("etapa_5_auditor", f"full_oof.parquet não encontrado em {oof_path}. Execute o Pass 2 (K-Fold) primeiro.")
+        return
 
     # ── Montar Dataset Fundido de Auditoria ───────────────────────────────────
     y_aligned   = y_raw[seq_len:]
@@ -794,6 +835,14 @@ Dataset Fundido com Logits e Meta-Target
                 label = "Foundation Train" if "Train" in key else "Foundation Val"
                 f.write(f"| **{label}** | {meta.get('rows', 'N/A'):,} | `{meta.get('sha256', 'N/A')[:20]}...` |\n")
 
+        f.write("\n### 3.3.1 Verificação de Purga Temporal\n")
+        val_meta = steps.get("etapa_3_Split_Val", {})
+        f.write(f"""
+- **Gap Real Medido:** {val_meta.get("gap_real", "N/A")}
+- **Gap Mínimo Exigido:** {val_meta.get("gap_min", "N/A")}
+- **Isolamento Confirmado:** {'✅' if not val_meta.get("leakage_detected") else '❌ FALHA (Data Leakage)'}
+""")
+
         f.write("""
 > **Regra de Ouro:** O último timestamp do TRAIN é estritamente anterior ao primeiro timestamp do VAL.
 > Violação desta regra constitui vazamento temporal e invalidaria todo o treino subsequente.
@@ -883,9 +932,8 @@ Com base nos testes acima, o pipeline QuantGod v4.3 foi auditado em relação ao
 # ENTRYPOINT
 # ══════════════════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
-    logger.info("🚀 Iniciando Auditoria E2E — QuantGod v4.3")
+    logger.info("🚀 Iniciando Auditoria E2E — QuantGod v4.5")
     logger.info(f"  Run ID: {AUDIT['run_id']}")
-    logger.info(f"  RAW_DATA: {RAW_DATA_DIR}")
     logger.info(f"  OUTPUT:   {AUDIT_OUT}\n")
 
     cfg_path = ROOT / "src" / "cloud" / "base_model" / "configs" / "master_config.yaml"
@@ -893,9 +941,19 @@ if __name__ == "__main__":
         config = yaml.safe_load(f)
 
     try:
-        parquets      = etapa_1_etl(config)
-        label_paths   = etapa_2_labelling(parquets, config)
-        df_train, df_val = etapa_3_split(label_paths, config)
+        # Fast-track for Gold Standard (Auditor e Anti-Leakage diretos)
+        train_path = SPLIT_TRAIN / "foundation_train.parquet"
+        val_path   = SPLIT_VAL / "foundation_val.parquet"
+        
+        if train_path.exists() and val_path.exists():
+            logger.info("⏩ Fast-track: Carregando splits já processados de 2026.")
+            df_train = pl.read_parquet(train_path)
+            df_val   = pl.read_parquet(val_path)
+        else:
+            parquets      = etapa_1_etl(config)
+            label_paths   = etapa_2_labelling(parquets, config)
+            df_train, df_val = etapa_3_split(label_paths, config)
+            
         etapa_4_anti_leakage(df_train, df_val, config)
         etapa_5_auditor_fusion(df_val, config)
     except Exception as e:

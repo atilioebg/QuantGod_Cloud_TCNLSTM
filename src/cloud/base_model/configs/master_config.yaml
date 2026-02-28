@@ -4,11 +4,11 @@
 
 pipeline_paths:
   # Caminhos base da arquitetura
-  raw_l2_source: "drive:PROJETOS/BTC_USDT_L2_2023_2026"           # Fonte de dados puros (Level 2) Zipados
+  raw_l2_source: "G:/Meu Drive/PROJETOS/BTC_USDT_L2_2023_2026"  # Fonte de dados puros (Level 2) Zipados
   db_path: "sqlite:///optuna_tcn_lstm_v1_finetune.db"             # Banco de dados do Optuna HPO
-  best_tcn_lstm_model: "data/models/best_tcn_lstm.pt"             # Campeão F1 Macro (Fundação)
-  best_tcn_lstm_dir_model: "data/models/best_tcn_lstm_dir.pt"     # Campeão Direcional (Fundação)
-  best_specialized_model: "data/models/best_specialized_model.pt" # Campeão Sniper (Especialista)
+  best_tcn_lstm_model: "G:/Meu Drive/PROJETOS/RESULTADOS/optimization_v0_035/foundation/best_tcn_lstm.pt"
+  best_tcn_lstm_dir_model: "G:/Meu Drive/PROJETOS/RESULTADOS/optimization_v0_035/foundation/best_tcn_lstm_dir.pt"
+  best_specialized_model: "G:/Meu Drive/PROJETOS/RESULTADOS/optimization_v0_035/specialized/treino_best_model.pt"
   scaler_foundation: "data/models/scaler_foundation.pkl"          # Normalizador fitado no Treino (Fundação)
   scaler_specialized: "data/models/scaler_specialized.pkl"        # Normalizador fitado no Treino (Especialista)
   auditor_model: "data/models/auditor_xgboost.json"               # Modelo de Regras XGBoost (Juiz Auditor)

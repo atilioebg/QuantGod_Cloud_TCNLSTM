@@ -369,7 +369,7 @@ def run_kfold_specialist():
     buy_th  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
     mins    = config['pre_processing']['labelling'].get('horizon_minutes', 15)
     base_labelled_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
-    foundation_val_dir = Path(f"data/L2/splits_{base_labelled_name}/val")
+    foundation_val_dir = Path(f"data/audit_output/splits/val")
 
     if not foundation_val_dir.exists():
         logger.error(f"❌ Foundation Val not found: {foundation_val_dir}. Run split_dataset.py first.")

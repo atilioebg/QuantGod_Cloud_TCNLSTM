@@ -420,7 +420,7 @@ class L2Transformer:
 
         # ── Sniper Pivot: Multi-Scale Shock Features ──────────────────────────
         # Short lookback (delta_short bars)
-        ds_lbl = str(ds)
+        ds_lbl = str(self._delta_short_min)
         final_df[f'ofi_delta_{ds_lbl}']           = final_df['ofi'].diff(ds)
         final_df[f'bid_rdi_delta_{ds_lbl}']       = final_df['bid_rdi'].diff(ds)
         final_df[f'ask_rdi_delta_{ds_lbl}']       = final_df['ask_rdi'].diff(ds)
@@ -533,13 +533,18 @@ class L2Transformer:
         original_cols = [
             'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi', 'log_volume', 'log_ret_close',
         ]
+        
+        ds_lbl = str(self._delta_short_min)
+        dl_lbl = str(self._delta_long_min)
+        vpin_col = f"vpin_min{self._vpin_window_min}"
+
         flow_cols = [
-            'ofi', 'ofi_delta_1', 'ofi_delta_6',
-            'micro_price_momentum', 'micro_price_delta_1', 'micro_price_delta_6',
+            'ofi', f'ofi_delta_{ds_lbl}', f'ofi_delta_{dl_lbl}',
+            'micro_price_momentum', f'micro_price_delta_{ds_lbl}', f'micro_price_delta_{dl_lbl}',
             'bid_slope', 'ask_slope',
-            'bid_rdi', 'bid_rdi_delta_1', 'bid_rdi_delta_6',
-            'ask_rdi', 'ask_rdi_delta_1', 'ask_rdi_delta_6',
-            'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5',
+            'bid_rdi', f'bid_rdi_delta_{ds_lbl}', f'bid_rdi_delta_{dl_lbl}',
+            'ask_rdi', f'ask_rdi_delta_{ds_lbl}', f'ask_rdi_delta_{dl_lbl}',
+            'book_asymmetry_v5', 'spread_zscore_60', vpin_col,
             'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity',
             'pressure_ratio',
         ]

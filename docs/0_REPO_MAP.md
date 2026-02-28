@@ -24,6 +24,8 @@
 | `pre_processamento/configs/cloud_config.yaml` | Paths (rclone_mount, output_dir), sampling_interval_ms, ob_levels |
 | `treino/run_training.py` | Loop de treino: AdamW + CosineAnnealingLR + EarlyStopping (F1 Macro) |
 | `treino/training_config.yaml` | HPs finais (pós-Optuna): `batch_size`, `lr`, `dropout`, `seq_len`, paths |
+| `auditoria/audit_v45.py` | **Protocolo Gold Standard v4.5** — E2E Audit, Snapshot, Anti-Leakage & Fusion |
+| `auditoria/audit_v44.py` | Pipeline de Auditoria Legado (v4.3/v4.4) |
 
 ### Auditor Model (`src/cloud/auditor_model/`)
 
@@ -70,6 +72,7 @@ Consulte [`tests/README.md`](../tests/README.md) para comandos e descrição det
 | Arquivo | Propósito |
 |:---|:---|
 | [`0_REPO_MAP.md`](0_REPO_MAP.md) | Este arquivo |
+| [`GLOSSARIO.md`](GLOSSARIO.md) | Dicionário de arquivos (logs, modelos, dados) |
 | [`1_SETUP_AND_ENV.md`](1_SETUP_AND_ENV.md) | Hardware, CUDA, RunPod setup |
 | [`2_DATA_COLLECTION.md`](2_DATA_COLLECTION.md) | Processo de obtenção dos dados Bybit L2 |
 | [`3_DATA_ENGINEERING.md`](3_DATA_ENGINEERING.md) | Detalhes do ETL e feature engineering |
@@ -103,3 +106,4 @@ Consulte [`tests/README.md`](../tests/README.md) para comandos e descrição det
 | Base model checkpoint | `data/models/base_model.pt` | `run_training.py` |
 | StandardScaler | `data/models/scaler_finetuning.pkl` | `run_training.py` |
 | XGBoost Auditor | `data/models/xgb_auditor.json` | `train_xgboost.py` |
+| **Relatório Gold Standard** | `docs/reports/Relatorio_Auditoria_v4.5_Final.md` | `audit_v45.py` |

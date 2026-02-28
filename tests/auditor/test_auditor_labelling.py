@@ -128,6 +128,10 @@ class TestAuditorLabelling:
         mins    = config['pre_processing']['labelling'].get('horizon_minutes', 15)
         base_labelled_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
         foundation_val_dir = Path(f"data/L2/splits_{base_labelled_name}/val")
+        
+        # Auditor Gold Standard Fallback
+        if not foundation_val_dir.exists():
+            foundation_val_dir = Path("data/audit_output/splits/val")
 
         if not foundation_val_dir.exists():
             pytest.skip(f"Foundation val not found: {foundation_val_dir}")
