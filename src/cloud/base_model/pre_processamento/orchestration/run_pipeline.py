@@ -74,7 +74,8 @@ def process_single_zip(zip_path, config):
             
             df_final = transformer.apply_zscore(df_final)
             
-            health_report = validator.validate_integrity(df_final, name=zip_p.name)
+            expected_features = config['model'].get('num_features', 30)
+            health_report = validator.validate_integrity(df_final, name=zip_p.name, expected_cols=expected_features)
             
             # Merge validator stats into the audit report
             transformer.audit_report["health_stats"] = health_report

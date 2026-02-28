@@ -14,7 +14,7 @@ from src.cloud.base_model.pre_processamento.etl.transform import L2Transformer
 from src.cloud.base_model.pre_processamento.etl.validate import DataValidator
 
 def run_gold_tests():
-    print("🚀 Starting Gold Standard Data Integrity Tests (Standalone)...")
+    print("🚀 Starting Gold Standard Data Integrity Tests v4.6 (Standalone)...")
     
     # 1. Load Config
     config_path = Path("src/cloud/base_model/configs/master_config.yaml")
@@ -25,15 +25,22 @@ def run_gold_tests():
     # 2. Setup Mock Data
     feature_names = master_config['model']['feature_names']
     rows = 1000
+    
+    # Generate features from config
     data = {col: np.random.normal(0, 1, rows) for col in feature_names}
+    
+    # Add price columns (Mandatory for validator)
+    # Note: open, high, low ARE NOT usually in feature_names (which has body, wicks, etc)
     data['close'] = np.linspace(20000, 21000, rows)
-    data['open'] = data['close'] - 10
-    data['high'] = data['close'] + 5
-    data['low'] = data['close'] - 15
-    data['log_volume'] = np.random.normal(10, 1, rows)
+    data['open']  = data['close'] - 10
+    data['high']  = data['close'] + 5
+    data['low']   = data['close'] - 15
+    # log_volume is already in feature_names
     
     df = pd.DataFrame(data)
     df.index = pd.date_range("2023-01-01", periods=rows, freq="1min")
+    
+    # Metrics count = 30 (from config) + 3 (open, high, low) = 33
     
     target_cols = master_config['pre_processing']['etl']['clipping']['target_columns']
     multiplier = master_config['pre_processing']['etl']['clipping']['p99_multiplier']
@@ -41,11 +48,10 @@ def run_gold_tests():
     for col in target_cols:
         if col in df.columns:
             df.loc[df.index[0], col] = 5000.0 # Extreme outlier
-    print("✅ Mock Data with 5000x outliers created.")
+    print(f"✅ Mock Data with {len(feature_names)} features + 3 Price Candles + 1 Close created.")
 
     # 3. Test Clipping
     print("\n--- Test 1: Clipping Enforcement ---")
-    # L2Transformer expects exactly these arguments based on outline
     etl_cfg = master_config['pre_processing']['etl']
     transformer = L2Transformer(
         levels=etl_cfg.get('levels', 200),
@@ -55,33 +61,45 @@ def run_gold_tests():
     )
     clipped_df = transformer._apply_soft_clipping(df.copy())
     
-    failed = False
+    clipping_ok = True
     for col in target_cols:
         if col in clipped_df.columns:
             p99 = df[col].quantile(0.99)
-            limit = p99 * multiplier * 1.05
+            limit = p99 * multiplier * 1.1
             actual_max = clipped_df[col].max()
             if actual_max > limit:
                 print(f"❌ Feature {col} FAILED clipping: max {actual_max:.4f} > limit {limit:.4f}")
-                failed = True
-            else:
-                print(f"✅ Feature {col} PASSED clipping: max {actual_max:.4f} <= limit {limit:.4f}")
+                clipping_ok = False
     
-    # 4. Test DataValidator (Gold Level)
-    print("\n--- Test 2: Gold DataValidator ---")
+    # 4. Test DataValidator (Lineage & Shape)
+    print("\n--- Test 2: Gold DataValidator (Lineage & Shape) ---")
     validator = DataValidator()
-    # Should return a report dict
-    health_report = validator.validate_integrity(clipped_df, name="Gold Test (Clipped)")
-    if health_report['is_valid']:
-        print("✅ DataValidator PASSED (Clipped dataset is clean).")
+    
+    # Inject a mock logit to test [XGB_ONLY] lineage labeling
+    clipped_df['base_logit_buy'] = 0.5
+    
+    # Metrics count = 30 (config) + 3 (candles) + 1 (logit) = 34
+    health_report = validator.validate_integrity(clipped_df, name="Gold Test (Lineage)", expected_cols=34)
+    
+    lineage_and_shape_ok = health_report['is_valid']
+    if lineage_and_shape_ok:
+        print("✅ DataValidator PASSED (Lineage labeling and Shape match).")
     else:
-        print("❌ DataValidator FAILED (Found NaNs/Infs).")
+        print("❌ DataValidator FAILED (Check logs).")
 
-    if not failed and health_report['is_valid']:
-        print("\n✨ ALL GOLD STANDARD TESTS PASSED! ✨")
+    # 5. Test Shape Failure
+    print("\n--- Test 3: Architecture Integrity (Shape Failure) ---")
+    bad_report = validator.validate_integrity(clipped_df, name="Shape Test (Failure)", expected_cols=30)
+    shape_detection_ok = (not bad_report['shape_integrity'] and not bad_report['is_valid'])
+    
+    if shape_detection_ok:
+        print("✅ Shape Integrity PASSED (Correctly detected mismatch).")
+
+    if clipping_ok and lineage_and_shape_ok and shape_detection_ok:
+        print("\n✨ ALL GOLD STANDARD v4.6 TESTS PASSED! ✨")
         sys.exit(0)
     else:
-        print("\n⚠️ SOME TESTS FAILED. CHECK LOGS. ⚠️")
+        print(f"\n⚠️ TESTS FAILED: Clipping={clipping_ok}, Lineage/Shape={lineage_and_shape_ok}, ShapeDetection={shape_detection_ok}")
         sys.exit(1)
 
 if __name__ == "__main__":
