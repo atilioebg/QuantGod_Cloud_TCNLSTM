@@ -6,17 +6,21 @@ logger = logging.getLogger(__name__)
 
 class DataValidator:
     @staticmethod
-    def validate_integrity(df: pd.DataFrame, name: str = "Dataset", expected_cols: int = 30) -> dict:
+    @staticmethod
+    def validate_integrity(df: pd.DataFrame, name: str = "Dataset", feature_list: list = None) -> dict:
         """
         Performs basic integrity checks and returns a structured quality report.
-        Discriminates between [DNN_INPUT] and [XGB_ONLY] for lineage transparency.
+        Discriminates between [DNN_INPUT], [XGB_ONLY] and [RAW_DATA] for lineage transparency.
         
         Args:
             df: The dataframe to validate.
             name: Label for the dataset.
-            expected_cols: The expected number of features for architecture integrity.
+            feature_list: The list of official features (from feature_names or auditor_features).
         """
         logger.info(f"--- Validating {name} ---")
+        
+        feature_list = feature_list or []
+        expected_count = len(feature_list)
         
         report = {
             'is_valid': True,
@@ -37,27 +41,26 @@ class DataValidator:
             raise ValueError(msg)
         
         # 0.1 Architecture Integrity Check (SHAPE)
-        actual_cols = len(df.columns)
-        if 'close' in df.columns: # 'close' usually isn't a feature but a price
-             actual_metrics = actual_cols - 1
-        else:
-             actual_metrics = actual_cols
-             
-        if actual_metrics != expected_cols:
-            logger.error(f"❌ ARCHITECTURE INTEGRITY FAILURE: Expected {expected_cols} features, found {actual_metrics}.")
+        # We verify that ALL expected features are present.
+        missing_features = [f for f in feature_list if f not in df.columns]
+        if missing_features:
+            logger.error(f"❌ ARCHITECTURE INTEGRITY FAILURE: Missing {len(missing_features)} features: {missing_features}")
             report['shape_integrity'] = False
             report['is_valid'] = False
         else:
-            logger.info(f"✅ ARCHITECTURE INTEGRITY: Shape matches metadata ({expected_cols} features).")
+            total_cols = len(df.columns)
+            raw_count = total_cols - expected_count - (1 if 'close' in df.columns else 0)
+            logger.info(f"✅ ARCHITECTURE INTEGRITY: {expected_count}/{expected_count} features present. "
+                        f"Audit Scope: {total_cols} columns ({expected_count} Features + {raw_count} Raw/Price).")
 
         # Lineage Mapping Logic (v4.6 Gold)
         def get_lineage(col):
-            # XGB_ONLY features are usually logits or specialized model outputs
-            if any(x in col.lower() for x in ['logit', 'prob_', 'prob_', 'prediction', 'conf_']):
-                return "[XGB_ONLY]"
-            # If the architecture follows Exactly 24+6, top 24 are DNN, last 6 are XGB
-            # But let's stick to name-based or count-based if names are ambiguous
-            return "[DNN_INPUT]"
+            if col in feature_list:
+                # XGB_ONLY features are usually logits or specialized model outputs
+                if any(x in col.lower() for x in ['logit', 'prob_', 'prediction', 'conf_']):
+                    return "[XGB_ONLY]"
+                return "[DNN_INPUT]"
+            return "[RAW_DATA]"
 
         # 1. Check for NaNs
         report['nan_count'] = int(df.isna().sum().sum())
@@ -85,9 +88,9 @@ class DataValidator:
 
         # 4. Stale Data Check (Feed Lock Detection)
         if len(df) > 5:
-            price_static = (df['close'].diff() == 0).rolling(5).sum() == 5
+            price_static = (df['close'].diff() == 0).rolling(5).sum() == 5 if 'close' in df.columns else False
             vol_static = (df['log_volume'].diff() == 0).rolling(5).sum() == 5 if 'log_volume' in df.columns else False
-            stale_indices = df.index[price_static & vol_static] if 'log_volume' in df.columns else df.index[price_static]
+            stale_indices = df.index[price_static & vol_static] if 'log_volume' in df.columns else df.index[price_static] if 'close' in df.columns else pd.Index([])
             if not stale_indices.empty:
                 logger.warning(f"⚠️ STALE DATA ALERT: Possible feed lock detected in {name}")
                 report['stale_data_detected'] = True
@@ -116,13 +119,13 @@ class DataValidator:
                 logger.debug(f"✅ Clipping verified for {feat}.")
 
         # 7. Z-Score Intensity (Tail Check)
-        numeric_df = df.select_dtypes(include=[np.number])
+        audit_cols = [c for c in df.columns if c in feature_list or any(x in c for x in ['close', 'volume'])]
+        numeric_df = df[audit_cols].select_dtypes(include=[np.number])
         z_scores = (numeric_df - numeric_df.mean()) / (numeric_df.std() + 1e-9)
-        # Detailed Tail Count per lineage
+        
         high_tail_mask = z_scores.abs() > 12
         report['high_tail_count'] = int(high_tail_mask.sum().sum())
         if report['high_tail_count'] > 0:
-            # Breakdown per feature
             extreme_counts = high_tail_mask.sum()
             for col, count in extreme_counts[extreme_counts > 0].items():
                 lineage = get_lineage(col)
