@@ -26,8 +26,16 @@ pre_processing:
     sampling_ms: 1000                                             # Cadência de captura dos snapshots em ms (1000ms = 1 snap/s antes do resample)
     export_compression: "snappy"                                  # Algoritmo de compressão dos Parquets (snappy=rápido, gzip=menor)
     flow_depth: 5                                                 # Top-N níveis usados para OFI, Slope e RDI — Wall liquidity sem ruído profundo
-    use_dynamic_workers: false                                    # [NOVO] True: vCPUs - 1; False: Usa max_workers abaixo
+    use_dynamic_workers: true                                     # [NOVO] True: vCPUs - 1; False: Usa max_workers abaixo
     max_workers: 15                                               # Número de workers quando use_dynamic_workers=false
+
+    # ── Clipping & Auditoria (v4.5 Patch) ──────────────────────
+    clipping:
+      enabled: true                                               # Ativa Soft-Clipping (Winsorization)
+      p99_multiplier: 10                                          # Teto: 10x o Percentil 99
+      target_columns: ['kyle_lambda', 'vpin_min25', 'spread', 'ofi'] # Colunas críticas para clipping
+    audit:
+      generate_report: true                                       # Gera docs/reports/data_quality_report.json
 
     # ── Agregação temporal ──────────────────────────────────────
     resample_freq: "1min"                                         # Frequência do resample: '1min' (alta capilaridade, ~1440 barras/dia) ou '5min' (modo legado, ~288 barras/dia).

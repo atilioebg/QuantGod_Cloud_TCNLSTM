@@ -78,6 +78,9 @@ def _load_etl_config() -> dict:
             bar_key           = min_key.replace("_min", "")
             fallback[bar_key] = max(1, default_min // resample_min)
             fallback[min_key] = default_min
+            
+        # Add clipping config to fallback if needed
+        fallback["clipping"] = {"enabled": False}
         return fallback
 
 
@@ -122,6 +125,15 @@ class L2Transformer:
         self._deep_book_start      = int(cfg["deep_book_start"])
         self._convexity_near_end   = int(cfg["convexity_near_end"])
         self._convexity_far_end    = int(cfg["convexity_far_end"])
+        
+        # Clipping configuration
+        self._clipping_cfg = cfg.get("clipping", {"enabled": False})
+        self.audit_report = {
+            "file_id": "unknown",
+            "clipping_events": {}, # feat -> {count, max_original}
+            "outlier_density": 0.0,
+            "temporal_gaps": []
+        }
 
         self.bids_book: Dict[float, float] = {}
         self.asks_book: Dict[float, float] = {}
@@ -141,6 +153,12 @@ class L2Transformer:
         self._prev_asks = []
         self._prev_micro_price = np.nan
         self._prev_obi_l0 = 0.0
+        self.audit_report = {
+            "file_id": self.audit_report.get("file_id", "unknown"),
+            "clipping_events": {},
+            "outlier_density": 0.0,
+            "temporal_gaps": []
+        }
 
     def process_message(self, msg: Dict) -> Optional[Dict]:
         """
@@ -317,6 +335,49 @@ class L2Transformer:
                 row[f"ask_{i}_s"] = 0.0
 
         return row
+
+    def _apply_soft_clipping(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Applies Winsorization (clipping) based on P99 * multiplier.
+        Tracks changes for the quality report.
+        """
+        if not self._clipping_cfg.get("enabled", False):
+            return df
+
+        target_cols = self._clipping_cfg.get("target_columns", [])
+        multiplier = self._clipping_cfg.get("p99_multiplier", 10)
+        
+        total_cells = df.shape[0] * len(target_cols) if target_cols else 1
+        clipped_count = 0
+        
+        for col in target_cols:
+            if col not in df.columns:
+                continue
+            
+            p99 = df[col].quantile(0.99)
+            if pd.isna(p99) or p99 <= 0:
+                continue
+                
+            threshold = p99 * multiplier
+            outliers_mask = df[col] > threshold
+            
+            if outliers_mask.any():
+                max_val = df[col].max()
+                count = outliers_mask.sum()
+                clipped_count += count
+                
+                # Store for audit
+                self.audit_report["clipping_events"][col] = {
+                    "count": int(count),
+                    "max_original": float(max_val),
+                    "threshold": float(threshold)
+                }
+                
+                logger.warning(f"☢️ [CLIPPING] {self.audit_report['file_id']}: {col} max ({max_val:.2f}) reduced to {threshold:.2f} (10x P99)")
+                df.loc[outliers_mask, col] = threshold
+                
+        self.audit_report["outlier_density"] = (clipped_count / total_cells) * 100 if total_cells > 0 else 0.0
+        return df
 
     def apply_feature_engineering(self, df: pd.DataFrame) -> pd.DataFrame:
         """Applies temporal resampling (resample_freq), log-returns and log-volume.
@@ -520,6 +581,9 @@ class L2Transformer:
 
         # Log the new column set for traceability
         new_cols_present = [c for c in dynamic_features if c in final_df.columns]
+
+        # ── Strategic Clipping (v4.5 Patch) ───────────────────────────
+        final_df = self._apply_soft_clipping(final_df)
 
         return final_df.dropna()
 

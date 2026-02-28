@@ -35,6 +35,7 @@ def process_single_zip(zip_path, config):
         validator = DataValidator()
 
         transformer.reset_book()
+        transformer.audit_report["file_id"] = Path(zip_path).name
         # Optimization: use a dictionary of lists instead of a list of dicts
         # This significantly reduces memory overhead and speeds up DataFrame construction
         sampled_rows = {}
@@ -77,13 +78,17 @@ def process_single_zip(zip_path, config):
             loader.save_parquet(df_final, output_name, config['pre_processing']['etl']['export_compression'])
             
             logger.info(f"✅ Saved pre-processed data: {output_name}")
-            return f"✅ Processed {zip_p.name}"
+            return {
+                "status": "success",
+                "message": f"✅ Processed {zip_p.name}",
+                "audit": transformer.audit_report
+            }
         else:
-            return f"⚠️  No data in {zip_p.name}"
+            return {"status": "skipped", "message": f"⚠️  No data in {zip_p.name}"}
             
     except Exception as e:
         zip_name = Path(zip_path).name if zip_path else "unknown"
-        return f"❌ Error processing {zip_name}: {str(e)}"
+        return {"status": "error", "message": f"❌ Error processing {zip_name}: {str(e)}"}
 
 def run_pipeline():
     # 1. Load Config
@@ -136,6 +141,7 @@ def run_pipeline():
     # 4. Parallel Execution with ProcessPool
     skipped_files = []
     failed_files = []
+    quality_audits = []
     
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         # Create a list of future tasks
@@ -143,12 +149,17 @@ def run_pipeline():
         
         # Wrap as_completed with tqdm for a beautiful progress bar
         for future in tqdm(as_completed(future_to_zip), total=len(zip_files), desc="Parallel ETL"):
-            result = future.result()
+            res_obj = future.result()
+            result = res_obj["message"]
+            
+            if res_obj["status"] == "success":
+                quality_audits.append(res_obj["audit"])
+            
             # Optional: Log errors if any
-            if "❌" in result:
+            if res_obj["status"] == "error":
                 logger.error(result)
                 failed_files.append(result)
-            elif "⚠️" in result:
+            elif res_obj["status"] == "skipped":
                 # Track skipped files based on the warning prefix
                 file_name = result.split("in ")[-1] if "in " in result else result
                 skipped_files.append(file_name)
@@ -166,6 +177,18 @@ def run_pipeline():
                 "skipped_files": skipped_files
             }, f, indent=4)
         logger.info(f"📄 Saved skip manifest to {manifest_path} ({len(skipped_files)} files)")
+
+    # 5b. Save Quality Audit Report
+    if quality_audits:
+        audit_path = report_dir / "data_quality_report.json"
+        with open(audit_path, "w") as f:
+            json.dump({
+                "timestamp": pd.Timestamp.now().isoformat(),
+                "total_files": len(quality_audits),
+                "clipping_enabled": True,
+                "reports": quality_audits
+            }, f, indent=4)
+        logger.info(f"📊 Saved data quality report to {audit_path}")
         
         # Check for 10% threshold
         if len(skipped_files) / len(zip_files) > 0.10:
