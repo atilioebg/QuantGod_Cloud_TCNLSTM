@@ -106,10 +106,16 @@ def process_single_zip(zip_path, config):
                 "status": "success" if saved else "skipped",
                 "message": f"✅ Processed {zip_p.name}" if is_valid and not df_final.empty else f"❌ Rejected {zip_p.name}",
                 "audit": transformer.audit_report,
-                "is_valid": is_valid and not df_final.empty
+                "is_valid": is_valid and not df_final.empty,
+                "reason": health_report.get('integrity_comment', "Validation Failed") if not is_valid else None
             }
         else:
-            return {"status": "skipped", "message": f"⚠️  No data in {zip_p.name}", "reason": "No rows sampled (Threshold/Empty ZIP)"}
+            return {
+                "status": "skipped", 
+                "message": f"⚠️  No data in {zip_p.name}", 
+                "reason": "No rows sampled (Threshold/Empty ZIP)",
+                "audit": transformer.audit_report
+            }
             
     except Exception as e:
         zip_name = Path(zip_path).name if zip_path else "unknown"
@@ -187,8 +193,10 @@ def run_pipeline():
             res_obj = future.result()
             result = res_obj["message"]
             
-            if res_obj["status"] == "success":
+            if res_obj.get("audit"):
                 quality_audits.append(res_obj["audit"])
+
+            if res_obj["status"] == "success":
                 if not res_obj.get("is_valid", True):
                     validation_failures.append(result)
             

@@ -227,6 +227,11 @@ class DataValidator:
                 # For now, we update is_valid. The pipeline is responsible for saving the 'clean' version.
                 # Since validate is read-only for the df, we signal the survivors.
                 report['valid_island_ids'] = valid_islands
+                # Final synchronization: if zero islands survived, it's invalid
+                if not valid_islands:
+                    report['is_valid'] = False
+                    report['integrity_comment'] = "No valid data islands (>120min) found after pruning."
+                
                 if not report['is_valid']: # If it was invalid before (NaNs etc), stay invalid
                     pass 
                 else:

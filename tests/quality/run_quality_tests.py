@@ -133,12 +133,15 @@ def run_gold_tests():
     abandon_report = validator.validate_integrity(abandon_df_processed, name="Abandon Test", feature_list=feature_names)
     
     num_islands = abandon_report.get('num_islands_generated', 0)
-    # In Island Split v4.6, a 65min gap should NOT be rejected if valid islands exist
-    abandon_ok = (abandon_report['is_valid'] == True and num_islands >= 2)
+    valid_islands = len(abandon_report.get('valid_island_ids', []))
+    # In Island Split v4.6, a 65min gap should split the day.
+    # We expect BOTH islands to survive (>120min each).
+    abandon_ok = (abandon_report['is_valid'] == True and valid_islands >= 2)
+    
     if abandon_ok:
-        print(f"PASS: 65min Gap handled by Island Split. Islands: {num_islands}.")
+        print(f"PASS: 65min Gap handled by Island Split. Islands: {num_islands}, Survived: {valid_islands}.")
     else:
-        print(f"FAIL: 65min Gap NOT handled correctly. Valid: {abandon_report['is_valid']}, Islands: {num_islands}")
+        print(f"FAIL: 65min Gap NOT handled correctly. Valid: {abandon_report['is_valid']}, Islands: {num_islands}, Survived: {valid_islands}")
 
     if clipping_ok and lineage_ok and empty_ok and healing_ok and abandon_ok:
         print("\nALL GOLD v4.6 (Triple Healing) TESTS PASSED!")
