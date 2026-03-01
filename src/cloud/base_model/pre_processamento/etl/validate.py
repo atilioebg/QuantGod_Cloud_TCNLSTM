@@ -172,38 +172,50 @@ class DataValidator:
                  logger.warning(f"🧟 DEAD FEATURE: {lineage} {col} (Zero Variance detected)")
                  # Warning only as requested - not invalidating the dataset for this
 
-        # 9. Time Gaps & Abandonment (Hardening v4.6)
-        # Check index continuity
+        # 9. Time Gaps & Island Survivability (Island Split v4.6 Gold)
+        # Check index continuity for abandonment report
         diffs = df.index.to_series().diff().dropna()
         max_idx_gap = float(diffs.max().total_seconds() / 60) if not diffs.empty else 0.0
+        freq_min = diffs.median().total_seconds() / 60 if not diffs.empty else 1.0
         
-        # Check for gaps in "real" data (consecutive zero-trade bars)
-        max_vol_gap = 0.0
-        if 'tick_count' in df.columns:
-            is_zero = (df['tick_count'] == 0)
-            if is_zero.any():
-                # Group consecutive zeros
-                zero_groups = (is_zero != is_zero.shift()).cumsum()
-                gaps = is_zero[is_zero].groupby(zero_groups[is_zero])
-                if not gaps.groups:
-                    max_vol_gap = 0.0
+        report['max_gap_minutes'] = max_idx_gap
+        
+        # --- Survival Rule Implementation ---
+        target_df = df.copy() # We will prune islands from this copy if needed
+        island_col = 'island_id' if 'island_id' in df.columns else None
+        
+        if island_col:
+            islands = df.groupby(island_col)
+            report['num_islands_generated'] = int(df[island_col].nunique())
+            
+            # Rule: Island must be > 120 minutes (Lookback context)
+            survival_threshold_bars = 120 / freq_min
+            valid_islands = []
+            rows_retained = 0
+            
+            for island_id, group in islands:
+                if len(group) >= survival_threshold_bars:
+                    valid_islands.append(island_id)
+                    rows_retained += len(group)
                 else:
-                    # freq_min is usually 1 min or similar. Let's compute it.
-                    if not diffs.empty:
-                        freq_min = diffs.median().total_seconds() / 60
-                        max_vol_gap = gaps.size().max() * freq_min
-        
-        report['max_gap_minutes'] = max(max_idx_gap, max_vol_gap)
-        logger.info(f"DEBUG: max_idx_gap={max_idx_gap}, max_vol_gap={max_vol_gap} (freq={freq_min if 'freq_min' in locals() else 'N/A'})")
-        
-        # v4.6 Gold: Abandon Threshold (60 min)
-        # Even if healed, if a >60m gap remains (not healable by L1), it's INVALID
-        abandon_threshold = 60.0
-        if report['max_gap_minutes'] > abandon_threshold:
-            logger.error(f"❌ GAP ABANDONMENT: Max gap {report['max_gap_minutes']:.1f}min exceeds 60min limit.")
-            report['is_valid'] = False
-            report['shape_integrity'] = False
-            report['integrity_comment'] = f"Critical gap: {report['max_gap_minutes']:.1f}min (> 60min limit)."
+                    logger.warning(f"🏖️ [SURVIVAL] Island {island_id} rejected: {len(group)} bars < {survival_threshold_bars:.0f} (120min).")
+            
+            report['total_rows_retained'] = int(rows_retained)
+            
+            # Veredito de 'Abandon': Only INVALID if NO islands survive
+            if not valid_islands:
+                logger.error(f"❌ GAP ABANDONMENT: Zero islands survived the 120min criteria in {name}.")
+                report['is_valid'] = False
+                report['integrity_comment'] = "No valid data islands (>120min) found."
+            else:
+                # IMPORTANT: We need a way to pass back the PRUNED dataframe or signal the pipeline
+                # For now, we update is_valid. The pipeline is responsible for saving the 'clean' version.
+                # Since validate is read-only for the df, we signal the survivors.
+                report['valid_island_ids'] = valid_islands
+                if not report['is_valid']: # If it was invalid before (NaNs etc), stay invalid
+                    pass 
+                else:
+                    logger.info(f"✅ Protocol Island Split: {len(valid_islands)}/{report['num_islands_generated']} islands survived. Total rows: {rows_retained}")
 
         # Final Gold Status (Status: VALID / INVALID / FIXED)
         is_healed = report.get('healed', False)

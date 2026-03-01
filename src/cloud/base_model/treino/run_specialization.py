@@ -28,18 +28,32 @@ from sklearn.metrics import f1_score
 logger = logging.getLogger(__name__)
 
 class SequenceDataset(Dataset):
-    """Memory-efficient demand-based sequence generator."""
-    def __init__(self, X: np.ndarray, y: np.ndarray, seq_len: int):
+    """Memory-efficient demand-based sequence generator with Island Split protection."""
+    def __init__(self, X: np.ndarray, y: np.ndarray, island_ids: np.ndarray, seq_len: int):
         self.X = X
         self.y = y
         self.seq_len = seq_len
+        self.island_ids = island_ids
+        
+        # Pre-calculate valid indices that don't cross islands
+        # An index is valid if island_ids[idx] == island_ids[idx + seq_len - 1]
+        # We also check the total length
+        max_idx = len(X) - seq_len
+        if max_idx < 0:
+            self.valid_indices = []
+        else:
+            # Vectorized check for speed
+            self.valid_indices = np.where(island_ids[:max_idx + 1] == island_ids[seq_len - 1:])[0]
+        
+        logger.info(f"SequenceDataset: {len(self.valid_indices)}/{max_idx + 1 if max_idx >= 0 else 0} valid sequences (Lookback protection active).")
 
     def __len__(self):
-        return len(self.X) - self.seq_len
+        return len(self.valid_indices)
 
     def __getitem__(self, idx):
-        x_seq = self.X[idx: idx + self.seq_len]
-        y_label = self.y[idx + self.seq_len - 1]
+        real_idx = self.valid_indices[idx]
+        x_seq = self.X[real_idx: real_idx + self.seq_len]
+        y_label = self.y[real_idx + self.seq_len - 1]
         return torch.from_numpy(x_seq), torch.tensor(y_label, dtype=torch.long)
 
 def load_config():
@@ -107,18 +121,26 @@ def load_data(directory: str, feature_cols: list):
     if not parquet_files:
         raise FileNotFoundError(f"No labelled data in {directory}")
 
-    dfs = [pl.read_parquet(pf, columns=feature_cols + ['target']) for pf in parquet_files]
+    dfs = []
+    for i, pf in enumerate(parquet_files):
+        df_i = pl.read_parquet(pf, columns=feature_cols + ['target', 'island_id'])
+        # Protocol Island Split: ensure global uniqueness across files
+        df_i = df_i.with_columns(pl.col("island_id") + (i * 10000))
+        dfs.append(df_i)
+    
     df = pl.concat(dfs)
     return df
 
 class SpecialistObjective:
-    def __init__(self, config, spec_space, X_train, y_train, X_val, y_val, class_weights, DEVICE):
+    def __init__(self, config, spec_space, X_train, y_train, island_t, X_val, y_val, island_v, class_weights, DEVICE):
         self.config = config
         self.spec_space = spec_space
         self.X_train = X_train
         self.y_train = y_train
+        self.island_t = island_t
         self.X_val = X_val
         self.y_val = y_val
+        self.island_v = island_v
         self.class_weights = class_weights
         self.DEVICE = DEVICE
         
@@ -139,8 +161,8 @@ class SpecialistObjective:
         num_lstm_layers = trial.suggest_categorical("num_lstm_layers", self.spec_space["num_lstm_layers"])
 
         # 2. Datasets & Loaders
-        train_dataset = SequenceDataset(self.X_train, self.y_train, seq_len)
-        val_dataset = SequenceDataset(self.X_val, self.y_val, seq_len)
+        train_dataset = SequenceDataset(self.X_train, self.y_train, self.island_t, seq_len)
+        val_dataset = SequenceDataset(self.X_val, self.y_val, self.island_v, seq_len)
         
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, pin_memory=True, num_workers=4)
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, pin_memory=True, num_workers=4)
@@ -287,8 +309,10 @@ def run_specialization():
     
     X_train_raw = train_df.select(feature_cols).to_numpy().astype(np.float32)
     y_train_raw = train_df.select('target').to_numpy().flatten().astype(np.int64)
+    island_t    = train_df.select('island_id').to_numpy().flatten()
     X_val_raw   = val_df.select(feature_cols).to_numpy().astype(np.float32)
     y_val_raw   = val_df.select('target').to_numpy().flatten().astype(np.int64)
+    island_v    = val_df.select('island_id').to_numpy().flatten()
     
     # Normalization
     scaler = StandardScaler()
@@ -310,7 +334,9 @@ def run_specialization():
         config=config, 
         spec_space=spec_space,
         X_train=X_train_norm, y_train=y_train_raw,
+        island_t=island_t,
         X_val=X_val_norm, y_val=y_val_raw,
+        island_v=island_v,
         class_weights=class_weights,
         DEVICE=DEVICE
     )

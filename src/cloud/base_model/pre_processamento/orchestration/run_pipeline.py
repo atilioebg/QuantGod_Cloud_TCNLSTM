@@ -76,6 +76,13 @@ def process_single_zip(zip_path, config):
             feature_list = config['model'].get('feature_names', [])
             health_report = validator.validate_integrity(df_final, name=zip_p.name, feature_list=feature_list)
             
+            # Protocol Island Split: Filter only valid islands
+            valid_ids = health_report.get('valid_island_ids', [])
+            if valid_ids and 'island_id' in df_final.columns:
+                df_final = df_final[df_final['island_id'].isin(valid_ids)].copy()
+                # Update retention count after pruning
+                transformer.audit_report["total_rows_retained"] = len(df_final)
+            
             # Merge validator stats into the audit report
             transformer.audit_report["health_stats"] = health_report
 
@@ -83,21 +90,22 @@ def process_single_zip(zip_path, config):
             is_valid = bool(health_report.get('is_valid', False))
             output_name = zip_p.with_suffix(".parquet").name
             
-            logger.info(f"AUDIT TRACE: {zip_p.name} -> is_valid={is_valid} (Gap: {health_report.get('max_gap_minutes', 0.0):.1f}min)")
+            logger.info(f"AUDIT TRACE: {zip_p.name} -> is_valid={is_valid} (Islands: {health_report.get('num_islands_generated', 1)} | Retained: {len(df_final)} rows)")
             
-            if is_valid:
+            if is_valid and not df_final.empty:
                 saved = loader.save_parquet(df_final, output_name, config['pre_processing']['etl']['export_compression'])
                 if saved:
                     logger.info(f"✅ Saved pre-processed data: {output_name}")
             else:
                 saved = False
-                logger.error(f"❌ REJECTED: {zip_p.name} failed integrity check. Parquet NOT saved to prevent pollution.")
+                reason = "Validation Failed" if not is_valid else "No valid islands survived"
+                logger.error(f"❌ REJECTED: {zip_p.name} -> {reason}. Parquet NOT saved.")
             
             return {
                 "status": "success" if saved else "skipped",
-                "message": f"✅ Processed {zip_p.name}" if is_valid else f"❌ Rejected {zip_p.name} (Validation Failed)",
+                "message": f"✅ Processed {zip_p.name}" if is_valid and not df_final.empty else f"❌ Rejected {zip_p.name}",
                 "audit": transformer.audit_report,
-                "is_valid": is_valid
+                "is_valid": is_valid and not df_final.empty
             }
         else:
             return {"status": "skipped", "message": f"⚠️  No data in {zip_p.name}"}
@@ -222,6 +230,8 @@ def run_pipeline():
             summary_rows.append({
                 "file_name": audit.get("file_id", "unknown"),
                 "status": status,
+                "num_islands": audit.get("num_islands_generated", 1),
+                "rows_retained": audit.get("total_rows_retained", 0),
                 "alert_type": alert_type,
                 "max_gap_before": f"{audit.get('max_gap_before', 0.0):.2f}",
                 "max_gap_after": f"{audit.get('max_gap_after', 0.0):.2f}",

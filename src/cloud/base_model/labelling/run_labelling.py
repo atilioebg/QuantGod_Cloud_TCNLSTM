@@ -37,26 +37,30 @@ def apply_labelling(file_path, config):
         # 2. Future Logic - Sniper v4.6 Gold
         # Lookahead: calculate max high and min low in the next 'lookahead' minutes
         # Zero Tolerance Rule: Invalidate if any minute has tick_count == 0 (market silence)
+        # Protocol Island Split: Use 'over' to prevent looking into different islands
         
-        # We use shifting windows to look into the future
-        # horizontal_max/min doesn't exist for windows in polars easily across rows without shifts
-        # But we can use rolling_max/min and shift back
+        island_col = 'island_id' if 'island_id' in df.columns else None
         
-        df = df.with_columns([
-            pl.col("high").rolling_max(window_size=lookahead).shift(-lookahead).alias("future_max_high"),
-            pl.col("low").rolling_min(window_size=lookahead).shift(-lookahead).alias("future_min_low"),
-            pl.col("tick_count").rolling_min(window_size=lookahead).shift(-lookahead).alias("future_min_ticks")
-        ])
+        if island_col:
+            logger.debug(f"[labelling] Partitioning by {island_col} for {file_path.name}")
+            df = df.with_columns([
+                pl.col("high").rolling_max(window_size=lookahead).shift(-lookahead).over(island_col).alias("future_max_high"),
+                pl.col("low").rolling_min(window_size=lookahead).shift(-lookahead).over(island_col).alias("future_min_low"),
+                pl.col("tick_count").rolling_min(window_size=lookahead).shift(-lookahead).over(island_col).alias("future_min_ticks")
+            ])
+        else:
+            df = df.with_columns([
+                pl.col("high").rolling_max(window_size=lookahead).shift(-lookahead).alias("future_max_high"),
+                pl.col("low").rolling_min(window_size=lookahead).shift(-lookahead).alias("future_min_low"),
+                pl.col("tick_count").rolling_min(window_size=lookahead).shift(-lookahead).alias("future_min_ticks")
+            ])
         
         # 3. Apply Thresholds & Zero Tolerance
-        # Target = 2 (BUY) if max high >= close * (1 + buy_th)
-        # Target = 0 (SELL) if min low <= close * (1 - sell_th)
-        # Target = NaN (INVALID) if future_min_ticks == 0 (Apagão no futuro)
-        
         df = df.with_columns([
-            pl.when(pl.col("future_min_ticks") == 0).then(None) # ZERO TOLERANCE: Gap no futuro = Inválido
-            .when(pl.col("future_max_high") >= pl.col("close") * (1 + threshold_long)).then(2) # BUY
-            .when(pl.col("future_min_low") <= pl.col("close") * (1 - sell_th)).then(0) # SELL (using sell_th positive from config)
+            pl.when(pl.col("future_min_ticks").is_null()).then(None) # Proteção contra fim da ilha
+            .when(pl.col("future_min_ticks") == 0).then(None)       # ZERO TOLERANCE: Gap no futuro = Inválido
+            .when(pl.col("future_max_high") >= pl.col("close") * (1 + buy_th)).then(2)  # BUY
+            .when(pl.col("future_min_low") <= pl.col("close") * (1 - sell_th)).then(0)  # SELL
             .otherwise(1) # NEUTRAL
             .alias("target")
         ])

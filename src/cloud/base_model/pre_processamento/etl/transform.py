@@ -141,7 +141,10 @@ class L2Transformer:
             "max_gap_after": 0.0,
             "healed": False,
             "healing_details": [],
-            "features_healed": []
+            "features_healed": [],
+            "num_islands_generated": 0,
+            "total_rows_retained": 0,
+            "gap_fragmentation_events": []
         }
 
         self.bids_book: Dict[float, float] = {}
@@ -171,7 +174,10 @@ class L2Transformer:
             "max_gap_after": 0.0,
             "healed": False,
             "healing_details": [],
-            "features_healed": []
+            "features_healed": [],
+            "num_islands_generated": 0,
+            "total_rows_retained": 0,
+            "gap_fragmentation_events": []
         }
 
     def process_message(self, msg: Dict) -> Optional[Dict]:
@@ -493,53 +499,70 @@ class L2Transformer:
             diffs_pre = final_df[~is_gap].index.to_series().diff().dropna()
             self.audit_report["max_gap_before"] = float(diffs_pre.max().total_seconds() / 60) if not diffs_pre.empty else 0.0
 
-            # IDENTIFY AND TREAT GAPS
+            # IDENTIFY AND TREAT GAPS (Island Split v4.6 Protocol)
             flow_cols = ['tick_count', 'ofi', 'micro_price_momentum', 'volatility']
             actual_flow_cols = [c for c in flow_cols if c in final_df.columns]
             healed_any = False
             
+            # --- Island Management ---
+            # Default: everyone starts on Island 0
+            final_df['island_id'] = 0
+            current_island_id = 0
+            fragment_threshold_min = 30.0 # Sniper Gold Hard Reset
+            
+            # Identify unhealed gaps after applying short-gap rules
+            unhealed_mask = is_gap.copy()
+
             for _, group in gaps:
                 gap_len_min = len(group) * freq_min
                 
-                # 1. ALWAYS Apply Group B (Median) and Group C (Zero) to preserve the bars for audit
-                # Group B: Median-Fill (Microstructure)
+                # 1. ALWAYS Apply Group B (Median) and Group C (Zero) to preserve the bars
                 for col in group_b_cols:
                     if col in final_df.columns:
                         final_df.loc[group.index, col] = final_df[col].median()
-                
-                # Group C: Zero-Fill (Flow)
-                for col in flow_cols:
+                for col in group_c_cols:
                     if col in final_df.columns:
                         final_df.loc[group.index, col] = 0.0
 
-                # 2. ONLY Apply Group A (Linear Interpolation) for short gaps (< 5 min)
-                if gap_len_min <= heal_threshold_min:
+                # 2. Island Split Trigger (Hard Reset > 30 min)
+                if gap_len_min > fragment_threshold_min:
+                    current_island_id += 1
+                    # All rows FROM the end of this gap until the end of the file belong to a NEW island (pending next reset)
+                    final_df.loc[group.index[-1] + pd.Timedelta(minutes=freq_min):, 'island_id'] = current_island_id
+                    
+                    self.audit_report["gap_fragmentation_events"].append(str(group.index[0]))
+                    logger.warning(f"🏝️ [ISLAND SPLIT] Hard Reset at {group.index[0]} due to {gap_len_min}min gap. New Island ID: {current_island_id}")
+                    # In a hard reset, the gap itself belongs to NO-MAN'S-LAND? 
+                    # We keep island_id on gaps to track them if needed, but they'll be dropped/ignored.
+                    unhealed_mask.loc[group.index] = True 
+                
+                # 3. Level 1 Healing (Short gaps <= 5 min)
+                elif gap_len_min <= heal_threshold_min:
                     healed_any = True
                     self.audit_report["healed"] = True
                     self.audit_report["healing_details"].append(f"Healed {gap_len_min}min gap at {group.index[0]}")
-                    
-                    # Interpolação Linear (Preços/Vol)
-                    # Note: We need to include the boundaries for interpolation to work
-                    # Since we are filling the middle, we let .interpolate() handle the whole series later or now
-                    # But for safety, we just mark these bars specifically if needed.
-                    # Actually, we can just run interpolate on Group A for the whole series with a limit.
-                    pass 
+                    unhealed_mask.loc[group.index] = False # No longer unhealed
+                
+                # 4. Dangerous Zone (5 min < gap <= 30 min)
+                # No healing, but no island split. These bars will remain with tick_count=0.
+                else:
+                    unhealed_mask.loc[group.index] = True
 
-            # Apply Linear Interpolation to Group A with a limit to avoid hallucinatory long fills
+            # Apply Linear Interpolation to Group A ONLY for healed gaps (short limit)
             interp_limit = int(heal_threshold_min / freq_min)
+            # Strategy: interpolate everywhere but then 'mask' back the long gaps to NaN
             final_df[group_a_cols] = final_df[group_a_cols].interpolate(method='linear', limit=interp_limit)
+
+            # ── SELECTIVE FILLING (FFILL) Grouped by Island ──────────────────
+            # This is critical: forward fill MUST NOT cross island boundaries.
+            state_cols = [c for c in final_df.columns if c not in actual_flow_cols and c != 'island_id']
+            final_df[state_cols] = final_df.groupby('island_id')[state_cols].ffill().bfill()
 
             if healed_any:
                 self.audit_report["features_healed"] = ["Group A: Linear", "Group B: Median", "Group C: Zero"]
-                logger.info(f"🩹 [HEALING] Group A: Linear | Group B: Median | Grupo C: Zero aplicado ao arquivo {self.audit_report['file_id']}")
+                logger.info(f"🩹 [HEALING] Short gaps restored in {self.audit_report['file_id']}")
 
-            # ── SELECTIVE FILLING (FFILL) for residual state vars ────────────
-            # Anything else (like ob_cols_raw) might need ffill if it was a LONG gap.
-            # We strictly EXCLUDE actual_flow_cols from forward-filling zero-values.
-            state_cols = [c for c in final_df.columns if c not in actual_flow_cols]
-            final_df[state_cols] = final_df[state_cols].ffill().bfill()
-
-            # Fix OHLC logic for zero-trade bars (High/Low should match last Close)
+            # Fix OHLC logic for zero-trade bars
             is_gap_post = (final_df['tick_count'] == 0)
             if is_gap_post.any():
                 final_df.loc[is_gap_post, 'open'] = final_df.loc[is_gap_post, 'close']
@@ -547,20 +570,10 @@ class L2Transformer:
                 final_df.loc[is_gap_post, 'low']  = final_df.loc[is_gap_post, 'close']
 
             # Post-healing gap audit
-            # We exclude gaps that were successfully healed (< 5min) from the abandonment check
-            is_gap_post = (final_df['tick_count'] == 0)
-            
-            # Identify unhealed gaps: those where tick_count == 0 AND they were too long to heal
-            # Or simpler: just identify all gaps post-healing, but we want to know 
-            # if we recovered them.
-            unhealed_mask = is_gap_post.copy()
-            for _, group in gaps:
-                if len(group) * freq_min <= heal_threshold_min:
-                    unhealed_mask.loc[group.index] = False
-            
             gap_groups_post = (unhealed_mask != unhealed_mask.shift()).cumsum()
             gaps_post = unhealed_mask[unhealed_mask].groupby(gap_groups_post[unhealed_mask])
             self.audit_report["max_gap_after"] = float(gaps_post.size().max() * freq_min) if not gaps_post.groups == {} else 0.0
+            self.audit_report["num_islands_generated"] = current_island_id + 1
 
             if self.audit_report["max_gap_after"] > 60:
                 logger.warning(f"❌ CRITICAL GAP REMAINING: {self.audit_report['max_gap_after']}m in {self.audit_report['file_id']}")
@@ -576,79 +589,71 @@ class L2Transformer:
         # we only expect NaNs now in state variables that couldn't be bfilled (start of day)
         final_df.dropna(inplace=True)
 
-        # Stationarity & Candle Shape
-        prev_close = final_df['close'].shift(1)
-        
-        # Defragment dataframe before bulk insertions to prevent PerformanceWarning
-        final_df = final_df.copy()
-        
-        # Core Candle Shape Features (Institutional Standard)
-        # Body: Real movement within candle
-        final_df['body'] = np.log(final_df['close'] / final_df['open'])
-        # Wicks: Normalized by previous close to keep scale consistent
-        final_df['upper_wick'] = (final_df['high'] - np.maximum(final_df['open'], final_df['close'])) / prev_close
-        final_df['lower_wick'] = (np.minimum(final_df['open'], final_df['close']) - final_df['low']) / prev_close
-        
-        final_df['log_ret_close'] = np.log(final_df['close'] / prev_close)
+        # ── Grouped Feature Engineering (Island Split v4.6) ──────────────────
+        # We MUST ensure that rolling/diff indicators DON'T cross island gaps.
         final_df['log_volume'] = np.log1p(final_df['tick_count'])
-
-        # ── Sniper Pivot: Multi-Scale Shock Features ──────────────────────────
-        # Short lookback (delta_short bars)
+        
+        # Resolve labels
         ds_lbl = str(self._delta_short_min)
-        final_df[f'ofi_delta_{ds_lbl}']           = final_df['ofi'].diff(ds)
-        final_df[f'bid_rdi_delta_{ds_lbl}']       = final_df['bid_rdi'].diff(ds)
-        final_df[f'ask_rdi_delta_{ds_lbl}']       = final_df['ask_rdi'].diff(ds)
-        final_df[f'micro_price_delta_{ds_lbl}']   = final_df['close'].pct_change(ds)
+        dl_lbl = str(self._delta_long_min)
+        ds = self._delta_short
+        dl = self._delta_long
+        vpin_l = f"{getattr(self, '_vpin_window_min', 25)}"
+        vpin_col = f'vpin_min{vpin_l}'
 
-        # Long lookback (dl bars = delta_long_min real minutes)
-        final_df[f'ofi_delta_{dl_lbl}']           = final_df['ofi'].diff(dl)
-        final_df[f'bid_rdi_delta_{dl_lbl}']       = final_df['bid_rdi'].diff(dl)
-        final_df[f'ask_rdi_delta_{dl_lbl}']       = final_df['ask_rdi'].diff(dl)
-        final_df[f'micro_price_delta_{dl_lbl}']   = final_df['close'].pct_change(dl)
+        def process_island_group(group_df):
+            if len(group_df) < 2: return group_df # Safety
+            
+            group_df = group_df.copy()
+            prev_c = group_df['close'].shift(1)
+            
+            # Candle Shape
+            group_df['body'] = np.log(group_df['close'] / group_df['open'])
+            group_df['upper_wick'] = (group_df['high'] - np.maximum(group_df['open'], group_df['close'])) / (prev_c + 1e-9)
+            group_df['lower_wick'] = (np.minimum(group_df['open'], group_df['close']) - group_df['low']) / (prev_c + 1e-9)
+            group_df['log_ret_close'] = np.log(group_df['close'] / (prev_c + 1e-9))
+            
+            # Sniper Pivot: Multi-Scale Shock Features
+            group_df[f'ofi_delta_{ds_lbl}']           = group_df['ofi'].diff(ds)
+            group_df[f'bid_rdi_delta_{ds_lbl}']       = group_df['bid_rdi'].diff(ds)
+            group_df[f'ask_rdi_delta_{ds_lbl}']       = group_df['ask_rdi'].diff(ds)
+            group_df[f'micro_price_delta_{ds_lbl}']   = group_df['close'].pct_change(ds)
 
-        # ── Institutional Microstructure Features ─────────────────────────────
-        # 1. Book Asymmetry (top book_asymmetry_depth levels)
-        n_asym = self._book_asym_depth
-        sum_bids_n = sum(final_df[f"bid_{i}_s"] for i in range(n_asym))
-        sum_asks_n = sum(final_df[f"ask_{i}_s"] for i in range(n_asym))
-        final_df['book_asymmetry_v5'] = np.log((sum_bids_n + 1e-9) / (sum_asks_n + 1e-9))
+            group_df[f'ofi_delta_{dl_lbl}']           = group_df['ofi'].diff(dl)
+            group_df[f'bid_rdi_delta_{dl_lbl}']       = group_df['bid_rdi'].diff(dl)
+            group_df[f'ask_rdi_delta_{dl_lbl}']       = group_df['ask_rdi'].diff(dl)
+            group_df[f'micro_price_delta_{dl_lbl}']   = group_df['close'].pct_change(dl)
+            
+            # Institutional Features
+            n_asym = self._book_asym_depth
+            sb_n = sum(group_df[f"bid_{i}_s"] for i in range(n_asym))
+            sa_n = sum(group_df[f"ask_{i}_s"] for i in range(n_asym))
+            group_df['book_asymmetry_v5'] = np.log((sb_n + 1e-9) / (sa_n + 1e-9))
+            
+            roll_spread = group_df['max_spread'].rolling(window=self._spread_zscore_window, min_periods=1)
+            group_df['spread_zscore_60'] = (group_df['max_spread'] - roll_spread.mean()) / (roll_spread.std() + 1e-9)
+            
+            group_df[vpin_col] = group_df['ofi'].abs().rolling(self._vpin_window).sum() / (sb_n + sa_n + 1e-9)
+            group_df['kyle_lambda'] = group_df[f'micro_price_delta_{ds_lbl}'] / (group_df[f'ofi_delta_{ds_lbl}'].abs() + 1e-9)
+            
+            dbs = self._deep_book_start
+            sb_deep = sum(group_df[f"bid_{i}_s"] for i in range(dbs, self.levels))
+            sa_deep = sum(group_df[f"ask_{i}_s"] for i in range(dbs, self.levels))
+            group_df['bid_deep_ratio'] = sb_deep / (sb_n + 1e-9)
+            group_df['ask_deep_ratio'] = sa_deep / (sa_n + 1e-9)
+            
+            cn, cf = self._convexity_near_end, self._convexity_far_end
+            sb0 = sum(group_df[f"bid_{i}_s"] for i in range(1, cn + 1))
+            sb1 = sum(group_df[f"bid_{i}_s"] for i in range(cn + 1, cf + 1))
+            sa0 = sum(group_df[f"ask_{i}_s"] for i in range(1, cn + 1))
+            sa1 = sum(group_df[f"ask_{i}_s"] for i in range(cn + 1, cf + 1))
+            group_df['bid_convexity'] = sb0 / (sb1 + 1e-9)
+            group_df['ask_convexity'] = sa0 / (sa1 + 1e-9)
+            
+            return group_df
 
-        # 2. Spread Z-Score (spread_zscore_window bars)
-        rolling_spread = final_df['max_spread'].rolling(window=self._spread_zscore_window, min_periods=1)
-        final_df['spread_zscore_60'] = (
-            (final_df['max_spread'] - rolling_spread.mean()) / (rolling_spread.std() + 1e-9)
-        )
-
-        # 3. V-PIN Lite (vpin_window bars) — nome dinâmico em MINUTOS REAIS para consistência com config
-        vpin_lbl = f"{getattr(self, '_vpin_window_min', 25)}"  # ex: 25 → 'vpin_min25'
-        vpin_col = f'vpin_min{vpin_lbl}'
-        final_df[vpin_col] = (
-            final_df['ofi'].abs().rolling(self._vpin_window).sum() / (sum_bids_n + sum_asks_n + 1e-9)
-        )
-
-        # ── Deep-Book Features ──────────────────────────────────────────────
-        # 1. Kyle's Lambda (uses delta_short column names)
-        final_df['kyle_lambda'] = (
-            final_df[f'micro_price_delta_{ds_lbl}'] /
-            (final_df[f'ofi_delta_{ds_lbl}'].abs() + 1e-9)
-        )
-
-        # 2. Deep-to-Front Ratio (deep_book_start → levels)
-        dbs = self._deep_book_start
-        sum_bids_deep = sum(final_df[f"bid_{i}_s"] for i in range(dbs, self.levels))
-        sum_asks_deep = sum(final_df[f"ask_{i}_s"] for i in range(dbs, self.levels))
-        final_df['bid_deep_ratio'] = sum_bids_deep / (sum_bids_n + 1e-9)
-        final_df['ask_deep_ratio'] = sum_asks_deep / (sum_asks_n + 1e-9)
-
-        # 3. Book Convexity (convexity_near_end and convexity_far_end)
-        cn = self._convexity_near_end
-        cf = self._convexity_far_end
-        sum_bids_near = sum(final_df[f"bid_{i}_s"] for i in range(1, cn + 1))
-        sum_bids_far  = sum(final_df[f"bid_{i}_s"] for i in range(cn + 1, cf + 1))
-        sum_asks_near = sum(final_df[f"ask_{i}_s"] for i in range(1, cn + 1))
-        sum_asks_far  = sum(final_df[f"ask_{i}_s"] for i in range(cn + 1, cf + 1))
-        final_df['bid_convexity'] = sum_bids_near / (sum_bids_far + 1e-9)
-        final_df['ask_convexity'] = sum_asks_near / (sum_asks_far + 1e-9)
+        # Apply transformations isolated by island
+        final_df = final_df.groupby('island_id', group_keys=False).apply(process_island_group)
 
         # Final cleanup for all rolling/diff features (NaNs to 0, Infs to 0)
         # Column names are built dynamically from real-minute labels.
@@ -682,7 +687,7 @@ class L2Transformer:
                    and not any(x in c for x in ['_slope', '_rdi', '_delta_', '_asymmetry', '_convexity']))]
         
         # Build final list and deduplicate while preserving order
-        raw_final_cols = agg_features + ['close'] + ob_cols
+        raw_final_cols = agg_features + ['close', 'island_id'] + ob_cols
         final_cols = []
         seen = set()
         for c in raw_final_cols:
