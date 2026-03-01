@@ -455,85 +455,76 @@ class L2Transformer:
         final_df.columns = agg_col_names + ob_cols_raw + ['tick_count']
 
         # ── Time-Aware Regularization (full-day reindex at resample_freq) ────────
-        # Ensures perfect bar continuity to avoid "teleportation" over missing API data.
         try:
-            date_anchor    = final_df.index[0].floor('D')
-            # Compute last bar of the day dynamically from freq
-            freq_minutes   = pd.tseries.frequencies.to_offset(freq).nanos // 60_000_000_000
-            last_minute    = 24 * 60 - freq_minutes
-            full_idx_end   = date_anchor + pd.Timedelta(minutes=last_minute)
-            full_idx       = pd.date_range(start=date_anchor, end=full_idx_end, freq=freq)
-
+            # Anchor to start of day
+            date_anchor = final_df.index[0].floor('D')
+            freq_offset = pd.tseries.frequencies.to_offset(freq)
+            freq_min = freq_offset.nanos // 60_000_000_000
+            
+            # Create full 24h index
+            full_idx = pd.date_range(start=date_anchor, periods=1440 // freq_min, freq=freq)
+            
+            # Reindex fills missing minutes with NaNs
             final_df = final_df.reindex(full_idx)
             
-            # ── LEVEL 1 HEALING (GAP TREATMENT) ───────────────────────────────
-            # Identify gaps before filling
-            is_gap = (final_df['tick_count'] == 0) | (final_df['tick_count'].isna())
+            # Identify gaps (Silence or NaN)
+            # Critical: after reindex, missing bars are NaNs. Consecutive zero-trades are 0.
+            is_gap = (final_df['tick_count'].isna()) | (final_df['tick_count'] == 0)
             
+            # Pre-healing gap audit (BEFORE any filling)
+            # We look at the gaps in the sequence of valid bars
+            if is_gap.any():
+                valid_indices = final_df.index[~is_gap]
+                if not valid_indices.empty:
+                    diffs_pre = valid_indices.to_series().diff().dropna()
+                    # A gap of 1 min is normal. Anything > 1 min is a gap.
+                    # max() should be 4.0 for a 3-min gap (10:00 -> 10:04)
+                    # We subtract 1 freq to get the actual "blackout" time
+                    self.audit_report["max_gap_before"] = float(diffs_pre.max().total_seconds() / 60) if not diffs_pre.empty else 0.0
+                else:
+                    self.audit_report["max_gap_before"] = 1440.0
+            else:
+                self.audit_report["max_gap_before"] = 0.0
+
             # Group consecutive gaps
             gap_groups = (is_gap != is_gap.shift()).cumsum()
             gaps = is_gap[is_gap].groupby(gap_groups[is_gap])
             
-            # Triple Approach Groups
-            # Group A (Linear Interpolation): State variables
-            # Note: ob_cols_raw (bid_0_p etc) also linear
+            # Define healing groups
             group_a_cols = ['open', 'high', 'low', 'close', 'max_spread', 'volatility'] + ob_cols_raw
             group_a_cols = [c for c in group_a_cols if c in final_df.columns]
-
-            # Group B (Median-Fill): Pressure metrics (existing columns)
+            
             group_b_base = ['mean_obi', 'mean_deep_obi', 'bid_slope', 'ask_slope', 'bid_rdi', 'ask_rdi', 'pressure_ratio']
             group_b_cols = [c for c in group_b_base if c in final_df.columns]
-            # Search for dynamic names if they somehow pre-exist (rare)
-            all_cols = final_df.columns.tolist()
-            group_b_cols += [c for c in all_cols if any(x in c for x in ['vpin', 'convexity', 'deep_ratio', 'kyle_lambda']) 
-                             and c not in group_b_cols]
             
-            # Group C (Zero-Fill): Flow/Event counts
             group_c_base = ['ofi', 'tick_count', 'micro_price_momentum', 'volatility']
             group_c_cols = [c for c in group_c_base if c in final_df.columns]
 
             heal_threshold_min = self._etl_cfg.get("healing", {}).get("max_gap_minutes", 5)
-            freq_min = self._resample_min
-            
-            # Pre-healing gap audit
-            diffs_pre = final_df[~is_gap].index.to_series().diff().dropna()
-            self.audit_report["max_gap_before"] = float(diffs_pre.max().total_seconds() / 60) if not diffs_pre.empty else 0.0
-
-            # IDENTIFY AND TREAT GAPS (Island Split v4.6 Protocol)
-            flow_cols = ['tick_count', 'ofi', 'micro_price_momentum', 'volatility']
-            actual_flow_cols = [c for c in flow_cols if c in final_df.columns]
-            healed_any = False
-            
-            # --- Island Management ---
-            # Default: everyone starts on Island 0
-            final_df['island_id'] = 0
-            current_island_id = 0
             fragment_threshold_min = 30.0 # Sniper Gold Hard Reset
             
-            # Identify unhealed gaps after applying short-gap rules
+            # --- Island Management (Island Split v4.6 Protocol) ---
+            final_df['island_id'] = 0
+            current_island_id = 0
             unhealed_mask = is_gap.copy()
+            healed_any = False
 
             for _, group in gaps:
                 gap_len_min = len(group) * freq_min
                 
-                # 1. ALWAYS Apply Group B (Median) and Group C (Zero) to preserve the bars
-                for col in group_b_cols:
-                    if col in final_df.columns:
-                        final_df.loc[group.index, col] = final_df[col].median()
-                for col in group_c_cols:
-                    if col in final_df.columns:
-                        final_df.loc[group.index, col] = 0.0
+                # 1. ALWAYS Apply Group B (Median) and Group C (Zero) to preserve the bars audit-trail
+                final_df.loc[group.index, group_b_cols] = final_df[group_b_cols].median()
+                final_df.loc[group.index, group_c_cols] = 0.0
 
                 # 2. Island Split Trigger (Hard Reset > 30 min)
                 if gap_len_min > fragment_threshold_min:
                     current_island_id += 1
-                    # All rows FROM the end of this gap until the end of the file belong to a NEW island (pending next reset)
-                    final_df.loc[group.index[-1] + pd.Timedelta(minutes=freq_min):, 'island_id'] = current_island_id
+                    # New island starts AFTER the gap
+                    start_of_new = group.index[-1] + freq_offset
+                    final_df.loc[start_of_new:, 'island_id'] = current_island_id
                     
                     self.audit_report["gap_fragmentation_events"].append(str(group.index[0]))
                     logger.warning(f"🏝️ [ISLAND SPLIT] Hard Reset at {group.index[0]} due to {gap_len_min}min gap. New Island ID: {current_island_id}")
-                    # In a hard reset, the gap itself belongs to NO-MAN'S-LAND? 
-                    # We keep island_id on gaps to track them if needed, but they'll be dropped/ignored.
                     unhealed_mask.loc[group.index] = True 
                 
                 # 3. Level 1 Healing (Short gaps <= 5 min)
@@ -541,38 +532,40 @@ class L2Transformer:
                     healed_any = True
                     self.audit_report["healed"] = True
                     self.audit_report["healing_details"].append(f"Healed {gap_len_min}min gap at {group.index[0]}")
-                    unhealed_mask.loc[group.index] = False # No longer unhealed
+                    unhealed_mask.loc[group.index] = False # Healed bars are NO LONGER gaps
                 
                 # 4. Dangerous Zone (5 min < gap <= 30 min)
-                # No healing, but no island split. These bars will remain with tick_count=0.
                 else:
                     unhealed_mask.loc[group.index] = True
 
             # Apply Linear Interpolation to Group A ONLY for healed gaps (short limit)
             interp_limit = int(heal_threshold_min / freq_min)
-            # Strategy: interpolate everywhere but then 'mask' back the long gaps to NaN
             final_df[group_a_cols] = final_df[group_a_cols].interpolate(method='linear', limit=interp_limit)
 
             # ── SELECTIVE FILLING (FFILL) Grouped by Island ──────────────────
             # This is critical: forward fill MUST NOT cross island boundaries.
+            # We use transform to apply ffill per group to keep the original index
             state_cols = [c for c in final_df.columns if c not in actual_flow_cols and c != 'island_id']
-            final_df[state_cols] = final_df.groupby('island_id')[state_cols].ffill().bfill()
+            # bfill/ffill per island to avoid leakage
+            for col in state_cols:
+                final_df[col] = final_df.groupby('island_id')[col].transform(lambda x: x.ffill().bfill())
 
             if healed_any:
                 self.audit_report["features_healed"] = ["Group A: Linear", "Group B: Median", "Group C: Zero"]
-                logger.info(f"🩹 [HEALING] Short gaps restored in {self.audit_report['file_id']}")
+                logger.info(f"🩹 [HEALING] Level 1 restored short gaps in {self.audit_report['file_id']}")
 
-            # Fix OHLC logic for zero-trade bars
-            is_gap_post = (final_df['tick_count'] == 0)
-            if is_gap_post.any():
-                final_df.loc[is_gap_post, 'open'] = final_df.loc[is_gap_post, 'close']
-                final_df.loc[is_gap_post, 'high'] = final_df.loc[is_gap_post, 'close']
-                final_df.loc[is_gap_post, 'low']  = final_df.loc[is_gap_post, 'close']
+            # Fix OHLC logic for gaps (High/Low = Close)
+            if unhealed_mask.any():
+                final_df.loc[unhealed_mask, ['open', 'high', 'low']] = final_df.loc[unhealed_mask, 'close'].values.reshape(-1, 1)
 
-            # Post-healing gap audit
-            gap_groups_post = (unhealed_mask != unhealed_mask.shift()).cumsum()
-            gaps_post = unhealed_mask[unhealed_mask].groupby(gap_groups_post[unhealed_mask])
-            self.audit_report["max_gap_after"] = float(gaps_post.size().max() * freq_min) if not gaps_post.groups == {} else 0.0
+            # Post-healing gap audit (Final check)
+            if unhealed_mask.any():
+                gap_groups_post = (unhealed_mask != unhealed_mask.shift()).cumsum()
+                gaps_post = unhealed_mask[unhealed_mask].groupby(gap_groups_post[unhealed_mask])
+                self.audit_report["max_gap_after"] = float(gaps_post.size().max() * freq_min)
+            else:
+                self.audit_report["max_gap_after"] = 0.0
+            
             self.audit_report["num_islands_generated"] = current_island_id + 1
 
             if self.audit_report["max_gap_after"] > 60:
@@ -583,6 +576,8 @@ class L2Transformer:
 
         # ── Post-Healing Audit and Cleanup ───────────────────────────────
         # Ensure 'volatility' and other flow cols have NO NaNs (default to 0.0)
+        flow_cols_base = ['tick_count', 'ofi', 'micro_price_momentum', 'volatility']
+        actual_flow_cols = [c for c in flow_cols_base if c in final_df.columns]
         final_df[actual_flow_cols] = final_df[actual_flow_cols].fillna(0.0)
 
         # Final cleanup: drop rows that STILL have NaNs (usually just first DS bars)

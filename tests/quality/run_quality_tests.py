@@ -120,7 +120,7 @@ def run_gold_tests():
     else:
         print(f"FAIL: Healing FAILED. Healed: {audit['healed']}, Before: {audit['max_gap_before']}m, After: {audit['max_gap_after']}m")
 
-    # 7. Test Abandonment (65 min gap)
+    # 7. Test Abandonment (65 min gap) - Protocol Island Split v4.6
     print("\n--- Test 5: Abandonment (65min Gap) ---")
     abandon_df_raw = df.copy()
     transformer.reset_book()
@@ -128,14 +128,17 @@ def run_gold_tests():
     abandon_df_drop = pd.concat([abandon_df_raw.iloc[:720], abandon_df_raw.iloc[785:]])
     
     abandon_df_processed = transformer.apply_feature_engineering(abandon_df_drop)
+    # With Island Split, 65min gap should split the day into two islands.
+    # Both islands (720 min each) are > 120min, so both should be VALID.
     abandon_report = validator.validate_integrity(abandon_df_processed, name="Abandon Test", feature_list=feature_names)
     
-    gap_found = abandon_report.get('max_gap_minutes', 0)
-    abandon_ok = (not abandon_report['is_valid'] and gap_found >= 60)
+    num_islands = abandon_report.get('num_islands_generated', 0)
+    # In Island Split v4.6, a 65min gap should NOT be rejected if valid islands exist
+    abandon_ok = (abandon_report['is_valid'] == True and num_islands >= 2)
     if abandon_ok:
-        print(f"PASS: 65min Gap rejected ({gap_found:.1f}m).")
+        print(f"PASS: 65min Gap handled by Island Split. Islands: {num_islands}.")
     else:
-        print(f"FAIL: 65min Gap NOT rejected. Found Gap: {gap_found:.1f}m")
+        print(f"FAIL: 65min Gap NOT handled correctly. Valid: {abandon_report['is_valid']}, Islands: {num_islands}")
 
     if clipping_ok and lineage_ok and empty_ok and healing_ok and abandon_ok:
         print("\nALL GOLD v4.6 (Triple Healing) TESTS PASSED!")
