@@ -68,9 +68,10 @@ def process_single_zip(zip_path, config):
 
             if df_sampled.empty:
                 logger.warning(f"⚠️  No rows sampled in {zip_p.name} (file might be empty or missing 1min thresholds). Skipping.")
-                return f"⚠️  No data in {zip_p.name}"
+                return {"status": "skipped", "message": f"⚠️  No data in {zip_p.name}", "reason": "No rows sampled (Threshold/Empty ZIP)"}
 
             df_final = transformer.apply_feature_engineering(df_sampled)
+            logger.info(f"💓 Heartbeat [Pipeline Transform]: {zip_p.name} yielded {len(df_final)} final rows.")
             
             # Architecture Integrity (Gold v4.6): Check if all required features are present
             feature_list = config['model'].get('feature_names', [])
@@ -108,11 +109,11 @@ def process_single_zip(zip_path, config):
                 "is_valid": is_valid and not df_final.empty
             }
         else:
-            return {"status": "skipped", "message": f"⚠️  No data in {zip_p.name}"}
+            return {"status": "skipped", "message": f"⚠️  No data in {zip_p.name}", "reason": "No rows sampled (Threshold/Empty ZIP)"}
             
     except Exception as e:
         zip_name = Path(zip_path).name if zip_path else "unknown"
-        return {"status": "error", "message": f"❌ Error processing {zip_name}: {str(e)}"}
+        return {"status": "error", "message": f"❌ Error processing {zip_name}: {str(e)}", "reason": str(e)}
 
 def run_pipeline():
     # 1. Load Config
@@ -196,9 +197,9 @@ def run_pipeline():
                 logger.error(result)
                 failed_files.append(result)
             elif res_obj["status"] == "skipped":
-                # Track skipped files based on the warning prefix
-                file_name = result.split("in ")[-1] if "in " in result else result
-                skipped_files.append(file_name)
+                # Track skipped files with reason (v4.8)
+                file_name = Path(future_to_zip[future]).name
+                skipped_files.append({"file": file_name, "reason": res_obj.get("reason", "Unknown")})
 
     # 5. Pipeline Manifest and Auditing
     report_dir = Path("docs/reports")
@@ -252,18 +253,18 @@ def run_pipeline():
 
     if skipped_files:
         manifest_path = report_dir / "pipeline_skip_manifest.json"
-        with open(manifest_path, "w") as f:
+        with open(manifest_path, "w", encoding="utf-8") as f:
             json.dump({
                 "total_files_scanned": len(zip_files),
                 "total_skipped": len(skipped_files),
                 "skipped_files": skipped_files
-            }, f, indent=4)
+            }, f, indent=4, ensure_ascii=False)
         logger.info(f"📄 Saved skip manifest to {manifest_path} ({len(skipped_files)} files)")
 
     # 5b. Save Quality Audit Report
     if quality_audits:
         audit_path = report_dir / "data_quality_report.json"
-        with open(audit_path, "w") as f:
+        with open(audit_path, "w", encoding="utf-8") as f:
             json.dump({
                 "timestamp": pd.Timestamp.now().isoformat(),
                 "total_files": len(quality_audits),
@@ -271,7 +272,7 @@ def run_pipeline():
                 "validation_failures_count": len(validation_failures),
                 "validation_failures": validation_failures,
                 "reports": quality_audits
-            }, f, indent=4)
+            }, f, indent=4, ensure_ascii=False)
         logger.info(f"📊 Saved data quality report to {audit_path}")
         
         # Check for 10% threshold

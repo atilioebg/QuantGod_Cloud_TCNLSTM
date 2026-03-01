@@ -478,19 +478,29 @@ class L2Transformer:
             is_gap = (final_df['tick_count'].isna()) | (final_df['tick_count'] == 0)
             
             # Pre-healing gap audit (BEFORE any filling)
-            # We look at the gaps in the sequence of valid bars
+            # v4.8 Gold: Boundary-Aware Gap Detection
             if is_gap.any():
                 valid_indices = final_df.index[~is_gap]
                 if not valid_indices.empty:
+                    # 1. Internal gaps
                     diffs_pre = valid_indices.to_series().diff().dropna()
-                    # A gap of 1 min is normal. Anything > 1 min is a gap.
-                    # max() should be 4.0 for a 3-min gap (10:00 -> 10:04)
-                    # We subtract 1 freq to get the actual "blackout" time
-                    self.audit_report["max_gap_before"] = float(diffs_pre.max().total_seconds() / 60) if not diffs_pre.empty else 0.0
+                    max_internal = float(diffs_pre.max().total_seconds() / 60) if not diffs_pre.empty else 0.0
+                    
+                    # 2. Boundary gaps (v4.8)
+                    # Gap from start of day to first valid
+                    gap_start = float((valid_indices[0] - full_idx[0]).total_seconds() / 60)
+                    # Gap from last valid to end of day
+                    gap_end = float((full_idx[-1] - valid_indices[-1]).total_seconds() / 60)
+                    
+                    # We subtract 1 freq to get the actual "blackout" time if it's an internal gap
+                    # For external gaps (start/end), we take the raw duration
+                    self.audit_report["max_gap_before"] = max(max_internal, gap_start, gap_end)
                 else:
                     self.audit_report["max_gap_before"] = 1440.0
             else:
                 self.audit_report["max_gap_before"] = 0.0
+
+            logger.info(f"💓 Heartbeat [Pre-Healing]: {len(final_df)} rows | Max Gap: {self.audit_report['max_gap_before']}m")
 
             # Group consecutive gaps
             gap_groups = (is_gap != is_gap.shift()).cumsum()
@@ -577,10 +587,24 @@ class L2Transformer:
                 final_df.loc[unhealed_mask, 'low']  = final_df.loc[unhealed_mask, 'close']
 
             # Post-healing gap audit (Final check)
+            # v4.8 Gold: Ghost Gap Prevention (ignore trailing gaps if island split)
             if unhealed_mask.any():
-                gap_groups_post = (unhealed_mask != unhealed_mask.shift()).cumsum()
-                gaps_post = unhealed_mask[unhealed_mask].groupby(gap_groups_post[unhealed_mask])
-                self.audit_report["max_gap_after"] = float(gaps_post.size().max() * freq_min)
+                # We only count gaps that are NOT just trailing gaps after the last valid row in final_df
+                # Because final_df.dropna() will remove them anyway.
+                valid_mask = ~final_df.isnull().any(axis=1)
+                if valid_mask.any():
+                    last_valid_idx = final_df.index[valid_mask][-1]
+                    effective_unhealed = unhealed_mask.copy()
+                    effective_unhealed.loc[last_valid_idx + freq_offset:] = False
+                    
+                    if effective_unhealed.any():
+                        gap_groups_post = (effective_unhealed != effective_unhealed.shift()).cumsum()
+                        gaps_post = effective_unhealed[effective_unhealed].groupby(gap_groups_post[effective_unhealed])
+                        self.audit_report["max_gap_after"] = float(gaps_post.size().max() * freq_min)
+                    else:
+                        self.audit_report["max_gap_after"] = 0.0
+                else:
+                    self.audit_report["max_gap_after"] = 1440.0
             else:
                 self.audit_report["max_gap_after"] = 0.0
             
@@ -599,6 +623,8 @@ class L2Transformer:
         # Final cleanup: drop rows that STILL have NaNs (usually just first DS bars)
         # we only expect NaNs now in state variables that couldn't be bfilled (start of day)
         final_df.dropna(inplace=True)
+        
+        logger.info(f"💓 Heartbeat [Post-Cleanup]: {len(final_df)} rows")
 
         # ── Grouped Feature Engineering (Island Split v4.6) ──────────────────
         final_df = final_df.copy() # Defragment before wide column expansion
