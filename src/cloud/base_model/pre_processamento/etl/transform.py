@@ -497,8 +497,9 @@ class L2Transformer:
             group_b_base = ['mean_obi', 'mean_deep_obi', 'bid_slope', 'ask_slope', 'bid_rdi', 'ask_rdi', 'pressure_ratio']
             group_b_cols = [c for c in group_b_base if c in final_df.columns]
             
-            group_c_base = ['ofi', 'tick_count', 'micro_price_momentum', 'volatility']
-            group_c_cols = [c for c in group_c_base if c in final_df.columns]
+            flow_cols_base = ['tick_count', 'ofi', 'micro_price_momentum', 'volatility']
+            actual_flow_cols = [c for c in flow_cols_base if c in final_df.columns]
+            group_c_cols = actual_flow_cols # Unified flow columns for Zero-fill
 
             heal_threshold_min = self._etl_cfg.get("healing", {}).get("max_gap_minutes", 5)
             fragment_threshold_min = 30.0 # Sniper Gold Hard Reset
@@ -575,9 +576,7 @@ class L2Transformer:
             logger.warning(f"[transform] Level 1 Healing or reindexing failed: {e}. Falling back to clean dropna.")
 
         # ── Post-Healing Audit and Cleanup ───────────────────────────────
-        # Ensure 'volatility' and other flow cols have NO NaNs (default to 0.0)
-        flow_cols_base = ['tick_count', 'ofi', 'micro_price_momentum', 'volatility']
-        actual_flow_cols = [c for c in flow_cols_base if c in final_df.columns]
+        # Ensure flow cols have NO NaNs (default to 0.0)
         final_df[actual_flow_cols] = final_df[actual_flow_cols].fillna(0.0)
 
         # Final cleanup: drop rows that STILL have NaNs (usually just first DS bars)
