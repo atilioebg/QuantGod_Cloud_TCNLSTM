@@ -419,7 +419,7 @@ class L2Transformer:
         ds_lbl = str(self._delta_short_min) # label = real minutes (e.g. "5")
         dl_lbl = str(self._delta_long_min)  # label = real minutes (e.g. "30")
 
-        df['datetime'] = pd.to_datetime(df['ts'], unit='ms')
+        df['datetime'] = pd.to_datetime(df['ts'], unit='ms', utc=True)
         df.set_index('datetime', inplace=True)
 
         # ── Resampling (freq from config) ─────────────────────────────────────
@@ -467,9 +467,9 @@ class L2Transformer:
             except:
                 freq_min = 1 # Fallback
             
-            # Create full 24h index (1440 mins)
             periods = (24 * 60) // freq_min
-            full_idx = pd.date_range(start=date_anchor, periods=periods, freq=freq)
+            # Ensure full_idx is UTC aware if anchor is aware
+            full_idx = pd.date_range(start=date_anchor, periods=periods, freq=freq, tz='UTC' if date_anchor.tzinfo else None)
             
             # Reindex fills missing minutes with NaNs
             final_df = final_df.reindex(full_idx)
@@ -610,6 +610,9 @@ class L2Transformer:
             else:
                 self.audit_report["max_gap_after"] = 0.0
             
+            # v4.8.1: Ensure audit report fields are correctly populated for summary
+            self.audit_report["total_rows_retained"] = len(final_df) # Will be updated after cleanup
+            
             self.audit_report["num_islands_generated"] = current_island_id + 1
 
             if self.audit_report["max_gap_after"] > 60:
@@ -626,6 +629,9 @@ class L2Transformer:
         # Final cleanup: drop rows that STILL have NaNs (usually just first DS bars)
         # we only expect NaNs now in state variables that couldn't be bfilled (start of day)
         final_df.dropna(inplace=True)
+        
+        # v4.8.1: Explicit population of rows retained in audit report
+        self.audit_report["total_rows_retained"] = int(len(final_df))
         
         logger.info(f"💓 Heartbeat [Post-Cleanup]: {len(final_df)} rows")
 

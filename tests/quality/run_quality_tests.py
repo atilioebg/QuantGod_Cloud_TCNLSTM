@@ -59,7 +59,7 @@ def run_gold_tests():
         data[f"ask_{i}_s"] = np.random.uniform(1, 10, rows)
     
     df = pd.DataFrame(data)
-    df.index = pd.date_range("2023-01-01 00:00:00", periods=rows, freq="1min")
+    df.index = pd.date_range("2023-01-01 00:00:00", periods=rows, freq="1min", tz='UTC')
     df['ts'] = (df.index.astype(np.int64) // 10**6)
     
     target_cols = master_config['pre_processing']['etl']['clipping']['target_columns']
