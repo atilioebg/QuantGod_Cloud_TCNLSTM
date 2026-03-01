@@ -458,7 +458,15 @@ class L2Transformer:
         # ── Time-Aware Regularization (full-day reindex at resample_freq) ────────
         try:
             # Anchor to start of day
-            date_anchor = final_df.index[0].floor('D')
+            # v4.8.3: Hard UTC Anchor to prevent fuso-horario shift (923m gap)
+            # Use strictly UTC for the normalization anchor
+            first_ts = final_df.index[0]
+            if first_ts.tzinfo is None:
+                first_ts = first_ts.tz_localize('UTC')
+            else:
+                first_ts = first_ts.tz_convert('UTC')
+            
+            date_anchor = first_ts.normalize()
             
             # Robust freq_min calculation (v4.7 Gold)
             try:
@@ -468,8 +476,8 @@ class L2Transformer:
                 freq_min = 1 # Fallback
             
             periods = (24 * 60) // freq_min
-            # Ensure full_idx is UTC aware if anchor is aware
-            full_idx = pd.date_range(start=date_anchor, periods=periods, freq=freq, tz='UTC' if date_anchor.tzinfo else None)
+            # Ensure full_idx is strictly UTC normalized
+            full_idx = pd.date_range(start=date_anchor, periods=periods, freq=freq, tz='UTC')
             
             # Reindex fills missing minutes with NaNs
             final_df = final_df.reindex(full_idx)
@@ -523,6 +531,7 @@ class L2Transformer:
             fragment_threshold_min = 30.0 # Sniper Gold Hard Reset
             
             # --- Island Management (Island Split v4.6 Protocol) ---
+            # v4.8.3: Force island_id column BEFORE gap logic to guarantee presence
             final_df = final_df.copy() # Defragment after reindexing
             final_df['island_id'] = 0
             current_island_id = 0

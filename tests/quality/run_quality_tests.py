@@ -114,7 +114,8 @@ def run_gold_tests():
     healed_df = transformer.apply_feature_engineering(gap_df_drop)
     audit = transformer.audit_report
     # healing_ok if max_gap_after is 0 (or freq) and healed is True
-    healing_ok = audit['healed'] is True and audit['max_gap_after'] < 1.0 and audit['max_gap_before'] >= 3.0
+    # v4.8.3: max_gap_after MUST be 0.0 with the new UTC anchor logic
+    healing_ok = audit['healed'] is True and audit['max_gap_after'] < 0.1 and audit['max_gap_before'] >= 3.0
     if healing_ok:
         print(f"PASS: 3min Gap Healed. Before: {audit['max_gap_before']}m, After: {audit['max_gap_after']}m")
     else:
@@ -134,8 +135,7 @@ def run_gold_tests():
     
     num_islands = abandon_report.get('num_islands_generated', 0)
     valid_islands = len(abandon_report.get('valid_island_ids', []))
-    # In Island Split v4.6, a 65min gap should split the day.
-    # We expect BOTH islands to survive (>120min each).
+    # In v4.8.3, we expect BOTH islands to survive (>120min each) and is_valid=True.
     abandon_ok = (abandon_report['is_valid'] == True and valid_islands >= 2)
     
     if abandon_ok:

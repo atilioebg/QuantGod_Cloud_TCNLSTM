@@ -196,8 +196,12 @@ class DataValidator:
                 report['is_valid'] = False
                 report['integrity_comment'] = "No valid data islands found after transformation."
         else:
+            # v4.8.3: island_id is MANDATORY for Gold Standard ETL
+            logger.error(f"❌ ARCHITECTURE FAILURE: Mandatory island_id column missing in {name}.")
             report['num_islands_generated'] = 0
-            # If it's empty, it's already invalid from the top-level check
+            report['is_valid'] = False
+            report['integrity_comment'] = "Critical Architecture Failure: island_id column missing."
+            return report
         
         if island_col:
             islands = df.groupby(island_col)
@@ -227,12 +231,12 @@ class DataValidator:
                 # For now, we update is_valid. The pipeline is responsible for saving the 'clean' version.
                 # Since validate is read-only for the df, we signal the survivors.
                 report['valid_island_ids'] = valid_islands
-                # Final synchronization: if zero islands survived, it's invalid
+                # Final synchronization v4.8.3: if zero islands survived, it's invalid
                 if not valid_islands:
                     report['is_valid'] = False
                     report['integrity_comment'] = "No valid data islands (>120min) found after pruning."
                 
-                if not report['is_valid']: # If it was invalid before (NaNs etc), stay invalid
+                if not report['is_valid']:
                     pass 
                 else:
                     logger.info(f"✅ Protocol Island Split: {len(valid_islands)}/{report['num_islands_generated']} islands survived. Total rows: {rows_retained}")
