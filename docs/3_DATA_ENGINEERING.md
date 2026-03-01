@@ -137,4 +137,15 @@ pytest tests/test_cloud_etl_output.py -v
 pytest tests/test_preprocessed_quality.py -v
 ```
 
+---
+
+## 🛡️ Auditoria Gold Standard v4.8
+
+A partir da versão 4.8, o pipeline implementa as **4 Camadas de Auditoria Institucional** para garantir a completude e sanidade total dos dados pré-processados.
+
+Para detalhes sobre os critérios de aprovação (Integridade, Sanidade, Sobrevivência e Cicatrização), consulte a documentação específica:
+👉 **[3_ETL_GOLD_STANDARD_v4.8.md](3_ETL_GOLD_STANDARD_v4.8.md)**
+
+---
+
 Consulte [`data/README.md`](../data/README.md) para detalhes do volume de dados atual.

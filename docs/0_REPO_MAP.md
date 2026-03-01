@@ -76,6 +76,8 @@ Consulte [`tests/README.md`](../tests/README.md) para comandos e descrição det
 | [`1_SETUP_AND_ENV.md`](1_SETUP_AND_ENV.md) | Hardware, CUDA, RunPod setup |
 | [`2_DATA_COLLECTION.md`](2_DATA_COLLECTION.md) | Processo de obtenção dos dados Bybit L2 |
 | [`3_DATA_ENGINEERING.md`](3_DATA_ENGINEERING.md) | Detalhes do ETL e feature engineering |
+| [`3_DATA_INTEGRITY_AUDIT.md`](3_DATA_INTEGRITY_AUDIT.md) | Filosofia de Integridade Gold Standard |
+| [`3_ETL_GOLD_STANDARD_v4.8.md`](3_ETL_GOLD_STANDARD_v4.8.md) | **Audit Layers v4.8** — Critérios de Aprovação Gold |
 | [`4_LABELING_STRATEGY.md`](4_LABELING_STRATEGY.md) | Lógica de labelling e thresholds |
 | [`5_MODEL_ARCHITECTURE.md`](5_MODEL_ARCHITECTURE.md) | **Referência primária** — arquitetura completa, constraints, execução |
 | [`6_OPERATIONAL_MANUAL.md`](6_OPERATIONAL_MANUAL.md) | Guia de execução RunPod |
