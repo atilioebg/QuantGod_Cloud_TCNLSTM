@@ -6,6 +6,7 @@ import yaml
 from typing import Dict, List, Optional
 import pickle
 from pathlib import Path
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -501,6 +502,7 @@ class L2Transformer:
                 self.audit_report["max_gap_before"] = 0.0
 
             logger.info(f"💓 Heartbeat [Pre-Healing]: {len(final_df)} rows | Max Gap: {self.audit_report['max_gap_before']}m")
+            logger.info(f"💓 Heartbeat [Trace]: idx[0]={final_df.index[0]}, anchor={date_anchor}, full[0]={full_idx[0]}")
 
             # Group consecutive gaps
             gap_groups = (is_gap != is_gap.shift()).cumsum()
@@ -614,7 +616,8 @@ class L2Transformer:
                 logger.warning(f"❌ CRITICAL GAP REMAINING: {self.audit_report['max_gap_after']}m in {self.audit_report['file_id']}")
 
         except Exception as e:
-            logger.warning(f"[transform] Level 1 Healing or reindexing failed: {e}. Falling back to clean dropna.")
+            tb = traceback.format_exc()
+            logger.warning(f"[transform] Level 1 Healing or reindexing failed: {e}\n{tb}. Falling back to clean dropna.")
 
         # ── Post-Healing Audit and Cleanup ───────────────────────────────
         # Ensure flow cols have NO NaNs (default to 0.0)

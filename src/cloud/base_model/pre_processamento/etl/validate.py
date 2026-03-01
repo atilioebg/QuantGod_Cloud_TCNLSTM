@@ -183,10 +183,25 @@ class DataValidator:
         # --- Survival Rule Implementation ---
         target_df = df.copy() # We will prune islands from this copy if needed
         island_col = 'island_id' if 'island_id' in df.columns else None
+        # Protocol Island Split v4.6
+        df_copy = df.copy()
+        if 'island_id' in df_copy.columns:
+            # v4.8: Robust island counting and validation coupling
+            unique_islands = df_copy['island_id'].dropna().unique()
+            num_islands = len([i for i in unique_islands if i >= 0])
+            report['num_islands_generated'] = num_islands
+            
+            # If islands were generated but none found, it's invalid
+            if num_islands == 0:
+                report['is_valid'] = False
+                report['integrity_comment'] = "No valid data islands found after transformation."
+        else:
+            report['num_islands_generated'] = 0
+            # If it's empty, it's already invalid from the top-level check
         
         if island_col:
             islands = df.groupby(island_col)
-            report['num_islands_generated'] = int(df[island_col].nunique())
+            # The num_islands_generated is now set above, so we remove the old line
             
             # Rule: Island must be > 120 minutes (Lookback context)
             survival_threshold_bars = 120 / freq_min
