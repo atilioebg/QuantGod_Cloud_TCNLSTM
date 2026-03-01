@@ -505,6 +505,7 @@ class L2Transformer:
             fragment_threshold_min = 30.0 # Sniper Gold Hard Reset
             
             # --- Island Management (Island Split v4.6 Protocol) ---
+            final_df = final_df.copy() # Defragment after reindexing
             final_df['island_id'] = 0
             current_island_id = 0
             unhealed_mask = is_gap.copy()
@@ -584,7 +585,7 @@ class L2Transformer:
         final_df.dropna(inplace=True)
 
         # ── Grouped Feature Engineering (Island Split v4.6) ──────────────────
-        # We MUST ensure that rolling/diff indicators DON'T cross island gaps.
+        final_df = final_df.copy() # Defragment before wide column expansion
         final_df['log_volume'] = np.log1p(final_df['tick_count'])
         
         # Resolve labels
