@@ -458,11 +458,17 @@ class L2Transformer:
         try:
             # Anchor to start of day
             date_anchor = final_df.index[0].floor('D')
-            freq_offset = pd.tseries.frequencies.to_offset(freq)
-            freq_min = freq_offset.nanos // 60_000_000_000
             
-            # Create full 24h index
-            full_idx = pd.date_range(start=date_anchor, periods=1440 // freq_min, freq=freq)
+            # Robust freq_min calculation (v4.7 Gold)
+            try:
+                freq_offset = pd.tseries.frequencies.to_offset(freq)
+                freq_min = int(pd.to_timedelta(freq).total_seconds() // 60)
+            except:
+                freq_min = 1 # Fallback
+            
+            # Create full 24h index (1440 mins)
+            periods = (24 * 60) // freq_min
+            full_idx = pd.date_range(start=date_anchor, periods=periods, freq=freq)
             
             # Reindex fills missing minutes with NaNs
             final_df = final_df.reindex(full_idx)
@@ -515,8 +521,15 @@ class L2Transformer:
                 gap_len_min = len(group) * freq_min
                 
                 # 1. ALWAYS Apply Group B (Median) and Group C (Zero) to preserve the bars audit-trail
-                final_df.loc[group.index, group_b_cols] = final_df[group_b_cols].median()
-                final_df.loc[group.index, group_c_cols] = 0.0
+                if not group.empty:
+                    # Robust assignment for Median (Group B)
+                    median_vals = final_df[group_b_cols].median()
+                    for b_col in group_b_cols:
+                        final_df.loc[group.index, b_col] = median_vals[b_col]
+                    
+                    # Robust assignment for Zero-fill (Group C)
+                    for c_col in group_c_cols:
+                        final_df.loc[group.index, c_col] = 0.0
 
                 # 2. Island Split Trigger (Hard Reset > 30 min)
                 if gap_len_min > fragment_threshold_min:
@@ -558,7 +571,10 @@ class L2Transformer:
 
             # Fix OHLC logic for gaps (High/Low = Close)
             if unhealed_mask.any():
-                final_df.loc[unhealed_mask, ['open', 'high', 'low']] = final_df.loc[unhealed_mask, 'close'].values.reshape(-1, 1)
+                # Direct assignment of series to avoid ndarray reshape ValueError
+                final_df.loc[unhealed_mask, 'open'] = final_df.loc[unhealed_mask, 'close']
+                final_df.loc[unhealed_mask, 'high'] = final_df.loc[unhealed_mask, 'close']
+                final_df.loc[unhealed_mask, 'low']  = final_df.loc[unhealed_mask, 'close']
 
             # Post-healing gap audit (Final check)
             if unhealed_mask.any():
@@ -596,10 +612,27 @@ class L2Transformer:
         vpin_l = f"{getattr(self, '_vpin_window_min', 25)}"
         vpin_col = f'vpin_min{vpin_l}'
 
+        # Define all expected sniper/institutional columns beforehand
+        sniper_institutional_cols = [
+            f'ofi_delta_{ds_lbl}', f'ofi_delta_{dl_lbl}',
+            f'bid_rdi_delta_{ds_lbl}', f'bid_rdi_delta_{dl_lbl}',
+            f'ask_rdi_delta_{ds_lbl}', f'ask_rdi_delta_{dl_lbl}',
+            f'micro_price_delta_{ds_lbl}', f'micro_price_delta_{dl_lbl}',
+            'book_asymmetry_v5', 'spread_zscore_60', vpin_col,
+            'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity'
+        ]
+
         def process_island_group(group_df):
-            if len(group_df) < 2: return group_df # Safety
-            
             group_df = group_df.copy()
+            
+            # Pre-initialize sniper columns to NaN to ensure they exist regardless of group size
+            for col in sniper_institutional_cols:
+                if col not in group_df.columns:
+                    group_df[col] = np.nan
+
+            if len(group_df) < 2: 
+                return group_df
+            
             prev_c = group_df['close'].shift(1)
             
             # Candle Shape
@@ -651,15 +684,12 @@ class L2Transformer:
         final_df = final_df.groupby('island_id', group_keys=False).apply(process_island_group)
 
         # Final cleanup for all rolling/diff features (NaNs to 0, Infs to 0)
-        # Column names are built dynamically from real-minute labels.
-        sniper_institutional_cols = [
-            f'ofi_delta_{ds_lbl}', f'ofi_delta_{dl_lbl}',
-            f'bid_rdi_delta_{ds_lbl}', f'bid_rdi_delta_{dl_lbl}',
-            f'ask_rdi_delta_{ds_lbl}', f'ask_rdi_delta_{dl_lbl}',
-            f'micro_price_delta_{ds_lbl}', f'micro_price_delta_{dl_lbl}',
-            'book_asymmetry_v5', 'spread_zscore_60', vpin_col,
-            'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity'
-        ]
+        # Ensure all columns exist in final_df before cleanup to avoid KeyError/None of Index
+        missing_from_final = [c for c in sniper_institutional_cols if c not in final_df.columns]
+        if missing_from_final:
+            for c in missing_from_final:
+                final_df[c] = 0.0
+
         final_df[sniper_institutional_cols] = final_df[sniper_institutional_cols].replace([np.inf, -np.inf], 0).fillna(0)
 
         # ── Final Feature List (dynamic delta labels based on real minutes) ──────────
