@@ -461,13 +461,14 @@ class L2Transformer:
             # v4.8.4: Flexible UTC Anchor (Fuso-Shift Resilience)
             # Instead of using the first message, we use the mode (most common date)
             # This handles files starting at 21:00 UTC (GMT-3 midnight) correctly.
+            # v4.8.5: Deterministic fallback to prevent "Before: 923m" gap logic errors in tests
             dates = final_df.index.to_series().dt.date
-            if not dates.empty:
-                date_anchor = pd.Timestamp(dates.mode()[0], tz='UTC')
+            mode_dates = dates.mode()
+            if not mode_dates.empty:
+                date_anchor = pd.Timestamp(mode_dates[0], tz='UTC')
             else:
-                date_anchor = final_df.index[0].normalize()
-                if date_anchor.tzinfo is None:
-                    date_anchor = date_anchor.tz_localize('UTC')
+                # If mode fails, use the first date but ensure it's normalized to UTC midnight
+                date_anchor = pd.Timestamp(final_df.index[0].date(), tz='UTC')
             
             # Robust freq_min calculation (v4.7 Gold)
             try:
@@ -670,12 +671,16 @@ class L2Transformer:
         def process_island_group(group_df):
             group_df = group_df.copy()
             
+            # v4.8.5 Gold: Explicitly capture island_id for restoration
+            island_val = group_df['island_id'].iloc[0] if 'island_id' in group_df.columns else 0
+            
             # Pre-initialize sniper columns to NaN to ensure they exist regardless of group size
             for col in sniper_institutional_cols:
                 if col not in group_df.columns:
                     group_df[col] = np.nan
 
             if len(group_df) < 2: 
+                group_df['island_id'] = island_val
                 return group_df
             
             prev_c = group_df['close'].shift(1)
@@ -722,6 +727,9 @@ class L2Transformer:
             sa1 = sum(group_df[f"ask_{i}_s"] for i in range(cn + 1, cf + 1))
             group_df['bid_convexity'] = sb0 / (sb1 + 1e-9)
             group_df['ask_convexity'] = sa0 / (sa1 + 1e-9)
+            
+            # v4.8.5 Gold: Restore island_id to ensure it's not dropped by groupby().apply()
+            group_df['island_id'] = island_val
             
             return group_df
 
