@@ -314,7 +314,7 @@ def run_pipeline():
         res_freq = config['pre_processing']['etl'].get('resample_freq', '1min')
         res_min = "".join(filter(str.isdigit, res_freq)) or "1"
         horizon_min = config['pre_processing']['labelling'].get('horizon_minutes', 15)
-        survival_min = 120 # Protocol standard lookback for island split
+        survival_min = config['pre_processing']['etl'].get('lookback_minutes', 120)
         
         # New Dynamic Format: PRE_PROCESSED_L2_{lookahead}_{lookback}_{grouping}
         folder_name = f"PRE_PROCESSED_L2_{horizon_min}_{survival_min}_{res_min}"

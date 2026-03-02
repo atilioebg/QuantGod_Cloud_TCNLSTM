@@ -28,6 +28,7 @@ pre_processing:
     flow_depth: 5                                                 # Top-N níveis usados para OFI, Slope e RDI — Wall liquidity sem ruído profundo
     use_dynamic_workers: true                                     # [NOVO] True: vCPUs - 1; False: Usa max_workers abaixo
     max_workers: 15                                               # Número de workers quando use_dynamic_workers=false
+    lookback_minutes: 120                                         # [SOLICITADO] Contexto histórico máximo p/ features e integridade
 
     # ── Clipping & Auditoria (v4.5 Patch) ──────────────────────
     clipping:
@@ -61,7 +62,7 @@ pre_processing:
     # Limiares de alvo futuro (Rentabilidade para Target 0 ou 2)
     sell_threshold: 0.003                                         # Sniper Gold: 0.3% alvo
     buy_threshold: 0.003                                          # Sniper Gold: 0.3% alvo
-    horizon_minutes: 15                                           # Janela de Lookahead de 15 minutos
+    horizon_minutes: 15    #lookahead                             # Janela de Lookahead de 15 minutos
     use_dynamic_workers: false                                    # Se true: usa os.cpu_count()-1 dinâmico; se false: usa max_workers abaixo
     max_workers: 14                                               # Número de workers paralelos quando use_dynamic_workers=false (útil em cloud com CPUs fixas conhecidas)
   split:
