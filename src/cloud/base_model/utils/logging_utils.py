@@ -106,3 +106,78 @@ def get_labelling_suffix(params: dict) -> str:
         time_label = f"{total_minutes}min"
 
     return f"_SELL_{s_val:04d}_BUY_{b_val:04d}_{time_label}"
+
+
+def upload_audit_to_drive(
+    local_dirs: list,
+    stage_name: str,
+    extra_files: list = None,
+    rclone_config: str = "rclone.conf",
+):
+    """
+    v4.9: Uploads audit files (logs + reports) to Google Drive.
+
+    Remote destination: drive:PROJETOS/AUDITORIA/{stage_name}/
+
+    Args:
+        local_dirs:    List of local directory paths (str or Path) to upload recursively.
+                       Non-existent directories are silently skipped.
+        stage_name:    Pipeline stage identifier used as Drive subfolder  (e.g. "ETL",
+                       "LABELLING", "KFOLD_SPECIALIST", "AUDITOR").
+        extra_files:   Optional list of individual files to copy. Each file is uploaded
+                       to the stage's root folder on Drive.
+        rclone_config: Path to rclone.conf (default: "rclone.conf" in the project root).
+
+    Notes:
+        - Never raises exceptions — errors are logged and the function returns silently.
+        - Windows fallback: prefers rclone.exe in project root when on Windows.
+        - Uses `rclone copy` (not sync) to preserve existing Drive content.
+    """
+    import subprocess as _sp
+    import os as _os
+
+    logger = logging.getLogger(__name__)
+
+    # Resolve rclone binary (Windows-aware)
+    rclone_bin = "rclone"
+    if _os.name == "nt" and Path("rclone.exe").exists():
+        rclone_bin = str(Path("rclone.exe").absolute())
+
+    cfg_args = ["--config", rclone_config] if Path(rclone_config).exists() else []
+    remote_base = f"drive:PROJETOS/AUDITORIA/{stage_name.upper()}"
+
+    logger.info(f"📤 [AUDIT UPLOAD] Stage={stage_name} → {remote_base}")
+
+    # 1. Upload each directory
+    for local_dir in (local_dirs or []):
+        src = Path(local_dir)
+        if not src.exists() or not src.is_dir():
+            logger.debug(f"  ↳ Skipping (not found): {src}")
+            continue
+        # Per-directory sub-path mirrors the local name for organisation
+        remote_dest = f"{remote_base}/{src.name}"
+        cmd = [rclone_bin, "copy", str(src), remote_dest, "-P"] + cfg_args
+        try:
+            _sp.run(cmd, check=True, capture_output=True, text=True)
+            logger.info(f"  ✅ Uploaded {src} → {remote_dest}")
+        except _sp.CalledProcessError as e:
+            logger.error(f"  ❌ Failed to upload {src}: {e.stderr.strip()}")
+        except Exception as e:
+            logger.error(f"  ❌ Upload error for {src}: {e}")
+
+    # 2. Upload individual extra files (e.g. docs/reports/*.json)
+    for file_path in (extra_files or []):
+        fp = Path(file_path)
+        if not fp.exists() or not fp.is_file():
+            logger.debug(f"  ↳ Skipping file (not found): {fp}")
+            continue
+        cmd = [rclone_bin, "copyto", str(fp), f"{remote_base}/{fp.name}"] + cfg_args
+        try:
+            _sp.run(cmd, check=True, capture_output=True, text=True)
+            logger.info(f"  ✅ Uploaded file {fp.name} → {remote_base}/")
+        except _sp.CalledProcessError as e:
+            logger.error(f"  ❌ Failed to upload file {fp}: {e.stderr.strip()}")
+        except Exception as e:
+            logger.error(f"  ❌ Upload error for file {fp}: {e}")
+
+    logger.info(f"📤 [AUDIT UPLOAD] {stage_name} complete.")

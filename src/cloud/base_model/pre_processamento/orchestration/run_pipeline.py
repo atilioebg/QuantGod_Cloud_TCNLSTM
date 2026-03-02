@@ -14,7 +14,7 @@ import os
 import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-from src.cloud.base_model.utils.logging_utils import setup_logger
+from src.cloud.base_model.utils.logging_utils import setup_logger, upload_audit_to_drive
 
 logger = logging.getLogger(__name__)
 
@@ -483,21 +483,16 @@ def run_pipeline():
     except Exception as e:
         logger.error(f"❌ Automated export failed: {e}")
 
-    # 7. Automated Audit Reports Export (Fixed path: RESULTADOS/ETL/AUDITORIA)
-    try:
-        remote_audit = "drive:PROJETOS/RESULTADOS/ETL/AUDITORIA"
-        logger.info(f"📊 Exporting audit reports to {remote_audit}...")
-        
-        cmd_audit = ["rclone", "copy", "docs/reports/", remote_audit, "-P"]
-        if rclone_cfg.exists():
-            cmd_audit += ["--config", str(rclone_cfg)]
-        if os.name == 'nt' and Path("rclone.exe").exists():
-            cmd_audit[0] = str(Path("rclone.exe").absolute())
-
-        subprocess.run(cmd_audit, check=True)
-        logger.info(f"✅ Audit records synced: {remote_audit}")
-    except Exception as e:
-        logger.error(f"❌ Audit export failed: {e}")
+    # 7. Audit Reports + Logs → Drive  (PROJETOS/AUDITORIA/ETL)
+    upload_audit_to_drive(
+        local_dirs=["logs/etl"],
+        stage_name="ETL",
+        extra_files=[
+            "docs/reports/data_quality_report.json",
+            "docs/reports/audit_summary.csv",
+            "docs/reports/pipeline_skip_manifest.json",
+        ],
+    )
 
 if __name__ == "__main__":
     run_pipeline()

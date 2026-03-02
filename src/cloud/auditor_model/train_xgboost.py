@@ -21,7 +21,7 @@ project_root = str(Path(__file__).parents[3])
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from src.cloud.base_model.utils.logging_utils import setup_logger
+from src.cloud.base_model.utils.logging_utils import setup_logger, upload_audit_to_drive
 
 logger = logging.getLogger(__name__)
 
@@ -228,3 +228,13 @@ def train_auditor():
 if __name__ == "__main__":
     setup_logger("train_xgboost", "")
     train_auditor()
+    # Audit Logs → Drive  (PROJETOS/AUDITORIA/AUDITOR)
+    # Includes logs from all 3 auditor-stage scripts
+    upload_audit_to_drive(
+        local_dirs=[
+            "logs/train_xgboost",
+            "logs/auditor_preprocessing",
+            "logs/auditor_labelling",
+        ],
+        stage_name="AUDITOR",
+    )

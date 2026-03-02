@@ -9,7 +9,7 @@ import subprocess
 import pandas as pd  # For to_timedelta
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
-from src.cloud.base_model.utils.logging_utils import setup_logger, get_labelling_suffix
+from src.cloud.base_model.utils.logging_utils import setup_logger, get_labelling_suffix, upload_audit_to_drive
 
 logger = logging.getLogger(__name__)
 
@@ -220,3 +220,8 @@ def run_labelling():
 
 if __name__ == "__main__":
     run_labelling()
+    # Audit Logs → Drive  (PROJETOS/AUDITORIA/LABELLING)
+    upload_audit_to_drive(
+        local_dirs=["logs/labelling"],
+        stage_name="LABELLING",
+    )

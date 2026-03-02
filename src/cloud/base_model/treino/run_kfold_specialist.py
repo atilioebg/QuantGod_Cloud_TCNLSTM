@@ -43,7 +43,7 @@ if project_root not in sys.path:
 
 from src.cloud.base_model.models.model import Hybrid_TCN_LSTM
 from src.cloud.base_model.treino.losses import FocalLossWithSmoothing
-from src.cloud.base_model.utils.logging_utils import setup_logger
+from src.cloud.base_model.utils.logging_utils import setup_logger, upload_audit_to_drive
 from src.cloud.base_model.utils.experiment_utils import resolve_data_paths
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import f1_score
@@ -547,3 +547,8 @@ def run_kfold_specialist():
 
 if __name__ == "__main__":
     run_kfold_specialist()
+    # Audit Logs → Drive  (PROJETOS/AUDITORIA/KFOLD_SPECIALIST)
+    upload_audit_to_drive(
+        local_dirs=["logs/kfold_specialist"],
+        stage_name="KFOLD_SPECIALIST",
+    )
