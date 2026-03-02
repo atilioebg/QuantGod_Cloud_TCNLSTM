@@ -377,9 +377,35 @@ class L2Transformer:
                 continue
             
             p99 = df[col].quantile(0.99)
-            # Skip if P99 is negligible (noise floor)
+            # v4.9: Bimodal Spike Guard
+            # If P99 is below noise_floor (common for heavy-right-tail features like kyle_lambda),
+            # fall back to a median-based threshold (100x P50) instead of skipping entirely.
+            # This prevents single extreme bars from bypassing clipping when almost all values are near zero.
             if pd.isna(p99) or p99 < noise_floor:
-                continue
+                p50 = df[col].median()
+                if pd.isna(p50) or p50 < noise_floor:
+                    continue  # Genuinely flat/negligible column — skip
+                max_val = df[col].max()
+                fallback_threshold = p50 * 100  # 100x median
+                if max_val <= fallback_threshold:
+                    continue  # No real spike — skip
+                # Apply fallback median-based clipping
+                outliers_mask = df[col] > fallback_threshold
+                count = outliers_mask.sum()
+                clipped_count += count
+                self.audit_report["clipping_events"][col] = {
+                    "count": int(count),
+                    "max_original": float(max_val),
+                    "threshold": float(fallback_threshold),
+                    "fallback": "100x_median"
+                }
+                fmt_max = ".4e" if max_val < 0.01 else ".4f"
+                logger.warning(
+                    f"☢️ [CLIPPING/BIMODAL] {self.audit_report['file_id']}: {col} "
+                    f"spike ({max_val:{fmt_max}}) clipped at 100x P50 ({fallback_threshold:.4e})"
+                )
+                df.loc[outliers_mask, col] = fallback_threshold
+                continue  # Move to next column (threshold already applied)
                 
             threshold = p99 * multiplier
             outliers_mask = df[col] > threshold
