@@ -379,14 +379,26 @@ class L2Transformer:
             p99 = df[col].quantile(0.99)
             # v4.9: Bimodal Spike Guard
             # If P99 is below noise_floor (common for heavy-right-tail features like kyle_lambda),
-            # fall back to a median-based threshold (100x P50) instead of skipping entirely.
-            # This prevents single extreme bars from bypassing clipping when almost all values are near zero.
+            # fall back to a median-based threshold instead of skipping entirely.
+            # This prevents single extreme bars from bypassing clipping when almost all values ≈ 0.
+            #
+            # Signal Preservation Note (Sniper v4.8):
+            #   Kyle's Lambda is a key reversal predictor. Clipping at 10x P99 (or 100x P50)
+            #   still lets the model see a 10x liquidity shock — sufficient for TCN-LSTM to
+            #   recognise "danger" without gradient explosion.
+            #
+            # Zero-Median Risk Mitigation:
+            #   On ultra-lateral days, p50 may be 0.0. Using 100*p50 would produce threshold=0
+            #   which would clip the entire column. We floor at max(100*p50, noise_floor*1000)
+            #   to guarantee a safe minimum threshold even when the distribution is degenerate.
             if pd.isna(p99) or p99 < noise_floor:
                 p50 = df[col].median()
-                if pd.isna(p50) or p50 < noise_floor:
-                    continue  # Genuinely flat/negligible column — skip
+                # If both p50 and p99 are negligible the column is genuinely flat — skip safely
+                if pd.isna(p50) or p50 <= 0.0:
+                    continue
                 max_val = df[col].max()
-                fallback_threshold = p50 * 100  # 100x median
+                # Floor protects against zero-median collapsing the threshold to 0
+                fallback_threshold = max(p50 * 100, noise_floor * 1000)
                 if max_val <= fallback_threshold:
                     continue  # No real spike — skip
                 # Apply fallback median-based clipping
