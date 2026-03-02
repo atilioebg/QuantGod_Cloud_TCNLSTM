@@ -4,7 +4,7 @@
 
 pipeline_paths:
   # Caminhos base da arquitetura
-  raw_l2_source: "drive:PROJETOS/BTC_USDT_L2_2023_2026"           # Fonte Remota via Rclone (Mode: Streaming)
+  raw_l2_source: "drive:PROJETOS/BTC_USDT_L2_2023_2026_ERRO"           # Fonte Remota via Rclone (Mode: Streaming)
   db_path: "sqlite:///optuna_tcn_lstm_v1_finetune.db"             # Banco de dados do Optuna HPO
   best_tcn_lstm_model: "data/models/best_tcn_lstm.pt"             # Local path for stress test
   best_tcn_lstm_dir_model: "data/models/best_tcn_lstm_dir.pt"
@@ -23,11 +23,13 @@ pipeline_control:
 pre_processing:
   etl:
     levels: 200                                                   # Profundidade em níveis coletada no L2 Orderbook (max 500 na Binance)
+    # snapshot do book 1 por segundo
     sampling_ms: 1000                                             # Cadência de captura dos snapshots em ms (1000ms = 1 snap/s antes do resample)
     export_compression: "snappy"                                  # Algoritmo de compressão dos Parquets (snappy=rápido, gzip=menor)
     flow_depth: 5                                                 # Top-N níveis usados para OFI, Slope e RDI — Wall liquidity sem ruído profundo
     use_dynamic_workers: true                                     # [NOVO] True: vCPUs - 1; False: Usa max_workers abaixo
     max_workers: 15                                               # Número de workers quando use_dynamic_workers=false
+    #lookback
     lookback_minutes: 120                                         # [SOLICITADO] Contexto histórico máximo p/ features e integridade
 
     # ── Clipping & Auditoria (v4.5 Patch) ──────────────────────
@@ -40,7 +42,7 @@ pre_processing:
       generate_report: true                                       # Gera docs/reports/data_quality_report.json
 
     # ── Agregação temporal ──────────────────────────────────────
-    resample_freq: "1min"                                         # Frequência do resample: '1min' (alta capilaridade, ~1440 barras/dia) ou '5min' (modo legado, ~288 barras/dia).
+    resample_freq: "5min" # timestep reamostragem                 # Frequência do resample: '1min' (alta capilaridade, ~1440 barras/dia) ou '5min' (modo legado, ~288 barras/dia).
                                                                   # IMPACTO: alterar este valor é seguro — todas as janelas abaixo são em MINUTOS REAIS e o ETL converte para barras automaticamente.
 
     # ── Janelas de features derivadas (em MINUTOS REAIS) ─────────────
@@ -62,7 +64,8 @@ pre_processing:
     # Limiares de alvo futuro (Rentabilidade para Target 0 ou 2)
     sell_threshold: 0.003                                         # Sniper Gold: 0.3% alvo
     buy_threshold: 0.003                                          # Sniper Gold: 0.3% alvo
-    horizon_minutes: 15    #lookahead                             # Janela de Lookahead de 15 minutos
+    # lookahead 
+    horizon_minutes: 15                                           # Janela de Lookahead de 15 minutos
     use_dynamic_workers: false                                    # Se true: usa os.cpu_count()-1 dinâmico; se false: usa max_workers abaixo
     max_workers: 14                                               # Número de workers paralelos quando use_dynamic_workers=false (útil em cloud com CPUs fixas conhecidas)
   split:
