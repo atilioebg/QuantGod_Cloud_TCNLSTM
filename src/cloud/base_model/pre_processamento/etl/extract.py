@@ -23,7 +23,12 @@ class DataExtractor:
         self.temp_dir.mkdir(parents=True, exist_ok=True)
 
     def _run_rclone(self, args: list) -> str:
-        cmd = ["rclone"]
+        # v4.9: Windows fallback - prefer rclone.exe if it exists in project root
+        import os
+        rclone_bin = "rclone"
+        if os.name == 'nt' and Path("rclone.exe").exists():
+            rclone_bin = str(Path("rclone.exe").absolute())
+        cmd = [rclone_bin]
         if self.rclone_config:
             cmd += ["--config", self.rclone_config]
         cmd += args

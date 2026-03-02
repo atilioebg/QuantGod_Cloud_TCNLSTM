@@ -6,6 +6,7 @@ from tqdm import tqdm
 import sys
 import os
 import subprocess
+import pandas as pd  # For to_timedelta
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from src.cloud.base_model.utils.logging_utils import setup_logger, get_labelling_suffix
@@ -15,19 +16,24 @@ logger = logging.getLogger(__name__)
 def apply_labelling(file_path, config):
     """
     Applies asymmetric labelling logic to a single parquet file.
+    The lookahead window is converted from minutes to BARS based on resample_freq,
+    ensuring label correctness regardless of temporal resolution.
     """
     try:
-        input_dir = Path("data/L2/pre_processed_L2")
-        
         sell_th = config['pre_processing']['labelling'].get('sell_threshold', 0.003)
         buy_th  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
         mins    = config['pre_processing']['labelling'].get('horizon_minutes', 15)
-        
+
+        # v4.9 Gold: Convert horizon_minutes to BARS (not raw minutes).
+        # With resample_freq='5min', horizon=15min → 3 bars (not 15).
+        resample_freq = config['pre_processing']['etl'].get('resample_freq', '1min')
+        resample_min  = int(pd.to_timedelta(resample_freq).total_seconds() // 60)
+        lookahead_bars = max(1, mins // resample_min)
+
         suffix = f"_labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
         output_dir = Path(f"data/L2/splits{suffix}")
         output_dir.mkdir(parents=True, exist_ok=True)
-        
-        lookahead = mins
+
         threshold_long = buy_th
         threshold_short = -sell_th
         
@@ -35,24 +41,24 @@ def apply_labelling(file_path, config):
         df = pl.read_parquet(file_path)
         
         # 2. Future Logic - Sniper v4.6 Gold
-        # Lookahead: calculate max high and min low in the next 'lookahead' minutes
-        # Zero Tolerance Rule: Invalidate if any minute has tick_count == 0 (market silence)
+        # Lookahead: calculate max high and min low in the next 'lookahead_bars' BARS
+        # Zero Tolerance Rule: Invalidate if any bar has tick_count == 0 (market silence)
         # Protocol Island Split: Use 'over' to prevent looking into different islands
-        
+
         island_col = 'island_id' if 'island_id' in df.columns else None
-        
+
         if island_col:
-            logger.debug(f"[labelling] Partitioning by {island_col} for {file_path.name}")
+            logger.debug(f"[labelling] Partitioning by {island_col} for {file_path.name} | lookahead={lookahead_bars} bars ({mins}min)")
             df = df.with_columns([
-                pl.col("high").rolling_max(window_size=lookahead).shift(-lookahead).over(island_col).alias("future_max_high"),
-                pl.col("low").rolling_min(window_size=lookahead).shift(-lookahead).over(island_col).alias("future_min_low"),
-                pl.col("tick_count").rolling_min(window_size=lookahead).shift(-lookahead).over(island_col).alias("future_min_ticks")
+                pl.col("high").rolling_max(window_size=lookahead_bars).shift(-lookahead_bars).over(island_col).alias("future_max_high"),
+                pl.col("low").rolling_min(window_size=lookahead_bars).shift(-lookahead_bars).over(island_col).alias("future_min_low"),
+                pl.col("tick_count").rolling_min(window_size=lookahead_bars).shift(-lookahead_bars).over(island_col).alias("future_min_ticks")
             ])
         else:
             df = df.with_columns([
-                pl.col("high").rolling_max(window_size=lookahead).shift(-lookahead).alias("future_max_high"),
-                pl.col("low").rolling_min(window_size=lookahead).shift(-lookahead).alias("future_min_low"),
-                pl.col("tick_count").rolling_min(window_size=lookahead).shift(-lookahead).alias("future_min_ticks")
+                pl.col("high").rolling_max(window_size=lookahead_bars).shift(-lookahead_bars).alias("future_max_high"),
+                pl.col("low").rolling_min(window_size=lookahead_bars).shift(-lookahead_bars).alias("future_min_low"),
+                pl.col("tick_count").rolling_min(window_size=lookahead_bars).shift(-lookahead_bars).alias("future_min_ticks")
             ])
         
         # 3. Apply Thresholds & Zero Tolerance
@@ -66,12 +72,12 @@ def apply_labelling(file_path, config):
         ])
         
         # 4. Calculation of Invalidation Rate
-        total_valid_rows = len(df) - lookahead
+        total_valid_rows = len(df) - lookahead_bars
         invalidated_rows = df.slice(0, total_valid_rows).filter(pl.col("target").is_null()).height
         invalidation_rate = invalidated_rows / total_valid_rows if total_valid_rows > 0 else 0
         
         # 5. Cleanup
-        # Remove the lookahead rows + drop the invalid ones (Gold Standard Policy)
+        # Remove the lookahead bars + drop invalid ones (Gold Standard Policy)
         # drop_nulls ensures the model is NOT trained with doubtful futures
         df_final = df.slice(0, total_valid_rows).drop_nulls(subset=["target"]).drop(["future_max_high", "future_min_low", "future_min_ticks"])
         

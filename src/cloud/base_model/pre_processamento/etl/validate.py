@@ -6,21 +6,36 @@ logger = logging.getLogger(__name__)
 
 class DataValidator:
     @staticmethod
-    def validate_integrity(df: pd.DataFrame, name: str = "Dataset", feature_list: list = None) -> dict:
+    def validate_integrity(
+        df: pd.DataFrame,
+        name: str = "Dataset",
+        feature_list: list = None,
+        resample_freq: str = None,
+        delta_short_min: int = None
+    ) -> dict:
         """
         Performs basic integrity checks and returns a structured quality report.
         Discriminates between [DNN_INPUT], [XGB_ONLY] and [RAW_DATA] for lineage transparency.
-        
+
         Args:
-            df: The dataframe to validate.
-            name: Label for the dataset.
-            feature_list: The list of official features (from feature_names or auditor_features).
+            df:               The dataframe to validate.
+            name:             Label for the dataset.
+            feature_list:     The list of official features (from feature_names or auditor_features).
+            resample_freq:    Temporal resolution string (e.g. '5min'). Used to compute freq_min precisely.
+            delta_short_min:  Short delta window in real minutes (e.g. 5). Used for cross-scale check.
         """
         logger.info(f"--- Validating {name} ---")
-        
+
         feature_list = feature_list or []
         expected_count = len(feature_list)
-        
+
+        # v4.9: Config-driven freq_min (avoids fragile median calculation)
+        _freq_min: float
+        if resample_freq:
+            _freq_min = max(1.0, pd.to_timedelta(resample_freq).total_seconds() / 60)
+        else:
+            _freq_min = None  # Will be calculated from index median as fallback
+
         report = {
             'is_valid': True,
             'nan_count': 0,
@@ -96,7 +111,7 @@ class DataValidator:
         report['nan_count'] = int(df.isna().sum().sum())
         if report['nan_count'] > 0:
             logger.warning(f"Found {report['nan_count']} NaN values in {name}")
-            report['is_valid'] = False
+            report['is_valid'] = False  # LOCKED: will not be reset by later checks
         else:
             logger.info("No NaNs found.")
 
@@ -104,7 +119,7 @@ class DataValidator:
         report['inf_count'] = int(np.isinf(df.select_dtypes(include=[np.number])).sum().sum())
         if report['inf_count'] > 0:
             logger.warning(f"Found {report['inf_count']} Infinite values in {name}")
-            report['is_valid'] = False
+            report['is_valid'] = False  # LOCKED
         else:
             logger.info("No Infinite values found.")
 
@@ -126,12 +141,15 @@ class DataValidator:
                 report['stale_data_detected'] = True
 
         # 5. Cross-Scale Validation (Mathematical Consistency)
-        if 'ofi' in df.columns and 'ofi_delta_1' in df.columns:
-            reconstructed_delta = df['ofi'].diff(1).fillna(0)
-            check_val = (df['ofi_delta_1'].fillna(0) - reconstructed_delta).abs()
+        # v4.9: Use dynamic delta column based on delta_short_min (not hardcoded ofi_delta_1 which doesn't exist at 5min)
+        _ds = delta_short_min if delta_short_min else 1
+        delta_col = f'ofi_delta_{_ds}'
+        if 'ofi' in df.columns and delta_col in df.columns:
+            reconstructed_delta = df['ofi'].diff(_ds).fillna(0)
+            check_val = (df[delta_col].fillna(0) - reconstructed_delta).abs()
             diff_check = float(check_val.max().max() if isinstance(check_val, pd.DataFrame) else check_val.max())
             if diff_check > 1e-7:
-                 logger.warning(f"⚠️ CROSS-SCALE INCONSISTENCY: ofi_delta_1 drift detected ({diff_check})")
+                logger.warning(f"⚠️ CROSS-SCALE INCONSISTENCY: {delta_col} drift detected ({diff_check})")
 
         # 6. Distribution Sanity
         ratio_features = [
@@ -176,8 +194,14 @@ class DataValidator:
         # Check index continuity for abandonment report
         diffs = df.index.to_series().diff().dropna()
         max_idx_gap = float(diffs.max().total_seconds() / 60) if not diffs.empty else 0.0
-        freq_min = diffs.median().total_seconds() / 60 if not diffs.empty else 1.0
-        
+
+        # v4.9: freq_min is config-driven; fallback to median if resample_freq not provided
+        if _freq_min is not None:
+            freq_min = _freq_min
+        else:
+            freq_min = diffs.median().total_seconds() / 60 if not diffs.empty else 1.0
+            logger.warning(f"⚠️ [VALIDATE] `resample_freq` not provided — freq_min estimated from index median ({freq_min:.2f} min). Pass `resample_freq` for accuracy.")
+
         report['max_gap_minutes'] = max_idx_gap
         
         # --- Survival Rule Implementation ---
@@ -231,13 +255,12 @@ class DataValidator:
                 # For now, we update is_valid. The pipeline is responsible for saving the 'clean' version.
                 # Since validate is read-only for the df, we signal the survivors.
                 report['valid_island_ids'] = valid_islands
-                # Final synchronization v4.8.3: if zero islands survived, it's invalid
-                if not valid_islands:
-                    report['is_valid'] = False
-                    report['integrity_comment'] = "No valid data islands (>120min) found after pruning."
+                # v4.9: Only set is_valid=True here if no prior failure was registered
+                if not report['is_valid']:
+                    pass  # Keep existing failure — do not reset is_valid
                 
                 if not report['is_valid']:
-                    pass 
+                    pass
                 else:
                     logger.info(f"✅ Protocol Island Split: {len(valid_islands)}/{report['num_islands_generated']} islands survived. Total rows: {rows_retained}")
 

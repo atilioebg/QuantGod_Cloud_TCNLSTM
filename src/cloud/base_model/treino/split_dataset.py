@@ -155,7 +155,35 @@ def split_and_segregate():
     # ── 2.5 APLICAÇÃO DO PURGE GAP TEMPORAL ──────────────────────────────
     base_purged_bars = enforce_purge_gap(base_split_dir / "train", config, "Foundation")
     spec_purged_bars = enforce_purge_gap(spec_split_dir / "train", config, "Specialist")
-    
+
+    # ── 2.6 VALIDAÇÃO CRONOLÓGICA PÓS-SPLIT (v4.9 Gold) ──────────────────
+    # Garante que o PRIMEIRO arquivo do val é TEMPORALMENTE POSTERIOR ao ÚLTIMO do treino.
+    # Protege contra qualquer inversão de ordem por nomes de arquivo não padronizados.
+    logger.info("🕵️ [CHRONO GUARD] Validating chronological integrity of splits...")
+    for stage_name, train_f, val_f, split_dir in [
+        ("Foundation", base_train_files, base_val_files, base_split_dir),
+        ("Specialist", spec_train_files, spec_val_files, spec_split_dir),
+    ]:
+        try:
+            if train_f and val_f:
+                import polars as pl
+                last_train_path  = split_dir / "train" / train_f[-1].name
+                first_val_path   = split_dir / "val"   / val_f[0].name
+
+                last_train_ts  = pl.read_parquet(last_train_path, columns=['ts']).row(-1)[0]
+                first_val_ts   = pl.read_parquet(first_val_path,  columns=['ts']).row(0)[0]
+
+                if last_train_ts >= first_val_ts:
+                    logger.error(
+                        f"❌ [{stage_name}] CHRONOLOGICAL VIOLATION: last train ts ({last_train_ts}) "
+                        f">= first val ts ({first_val_ts}). DATA LEAKAGE RISK!"
+                    )
+                else:
+                    gap_ms = (first_val_ts - last_train_ts)
+                    logger.info(f"✅ [{stage_name}] Chrono Guard PASSED — gap between train/val boundary: {gap_ms} ms")
+        except Exception as e:
+            logger.warning(f"⚠️ [{stage_name}] Chrono Guard check failed (non-fatal): {e}")
+
     # ── 3. Checklists & Hashing (split_summary.json) ────────────────────
     logger.info("⏳ Generating split_summary.json with hashes and timestamp boundaries...")
     

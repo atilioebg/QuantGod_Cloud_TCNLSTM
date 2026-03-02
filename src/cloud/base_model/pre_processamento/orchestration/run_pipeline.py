@@ -75,7 +75,15 @@ def process_single_zip(zip_path, config):
             
             # Architecture Integrity (Gold v4.6): Check if all required features are present
             feature_list = config['model'].get('feature_names', [])
-            health_report = validator.validate_integrity(df_final, name=zip_p.name, feature_list=feature_list)
+            resample_freq = config['pre_processing']['etl'].get('resample_freq', '1min')
+            delta_short_min = config['pre_processing']['etl'].get('delta_short_min', 5)
+            health_report = validator.validate_integrity(
+                df_final,
+                name=zip_p.name,
+                feature_list=feature_list,
+                resample_freq=resample_freq,
+                delta_short_min=delta_short_min
+            )
             
             # Protocol Island Split: Filter only valid islands
             valid_ids = health_report.get('valid_island_ids', [])
