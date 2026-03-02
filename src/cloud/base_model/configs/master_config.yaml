@@ -42,7 +42,7 @@ pre_processing:
       generate_report: true                                       # Gera docs/reports/data_quality_report.json
 
     # ── Agregação temporal ──────────────────────────────────────
-    resample_freq: "5min" # timestep reamostragem                 # Frequência do resample: '1min' (alta capilaridade, ~1440 barras/dia) ou '5min' (modo legado, ~288 barras/dia).
+    resample_freq: "5min" # timestep lookback-lookahead           # Frequência do resample: '1min' (alta capilaridade, ~1440 barras/dia) ou '5min' (modo legado, ~288 barras/dia).
                                                                   # IMPACTO: alterar este valor é seguro — todas as janelas abaixo são em MINUTOS REAIS e o ETL converte para barras automaticamente.
 
     # ── Janelas de features derivadas (em MINUTOS REAIS) ─────────────
