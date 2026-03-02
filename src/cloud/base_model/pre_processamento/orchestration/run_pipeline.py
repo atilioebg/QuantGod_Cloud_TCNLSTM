@@ -337,5 +337,21 @@ def run_pipeline():
     except Exception as e:
         logger.error(f"❌ Automated export failed: {e}")
 
+    # 7. Automated Audit Reports Export (RESULTADOS/auditoria/etl)
+    try:
+        remote_audit = "drive:PROJETOS/RESULTADOS/auditoria/etl"
+        logger.info(f"📊 Exporting audit reports to {remote_audit}...")
+        
+        cmd_audit = ["rclone", "copy", "docs/reports/", remote_audit, "-P"]
+        if rclone_cfg.exists():
+            cmd_audit += ["--config", str(rclone_cfg)]
+        if os.name == 'nt' and Path("rclone.exe").exists():
+            cmd_audit[0] = str(Path("rclone.exe").absolute())
+
+        subprocess.run(cmd_audit, check=True)
+        logger.info(f"✅ Audit records synced: {remote_audit}")
+    except Exception as e:
+        logger.error(f"❌ Audit export failed: {e}")
+
 if __name__ == "__main__":
     run_pipeline()
