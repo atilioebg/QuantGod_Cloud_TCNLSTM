@@ -18,6 +18,126 @@ from src.cloud.base_model.utils.logging_utils import setup_logger
 
 logger = logging.getLogger(__name__)
 
+
+def _build_quality_summary(quality_audits: list, skipped_files: list, resample_min: int = 5) -> dict:
+    """
+    v4.9: Aggregates all per-file audit dicts into a high-level descriptive summary
+    for the data_quality_report.json. Runs in O(n) over quality_audits.
+
+    Gap Buckets (minutes): 1, 2, 3, 5, 10, 15, 30, 60, 60+
+    """
+    GAP_BUCKETS = [1, 2, 3, 5, 10, 15, 30, 60]
+
+    total          = len(quality_audits)
+    clean          = 0
+    with_clip      = 0
+    with_gap       = 0
+    healed         = 0
+    hard_reset     = 0  # island split activated (>1 island generated)
+    multi_island   = 0  # >=2 islands survived
+    invalid        = 0
+
+    total_cells_clipped  = 0
+    feature_clip_totals  = {}   # feature_name -> total clips across all files
+    gap_bucket_counts    = {str(b): 0 for b in GAP_BUCKETS}
+    gap_bucket_counts["60+"] = 0
+
+    total_islands_generated = 0
+    total_islands_survived  = 0
+    all_row_counts          = []
+
+    for audit in quality_audits:
+        h = audit.get("health_stats", {})
+        is_valid   = h.get("is_valid", audit.get("is_valid", False))
+        is_healed  = audit.get("healed", False)
+        n_islands  = audit.get("num_islands_generated", 1)
+        valid_ids  = audit.get("valid_island_ids", [])
+        n_survived = len(valid_ids) if valid_ids else (1 if is_valid else 0)
+        gap_before = float(audit.get("max_gap_before", 0.0))
+        clipped    = int(audit.get("clipped_count", 0))
+        rows       = int(audit.get("total_rows_retained", 0))
+        per_feat   = audit.get("clipped_per_feature", {})
+
+        if not is_valid:
+            invalid += 1
+
+        if clipped > 0:
+            with_clip += 1
+            total_cells_clipped += clipped
+            for feat, cnt in per_feat.items():
+                feature_clip_totals[feat] = feature_clip_totals.get(feat, 0) + cnt
+
+        if gap_before > resample_min:
+            with_gap += 1
+            # Assign to closest bucket
+            placed = False
+            for b in GAP_BUCKETS:
+                if gap_before <= b:
+                    gap_bucket_counts[str(b)] += 1
+                    placed = True
+                    break
+            if not placed:
+                gap_bucket_counts["60+"] += 1
+
+        if is_healed:
+            healed += 1
+
+        if n_islands > 1:
+            hard_reset += 1
+
+        if n_survived >= 2:
+            multi_island += 1
+
+        total_islands_generated += n_islands
+        total_islands_survived  += n_survived
+
+        if rows > 0:
+            all_row_counts.append(rows)
+
+        # Clean = no clip, no gap, no healing required
+        if clipped == 0 and gap_before <= resample_min and not is_healed and n_islands <= 1 and is_valid:
+            clean += 1
+
+    # Top-5 clipped features (sorted by total events desc)
+    top_features = sorted(feature_clip_totals.items(), key=lambda x: -x[1])[:5]
+    top_features_list = [{"feature": f, "clip_events": c} for f, c in top_features]
+
+    row_stats = {}
+    if all_row_counts:
+        row_stats = {
+            "total_rows_retained": int(sum(all_row_counts)),
+            "avg_rows_per_file":   round(sum(all_row_counts) / len(all_row_counts), 1),
+            "min_rows_in_file":    int(min(all_row_counts)),
+            "max_rows_in_file":    int(max(all_row_counts)),
+        }
+
+    # Remove zero-count gap buckets to keep JSON clean
+    gap_dist = {k: v for k, v in gap_bucket_counts.items() if v > 0}
+
+    return {
+        "total_files_processed":   total,
+        "total_files_clean":       clean,
+        "total_files_with_clip":   with_clip,
+        "total_files_with_gap":    with_gap,
+        "total_files_healed":      healed,
+        "total_files_hard_reset":  hard_reset,
+        "total_files_multi_island": multi_island,
+        "total_files_invalid":     invalid,
+        "total_files_skipped":     len(skipped_files),
+        "gap_distribution_minutes": gap_dist,
+        "clipping_stats": {
+            "total_cells_clipped":  total_cells_clipped,
+            "top_clipped_features": top_features_list,
+        },
+        "island_stats": {
+            "total_islands_generated": total_islands_generated,
+            "total_islands_survived":  total_islands_survived,
+            "total_islands_abandoned": total_islands_generated - total_islands_survived,
+        },
+        "row_stats": row_stats,
+    }
+
+
 def process_single_zip(zip_path, config):
     """
     Worker function to process a single ZIP file in parallel.
@@ -280,16 +400,34 @@ def run_pipeline():
     # 5b. Save Quality Audit Report
     if quality_audits:
         audit_path = report_dir / "data_quality_report.json"
+
+        # Config metadata for the report header
+        etl_cfg_snap = config.get('pre_processing', {}).get('etl', {})
+        resample_freq  = etl_cfg_snap.get('resample_freq', '5min')
+        resample_min_r = int(pd.to_timedelta(resample_freq).total_seconds() // 60)
+
+        pipeline_cfg_snap = {
+            "resample_freq":   resample_freq,
+            "levels":          etl_cfg_snap.get('levels', 200),
+            "clipping_enabled": etl_cfg_snap.get('clipping', {}).get('enabled', False),
+            "p99_multiplier":  etl_cfg_snap.get('clipping', {}).get('p99_multiplier', 10),
+            "lookback_minutes": etl_cfg_snap.get('lookback_minutes', 120),
+            "flow_depth":       etl_cfg_snap.get('flow_depth', 5),
+        }
+
+        summary = _build_quality_summary(quality_audits, skipped_files, resample_min=resample_min_r)
+
         with open(audit_path, "w", encoding="utf-8") as f:
             json.dump({
-                "timestamp": pd.Timestamp.now().isoformat(),
-                "total_files": len(quality_audits),
-                "clipping_enabled": True,
+                "timestamp":          pd.Timestamp.now().isoformat(),
+                "pipeline_config":    pipeline_cfg_snap,
+                "summary":            summary,
+                "clipping_enabled":   True,
                 "validation_failures_count": len(validation_failures),
                 "validation_failures": validation_failures,
-                "reports": quality_audits
+                "reports":            quality_audits,
             }, f, indent=4, ensure_ascii=False)
-        logger.info(f"📊 Saved data quality report to {audit_path}")
+        logger.info(f"📊 Saved enriched data quality report to {audit_path}")
         
         # Check for 10% threshold
         if len(skipped_files) / len(zip_files) > 0.10:

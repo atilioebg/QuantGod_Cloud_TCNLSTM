@@ -402,7 +402,13 @@ class L2Transformer:
                 logger.warning(f"☢️ [CLIPPING] {self.audit_report['file_id']}: {col} max ({max_val:{fmt_max}}) reduced to {threshold:{fmt_thr}} (10x P99)")
                 df.loc[outliers_mask, col] = threshold
                 
-        self.audit_report["outlier_density"] = (clipped_count / total_cells) * 100 if total_cells > 0 else 0.0
+        self.audit_report["outlier_density"]    = (clipped_count / total_cells) * 100 if total_cells > 0 else 0.0
+        # v4.9: expose total and per-feature clip counts for the quality summary report
+        self.audit_report["clipped_count"]      = int(clipped_count)
+        self.audit_report["clipped_per_feature"] = {
+            col: int(info["count"])
+            for col, info in self.audit_report.get("clipping_events", {}).items()
+        }
         return df
 
     def apply_feature_engineering(self, df: pd.DataFrame) -> pd.DataFrame:
