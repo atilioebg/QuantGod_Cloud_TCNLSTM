@@ -458,17 +458,25 @@ class L2Transformer:
         # ── Time-Aware Regularization (full-day reindex at resample_freq) ────────
         try:
             # Anchor to start of day
-            # v4.8.4: Flexible UTC Anchor (Fuso-Shift Resilience)
-            # Instead of using the first message, we use the mode (most common date)
-            # This handles files starting at 21:00 UTC (GMT-3 midnight) correctly.
-            # v4.8.5: Deterministic fallback to prevent "Before: 923m" gap logic errors in tests
-            dates = final_df.index.to_series().dt.date
-            mode_dates = dates.mode()
-            if not mode_dates.empty:
-                date_anchor = pd.Timestamp(mode_dates[0], tz='UTC')
+            # v4.8.6: Robust Daily Anchoring (GMT-3 / 21:00 UTC Resilience)
+            # Instead of mode(), we use the first timestamp with a 4h-forward normalization.
+            # Files starting >= 20:00 UTC (like GMT-3 dumps) are anchored to the NEXT day.
+            # Files starting early (00:00 - 19:59 UTC) are anchored to CURRENT day.
+            first_ts_utc = final_df.index[0]
+            if first_ts_utc.tzinfo is None:
+                first_ts_utc = first_ts_utc.tz_localize('UTC')
+            
+            if first_ts_utc.hour >= 20:
+                # 21:00 UTC -> +4h = 01:00 Next Day -> normalize = 00:00 Next Day
+                date_anchor = (first_ts_utc + pd.Timedelta(hours=4)).normalize()
             else:
-                # If mode fails, use the first date but ensure it's normalized to UTC midnight
-                date_anchor = pd.Timestamp(final_df.index[0].date(), tz='UTC')
+                # 00:00 UTC -> normalize = 00:00 Current Day
+                date_anchor = first_ts_utc.normalize()
+            
+            if date_anchor.tzinfo is None:
+                date_anchor = date_anchor.tz_localize('UTC')
+            else:
+                date_anchor = date_anchor.tz_convert('UTC')
             
             # Robust freq_min calculation (v4.7 Gold)
             try:
