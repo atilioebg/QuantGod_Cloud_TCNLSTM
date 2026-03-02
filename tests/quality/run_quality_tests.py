@@ -26,13 +26,14 @@ def run_gold_tests():
         master_config = yaml.safe_load(f)
     print("OK: Master Config loaded.")
 
-    # 2. Setup Mock Data (24h at 1min freq to match full-day reindex)
+    # 2. Setup Mock Data (24h at 30s freq to ensure 2 snaps per 1min bar for volatility calculation)
     feature_names = master_config['model']['feature_names']
-    rows = 1440 # 24h * 60min
+    rows = 2880 # 24h * 60min * 2
     
-    print(f"Creating 24h Mock Data ({rows} minutes)...")
+    print(f"Creating 24h Mock Data ({rows} snapshots)...")
     data = {col: np.random.normal(0, 1, rows) for col in feature_names}
     data['micro_price'] = np.linspace(20000, 20100, rows)
+    # ... other data generation logic (abbreviated in my thought, but I will include it full in replacement)
     data['obi_l0'] = np.random.uniform(-1, 1, rows)
     data['spread'] = np.random.uniform(0.1, 5.0, rows)
     data['deep_obi_5'] = np.random.uniform(-1, 1, rows)
@@ -44,7 +45,7 @@ def run_gold_tests():
     data['bid_rdi'] = np.random.uniform(0, 5, rows)
     data['ask_rdi'] = np.random.uniform(0, 5, rows)
     data['log_volume'] = np.random.uniform(1, 10, rows)
-    data['tick_count'] = np.random.randint(10, 100, rows) # Ensure no natural gaps
+    data['tick_count'] = np.random.randint(10, 100, rows)
     
     data['close'] = data['micro_price']
     data['open']  = data['close'] - 0.5
@@ -59,7 +60,7 @@ def run_gold_tests():
         data[f"ask_{i}_s"] = np.random.uniform(1, 10, rows)
     
     df = pd.DataFrame(data)
-    df.index = pd.date_range("2023-01-01 00:00:00", periods=rows, freq="1min", tz='UTC')
+    df.index = pd.date_range("2023-01-01 00:00:00", periods=rows, freq="30s", tz='UTC')
     df['ts'] = (df.index.astype(np.int64) // 10**6)
     
     target_cols = master_config['pre_processing']['etl']['clipping']['target_columns']
@@ -106,10 +107,10 @@ def run_gold_tests():
     print("\n--- Test 4: Triple Approach Healing (3min Gap) ---")
     gap_df = df.copy()
     transformer.reset_book()
-    # Create 3 min gap (from 10:00 to 10:03)
-    gap_df.loc[gap_df.index[600:603], 'tick_count'] = 0
+    # Create 3 min gap (6 snapshots at 30s freq)
+    gap_df.loc[gap_df.index[1200:1206], 'tick_count'] = 0
     # Also drop them to simulate real missing bars from API
-    gap_df_drop = pd.concat([gap_df.iloc[:600], gap_df.iloc[603:]])
+    gap_df_drop = pd.concat([gap_df.iloc[:1200], gap_df.iloc[1206:]])
     
     healed_df = transformer.apply_feature_engineering(gap_df_drop)
     audit = transformer.audit_report
@@ -125,8 +126,8 @@ def run_gold_tests():
     print("\n--- Test 5: Abandonment (65min Gap) ---")
     abandon_df_raw = df.copy()
     transformer.reset_book()
-    # Create 65 min gap (from 12:00 to 13:05)
-    abandon_df_drop = pd.concat([abandon_df_raw.iloc[:720], abandon_df_raw.iloc[785:]])
+    # Create 65 min gap (130 snapshots)
+    abandon_df_drop = pd.concat([abandon_df_raw.iloc[:1440], abandon_df_raw.iloc[1570:]])
     
     abandon_df_processed = transformer.apply_feature_engineering(abandon_df_drop)
     # With Island Split, 65min gap should split the day into two islands.

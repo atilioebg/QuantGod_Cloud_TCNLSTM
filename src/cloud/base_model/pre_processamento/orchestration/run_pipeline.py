@@ -311,11 +311,13 @@ def run_pipeline():
 
     # 6. Automated Export to Google Drive (QuantGod Cloud Extension)
     try:
-        num_features = config['model'].get('num_features', 30)
         res_freq = config['pre_processing']['etl'].get('resample_freq', '1min')
+        res_min = "".join(filter(str.isdigit, res_freq)) or "1"
+        horizon_min = config['pre_processing']['labelling'].get('horizon_minutes', 15)
+        survival_min = 120 # Protocol standard lookback for island split
         
-        # Padrão Gold v4.5: PRE_PROCESSED_L2_V4.5_GOLD_1min_30F
-        folder_name = f"PRE_PROCESSED_L2_V4.5_GOLD_{res_freq}_{num_features}F"
+        # New Dynamic Format: PRE_PROCESSED_L2_{lookahead}_{lookback}_{grouping}
+        folder_name = f"PRE_PROCESSED_L2_{horizon_min}_{survival_min}_{res_min}"
         local_src = "data/L2/pre_processed_L2"
         remote_dest = f"drive:PROJETOS/{folder_name}"
         rclone_cfg = Path("rclone.conf")
