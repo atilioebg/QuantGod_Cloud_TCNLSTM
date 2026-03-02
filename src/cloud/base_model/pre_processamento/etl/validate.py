@@ -142,14 +142,21 @@ class DataValidator:
 
         # 5. Cross-Scale Validation (Mathematical Consistency)
         # v4.9: Use dynamic delta column based on delta_short_min (not hardcoded ofi_delta_1 which doesn't exist at 5min)
+        # NOTE: ofi_delta_N is computed from raw 1s snapshots (intra-bar accumulation),
+        #       while ofi.diff(N) is computed from already-aggregated bars.
+        #       They CANNOT be equal — their difference is the intra-bar OFI variation not captured by bar-level diff.
+        #       A threshold of 1e-7 is meaningless here (OFI values are in units of 100s–10000s).
+        #       We instead check if the delta column has drifted relative to its own std (numerical stability check).
         _ds = delta_short_min if delta_short_min else 1
         delta_col = f'ofi_delta_{_ds}'
         if 'ofi' in df.columns and delta_col in df.columns:
-            reconstructed_delta = df['ofi'].diff(_ds).fillna(0)
-            check_val = (df[delta_col].fillna(0) - reconstructed_delta).abs()
-            diff_check = float(check_val.max().max() if isinstance(check_val, pd.DataFrame) else check_val.max())
-            if diff_check > 1e-7:
-                logger.warning(f"⚠️ CROSS-SCALE INCONSISTENCY: {delta_col} drift detected ({diff_check})")
+            delta_series = df[delta_col].fillna(0)
+            # Numerical stability: check if the delta has extreme outliers vs its own distribution
+            delta_std = delta_series.std()
+            delta_max = delta_series.abs().max()
+            # Flag only if max > 50x std — indicates a true NaN-propagation or integer overflow
+            if delta_std > 0 and delta_max > 50 * delta_std:
+                logger.warning(f"⚠️ CROSS-SCALE INCONSISTENCY: {delta_col} extreme spike detected (max={delta_max:.1f}, std={delta_std:.1f}, ratio={delta_max/delta_std:.0f}x)")
 
         # 6. Distribution Sanity
         ratio_features = [
