@@ -68,7 +68,8 @@ def run_gold_tests():
     df = pd.DataFrame(data)
     # Start at 00:00:00 UTC to align with Day Anchor
     df.index = pd.date_range("2023-01-01 00:00:00", periods=rows, freq="30s", tz='UTC')
-    df['ts'] = (df.index.astype(np.int64) // 10**6)
+    df['ts'] = (df.index.values.astype('datetime64[ms]').astype(np.int64))
+    df['island_id'] = 0 # Mandatory for v4.6+
     
     target_cols = etl_cfg['clipping']['target_columns']
     for col in target_cols:
@@ -119,8 +120,11 @@ def run_gold_tests():
     gap_df_drop = pd.concat([gap_df.iloc[:start_idx], gap_df.iloc[start_idx + gap_snaps:]])
     
     healed_df = transformer.apply_feature_engineering(gap_df_drop)
+    print(f"Test 4 Shape: {healed_df.shape}")
+    print(f"Test 4 Index: {healed_df.index[0]} to {healed_df.index[-1]}")
     audit = transformer.audit_report
-    
+    print(f"Audit Report Max Gap Before: {audit['max_gap_before']}")
+
     # healing_ok if max_gap_after is 0 (or freq) and healed is True
     # If resample_freq is large (e.g. 5min), max_gap_before might pick up the reindexed grid gaps
     healing_ok = audit['healed'] is True and audit['max_gap_after'] < resample_min
@@ -137,6 +141,10 @@ def run_gold_tests():
     abandon_df_drop = pd.concat([abandon_df_raw.iloc[:1440], abandon_df_raw.iloc[1570:]])
     
     abandon_df_processed = transformer.apply_feature_engineering(abandon_df_drop)
+    print(f"Abandon Test Shape: {abandon_df_processed.shape}")
+    print(f"Abandon Test Index: {abandon_df_processed.index[0]} to {abandon_df_processed.index[-1]}")
+    print(f"Audit Report Max Gap Before: {transformer.audit_report['max_gap_before']}")
+
     abandon_report = validator.validate_integrity(abandon_df_processed, name="Abandon Test", feature_list=feature_names)
     
     num_islands = abandon_report.get('num_islands_generated', 0)

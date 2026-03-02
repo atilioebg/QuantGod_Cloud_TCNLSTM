@@ -567,7 +567,8 @@ class L2Transformer:
                     current_island_id += 1
                     # New island starts AFTER the gap
                     start_of_new = group.index[-1] + freq_offset
-                    final_df.loc[start_of_new:, 'island_id'] = current_island_id
+                    mask_tail = final_df.index >= start_of_new
+                    final_df.loc[mask_tail, 'island_id'] = current_island_id
                     
                     self.audit_report["gap_fragmentation_events"].append(str(group.index[0]))
                     logger.warning(f"🏝️ [ISLAND SPLIT] Hard Reset at {group.index[0]} due to {gap_len_min}min gap. New Island ID: {current_island_id}")
@@ -646,8 +647,8 @@ class L2Transformer:
         final_df[actual_flow_cols] = final_df[actual_flow_cols].fillna(0.0)
 
         # Final cleanup: drop rows that STILL have NaNs (usually just first DS bars)
-        # we only expect NaNs now in state variables that couldn't be bfilled (start of day)
-        final_df.dropna(inplace=True)
+        # and explicitly drop unhealed gaps (v4.8 Gold)
+        final_df = final_df[~unhealed_mask].dropna()
         
         # v4.8.1: Explicit population of rows retained in audit report
         self.audit_report["total_rows_retained"] = int(len(final_df))
@@ -741,8 +742,9 @@ class L2Transformer:
             
             return group_df
 
-        # Apply transformations isolated by island
-        final_df = final_df.groupby('island_id', group_keys=False).apply(process_island_group)
+        # Apply transformations isolated by island (v4.8 Gold Fixed)
+        island_groups = [process_island_group(group) for _, group in final_df.groupby('island_id', group_keys=False)]
+        final_df = pd.concat(island_groups) if island_groups else final_df
 
         # Final cleanup for all rolling/diff features (NaNs to 0, Infs to 0)
         # Ensure all columns exist in final_df before cleanup to avoid KeyError/None of Index
