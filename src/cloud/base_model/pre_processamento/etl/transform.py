@@ -458,15 +458,16 @@ class L2Transformer:
         # ── Time-Aware Regularization (full-day reindex at resample_freq) ────────
         try:
             # Anchor to start of day
-            # v4.8.3: Hard UTC Anchor to prevent fuso-horario shift (923m gap)
-            # Use strictly UTC for the normalization anchor
-            first_ts = final_df.index[0]
-            if first_ts.tzinfo is None:
-                first_ts = first_ts.tz_localize('UTC')
+            # v4.8.4: Flexible UTC Anchor (Fuso-Shift Resilience)
+            # Instead of using the first message, we use the mode (most common date)
+            # This handles files starting at 21:00 UTC (GMT-3 midnight) correctly.
+            dates = final_df.index.to_series().dt.date
+            if not dates.empty:
+                date_anchor = pd.Timestamp(dates.mode()[0], tz='UTC')
             else:
-                first_ts = first_ts.tz_convert('UTC')
-            
-            date_anchor = first_ts.normalize()
+                date_anchor = final_df.index[0].normalize()
+                if date_anchor.tzinfo is None:
+                    date_anchor = date_anchor.tz_localize('UTC')
             
             # Robust freq_min calculation (v4.7 Gold)
             try:
