@@ -337,9 +337,9 @@ def run_pipeline():
     except Exception as e:
         logger.error(f"❌ Automated export failed: {e}")
 
-    # 7. Automated Audit Reports Export (Subfolder within dataset: ETL/AUDITORIA)
+    # 7. Automated Audit Reports Export (Fixed path: RESULTADOS/ETL/AUDITORIA)
     try:
-        remote_audit = f"{remote_dest}/ETL/AUDITORIA"
+        remote_audit = "drive:PROJETOS/RESULTADOS/ETL/AUDITORIA"
         logger.info(f"📊 Exporting audit reports to {remote_audit}...")
         
         cmd_audit = ["rclone", "copy", "docs/reports/", remote_audit, "-P"]
