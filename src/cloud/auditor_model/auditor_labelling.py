@@ -243,9 +243,13 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
     logger.info(f"✅ Fused rows after inner join: {len(df_joined):,}")
     logger.info(f"   OOF had: {len(df_oof):,} | Base had: {len(df_base_probs):,} | Context had: {len(df_ctx):,}")
 
-    # Rename OOF target column to true_target for consistency with legacy mode
-    if "true_target" not in df_joined.columns and "true_target" in df_oof.columns:
-        pass  # already renamed by OOF parquet
+    # v4.9: Explicit guard — if true_target is missing, fail early with a clear error
+    if "true_target" not in df_joined.columns:
+        logger.error(
+            "❌ 'true_target' column not found in fused dataset after inner join. "
+            "Check that full_oof.parquet was generated with the correct schema by run_kfold_specialist.py."
+        )
+        return
 
     df_fused = df_joined.to_pandas()
     df_fused = df_fused.rename(columns={"true_target": "true_target"})  # explicit

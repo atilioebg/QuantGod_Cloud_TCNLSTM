@@ -13,6 +13,7 @@ pipeline_paths:
   scaler_specialized: "data/models/scaler_specialized.pkl"        # Normalizador fitado no Treino (Especialista)
   auditor_model: "data/models/auditor_xgboost.json"               # Modelo de Regras XGBoost (Juiz Auditor)
   scaler_auditor: "data/models/scaler_auditor.pkl"                # Normalizador fitado no Treino (Auditor)
+  fused_dataset_dir: "data/auditor/dataset_fused"                # Dataset fundido (Logits + Contexto) para o XGBoost Auditor
 
 pipeline_control:
   force_full_retrain: true                                        # Se false, tenta carregar estágios já concluídos usando checkpoints

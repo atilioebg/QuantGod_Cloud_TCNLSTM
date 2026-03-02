@@ -1,130 +1,176 @@
+"""
+test_cloud_etl_output.py — Validates output of the pre-processing ETL pipeline.
+
+All feature names and expected column counts are derived dynamically from
+master_config.yaml — no hardcodes that can drift from the real pipeline.
+
+Run:
+    pytest tests/etl/test_cloud_etl_output.py -v
+    PRE_PROCESSED_DIR=data/L2/pre_processed_L2 pytest tests/etl/test_cloud_etl_output.py -v
+"""
+
 import pytest
 import pandas as pd
 import numpy as np
 import os
+import yaml
 from pathlib import Path
 
 # =============================================================================
-# CONFIGURAÇÃO DE DIRETÓRIO (Compatível com RunPod e Local)
+# CONFIG — Everything derived from master_config.yaml (v4.9 Gold)
 # =============================================================================
-def get_default_dir():
-    # Agora usamos apenas paths relativos, assumindo que o teste roda da raiz do repo
-    rel_path = Path("data/L2/pre_processed")
-    return rel_path
+_CFG_PATH = Path("src/cloud/base_model/configs/master_config.yaml")
 
-TEST_DATA_DIR = Path(os.getenv("PRE_PROCESSED_DIR", get_default_dir()))
+def _load_cfg():
+    if _CFG_PATH.exists():
+        with open(_CFG_PATH, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
+    return {}
 
-def get_test_files():
-    """Retorna a lista de arquivos parquet na pasta de teste."""
-    files = sorted(list(TEST_DATA_DIR.glob("*.parquet")))
-    return files
+_CFG = _load_cfg()
+_ETL = _CFG.get("pre_processing", {}).get("etl", {})
 
-# =============================================================================
-# DEFINIÇÃO DE CONSTANTES DO DATASET (QuantGod v11 - Sniper Pivot 5min)
-# =============================================================================
-DYNAMIC_FEATURES = [
-    'ofi', 'ofi_delta_1', 'ofi_delta_6',
-    'micro_price_momentum', 'micro_price_delta_1', 'micro_price_delta_6',
-    'bid_slope', 'ask_slope',
-    'bid_rdi', 'bid_rdi_delta_1', 'bid_rdi_delta_6',
-    'ask_rdi', 'ask_rdi_delta_1', 'ask_rdi_delta_6',
-    'book_asymmetry_v5', 'spread_zscore_60', 'vpin_lite_5',
-    'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity',
-    'pressure_ratio'
-]
-AGG_FEATURES = [
-    'body', 'upper_wick', 'lower_wick', 'log_ret_close',
-    'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi', 'log_volume'
-]
-ALL_FEATURES = AGG_FEATURES + DYNAMIC_FEATURES
+# Feature names from master_config (single source of truth)
+ALL_FEATURES: list = _CFG.get("model", {}).get("feature_names", [])
 
-# OB200: 200 bids (p,s) + 200 asks (p,s) = 800 colunas
-OB_LEVELS = 200
-OB_COLS = []
+# OB levels from config
+OB_LEVELS: int = _ETL.get("levels", 200)
+OB_COLS: list = []
 for i in range(OB_LEVELS):
     OB_COLS.extend([f"bid_{i}_p", f"bid_{i}_s", f"ask_{i}_p", f"ask_{i}_s"])
 
-# Total esperado: 32 features + 1 close + 800 OB = 833 colunas
-EXPECTED_COL_COUNT = len(ALL_FEATURES) + 1 + len(OB_COLS)
+# Meta columns always written by the ETL pipeline alongside features
+_META_COLS = ["close", "open", "high", "low", "ts", "island_id", "tick_count"]
+
+# Total expected: features + meta cols + OB cols
+# We use >= check in the test instead of ==, since extra columns (e.g. future OB levels)
+# should not fail the test; the important thing is all required columns are PRESENT.
+EXPECTED_MIN_COL_COUNT = len(ALL_FEATURES) + len(_META_COLS) + len(OB_COLS)
+
 
 # =============================================================================
-# SUITE DE TESTES
+# DIRECTORY RESOLUTION
+# =============================================================================
+def get_default_dir() -> Path:
+    # v4.9: correct default — run_pipeline.py writes to pre_processed_L2
+    return Path("data/L2/pre_processed_L2")
+
+TEST_DATA_DIR = Path(os.getenv("PRE_PROCESSED_DIR", get_default_dir()))
+
+def get_test_files() -> list:
+    """Returns sorted list of parquet files in the active pre-processed directory."""
+    return sorted(list(TEST_DATA_DIR.glob("*.parquet")))
+
+
+# =============================================================================
+# GUARD: Skip entire module if no files found (not an error in CI without data)
+# =============================================================================
+_TEST_FILES = get_test_files()
+
+if not _TEST_FILES:
+    pytest.skip(
+        f"No parquet files found in {TEST_DATA_DIR} — skipping ETL output tests.",
+        allow_module_level=True,
+    )
+
+if not ALL_FEATURES:
+    pytest.skip(
+        "master_config.yaml not found or 'model.feature_names' is empty.",
+        allow_module_level=True,
+    )
+
+
+# =============================================================================
+# TEST SUITE
 # =============================================================================
 
-@pytest.mark.parametrize("file_path", get_test_files())
+@pytest.mark.parametrize("file_path", _TEST_FILES)
 class TestCloudDataIntegrity:
-    
+
     def test_file_exists_and_readable(self, file_path):
-        """Valida se o arquivo existe e pode ser lido pelo pandas/pyarrow."""
-        assert file_path.exists(), f"Arquivo não encontrado: {file_path}"
+        """File must exist and be non-empty."""
+        assert file_path.exists(), f"File not found: {file_path}"
         df = pd.read_parquet(file_path)
-        assert not df.empty, f"Arquivo {file_path.name} está vazio."
+        assert not df.empty, f"File {file_path.name} is empty."
 
-    def test_column_structure_and_count(self, file_path):
-        """Valida se o arquivo possui as 817 colunas e se todas as features estão presentes."""
+    def test_all_features_present(self, file_path):
+        """All feature_names from master_config must be present as columns."""
         df = pd.read_parquet(file_path)
-        
-        # 1. Check Count
-        assert len(df.columns) == EXPECTED_COL_COUNT, \
-            f"Erro em {file_path.name}: Esperado {EXPECTED_COL_COUNT} colunas, encontrado {len(df.columns)}"
-        
-        # 2. Check Feature Names
-        for feat in ALL_FEATURES + ['close']:
-            assert feat in df.columns, f"Coluna essencial '{feat}' ausente em {file_path.name}"
-            
-        # 3. Check Orderbook Columns
-        # Validamos apenas o primeiro e o último nível para evitar overhead excessivo
-        for col in ["bid_0_p", "bid_199_p", "ask_0_p", "ask_199_p"]:
-            assert col in df.columns, f"Coluna de orderbook '{col}' ausente em {file_path.name}"
+        missing = [f for f in ALL_FEATURES if f not in df.columns]
+        assert not missing, f"Missing features in {file_path.name}: {missing}"
 
-    def test_data_quality_no_nans_or_infs(self, file_path):
-        """Garante que as 16 features de treino não possuem NaNs ou Valores Infinitos."""
+    def test_meta_columns_present(self, file_path):
+        """Mandatory meta columns (close, ts, island_id, tick_count) must be present."""
         df = pd.read_parquet(file_path)
-        
-        # 1. Check NaNs
-        nan_counts = df[ALL_FEATURES].isna().sum().sum()
-        assert nan_counts == 0, f"Detectados {nan_counts} NaNs nas colunas de features em {file_path.name}"
-        
-        # 2. Check Infs
-        inf_counts = np.isinf(df[ALL_FEATURES].values).sum()
-        assert inf_counts == 0, f"Detectados {inf_counts} valores Infinitos nas features em {file_path.name}"
+        for col in ["close", "ts", "island_id", "tick_count"]:
+            assert col in df.columns, f"Meta column '{col}' missing in {file_path.name}"
+
+    def test_orderbook_boundary_columns_present(self, file_path):
+        """Check first and last OB level to validate OB depth without full scan."""
+        df = pd.read_parquet(file_path)
+        max_lvl = OB_LEVELS - 1
+        for col in [f"bid_0_p", f"bid_{max_lvl}_p", f"ask_0_p", f"ask_{max_lvl}_p"]:
+            assert col in df.columns, f"OB column '{col}' missing in {file_path.name}"
+
+    def test_minimum_column_count(self, file_path):
+        """Total columns must be >= (features + meta + OB). Guards against column drops."""
+        df = pd.read_parquet(file_path)
+        assert len(df.columns) >= EXPECTED_MIN_COL_COUNT, (
+            f"{file_path.name}: expected >= {EXPECTED_MIN_COL_COUNT} cols, "
+            f"got {len(df.columns)}"
+        )
+
+    def test_data_quality_no_nans_or_infs_in_features(self, file_path):
+        """Feature columns must have zero NaNs and zero Infs."""
+        df = pd.read_parquet(file_path)
+        present = [f for f in ALL_FEATURES if f in df.columns]
+        nan_counts = df[present].isna().sum().sum()
+        assert nan_counts == 0, f"{nan_counts} NaNs in features in {file_path.name}"
+        inf_counts = np.isinf(df[present].values).sum()
+        assert inf_counts == 0, f"{inf_counts} Infs in features in {file_path.name}"
 
     def test_orderbook_integrity(self, file_path):
-        """Valida a saúde do Orderbook (Sorting, No Crossing, Positive Prices)."""
+        """Best bid < best ask (no book crossing). Positive close price."""
         df = pd.read_parquet(file_path)
-        
-        # 1. No Book Crossing (Best Bid < Best Ask)
-        # Permite NaN se o book estiver vazio, mas se houver preço, o spread deve ser > 0
-        mask = df['bid_0_p'].notna() & df['ask_0_p'].notna()
-        assert (df.loc[mask, 'bid_0_p'] < df.loc[mask, 'ask_0_p']).all(), \
-            f"Detectado book cruzado (Bid >= Ask) em {file_path.name}"
-            
-        # 2. Positive Prices
-        assert (df['close'] > 0).all(), f"Preço de fechamento negativo ou zero em {file_path.name}"
-        
-        # 3. Sorting (Amostra randômica de 10 linhas para performance)
-        sample_indices = np.random.choice(df.index, min(len(df), 10), replace=False)
-        for idx in sample_indices:
+        mask = df["bid_0_p"].notna() & df["ask_0_p"].notna()
+        assert (df.loc[mask, "bid_0_p"] < df.loc[mask, "ask_0_p"]).all(), \
+            f"Book crossing detected in {file_path.name}"
+        assert (df["close"] > 0).all(), f"Non-positive close price in {file_path.name}"
+
+    def test_orderbook_sorted(self, file_path):
+        """Sample 10 rows: bids descending, asks ascending (no inversion)."""
+        df = pd.read_parquet(file_path)
+        sample_idx = np.random.choice(df.index, min(len(df), 10), replace=False)
+        for idx in sample_idx:
             row = df.loc[idx]
-            # Bids: decrescente
-            bids = [row[f'bid_{i}_p'] for i in range(10) if not np.isnan(row[f'bid_{i}_p'])]
-            assert all(bids[i] >= bids[i+1] for i in range(len(bids)-1)), f"Bids desordenados em {file_path.name} na linha {idx}"
-            # Asks: crescente
-            asks = [row[f'ask_{i}_p'] for i in range(10) if not np.isnan(row[f'ask_{i}_p'])]
-            assert all(asks[i] <= asks[i+1] for i in range(len(asks)-1)), f"Asks desordenados em {file_path.name} na linha {idx}"
+            bids = [row[f"bid_{i}_p"] for i in range(10) if not np.isnan(row[f"bid_{i}_p"])]
+            asks = [row[f"ask_{i}_p"] for i in range(10) if not np.isnan(row[f"ask_{i}_p"])]
+            assert all(bids[i] >= bids[i + 1] for i in range(len(bids) - 1)), \
+                f"Bids out of order in {file_path.name} row {idx}"
+            assert all(asks[i] <= asks[i + 1] for i in range(len(asks) - 1)), \
+                f"Asks out of order in {file_path.name} row {idx}"
 
     def test_chronological_order(self, file_path):
-        """Valida se os dados estão em ordem crescente de tempo."""
+        """Timestamps (ts column or index) must be strictly increasing."""
         df = pd.read_parquet(file_path)
-        # Se 'ts' estiver configurado como índice ou coluna
-        if 'ts' in df.columns:
-            assert df['ts'].is_monotonic_increasing, f"Arquivo {file_path.name} não está em ordem cronológica (coluna ts)"
+        if "ts" in df.columns:
+            assert df["ts"].is_monotonic_increasing, \
+                f"Non-monotonic 'ts' in {file_path.name}"
         else:
-            assert df.index.is_monotonic_increasing, f"Arquivo {file_path.name} não está em ordem cronológica (índice)"
+            assert df.index.is_monotonic_increasing, \
+                f"Non-monotonic index in {file_path.name}"
 
-    def test_data_types(self, file_path):
-        """Garante que as colunas numéricas não foram corrompidas para objetos/strings."""
+    def test_island_id_no_nulls(self, file_path):
+        """island_id must exist and have zero nulls."""
         df = pd.read_parquet(file_path)
-        # Todas as features devem ser float ou int
+        assert "island_id" in df.columns, f"'island_id' missing in {file_path.name}"
+        assert df["island_id"].isna().sum() == 0, \
+            f"NaN in island_id in {file_path.name}"
+
+    def test_data_types_numeric(self, file_path):
+        """All feature columns must be numeric (float or int)."""
+        df = pd.read_parquet(file_path)
         for feat in ALL_FEATURES:
-            assert pd.api.types.is_numeric_dtype(df[feat]), f"Coluna {feat} em {file_path.name} não é numérica"
+            if feat in df.columns:
+                assert pd.api.types.is_numeric_dtype(df[feat]), \
+                    f"Column '{feat}' in {file_path.name} is not numeric"

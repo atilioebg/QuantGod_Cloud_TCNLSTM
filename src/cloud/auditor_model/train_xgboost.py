@@ -97,6 +97,10 @@ def train_auditor():
     # Queremos evitar falsos positivos do Meta_Target (achar que vai acertar e errar). 
     # Então queremos um modelo conservador.
     
+    # v4.9: Correct GPU detection for XGBoost (torch.cuda.is_available() is reliable)
+    import torch as _torch
+    _xgb_device = 'cuda' if _torch.cuda.is_available() else 'cpu'
+
     model = xgb.XGBClassifier(
         n_estimators=xgb_params.get('n_estimators', 300),
         max_depth=xgb_params.get('max_depth', 5),
@@ -105,8 +109,8 @@ def train_auditor():
         colsample_bytree=xgb_params.get('colsample_bytree', 0.8),
         objective='binary:logistic',
         eval_metric='auc',
-        scale_pos_weight=scale_pos_weight, # Conservador para disparos
-        device='cuda' if xgb.config.get_config().get('use_rmm', False) else 'cpu',
+        scale_pos_weight=scale_pos_weight,
+        device=_xgb_device,
         random_state=42
     )
     

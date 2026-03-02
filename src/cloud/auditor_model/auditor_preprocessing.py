@@ -20,15 +20,24 @@ def load_config():
         config = yaml.safe_load(f)
     return config
 
-def calculate_context_features(df_pd: pd.DataFrame) -> pd.DataFrame:
+def calculate_context_features(df_pd: pd.DataFrame, resample_min: int = 1) -> pd.DataFrame:
     """
     Calcula indicadores de contexto e regime de mercado.
     Entrada: DataFrame pandas (indexado pelo tempo, ou ordenado).
     Espera-se ter as colunas 'close', 'high' (se não tiver, usar proxies do tensor ou micro_price),
     e 'log_volume'. Aqui usaremos a premissa de que os parquets brutos já possuem close, bid_0_p, etc.
+
+    Args:
+        df_pd:        Input DataFrame.
+        resample_min: Bar duration in real minutes (e.g. 5 for 5min bars). Used to compute all
+                      rolling windows dynamically so that economic meaning is preserved regardless
+                      of temporal resolution. Defaults to 1 (1min bars, legacy behaviour).
     """
-    # Garantir ordenação temporal caso não seja índice de tempo formal
-    # O pipeline salva close e micro_price, usaremos close
+    # v4.9: Dynamic window sizes — all windows expressed in BARS, not hardcoded minutes
+    bars_per_hour = max(1, 60  // resample_min)   # e.g. 12 bars @ 5min, 60 bars @ 1min
+    bars_per_day  = max(1, 1440 // resample_min)  # e.g. 288 bars @ 5min, 1440 bars @ 1min
+    bars_4h       = max(1, 240  // resample_min)  # Fallback for short DataFrames
+
     if 'close' not in df_pd.columns:
         logger.warning("'close' não encontrado! Tentando usar 'micro_price' ou aproximando via bid_0_p.")
         if 'bid_0_p' in df_pd.columns and 'ask_0_p' in df_pd.columns:
@@ -87,32 +96,31 @@ def calculate_context_features(df_pd: pd.DataFrame) -> pd.DataFrame:
     df_pd['atr_14'] = tr.rolling(window=14).mean()
     df_pd['atr_norm'] = df_pd['atr_14'] / c
 
-    # 6. Volatilidade Histórica de 1h (60 períodos de 1min)
+    # 6. Volatilidade Histórica de 1h (bars_per_hour períodos)
     log_ret = np.log(c / c.shift(1))
-    df_pd['vol_1h'] = log_ret.rolling(window=60).std() * np.sqrt(60)
+    df_pd['vol_1h'] = log_ret.rolling(window=bars_per_hour).std() * np.sqrt(bars_per_hour)
 
-    # 7. Volume Features (Proxy log_volume / tick_count)
+    # v4.9: np.expm1 is numerically more accurate than np.exp()-1 near zero
     if 'log_volume' in df_pd.columns:
-        v = np.exp(df_pd['log_volume']) - 1 # reconstruct tick counts
+        v = np.expm1(df_pd['log_volume'])  # inverse of log1p(tick_count)
     else:
         v = pd.Series(1.0, index=df_pd.index) # fallback
 
-    # Vol Z-Score (rolling 60 min para normalizar na sessão)
-    vol_mean = v.rolling(window=60).mean()
-    vol_std = v.rolling(window=60).std()
+    # Vol Z-Score (rolling bars_per_hour for intra-session normalization)
+    vol_mean = v.rolling(window=bars_per_hour).mean()
+    vol_std  = v.rolling(window=bars_per_hour).std()
     df_pd['vol_zscore_1h'] = np.where(vol_std > 0, (v - vol_mean) / vol_std, 0.0)
 
-    # Delta de Volume 24h (1440 min)
-    # Como nem todos os arquivos têm 24h perfeitas integradas linearmente, 
-    # faremos um drift do volume. Usaremos sum(last 60) vs sum(prev 60) como aproximação robusta intra-dia, 
-    # ou tentamos o shift(1440) se houver dados.
-    if len(df_pd) > 1440:
-        vol_24h_sum = v.rolling(window=1440).sum()
-        df_pd['delta_vol_24h'] = vol_24h_sum.pct_change(fill_method=None)
+    # Delta de Volume (bars_per_day rolling sum; fallback bars_4h for short files)
+    if len(df_pd) > bars_per_day:
+        vol_day_sum = v.rolling(window=bars_per_day).sum()
+        df_pd['delta_vol_24h'] = vol_day_sum.pct_change(fill_method=None)
     else:
-        # Fallback short-term delta se os chunks de arquivo forem curtos
-        logger.warning(f"⚠️ AVISO: Dados insuficientes para delta_vol_24h (Tamanho: {len(df_pd)} < 1440). Usando fallback de 4h. No ambiente live, o aquecimento (warm-up) via REST API com 12h+ mitiga este drift.")
-        vol_4h_sum = v.rolling(window=240).sum()
+        logger.warning(
+            f"⚠️ AVISO: Dados insuficientes para delta_vol_24h "
+            f"(Tamanho: {len(df_pd)} < {bars_per_day} bars). Usando fallback de 4h."
+        )
+        vol_4h_sum = v.rolling(window=bars_4h).sum()
         df_pd['delta_vol_24h'] = vol_4h_sum.pct_change(fill_method=None)
 
     # ── Refatoração v4.2: Alpha Sensors ──────────────────────────────────────
@@ -144,8 +152,8 @@ def calculate_context_features(df_pd: pd.DataFrame) -> pd.DataFrame:
     typical_price = (h + l + c) / 3.0
     vp = typical_price * v
     
-    # Dynamic window size falling back if len < 1440
-    window_vwap = min(1440, len(df_pd)) if len(df_pd) > 0 else 1
+    # Dynamic window size falling back if len < bars_per_day
+    window_vwap = min(bars_per_day, len(df_pd)) if len(df_pd) > 0 else 1
     
     vwap_rolling = vp.rolling(window=window_vwap, min_periods=1).sum() / (v.rolling(window=window_vwap, min_periods=1).sum() + 1e-9)
     vwap_std = typical_price.rolling(window=window_vwap, min_periods=1).std()
@@ -204,11 +212,18 @@ def process_and_save_context(input_dir, output_dir):
         return
 
     logger.info(f"Processando {len(parquet_files)} arquivos em {input_dir}...")
-    
+
+    # v4.9: resolve resample_min from master_config
+    config = load_config()
+    resample_freq = config.get('pre_processing', {}).get('etl', {}).get('resample_freq', '1min')
+    import pandas as _pd_inner
+    resample_min = max(1, int(_pd_inner.to_timedelta(resample_freq).total_seconds() // 60))
+    logger.info(f"auditor_preprocessing: resample_freq={resample_freq} ({resample_min} min/bar)")
+
     for pf in parquet_files:
         try:
             df = pl.read_parquet(pf).to_pandas()
-            df_enriched = calculate_context_features(df)
+            df_enriched = calculate_context_features(df, resample_min=resample_min)
             
             # Manter apenas as colunas essenciais para o output, economizando espaço
             core_features = [

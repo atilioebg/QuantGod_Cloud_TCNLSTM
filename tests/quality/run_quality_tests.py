@@ -97,7 +97,14 @@ def run_gold_tests():
     # 4. Test Lineage
     print("\n--- Test 2: Lineage and Shape ---")
     validator = DataValidator()
-    report = validator.validate_integrity(clipped_df, name="Gold Test", feature_list=feature_names)
+    delta_short_min = etl_cfg.get('delta_short_min', 5)
+    report = validator.validate_integrity(
+        clipped_df,
+        name="Gold Test",
+        feature_list=feature_names,
+        resample_freq=resample_freq,
+        delta_short_min=delta_short_min
+    )
     lineage_ok = report['shape_integrity']
     if lineage_ok: print("PASS: Lineage and Shape OK.")
 
@@ -145,7 +152,13 @@ def run_gold_tests():
     print(f"Abandon Test Index: {abandon_df_processed.index[0]} to {abandon_df_processed.index[-1]}")
     print(f"Audit Report Max Gap Before: {transformer.audit_report['max_gap_before']}")
 
-    abandon_report = validator.validate_integrity(abandon_df_processed, name="Abandon Test", feature_list=feature_names)
+    abandon_report = validator.validate_integrity(
+        abandon_df_processed,
+        name="Abandon Test",
+        feature_list=feature_names,
+        resample_freq=resample_freq,
+        delta_short_min=delta_short_min
+    )
     
     num_islands = abandon_report.get('num_islands_generated', 0)
     valid_islands = len(abandon_report.get('valid_island_ids', []))
