@@ -37,7 +37,7 @@ pre_processing:
     clipping:
       enabled: true                                               # Ativa Soft-Clipping (Winsorization)
       p99_multiplier: 10                                          # Teto: 10x o Percentil 99
-      target_columns: ['kyle_lambda', 'vpin_min25', 'max_spread', 'ofi', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity', 'book_asymmetry_v5']
+      target_columns: ['kyle_lambda', 'vpin_min25', 'max_spread', 'ofi', 'ofi_delta_5', 'ofi_delta_30', 'bid_deep_ratio', 'ask_deep_ratio', 'bid_convexity', 'ask_convexity', 'book_asymmetry_v5', 'pressure_ratio']
       noise_floor: 0.0000001                                       # Piso de ruído: não clipar se P99 < este valor. Baixo o suficiente para não pular features de escala pequena como kyle_lambda (P99~3e-6)
     audit:
       generate_report: true                                       # Gera docs/reports/data_quality_report.json
