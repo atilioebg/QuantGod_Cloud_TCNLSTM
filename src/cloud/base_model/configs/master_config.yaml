@@ -99,6 +99,14 @@ model:
     num_classes: 2                                                # Meta-Labeling Binário: 0 (Veto/Fake), 1 (Aprovado/Acurado)
     use_dynamic_threshold: true                                   # Se true, procura limiar F-Beta (0.5) dinamicamente na Precision-Recall curve
     manual_threshold: 0.65                                        # Fallback caso use_dynamic_threshold seja false
+    params:                                                       # Hiperparâmetros do XGBoost Auditor
+      n_estimators: 500
+      max_depth: 6
+      learning_rate: 0.05
+      subsample: 0.8
+      colsample_bytree: 0.8
+      reg_alpha: 0.1
+      reg_lambda: 1.0
   
   feature_names:                                                  # Nome das colunas injetadas nos tensores matriciais (Base model)
                                                                   # IMPORTANTE: Nomes baseados em MINUTOS REAIS (ETL v4.3).

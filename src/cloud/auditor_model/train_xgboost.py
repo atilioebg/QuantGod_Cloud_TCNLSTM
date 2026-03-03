@@ -29,14 +29,15 @@ logger = logging.getLogger(__name__)
 # A lista de features aguardadas se encontra em `model.auditor_features`
 
 def load_config():
-    aud_cfg_path = Path("src/cloud/auditor_model/configs/auditor_config.yaml")
-    if aud_cfg_path.exists():
-        with open(aud_cfg_path) as f:
-            aud_cfg = yaml.safe_load(f)
+    master_cfg_path = Path("src/cloud/base_model/configs/master_config.yaml")
+    if master_cfg_path.exists():
+        with open(master_cfg_path, 'r', encoding='utf-8') as f:
+            master_cfg = yaml.safe_load(f)
+            # Retorna o nó de parâmetros do auditor centralizado
+            return master_cfg['model'].get('auditor', {}).get('params', {})
     else:
         # Fallback minimal config
-        aud_cfg = {'xgboost': {'n_estimators': 300, 'max_depth': 4, 'learning_rate': 0.05}}
-    return aud_cfg
+        return {'n_estimators': 300, 'max_depth': 4, 'learning_rate': 0.05}
 
 def load_data(fused_dir: str):
     logger.info(f"Carregando dados fundidos de {fused_dir}...")
@@ -56,14 +57,12 @@ def load_data(fused_dir: str):
     return df_train, df_val
 
 def train_auditor():
-    aud_cfg = load_config()
+    xgb_params = load_config()
     
     # Adicionando consumo do master config para paths coerentes
     master_cfg_path = Path("src/cloud/base_model/configs/master_config.yaml")
     with open(master_cfg_path, 'r', encoding='utf-8') as f:
         master_cfg = yaml.safe_load(f)
-        
-    xgb_params = aud_cfg.get('xgboost', {})
     
     
     fused_dir = master_cfg['pipeline_paths'].get('fused_dataset_dir', "data/auditor/dataset_fused")
