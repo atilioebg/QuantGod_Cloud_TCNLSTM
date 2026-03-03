@@ -98,13 +98,21 @@ def run_oos_validation(test_dir: str, permutation: bool = False):
         model_path = Path("data/models/best_tcn_lstm.pt") # Optuna champion fallback
     
     scaler_path = Path("data/models/treino_scaler_finetuning.pkl")
-    
+
     if not model_path.exists():
         logger.error(f"❌ Model not found at {model_path}.")
         return
     if not scaler_path.exists():
         logger.error(f"❌ Scaler not found at {scaler_path}. Specialization must be run first.")
         return
+
+    # [Audit Fix] Explicit scaler provenance log — prevents silent use of wrong scaler
+    logger.info(f"🔑 [Audit Fix] Scaler carregado de: {scaler_path.resolve()}")
+    assert "treino" in scaler_path.stem, (
+        f"Scaler suspeito para OOS validation: '{scaler_path.name}'. "
+        f"Esperado 'treino_scaler_finetuning.pkl' (specialist scaler). "
+        f"Verifique que o scaler foi gerado por run_specialization.py."
+    )
 
     # Initialize Model
     model = Hybrid_TCN_LSTM(

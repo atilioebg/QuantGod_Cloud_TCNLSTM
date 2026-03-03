@@ -42,17 +42,38 @@ logger = logging.getLogger(__name__)
 
 
 class SequenceDataset(Dataset):
-    def __init__(self, X: np.ndarray, y: np.ndarray, seq_len: int):
+    """Island-aware sliding window dataset.
+    
+    Janelas que cruzam fronteiras de ilhas são descartadas para evitar que
+    o modelo aprenda padrões artificiais criados por gaps de mercado.
+    Idêntico à versão em run_kfold_specialist.py.
+    """
+    def __init__(self, X: np.ndarray, y: np.ndarray, island_ids: np.ndarray, seq_len: int):
         self.X = X
         self.y = y
         self.seq_len = seq_len
 
+        max_idx = len(X) - seq_len
+        if max_idx < 0:
+            self.valid_indices = np.array([], dtype=np.int64)
+        else:
+            # island_ids[idx] == island_ids[idx + seq_len - 1] → sem cruzamento de ilha
+            self.valid_indices = np.where(
+                island_ids[:max_idx + 1] == island_ids[seq_len - 1:]
+            )[0].astype(np.int64)
+
+        logger.info(
+            f"SequenceDataset (island-aware): {len(self.valid_indices)}/{max(0, max_idx + 1)} "
+            f"sequências válidas (Lookback protection ativo)."
+        )
+
     def __len__(self):
-        return len(self.X) - self.seq_len
+        return len(self.valid_indices)
 
     def __getitem__(self, idx):
-        x_seq = self.X[idx: idx + self.seq_len]
-        y_label = self.y[idx + self.seq_len - 1]
+        i = self.valid_indices[idx]
+        x_seq   = self.X[i: i + self.seq_len]
+        y_label = self.y[i + self.seq_len - 1]
         return torch.from_numpy(x_seq), torch.tensor(y_label, dtype=torch.long)
 
 
@@ -168,6 +189,7 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
     # for the Auditor to have both signals. We run inference on the same rows.
     feature_cols = config['model']['feature_names']
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    logger.info(f"🔑 [Audit Fix] DEVICE para inferência Foundation: {DEVICE}")
 
     sell_th = config['pre_processing']['labelling'].get('sell_threshold', 0.003)
     buy_th  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
@@ -180,19 +202,27 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
         base_params = json.load(f)
 
     val_files = sorted(list(foundation_val_dir.glob("*.parquet")))
-    dfs_val   = [pl.read_parquet(vf, columns=feature_cols + ['target']) for vf in val_files]
-    df_fval   = pl.concat(dfs_val)
+    dfs_val   = []
+    for i, vf in enumerate(val_files):
+        df_i = pl.read_parquet(vf, columns=feature_cols + ['target', 'island_id'])
+        # Offset island_id per file (same logic as run_kfold_specialist.py line 406)
+        df_i = df_i.with_columns(pl.col('island_id') + (i * 10000))
+        dfs_val.append(df_i)
+    df_fval = pl.concat(dfs_val)
 
-    X_val_raw = df_fval.select(feature_cols).to_numpy().astype(np.float32)
-    y_val_raw = df_fval.select('target').to_numpy().flatten().astype(np.int64)
+    X_val_raw    = df_fval.select(feature_cols).to_numpy().astype(np.float32)
+    y_val_raw    = df_fval.select('target').to_numpy().flatten().astype(np.int64)
+    island_val   = df_fval.select('island_id').to_numpy().flatten()
 
     import joblib
     scaler_path = Path(config['pipeline_paths']['scaler_foundation'])
+    logger.info(f"🔑 [Audit Fix] Scaler carregado de: {scaler_path}")
     scaler_base = joblib.load(scaler_path)
     X_val_norm = scaler_base.transform(X_val_raw).astype(np.float32)
 
     seq_len      = base_params['seq_len']
-    dataset_base = SequenceDataset(X_val_norm, y_val_raw, seq_len)
+    # Island-aware dataset: janelas cruzando gaps são descartadas
+    dataset_base = SequenceDataset(X_val_norm, y_val_raw, island_val, seq_len)
     loader_base  = DataLoader(dataset_base, batch_size=2048, shuffle=False, num_workers=4)
 
     num_features = len(feature_cols)
@@ -275,19 +305,25 @@ def load_and_predict(config, val_dir, context_dir, output_dir):
     df_context_list = [pl.read_parquet(cf).to_pandas() for cf in context_files]
     full_context_df = pd.concat(df_context_list, ignore_index=True)
 
-    # ── Load Raw Feature Data ──────────────────────────────────────────────────
+    # ── Load Raw Feature Data ───────────────────────────────────────────────────────
     feature_cols = config['model']['feature_names']
     val_files    = sorted(list(Path(val_dir).glob("*.parquet")))
-    dfs_val      = [pl.read_parquet(vf, columns=feature_cols + ['target']) for vf in val_files]
-    df_val       = pl.concat(dfs_val).to_pandas()
+    dfs_val      = []
+    for i, vf in enumerate(val_files):
+        df_i = pl.read_parquet(vf, columns=feature_cols + ['target', 'island_id'])
+        df_i = df_i.with_columns(pl.col('island_id') + (i * 10000))
+        dfs_val.append(df_i.to_pandas())
+    df_val = pd.concat(dfs_val, ignore_index=True)
 
-    seq_len    = config['optimization']['search_space']['seq_len'][0]
-    X_val_raw  = df_val[feature_cols].to_numpy().astype(np.float32)
-    y_val_raw  = df_val['target'].to_numpy().astype(np.int64)
+    seq_len     = config['optimization']['search_space']['seq_len'][0]
+    X_val_raw   = df_val[feature_cols].to_numpy().astype(np.float32)
+    y_val_raw   = df_val['target'].to_numpy().astype(np.int64)
+    island_raw  = df_val['island_id'].to_numpy()
 
-    # ── Normalization ─────────────────────────────────────────────────────────
+    # ── Normalization ──────────────────────────────────────────────────────────
     scaler_foundation_path  = Path(config['pipeline_paths']['scaler_foundation'])
     scaler_specialized_path = Path(config['pipeline_paths']['scaler_specialized'])
+    logger.info(f"🔑 [Audit Fix] Scalers: foundation={scaler_foundation_path.name}, specialist={scaler_specialized_path.name}")
 
     with open(scaler_foundation_path, 'rb') as f:
         scaler_base = pickle.load(f)
@@ -297,8 +333,9 @@ def load_and_predict(config, val_dir, context_dir, output_dir):
     X_val_base_norm = scaler_base.transform(X_val_raw).astype(np.float32)
     X_val_spec_norm = scaler_spec.transform(X_val_raw).astype(np.float32)
 
-    dataset_base = SequenceDataset(X_val_base_norm, y_val_raw, seq_len)
-    dataset_spec = SequenceDataset(X_val_spec_norm, y_val_raw, seq_len)
+    # Island-aware datasets: janelas cruzando gaps são descartadas
+    dataset_base = SequenceDataset(X_val_base_norm, y_val_raw, island_raw, seq_len)
+    dataset_spec = SequenceDataset(X_val_spec_norm, y_val_raw, island_raw, seq_len)
 
     loader_base = DataLoader(dataset_base, batch_size=2048, shuffle=False, num_workers=4)
     loader_spec = DataLoader(dataset_spec, batch_size=2048, shuffle=False, num_workers=4)

@@ -249,23 +249,30 @@ def process_and_save_context(input_dir, output_dir):
 if __name__ == "__main__":
     setup_logger("auditor_preprocessing", "")
     config = load_config()
-    
-    # ── Resolve Paths ──────────────────────────────────────────────────────────
-    # O user especificou que o auditor usara como dataset de treino o VAL de SPECIALIZED
-    # (Strict OOF) para gerar o contexto neutro e seguro.
-    
+
     sell_th = config['pre_processing']['labelling'].get('sell_threshold', 0.003)
     buy_th  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
     mins    = config['pre_processing']['labelling'].get('horizon_minutes', 15)
     base_labelled_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
-    spec_val_dir = Path(f"data/L2/splits_specialized_{base_labelled_name}/val")
-    
+
+    # ── Fix (Audit v4.9): usar Foundation Val como source.
+    # O K-Fold OOF cobre o Foundation Val (splits_*/val). Para que o inner join
+    # em auditor_labelling.py por `original_row_idx` seja válido, as context
+    # features precisam indexar o mesmo conjunto de linhas. Usar spec_val (20%
+    # do val) criava um espaço de índices incompatível — os índices seriam
+    # 0..N_spec mas o OOF esperaria 0..N_foundation_val. Fix: sempre usar
+    # Foundation Val como fonte de context features.
+    foundation_val_dir = Path(f"data/L2/splits_{base_labelled_name}/val")
+
     out_context_dir = Path("data/auditor/context")
-    
-    if spec_val_dir.exists():
-        logger.info(f"Processando contexto do Auditor a partir dos dados OOF: {spec_val_dir}")
-        process_and_save_context(spec_val_dir, out_context_dir)
+
+    if foundation_val_dir.exists():
+        logger.info(f"📂 [Audit Fix] Context features extraídas de Foundation Val: {foundation_val_dir}")
+        process_and_save_context(foundation_val_dir, out_context_dir)
     else:
-        logger.error(f"❌ Nao encontrou {spec_val_dir}. Rode o split_dataset.py primeiro.")
-        
+        logger.error(
+            f"❌ Foundation Val não encontrado: {foundation_val_dir}. "
+            "Rode split_dataset.py primeiro."
+        )
+
     logger.info("✅ Auditor Preprocessing (Context Engineering) Finalizado OOF.")
