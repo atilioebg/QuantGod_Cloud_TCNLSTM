@@ -8,7 +8,7 @@ Este diretório contém o pipeline de ETL (Extract, Transform, Load) projetado p
 
 ### 1. `configs/` (Configurações)
 Arquivos YAML que definem o comportamento do pipeline.
-*   **`cloud_config.yaml`**: Configuração oficial para produção no RunPod. Aponta para o diretório de dados montado via `rclone`.
+*   **`master_config.yaml`**: Configuração centralizada para o pipeline completo. Localizado em `src/cloud/base_model/configs/master_config.yaml`.
 *   **`test_local.yaml`**: Configuração para testes em ambiente de desenvolvimento. Aponta para pastas locais (`data/L2/raw/l2_samples`).
 
 **Parâmetros Principais:**

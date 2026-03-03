@@ -12,33 +12,27 @@ src/cloud/
 │
 ├── base_model/                               ← Modelo base: Hybrid TCN+LSTM
 │   ├── configs/
-│   │   └── base_model_config.yaml            ← ⭐ Source of truth (class_weights, features, seq_len)
+│   │   └── master_config.yaml                ← ⭐ Single Source of Truth (SSOT)
 │   ├── labelling/
-│   │   ├── run_labelling.py                  ← Gerador de targets SELL/NEUTRAL/BUY
-│   │   └── labelling_config.yaml             ← Thresholds e lookahead
+│   │   └── run_labelling.py                  ← Gerador de targets SELL/NEUTRAL/BUY
 │   ├── models/
 │   │   └── model.py                          ← Hybrid_TCN_LSTM (CausalConv1D + LSTM + MLP)
 │   ├── otimizacao/
 │   │   ├── run_optuna.py                     ← Busca bayesiana de hiperparâmetros
-│   │   ├── optimization_config.yaml          ← Search space e limites
 │   │   └── best_params.json                  ← Resultado do Optuna (gerado automaticamente)
 │   ├── pre_processamento/
 │   │   ├── orchestration/run_pipeline.py     ← Orquestrador do ETL
 │   │   ├── etl/extract.py                    ← Leitura de ZIPs (GDrive/local)
 │   │   ├── etl/transform.py                  ← Reconstrução do book → 9 features
 │   │   ├── etl/load.py                       ← Serialização Parquet
-│   │   ├── etl/validate.py                   ← NaN check, order, gaps
-│   │   ├── configs/cloud_config.yaml         ← Paths e config do ETL
-│   │   └── configs/test_local.yaml           ← Config para dev local
+│   │   └── etl/validate.py                   ← NaN check, order, gaps
 │   └── treino/
-│       ├── run_training.py                   ← Loop de treino final
-│       └── training_config.yaml              ← Hiperparâmetros + paths de output
+│       └── run_training.py                   ← Loop de treino final
 │
 └── auditor_model/                            ← Modelo auditor: XGBoost
-    ├── configs/
-    │   └── auditor_config.yaml               ← Walk-forward K, XGBoost params
     ├── feature_engineering_meta.py           ← 14 meta-features sem warm-up
-    ├── train_xgboost.py                      ← OOF walk-forward training
+    ├── train_xgboost.py                      ← XGBoost walk-forward trainer
+    ├── auditor_labelling.py                  ← Dataset Fuser (Logits + Contexto)
     └── binance_adapter.py                    ← Integração live Binance Futures WS
 ```
 
@@ -68,9 +62,9 @@ mkdir -p /workspace/gdrive
 rclone mount drive: /workspace/gdrive --vfs-cache-mode full --allow-other &
 ```
 
-> **Atenção ao path:** edite `cloud_config.yaml` conforme o ambiente:
-> - Local Windows: `rclone_mount: "Z:/PROJETOS/..."`
-> - RunPod/Linux: `rclone_mount: "/workspace/gdrive/..."`
+> **Atenção ao path:** edite `master_config.yaml` conforme o ambiente:
+> - Local Windows: `raw_l2_source: "drive:PROJETOS/..."`
+> - RunPod/Linux: `raw_l2_source: "drive:PROJETOS/..."` (rclone cuida do mapeamento)
 
 ---
 
@@ -85,7 +79,7 @@ rclone mount drive: /workspace/gdrive --vfs-cache-mode full --allow-other &
 ## 1️⃣ ETL — Pré-Processamento
 
 **Script:** `base_model/pre_processamento/orchestration/run_pipeline.py`
-**Config:** `base_model/pre_processamento/configs/cloud_config.yaml`
+**Config:** `base_model/configs/master_config.yaml`
 
 ```bash
 # RunPod (usar tmux para processos longos)
@@ -127,7 +121,7 @@ pytest tests/test_preprocessed_quality.py
 ## 2️⃣ Labelling — Geração de Targets
 
 **Script:** `base_model/labelling/run_labelling.py`
-**Config:** `base_model/labelling/labelling_config.yaml`
+**Config:** `base_model/configs/master_config.yaml`
 
 ```bash
 python -m src.cloud.base_model.labelling.run_labelling
@@ -168,7 +162,7 @@ pytest tests/test_labelling_output.py
 ## 3️⃣ Optuna — Otimização de Hiperparâmetros
 
 **Script:** `base_model/otimizacao/run_optuna.py`
-**Config:** `base_model/otimizacao/optimization_config.yaml`
+**Config:** `base_model/configs/master_config.yaml`
 
 ```bash
 python -m src.cloud.base_model.otimizacao.run_optuna
@@ -213,8 +207,7 @@ optuna-dashboard sqlite:///optuna_tcn_lstm_v1.db
 ## 4️⃣ Treino Final — Base Model (`Hybrid_TCN_LSTM`)
 
 **Script:** `base_model/treino/run_training.py`
-**Config:** `base_model/treino/training_config.yaml`
-**Config compartilhada:** `base_model/configs/base_model_config.yaml` ← fonte única de verdade
+**Config:** `base_model/configs/master_config.yaml` ← fonte única de verdade
 
 ```bash
 python -m src.cloud.base_model.treino.run_training
@@ -275,7 +268,7 @@ Dataset cronológico completo (1.126 dias, 2023-01 a 2026-02):
 
 **Script:** `auditor_model/train_xgboost.py`
 **Eng. Features:** `auditor_model/feature_engineering_meta.py`
-**Config:** `auditor_model/configs/auditor_config.yaml`
+**Config:** `base_model/configs/master_config.yaml`
 
 ```bash
 python -m src.cloud.auditor_model.train_xgboost

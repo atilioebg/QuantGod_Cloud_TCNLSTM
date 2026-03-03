@@ -50,7 +50,7 @@ Siga esta ordem rigorosa para reproduzir o ciclo de vida do modelo.
 Transforma os arquivos brutos ZIP (Bybit L2) em arquivos Parquet otimizados e limpos. 
 - **Multi-Ano**: O pipeline realiza busca **recursiva** em subpastas (2023, 2024, etc.).
 - **Compatibilidade**: Suporta arquivos `ob500` e `ob200` aplicando um *Hard Cut* automático para 200 níveis.
-- **Configuração**: `src/cloud/pre_processamento/configs/cloud_config.yaml`
+- **Configuração**: `src/cloud/base_model/configs/master_config.yaml`
 - **Output**: `data/L2/pre_processed/*.parquet`
 - **Comando**:
   ```powershell
@@ -64,7 +64,7 @@ Transforma os arquivos brutos ZIP (Bybit L2) em arquivos Parquet otimizados e li
 
 ### 2. Rotulagem (Labelling) 🏷️
 Aplica a lógica econômica (Thresholds Assimétricos) para criar os alvos (`target`): 0 (Sell), 1 (Neutral), 2 (Buy).
-- **Configuração**: `src/cloud/labelling/labelling_config.yaml`
+- **Configuração**: `src/cloud/base_model/configs/master_config.yaml`
 - **Output**: `data/L2/labelled/*.parquet`
 - **Comando**:
   ```powershell
@@ -77,7 +77,7 @@ Aplica a lógica econômica (Thresholds Assimétricos) para criar os alvos (`tar
 
 ### 3. Otimização de Hiperparâmetros (Optuna) 🎯
 Utiliza busca Bayesiana para encontrar a melhor arquitetura do Transformer (n_heads, layers, dropout, lr), maximizando o **F1-Score Ponderado**.
-- **Configuração**: `src/cloud/otimizacao/optimization_config.yaml`
+- **Configuração**: `src/cloud/base_model/configs/master_config.yaml`
 - **Comando**:
   ```powershell
   python src/cloud/otimizacao/run_optuna.py
@@ -95,7 +95,7 @@ optuna-dashboard sqlite:///optuna_study.db
 
 ### 4. Treinamento Final (Fine-Tuning) 🧠
 Treina o modelo `QuantGodModel` definitivo usando os melhores parâmetros encontrados pelo Optuna.
-- **Configuração**: `src/cloud/treino/training_config.yaml`
+- **Configuração**: `src/cloud/base_model/configs/master_config.yaml`
 - **Input**: Lê automaticamente `best_params.json` se disponível (ou usa o config padrão).
 - **Comando**:
   ```powershell
@@ -131,10 +131,9 @@ O processamento L2 é intensivo em CPU devido à reconstrução do Orderbook seg
 
 ## 🆘 Troubleshooting & Checklist Final
 
-### 1. A Pegadinha do Caminho (Z:/ vs /workspace/) 📂
-O arquivo `cloud_config.yaml` precisa ser ajustado conforme o ambiente:
-- **Local (Windows)**: `rclone_mount: "Z:/PROJETOS/..."`
-- **Cloud (Linux/RunPod)**: `rclone_mount: "/workspace/gdrive/..."`
+### 1. A Pegadinha do Caminho (Drive Remoto) 📂
+O arquivo `master_config.yaml` usa o prefixo `drive:` para o Rclone. Certifique-se de que o `rclone.conf` está correto.
+- Se estiver no Linux, verifique se o mount está apontando para o local correto se estiver usando mount, mas o pipeline agora prefere streaming direto via `rclone copy/ls`.
 
 ### 2. Consistência ob500 vs ob200
 O pipeline aplica um **Hard Cut** automático para 200 níveis. Isso garante que, independentemente da profundidade do arquivo original (2023 vs 2026), o output terá **exatamente as mesmas colunas**, evitando erros no treinamento.
