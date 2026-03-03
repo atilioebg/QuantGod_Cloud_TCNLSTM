@@ -819,7 +819,7 @@ class L2Transformer:
                    and not any(x in c for x in ['_slope', '_rdi', '_delta_', '_asymmetry', '_convexity']))]
         
         # Build final list and deduplicate while preserving order
-        raw_final_cols = agg_features + ['close', 'island_id'] + ob_cols
+        raw_final_cols = agg_features + ['high', 'low', 'close', 'island_id'] + ob_cols
         final_cols = []
         seen = set()
         for c in raw_final_cols:
