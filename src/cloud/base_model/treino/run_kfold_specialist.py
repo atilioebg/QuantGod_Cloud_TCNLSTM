@@ -53,18 +53,36 @@ logger = logging.getLogger(__name__)
 
 # ── Dataset ──────────────────────────────────────────────────────────────────
 class SequenceDataset(Dataset):
-    """Memory-efficient demand-based sequence generator (identical to run_specialization.py)."""
-    def __init__(self, X: np.ndarray, y: np.ndarray, seq_len: int):
+    """Island-aware sliding window dataset. Sequences that cross island boundaries
+    are excluded to prevent the model from learning artificial cross-gap patterns.
+    Mirrors run_specialization.py exactly."""
+    def __init__(self, X: np.ndarray, y: np.ndarray, island_ids: np.ndarray, seq_len: int):
         self.X = X
         self.y = y
         self.seq_len = seq_len
 
+        # Pre-calculate valid indices: window [idx, idx+seq_len) must stay within one island.
+        max_idx = len(X) - seq_len
+        if max_idx < 0:
+            self.valid_indices = np.array([], dtype=np.int64)
+        else:
+            # island_ids[idx] == island_ids[idx + seq_len - 1]  ↔  no island crossing
+            self.valid_indices = np.where(
+                island_ids[:max_idx + 1] == island_ids[seq_len - 1:]
+            )[0].astype(np.int64)
+
+        logger.info(
+            f"SequenceDataset: {len(self.valid_indices)}/{max_idx + 1 if max_idx >= 0 else 0} "
+            f"valid sequences (Lookback protection active)."
+        )
+
     def __len__(self):
-        return len(self.X) - self.seq_len
+        return len(self.valid_indices)
 
     def __getitem__(self, idx):
-        x_seq = self.X[idx: idx + self.seq_len]
-        y_label = self.y[idx + self.seq_len - 1]
+        real_idx = self.valid_indices[idx]
+        x_seq   = self.X[real_idx: real_idx + self.seq_len]
+        y_label = self.y[real_idx + self.seq_len - 1]
         return torch.from_numpy(x_seq), torch.tensor(y_label, dtype=torch.long)
 
 
@@ -139,8 +157,10 @@ def blocked_purged_kfold_indices(n: int, n_splits: int, purge_bars: int):
 def train_specialist_fold(
     X_train_norm: np.ndarray,
     y_train: np.ndarray,
+    island_train: np.ndarray,
     X_val_norm: np.ndarray,
     y_val: np.ndarray,
+    island_val: np.ndarray,
     config: dict,
     best_params: dict,
     class_weights: list,
@@ -179,8 +199,8 @@ def train_specialist_fold(
     num_features = X_train_norm.shape[1]
 
     # Datasets & Loaders
-    train_ds = SequenceDataset(X_train_norm, y_train, seq_len)
-    val_ds   = SequenceDataset(X_val_norm,   y_val,   seq_len)
+    train_ds = SequenceDataset(X_train_norm, y_train, island_train, seq_len)
+    val_ds   = SequenceDataset(X_val_norm,   y_val,   island_val,   seq_len)
 
     if len(train_ds) == 0 or len(val_ds) == 0:
         raise ValueError(f"Fold {fold_k}: dataset too small after purge (train={len(train_ds)}, val={len(val_ds)})")
@@ -308,7 +328,7 @@ def train_specialist_fold(
 
 # ── Inference on OOF fold ─────────────────────────────────────────────────────
 def run_inference(model: nn.Module, X_norm: np.ndarray, y: np.ndarray,
-                  seq_len: int, batch_size: int, DEVICE: torch.device):
+                  island_ids: np.ndarray, seq_len: int, batch_size: int, DEVICE: torch.device):
     """
     Runs inference on the OOF test block and returns softmax probabilities + true targets.
 
@@ -316,7 +336,7 @@ def run_inference(model: nn.Module, X_norm: np.ndarray, y: np.ndarray,
         probs   (N, 3): Softmax probabilities [P(SELL), P(NEU), P(BUY)]
         targets (N,):   Ground-truth labels (aligned with SequenceDataset offset)
     """
-    dataset = SequenceDataset(X_norm, y, seq_len)
+    dataset = SequenceDataset(X_norm, y, island_ids, seq_len)
     loader  = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=4)
 
     model.eval()
@@ -379,12 +399,18 @@ def run_kfold_specialist():
     parquet_files = sorted(list(foundation_val_dir.glob("*.parquet")))
     logger.info(f"📂 Foundation Val: {len(parquet_files)} files in {foundation_val_dir}")
 
-    dfs = [pl.read_parquet(pf, columns=feature_cols + ['target']) for pf in parquet_files]
+    dfs = []
+    for i, pf in enumerate(parquet_files):
+        df_i = pl.read_parquet(pf, columns=feature_cols + ['target', 'island_id'])
+        # Offset island_id per file to guarantee global uniqueness across the concatenated array
+        df_i = df_i.with_columns(pl.col('island_id') + (i * 10000))
+        dfs.append(df_i)
     df_val = pl.concat(dfs)
 
-    X_raw = df_val.select(feature_cols).to_numpy().astype(np.float32)
-    y_raw = df_val.select('target').to_numpy().flatten().astype(np.int64)
-    n_total = len(X_raw)
+    X_raw      = df_val.select(feature_cols).to_numpy().astype(np.float32)
+    y_raw      = df_val.select('target').to_numpy().flatten().astype(np.int64)
+    island_raw = df_val.select('island_id').to_numpy().flatten()
+    n_total    = len(X_raw)
     logger.info(f"📊 Foundation Val: {n_total:,} rows | SELL={np.sum(y_raw==0):,} NEU={np.sum(y_raw==1):,} BUY={np.sum(y_raw==2):,}")
 
     # Label balance warning
@@ -432,10 +458,12 @@ def run_kfold_specialist():
                 else:
                     logger.info(f"[Fold {fold_k}] ✅ Right Purge Gap OK: {gap_right} bars ({gap_right * resample_min} min)")
 
-        X_train_raw = X_raw[train_idx]
-        y_train     = y_raw[train_idx]
-        X_test_raw  = X_raw[test_idx]
-        y_test      = y_raw[test_idx]
+        X_train_raw  = X_raw[train_idx]
+        y_train      = y_raw[train_idx]
+        island_train = island_raw[train_idx]
+        X_test_raw   = X_raw[test_idx]
+        y_test       = y_raw[test_idx]
+        island_test  = island_raw[test_idx]
 
         # ── Per-Fold Scaler (NEVER global) ────────────────────────────────────
         # Anti-Leakage: scaler is fit ONLY on fold's training data.
@@ -454,8 +482,10 @@ def run_kfold_specialist():
         model = train_specialist_fold(
             X_train_norm=X_train_norm,
             y_train=y_train,
+            island_train=island_train,
             X_val_norm=X_test_norm,   # val used only for early stopping within fold
             y_val=y_test,
+            island_val=island_test,
             config=config,
             best_params=best_params,
             class_weights=class_weights,
@@ -464,7 +494,7 @@ def run_kfold_specialist():
         )
 
         # ── OOF Inference (raw logits on unseen test block) ───────────────────
-        probs, targets = run_inference(model, X_test_norm, y_test, seq_len, batch_size, DEVICE)
+        probs, targets = run_inference(model, X_test_norm, y_test, island_test, seq_len, batch_size, DEVICE)
         pred_classes   = np.argmax(probs, axis=1)
 
         # Fold metrics

@@ -39,25 +39,41 @@ setup_optuna_logging()
 logger = logging.getLogger("optimization")
 
 class SequenceDataset(torch.utils.data.Dataset):
-    def __init__(self, X, y, seq_len):
-        self.X = X; self.y = y; self.seq_len = seq_len
-    def __len__(self): return len(self.X) - self.seq_len
+    """Island-aware sliding window dataset. Mirrors run_specialization.py exactly.
+    Sequences that cross island boundaries are excluded to prevent cross-gap leakage."""
+    def __init__(self, X, y, island_ids, seq_len):
+        self.X, self.y, self.seq_len = X, y, seq_len
+        max_idx = len(X) - seq_len
+        if max_idx < 0:
+            self.valid_indices = np.array([], dtype=np.int64)
+        else:
+            self.valid_indices = np.where(
+                island_ids[:max_idx + 1] == island_ids[seq_len - 1:]
+            )[0].astype(np.int64)
+        logger.info(f"SequenceDataset: {len(self.valid_indices)}/{max(0, max_idx+1)} valid sequences (Lookback protection active).")
+
+    def __len__(self): return len(self.valid_indices)
     def __getitem__(self, idx):
-        return (torch.from_numpy(self.X[idx:idx + self.seq_len]),
-                torch.tensor(self.y[idx + self.seq_len - 1], dtype=torch.long))
+        i = self.valid_indices[idx]
+        return (torch.from_numpy(self.X[i:i + self.seq_len]),
+                torch.tensor(self.y[i + self.seq_len - 1], dtype=torch.long))
 
 
 def load_data(directory, feature_cols):
     parquet_files = sorted(list(Path(directory).glob("*.parquet")))
     if not parquet_files:
         raise FileNotFoundError(f"No labelled data in {directory}")
-    dfs = [pl.read_parquet(pf, columns=feature_cols + ['target']) for pf in parquet_files]
+    dfs = []
+    for i, pf in enumerate(parquet_files):
+        df_i = pl.read_parquet(pf, columns=feature_cols + ['target', 'island_id'])
+        df_i = df_i.with_columns(pl.col('island_id') + (i * 10000))
+        dfs.append(df_i)
     df = pl.concat(dfs)
     logger.info(f"Loaded {len(df):,} rows from {directory}")
     return df, feature_cols
 
 
-def objective(trial, X_train, y_train, X_val, y_val, config, base_cfg):
+def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, config, base_cfg):
     """
     Optuna objective function for TCN+LSTM hyperparameter search.
 
@@ -93,8 +109,8 @@ def objective(trial, X_train, y_train, X_val, y_val, config, base_cfg):
                     f"drop={dropout:.8f}, lr={lr:.8f}, wd={weight_decay:.8f}")
 
         # ── Datasets ───────────────────────────────────────────────────────────
-        train_dataset = SequenceDataset(X_train, y_train, seq_len)
-        val_dataset   = SequenceDataset(X_val, y_val, seq_len)
+        train_dataset = SequenceDataset(X_train, y_train, island_train, seq_len)
+        val_dataset   = SequenceDataset(X_val, y_val, island_val, seq_len)
         train_loader  = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
                                    num_workers=4, pin_memory=True)
         val_loader    = DataLoader(val_dataset,   batch_size=batch_size, shuffle=False,
@@ -304,10 +320,12 @@ def run_optimization():
     train_df, _ = load_data(config['paths']['train_dir'], feature_cols)
     val_df, _   = load_data(config['paths']['val_dir'],   feature_cols)
 
-    X_train_raw = train_df.select(feature_cols).to_numpy().astype(np.float32)
-    y_train     = train_df.select('target').to_numpy().flatten().astype(np.int64)
-    X_val_raw   = val_df.select(feature_cols).to_numpy().astype(np.float32)
-    y_val       = val_df.select('target').to_numpy().flatten().astype(np.int64)
+    X_train_raw   = train_df.select(feature_cols).to_numpy().astype(np.float32)
+    y_train       = train_df.select('target').to_numpy().flatten().astype(np.int64)
+    island_train  = train_df.select('island_id').to_numpy().flatten()
+    X_val_raw     = val_df.select(feature_cols).to_numpy().astype(np.float32)
+    y_val         = val_df.select('target').to_numpy().flatten().astype(np.int64)
+    island_val    = val_df.select('island_id').to_numpy().flatten()
 
     # Normalize fit on train only
     scaler = StandardScaler()
@@ -361,7 +379,7 @@ def run_optimization():
     start_time = datetime.now()
 
     study.optimize(
-        lambda trial: objective(trial, X_train, y_train, X_val, y_val, config, config),
+        lambda trial: objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, config, config),
         n_trials=config['optimization']['n_trials'],
         timeout=config['optimization']['timeout'],
     )

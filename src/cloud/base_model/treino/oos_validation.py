@@ -23,25 +23,36 @@ from src.cloud.base_model.utils.logging_utils import setup_logger
 logger = logging.getLogger(__name__)
 
 class SequenceDataset(Dataset):
-    def __init__(self, X: np.ndarray, y: np.ndarray, seq_len: int):
-        self.X = X
-        self.y = y
-        self.seq_len = seq_len
+    """Island-aware sliding window dataset. Mirrors run_specialization.py exactly."""
+    def __init__(self, X: np.ndarray, y: np.ndarray, island_ids: np.ndarray, seq_len: int):
+        self.X, self.y, self.seq_len = X, y, seq_len
+        max_idx = len(X) - seq_len
+        if max_idx < 0:
+            self.valid_indices = np.array([], dtype=np.int64)
+        else:
+            self.valid_indices = np.where(
+                island_ids[:max_idx + 1] == island_ids[seq_len - 1:]
+            )[0].astype(np.int64)
+        logger.info(f"SequenceDataset: {len(self.valid_indices)}/{max(0, max_idx+1)} valid sequences (Lookback protection active).")
 
     def __len__(self):
-        return len(self.X) - self.seq_len
+        return len(self.valid_indices)
 
     def __getitem__(self, idx):
-        x_seq = self.X[idx: idx + self.seq_len]
-        y_label = self.y[idx + self.seq_len - 1]
+        i = self.valid_indices[idx]
+        x_seq   = self.X[i: i + self.seq_len]
+        y_label = self.y[i + self.seq_len - 1]
         return torch.from_numpy(x_seq), torch.tensor(y_label, dtype=torch.long)
 
 def load_data(directory: str, feature_cols: list):
     parquet_files = sorted(list(Path(directory).glob("*.parquet")))
     if not parquet_files:
         raise FileNotFoundError(f"No parquet files in {directory}")
-
-    dfs = [pl.read_parquet(pf, columns=feature_cols + ['target']) for pf in parquet_files]
+    dfs = []
+    for i, pf in enumerate(parquet_files):
+        df_i = pl.read_parquet(pf, columns=feature_cols + ['target', 'island_id'])
+        df_i = df_i.with_columns(pl.col('island_id') + (i * 10000))
+        dfs.append(df_i)
     df = pl.concat(dfs)
     logger.info(f"Loaded {len(df):,} rows from {directory}")
     return df
@@ -123,13 +134,14 @@ def run_oos_validation(test_dir: str, permutation: bool = False):
         return
 
     X_test_raw = test_df.select(feature_cols).to_numpy().astype(np.float32)
-    y_test = test_df.select('target').to_numpy().flatten().astype(np.int64)
+    y_test     = test_df.select('target').to_numpy().flatten().astype(np.int64)
+    island_test = test_df.select('island_id').to_numpy().flatten()
 
     X_test = scaler.transform(X_test_raw).astype(np.float32)
-    
+
     # 4. Standard Evaluation
-    def evaluate(X, y):
-        dataset = SequenceDataset(X, y, seq_len)
+    def evaluate(X, y, island_ids):
+        dataset = SequenceDataset(X, y, island_ids, seq_len)
         loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True)
         
         all_preds, all_targets = [], []
@@ -144,7 +156,7 @@ def run_oos_validation(test_dir: str, permutation: bool = False):
         return all_targets, all_preds
 
     logger.info("Running standard OOS evaluation...")
-    y_true, y_pred = evaluate(X_test, y_test)
+    y_true, y_pred = evaluate(X_test, y_test, island_test)
     
     f1_macro = f1_score(y_true, y_pred, average='macro', zero_division=0)
     logger.info(f"🏆 OOS F1 Macro: {f1_macro:.4f}")
@@ -163,7 +175,7 @@ def run_oos_validation(test_dir: str, permutation: bool = False):
             np.random.shuffle(X_shuffled[:, col_idx])
             
         logger.info("Re-evaluating model with shuffled features...")
-        y_true_perm, y_pred_perm = evaluate(X_shuffled, y_test)
+        y_true_perm, y_pred_perm = evaluate(X_shuffled, y_test, island_test)
         
         f1_macro_perm = f1_score(y_true_perm, y_pred_perm, average='macro', zero_division=0)
         logger.info(f"⚠️ PERMUTED F1 Macro: {f1_macro_perm:.4f}")
