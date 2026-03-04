@@ -14,9 +14,9 @@ pipeline_paths:
   # ── [PASTAS LOCAIS — Dados L2] ─────────────────────────────────────────────
   local_data_root:    "data/L2"                        # Raiz de todos os dados L2
   temp_raw_dir:       "temp_raw"                       # Downloads temporários → data/L2/temp_raw
-  pre_processed_dir:  "pre_processed"                  # Saída do ETL         → data/L2/pre_processed
-  labelled_dir:       "labelled"                       # Saída do Labelling   → data/L2/labelled
-  specialized_dir:    "specialized"                    # Saída do Split Spec  → data/L2/specialized
+  pre_processed_dir:  "pre_processed"                  # ETL Output: Todos os parquets processados (sem target)
+  labelled_dir:       "labelled"                       # Labelling Output: Todos os dados com coluna 'target'. O split_dataset.py criará /train e /val aqui (Usado pelo Modelo Base)
+  specialized_dir:    "specialized"                    # Specialist Output: O split_dataset.py pegará o /val do Modelo Base e dividirá em novo /train e /val aqui (Garante OOF puro p/ Specialist)
 
   # ── [PASTAS LOCAIS — Auditor] ──────────────────────────────────────────────
   fused_dataset_dir:    "data/auditor/dataset_fused"   # Dataset fundido (Logits + Contexto) → XGBoost Auditor
