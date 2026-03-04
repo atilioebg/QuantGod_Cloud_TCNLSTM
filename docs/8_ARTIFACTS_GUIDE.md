@@ -1,78 +1,155 @@
-# 📒 8. Artifacts & Audit Guide — QuantGod v4.6 Gold
+# 📒 8. Artifacts & Audit Guide — QuantGod v5.0
 
-Este guia serve como uma referência rápida e exaustiva para localizar todos os artefatos (logs, JSONs, modelos e datasets) gerados pelo pipeline em tempo de execução.
-
----
-
-## 🏗️ 1. Estágio: ETL & Pré-Processamento
-**Script**: `run_pipeline.py`
-
-| Artefato | Caminho (Path) | Descrição |
-| :--- | :--- | :--- |
-| **Log de Operação** | `logs/etl/etl_YYYYMMDD_HHMMSS.log` | Registro detalhado de download, streaming e clipping. |
-| **Métricas de Sanidade** | `docs/reports/data_quality_report.json` | **[CRÍTICO]** Resumo JSON de integridade, linhagem e anomalias. |
-| **Dataset Parquet** | `data/L2/pre_processed_L2/*.parquet` | Features prontas (831 colunas: 30 Features Gold + 800 Raw). |
+Este guia é a referência completa de todos os artefatos gerados pelo pipeline, tanto **localmente** quanto no **Google Drive**.
 
 ---
 
-## 🏷️ 2. Estágio: Labelling & Data Split
-**Scripts**: `run_labelling.py`, `split_dataset.py`
+## 🗂️ Estrutura no Google Drive (por sessão de treino)
 
-| Artefato | Caminho (Path) | Descrição |
-| :--- | :--- | :--- |
-| **Log de Labelling** | `logs/labelling/labelling_YYYYMMDD_HHMMSS.log` | Status do processamento paralelo de rótulos. |
-| **Relatório de Classes** | `docs/reports/labelling_audit.json` | Distribuição de sinais BUY/SELL/NEUTRAL. |
-| **Summary de Split** | `data/splits/split_summary.json` | Prova de isolamento temporal (Purge Gap) e K-Fold. |
+Cada execução do pipeline cria uma **pasta raiz única** no Drive, identificada pelos parâmetros de rotulação e o timestamp da sessão. Todos os artefatos daquela corrida ficam centralizados aqui.
+
+```
+drive:PROJETOS/RESULTADOS_SELL_{s}_BUY_{b}_{min}_{timestamp}/
+├── PRE_PROCESSED/          ← run_pipeline.py        (parquets sem target)
+├── LABELLED/               ← run_labelling.py       (parquets com coluna 'target')
+├── AUDITORIA/
+│   ├── ETL/                ← run_pipeline.py        (logs + data_quality_report.json + audit_summary.csv)
+│   ├── LABELLING/          ← run_labelling.py       (logs + labelling_health_QA.log)
+│   ├── SPLIT/              ← split_dataset.py       (logs + split_summary.json)
+│   ├── KFOLD_SPECIALIST/   ← run_kfold_specialist.py (logs + kfold_security_QA.log)
+│   └── AUDITOR/            ← train_xgboost.py       (logs + feature_importance.json)
+└── MODELOS/
+    ├── foundation/         ← transfer.py            (best_tcn_lstm.pt + scaler.pkl + optuna.db)
+    └── specialized/        ← transfer.py            (best_specialist.pt + kfold scalers + oof.parquet)
+```
+
+> [!NOTE]
+> Os splits locais (`labelled/train`, `labelled/val`, `specialized/`) **não sobem para o Drive**. São dados derivados que podem ser sempre recriados a partir de `LABELLED` + `split_dataset.py`.
+
+O sufixo e o timestamp são gerados automaticamente por `path_utils.get_drive_session_root()` com base nos parâmetros do `master_config.yaml`.
 
 ---
 
-## 🧠 3. Estágio: Treino & Otimização
-**Scripts**: `run_optuna.py`, `run_training.py`, `train_xgboost.py`
+## 🗃️ Estrutura Local (na VM / RunPod)
 
-### A. Metadados e Logs
-| Artefato | Caminho (Path) | Descrição |
+```
+data/L2/
+├── temp_raw/               ← Downloads temporários de ZIPs brutos (auto-limpados)
+├── pre_processed/          ← Saída do ETL: parquets sem target
+├── labelled/               ← Saída do Labelling: parquets com coluna 'target'
+│   ├── train/              ← 70% mais antigos (Modelo Base)
+│   └── val/                ← 30% mais recentes (separados cronologicamente)
+└── specialized/            ← Split do val da Fundação para o Especialista
+    ├── train/              ← 80% do val da Fundação (Modelo Especialista)
+    └── val/                ← 20% final (OOF puro - nunca visto por nenhum modelo)
+
+data/auditor/
+├── oof_predictions/        ← fold_0..4.parquet + full_oof.parquet
+├── dataset_fused/          ← Features + Logits fundidos para o Auditor XGBoost
+└── context/                ← Contexto de mercado
+
+data/models/
+├── best_tcn_lstm.pt        ← Melhor peso por F1 Macro (Foundation)
+├── best_tcn_lstm_dir.pt    ← Melhor peso por F1 Direcional (Foundation)
+├── scaler_foundation.pkl   ← StandardScaler fit no treino da Fundação
+├── best_specialist.pt      ← Melhor peso do Especialista
+├── scaler_specialized.pkl  ← StandardScaler fit no treino do Especialista
+├── auditor_xgboost.json    ← Modelo XGBoost Auditor
+└── scaler_auditor.pkl      ← StandardScaler do Auditor
+
+logs/
+├── etl/                    ← Logs do run_pipeline.py
+├── labelling/              ← Logs do run_labelling.py
+├── split_dataset/          ← Logs do split_dataset.py
+├── optimization/           ← Logs do run_foundation.py (Optuna)
+├── kfold_specialist/       ← Logs do run_kfold_specialist.py
+└── specialization/         ← Logs do run_specialization.py
+```
+
+---
+
+## 📋 Artefatos por Estágio
+
+### 1️⃣ ETL — `run_pipeline.py`
+
+| Artefato | Caminho Local | Destino no Drive |
 | :--- | :--- | :--- |
-| **Banco Optuna** | `sqlite:///optuna_tcn_lstm_v1_finetune.db` | Histórico completo de todos os trials e hiperparâmetros. |
-| **Logs Optuna** | `logs/optimization/optuna_*.log` | Detalhes técnicos de cada trial de otimização. |
-| **Logs Treino** | `logs/training/train_*.log` | Métricas por época (Loss, F1, Accuracy). |
-| **Melhores HPs** | `src/cloud/base_model/configs/best_params.json` | Parâmetros vencedores injetados no treino final. |
+| Log de operação | `logs/etl/etl_{ts}.log` | `AUDITORIA/ETL/` |
+| Relatório de qualidade | `docs/reports/data_quality_report.json` | `AUDITORIA/ETL/` |
+| Tabela de auditoria | `docs/reports/audit_summary.csv` | `AUDITORIA/ETL/` |
+| Manifesto de arquivos pulados | `docs/reports/pipeline_skip_manifest.json` | `AUDITORIA/ETL/` |
+| Dataset pré-processado | `data/L2/pre_processed/*.parquet` | `PRE_PROCESSED/` |
 
-### B. Modelos Digitais & Sinergia (Pesos + Scalers)
+---
+
+### 2️⃣ Labelling — `run_labelling.py`
+
+| Artefato | Caminho Local | Destino no Drive |
+| :--- | :--- | :--- |
+| Log de rotulação | `logs/labelling/labelling_{ts}.log` | `AUDITORIA/LABELLING/` |
+| Relatório QA pytest | `data/L2/labelled/labelling_health_QA.log` | `AUDITORIA/LABELLING/` |
+| Dataset rotulado | `data/L2/labelled/*.parquet` | `LABELLED/` |
+
+---
+
+### 3️⃣ Split — `split_dataset.py`
+
+| Artefato | Caminho Local | Destino no Drive |
+| :--- | :--- | :--- |
+| Log de split | `logs/split_dataset/split_dataset_{ts}.log` | `AUDITORIA/SPLIT/` |
+| Sumário com hashes | `data/L2/split_summary.json` | `AUDITORIA/SPLIT/` |
+
 > [!IMPORTANT]
-> Modelos e Scalers são tratados como uma única unidade lógica de inferência.
-
-| Componente | Pesos (Model Weights) | Normalizador (Scaler) | Descrição |
-| :--- | :--- | :--- | :--- |
-| **Fundação** | `data/models/best_tcn_lstm.pt` | `data/models/scaler_foundation.pkl` | Treinado em todo o dataset (Generalista). |
-| **Especialista** | `data/models/best_tcn_lstm_dir.pt` | `data/models/scaler_specialized.pkl` | Foco em Sniper de Direção. |
-| **Auditor** | `data/models/auditor_xgboost.json` | `data/models/scaler_auditor.pkl` | O "Juiz" final da operação. |
-
-### C. Auditoria de Governança Gold v4.6
-| Artefato | Caminho (Path) | Descrição |
-| :--- | :--- | :--- |
-| **Resumo Executivo** | `docs/reports/audit_summary.csv` | **Tabela mestre** com status `VALID`, `INVALID` ou `FIXED`. 🆕<br>Colunas: `status`, `max_gap_before`, `max_gap_after`, `features_healed`, `healing_details`. |
-| **Quality Report** | `docs/reports/data_quality_report.json` | JSON detalhado com anomalias de cauda (Z-Score) e linhagem. |
-| **Logs ETL** | `logs/etl/*.log` | Rastro técnico do processamento diário. |
-
-### C. Metadados e Logs de Treino
-| Artefato | Caminho (Path) | Descrição |
-| :--- | :--- | :--- |
-| **Banco Optuna** | `sqlite:///optuna_tcn_lstm_v1_finetune.db` | Histórico de trials e hiperparâmetros. |
-| **Logs Optuna** | `logs/optimization/optuna_*.log` | Detalhes técnicos de cada trial. |
-| **Logs Treino** | `logs/training/train_*.log` | Métricas por época (Loss, F1, Accuracy). |
-| **Melhores HPs** | `src/cloud/base_model/configs/best_params.json` | Parâmetros vencedores do treino final. |
-
-### D. Dados Intermediários de Auditoria
-| Artefato | Caminho (Path) | Descrição |
-| :--- | :--- | :--- |
-| **OOF Predictions** | `data/auditor/oof_predictions/*.parquet` | Predições fora-da-amostra usadas para treinar o Auditor sem leakage. |
-| **Fused Dataset** | `data/auditor/dataset_fused/*.parquet` | Dataset final consolidado (Features + Logits). |
+> As pastas `labelled/train`, `labelled/val` e `specialized/` **não sobem para o Drive**.
 
 ---
 
-## 🛡️ 4. Guia de Tags de Auditoria (v4.6 Gold)
-*   `[DNN_INPUT]`: As 30 features do modelo TCN-LSTM.
-*   `[XGB_ONLY]`: Os 6 logits (Buy/Sell/Neu) gerados por cada modelo.
-*   `[RAW_DATA]`: Dados brutos de suporte do Order Book.
-*   `🧟 DEAD FEATURE`: Feature sem variância (bug ou feed travado).
-*   `⚠️ HIGH TAIL`: Outliers extremos (Z-Score > 12).
+### 4️⃣ Foundation Optuna — `run_foundation.py`
+
+| Artefato | Caminho Local | Destino no Drive |
+| :--- | :--- | :--- |
+| Log de otimização | `logs/optimization/optimization_{ts}.log` | via `transfer.py` |
+| Banco Optuna | `data/models/optuna_tcn_lstm.db` | `MODELOS/foundation/` |
+| Melhores parâmetros (Macro) | `src/cloud/base_model/otimizacao/best_params.json` | `MODELOS/foundation/` |
+| Melhores parâmetros (Dir) | `src/cloud/base_model/otimizacao/best_dir_params.json` | `MODELOS/foundation/` |
+| Pesos do modelo (Macro) | `data/models/best_tcn_lstm.pt` | `MODELOS/foundation/` |
+| Pesos do modelo (Dir) | `data/models/best_tcn_lstm_dir.pt` | `MODELOS/foundation/` |
+| Scaler | `data/models/scaler_foundation.pkl` | `MODELOS/foundation/` |
+
+---
+
+### 5️⃣ K-Fold Specialist — `run_kfold_specialist.py`
+
+| Artefato | Caminho Local | Destino no Drive |
+| :--- | :--- | :--- |
+| Log do K-Fold | `logs/kfold_specialist/kfold_specialist_{ts}.log` | `AUDITORIA/KFOLD_SPECIALIST/` |
+| Relatório QA de segurança | `data/auditor/oof_predictions/kfold_security_QA.log` | `AUDITORIA/KFOLD_SPECIALIST/` |
+| Predições OOF por fold | `data/auditor/oof_predictions/fold_{k}.parquet` | local apenas |
+| OOF completo (cronológico) | `data/auditor/oof_predictions/full_oof.parquet` | local apenas |
+| Scaler por fold | `data/auditor/oof_predictions/scaler_fold_{k}.pkl` | local apenas |
+
+---
+
+### 6️⃣ Auditor XGBoost — `train_xgboost.py`
+
+| Artefato | Caminho Local | Destino no Drive |
+| :--- | :--- | :--- |
+| Log do Auditor | `logs/auditor/auditor_{ts}.log` | `AUDITORIA/AUDITOR/` |
+| Feature Importance | `docs/reports/feature_importance.json` | `AUDITORIA/AUDITOR/` |
+| Modelo XGBoost | `data/models/auditor_xgboost.json` | `MODELOS/specialized/` |
+| Scaler do Auditor | `data/models/scaler_auditor.pkl` | `MODELOS/specialized/` |
+
+---
+
+## 🛡️ Tags de Auditoria (Gold v4.6+)
+
+| Tag | Significado |
+| :--- | :--- |
+| `[DNN_INPUT]` | Feature usada como entrada do TCN-LSTM (coluna de feature) |
+| `[XGB_ONLY]` | Logit gerado por um modelo (entrada exclusiva do Auditor XGBoost) |
+| `[RAW_DATA]` | Dado bruto de suporte do Order Book (não usado como feature DNN) |
+| `🧟 DEAD FEATURE` | Feature sem variância — sinal de bug ou feed de dados travado |
+| `⚠️ HIGH TAIL` | Outlier extremo detectado (Z-Score > 12) |
+| `✅ VALID` | Arquivo aprovado na validação de integridade |
+| `🔧 FIXED` | Arquivo com gap temporal que foi curado pelo protocolo Island Split |
+| `❌ INVALID` | Arquivo rejeitado — não salvo no pre_processed |

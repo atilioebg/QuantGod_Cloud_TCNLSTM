@@ -5,15 +5,26 @@ Single source of truth for all local and remote paths.
 
 Convention:
   LOCAL  → generic names, no run params (e.g. data/L2/pre_processed)
-  DRIVE  → all exports go under a single session root:
-             drive:PROJETOS/RESULTADOS_SELL_{s}_BUY_{b}_{mins}min_{timestamp}/
-               ├── PRE_PROCESSED/
-               ├── LABELLED/
-               ├── AUDITORIA/{STAGE}/
-               └── MODELOS/{type}/
+  DRIVE  → all exports go under a single session root per pipeline run:
 
-  The session timestamp is fixed at first call within a process, so all stages
-  of the same pipeline run share the exact same root folder on Drive.
+  drive:PROJETOS/RESULTADOS_SELL_{s}_BUY_{b}_{mins}min_{timestamp}/
+  ├── PRE_PROCESSED/          ← run_pipeline.py        (ETL output: parquets sem target)
+  ├── LABELLED/               ← run_labelling.py       (Labelling output: parquets com coluna 'target')
+  ├── AUDITORIA/
+  │   ├── ETL/                ← run_pipeline.py        (logs + data_quality_report.json + audit_summary.csv)
+  │   ├── LABELLING/          ← run_labelling.py       (logs + labelling_health_QA.log)
+  │   ├── SPLIT/              ← split_dataset.py       (logs + split_summary.json)
+  │   ├── KFOLD_SPECIALIST/   ← run_kfold_specialist.py (logs + kfold_security_QA.log)
+  │   └── AUDITOR/            ← train_xgboost.py       (logs + feature_importance.json)
+  └── MODELOS/
+      ├── foundation/         ← transfer.py            (best_tcn_lstm.pt + scaler.pkl + optuna.db)
+      └── specialized/        ← transfer.py            (best_specialist.pt + kfold scalers + oof.parquet)
+
+  Os splits locais (labelled/train, labelled/val, specialized/) NAO sobem para o Drive.
+  Eles são derivados que podem ser recriados a partir de LABELLED + split_dataset.py.
+
+  O session timestamp é fixado uma vez por processo via _get_session_timestamp() (lru_cache),
+  garantindo que TODAS as etapas de uma mesma execução compartilhem a mesma pasta raiz.
 """
 from pathlib import Path
 from datetime import datetime

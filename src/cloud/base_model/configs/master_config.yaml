@@ -4,38 +4,37 @@
 
 pipeline_paths:
 
-  # ── [FONTES EXTERNAS — Google Drive / Rclone] ──────────────────────────────
-  raw_l2_source:       "drive:PROJETOS/BTC_USDT_L2_2023_2026"  # ZIPs brutos (streaming)
-  drive_results_root:  "drive:PROJETOS/RESULTADOS"              # Raiz única de todos os resultados (sufixo SELL/BUY/min/timestamp adicionado em runtime)
-                                                                 # Estrutura: RESULTADOS_{SELL}_{BUY}_{min}_{timestamp}/PRE_PROCESSED | LABELLED | AUDITORIA/{ESTAGIO} | MODELOS/{tipo}
+  # ── [FONTES EXTERNAS — Google Drive / Rclone] ──────────────────
+  raw_l2_source:       "drive:PROJETOS/BTC_USDT_L2_2023_2026"      # ZIPs brutos (streaming)
+  drive_results_root:  "drive:PROJETOS/RESULTADOS"                 # Raiz única de todos os resultados por sessão de treino
 
-  # ── [PASTAS LOCAIS — Dados L2] ─────────────────────────────────────────────
-  local_data_root:    "data/L2"                        # Raiz de todos os dados L2
-  temp_raw_dir:       "temp_raw"                       # Downloads temporários → data/L2/temp_raw
-  pre_processed_dir:  "pre_processed"                  # ETL Output: Todos os parquets processados (sem target)
-  labelled_dir:       "labelled"                       # Labelling Output: Todos os dados com coluna 'target' na pasta labelled_dir. O split_dataset.py criará /train e /val aqui (Usado pelo Modelo Base)
-  specialized_dir:    "specialized"                    # Specialist Output: O split_dataset.py pegará o /val do Modelo Base e dividirá em novo /train e /val aqui (Garante OOF puro p/ Specialist)
+  # ── [PASTAS LOCAIS — Dados L2] ──────────────────────────────────
+  local_data_root:    "data/L2"                                    # Raiz de todos os dados L2
+  temp_raw_dir:       "temp_raw"                                   # Downloads temporários → data/L2/temp_raw
+  pre_processed_dir:  "pre_processed"                              # ETL Output: Todos os parquets processados (sem target)
+  labelled_dir:       "labelled"                                   # Labelling Output: Todos os dados com coluna 'target' na pasta labelled_dir. O split_dataset.py criará /train e /val aqui (Usado pelo Modelo Base)
+  specialized_dir:    "specialized"                                # Specialist Output: O split_dataset.py pegará o /val do Modelo Base e dividirá em novo /train e /val aqui (Garante OOF puro p/ Specialist)
 
-  # ── [PASTAS LOCAIS — Auditor] ──────────────────────────────────────────────
-  fused_dataset_dir:    "data/auditor/dataset_fused"   # Dataset fundido (Logits + Contexto) → XGBoost Auditor
-  auditor_context_dir:  "data/auditor/context"         # Features de contexto do Auditor
-  auditor_oof_dir:      "data/auditor/oof_predictions" # Predições Out-of-Fold do Especialista
+  # ── [PASTAS LOCAIS — Auditor] ──────────────────────────────────
+  fused_dataset_dir:    "data/auditor/dataset_fused"               # Dataset fundido (Logits + Contexto) → XGBoost Auditor
+  auditor_context_dir:  "data/auditor/context"                     # Features de contexto do Auditor
+  auditor_oof_dir:      "data/auditor/oof_predictions"             # Predições Out-of-Fold do Especialista
 
-  # ── [MODELOS — Checkpoints .pt / .pkl] ────────────────────────────────────
+  # ── [MODELOS — Checkpoints .pt / .pkl] ─────────────────────────
   best_tcn_lstm_model:     "data/models/best_tcn_lstm.pt"          # Modelo Foundation (Optuna champion)
   best_tcn_lstm_dir_model: "data/models/best_tcn_lstm_dir.pt"      # Modelo de direção (Foundation)
   best_specialized_model:  "data/models/treino_best_model.pt"      # Modelo Specialist (fine-tuning)
   scaler_foundation:       "data/models/scaler_foundation.pkl"     # Scaler fitado no treino Foundation
   scaler_specialized:      "data/models/scaler_specialized.pkl"    # Scaler fitado no treino Specialist
 
-  # ── [MODELOS — Auditor XGBoost] ───────────────────────────────────────────
+  # ── [MODELOS — Auditor XGBoost] ────────────────────────────────
   auditor_model:   "data/models/auditor_xgboost.json"              # Modelo XGBoost (Juiz Auditor)
   scaler_auditor:  "data/models/scaler_auditor.pkl"                # Scaler fitado no treino Auditor
 
-  # ── [BANCO DE DADOS — Optuna HPO] ─────────────────────────────────────────
+  # ── [BANCO DE DADOS — Optuna HPO] ──────────────────────────────
   db_path: "sqlite:///optuna_tcn_lstm_v1_finetune.db"              # Banco SQLite do Optuna
 
-  # ── [LOGS E RELATÓRIOS — Raízes Locais] ───────────────────────────────────
+  # ── [LOGS E RELATÓRIOS — Raízes Locais] ────────────────────────
   local_logs_root:    "logs"          # Raiz de todos os logs locais
   local_reports_root: "docs/reports"  # Relatórios de qualidade, auditoria e manifestos
 
@@ -71,7 +70,7 @@ pre_processing:
     resample_freq: "5min"                                         # Frequência do resample: '1min' (alta capilaridade, ~1440 barras/dia) ou '5min' (modo legado, ~288 barras/dia).
                                                                   # IMPACTO: alterar este valor é seguro — todas as janelas abaixo são em MINUTOS REAIS e o ETL converte para barras automaticamente.
 
-    # ── Gap Management (v4.9 Audit Fix) ─────────────────────────────────
+    # ── Gap Management (v4.9 Audit Fix) ─────────────────────────
     gap_fragment_threshold_min: 30                                # [NOVO] Limiar de Hard Reset de ilha (minutos). Gaps > 30min criam nova ilha. Antes hardcoded em transform.py:585.
     healing:
       max_gap_minutes: 5                                          # [NOVO] Gaps <= 5min são curados por interpolação linear. Gaps de 5-30min: mantidos sem cura. Antes defaultava silenciosamente para 5 sem chave no config.
@@ -86,7 +85,7 @@ pre_processing:
     delta_short_min: 5                                            # Lookback curto: diff/pct_change de 5 minutos reais — captura choques e gatilhos de microestrutura.
     delta_long_min: 30                                            # Lookback longo: diff/pct_change de 30 minutos reais — captura drift e contexto de momentum.
 
-    # ── Estrutura do livro para features de profundidade ────────────
+    # ── Estrutura do livro para features de profundidade ───────
     book_asymmetry_depth: 5                                       # Número de níveis usados para Book Asymmetry V5: log(sum_bids_N / sum_asks_N)
     deep_book_start: 50                                           # Nível de início da janela "profunda" do livro para Deep-to-Front Ratio (L{start}–L{levels})
     convexity_near_end: 10                                        # Limite superior dos níveis "perto" para Book Convexity (L1–L{near_end} vs L{near_end+1}–L{far_end})
