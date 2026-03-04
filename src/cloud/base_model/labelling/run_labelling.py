@@ -199,6 +199,7 @@ def run_labelling():
         # --- Run QA Tests Before Export ---
         logger.info("🧪 Running Automated Health QA (pytest)...")
         qa_log_path = Path(local_src) / "labelling_health_QA.log"
+        qa_log_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             with open(qa_log_path, 'w', encoding='utf-8') as qa_file:
                 subprocess.run(
