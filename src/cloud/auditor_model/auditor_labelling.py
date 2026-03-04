@@ -155,7 +155,7 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
     are included in the final dataset. No positional-offset assumptions.
     """
     kfold_cfg   = config['pre_processing']['kfold']
-    oof_dir     = Path(kfold_cfg.get('oof_output_dir', 'data/auditor/oof_predictions'))
+    oof_dir     = Path(config['pipeline_paths'].get('auditor_oof_dir', 'data/auditor/oof_predictions'))
     full_oof_path = oof_dir / "full_oof.parquet"
 
     if not full_oof_path.exists():
@@ -414,8 +414,8 @@ if __name__ == "__main__":
     setup_logger("auditor_labelling", "")
     conf = load_config()
 
-    context_dir = "data/auditor/context"
-    fused_dir   = "data/auditor/dataset_fused"
+    context_dir = conf['pipeline_paths'].get('auditor_context_dir', 'data/auditor/context')
+    fused_dir   = conf['pipeline_paths'].get('fused_dataset_dir', 'data/auditor/dataset_fused')
 
     kfold_enabled = conf.get('pre_processing', {}).get('kfold', {}).get('enabled', False)
 

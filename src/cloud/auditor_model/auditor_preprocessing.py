@@ -11,6 +11,7 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 from src.cloud.base_model.utils.logging_utils import setup_logger
+from src.cloud.base_model.utils.path_utils import get_auditor_context_dir, get_labelled_dir
 
 logger = logging.getLogger(__name__)
 
@@ -262,9 +263,9 @@ if __name__ == "__main__":
     # do val) criava um espaço de índices incompatível — os índices seriam
     # 0..N_spec mas o OOF esperaria 0..N_foundation_val. Fix: sempre usar
     # Foundation Val como fonte de context features.
-    foundation_val_dir = Path(f"data/L2/splits_{base_labelled_name}/val")
+    foundation_val_dir = Path(get_labelled_dir(config)) / "val"
 
-    out_context_dir = Path("data/auditor/context")
+    out_context_dir = Path(get_auditor_context_dir(config))
 
     if foundation_val_dir.exists():
         logger.info(f"📂 [Audit Fix] Context features extraídas de Foundation Val: {foundation_val_dir}")

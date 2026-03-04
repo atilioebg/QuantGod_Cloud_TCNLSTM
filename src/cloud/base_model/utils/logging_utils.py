@@ -113,11 +113,14 @@ def upload_audit_to_drive(
     stage_name: str,
     extra_files: list = None,
     rclone_config: str = "rclone.conf",
+    config: dict = None,
 ):
     """
-    v4.9: Uploads audit files (logs + reports) to Google Drive.
+    v4.9+: Uploads audit files (logs + reports) to Google Drive.
 
-    Remote destination: drive:PROJETOS/AUDITORIA/{stage_name}/
+    Remote destination:
+      - With config: drive:PROJETOS/AUDITORIA_SELL_..._min/{stage_name}/
+      - Without config (fallback): drive:PROJETOS/AUDITORIA/{stage_name}/
 
     Args:
         local_dirs:    List of local directory paths (str or Path) to upload recursively.
@@ -127,6 +130,8 @@ def upload_audit_to_drive(
         extra_files:   Optional list of individual files to copy. Each file is uploaded
                        to the stage's root folder on Drive.
         rclone_config: Path to rclone.conf (default: "rclone.conf" in the project root).
+        config:        master_config dict (optional). When supplied, the Drive destination
+                       includes the run-specific suffix (SELL/BUY/lookahead).
 
     Notes:
         - Never raises exceptions — errors are logged and the function returns silently.
@@ -144,7 +149,17 @@ def upload_audit_to_drive(
         rclone_bin = str(Path("rclone.exe").absolute())
 
     cfg_args = ["--config", rclone_config] if Path(rclone_config).exists() else []
-    remote_base = f"drive:PROJETOS/AUDITORIA/{stage_name.upper()}"
+
+    # Build remote base: static fallback or dynamic with run suffix
+    if config is not None:
+        try:
+            from src.cloud.base_model.utils.path_utils import get_drive_dir
+            audit_base = config['pipeline_paths'].get('drive_audit_remote', 'drive:PROJETOS/AUDITORIA')
+            remote_base = f"{get_drive_dir(audit_base, config)}/{stage_name.upper()}"
+        except Exception:
+            remote_base = f"drive:PROJETOS/AUDITORIA/{stage_name.upper()}"
+    else:
+        remote_base = f"drive:PROJETOS/AUDITORIA/{stage_name.upper()}"
 
     logger.info(f"📤 [AUDIT UPLOAD] Stage={stage_name} → {remote_base}")
 

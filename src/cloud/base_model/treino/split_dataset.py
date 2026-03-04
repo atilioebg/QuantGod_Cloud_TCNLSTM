@@ -13,7 +13,7 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 from src.cloud.base_model.utils.logging_utils import setup_logger, upload_audit_to_drive
-from src.cloud.base_model.utils.path_utils import get_labelled_dir, get_specialized_dir
+from src.cloud.base_model.utils.path_utils import get_labelled_dir, get_specialized_dir, get_logs_root
 
 logger = logging.getLogger(__name__)
 
@@ -227,8 +227,12 @@ def split_and_segregate():
 
 if __name__ == "__main__":
     split_and_segregate()
-    # Audit Logs → Drive  (PROJETOS/AUDITORIA/SPLIT)
+    # Audit Logs → Drive  (PROJETOS/AUDITORIA_.../SPLIT)
+    import yaml as _yaml
+    with open("src/cloud/base_model/configs/master_config.yaml") as _f:
+        _cfg = _yaml.safe_load(_f)
     upload_audit_to_drive(
-        local_dirs=["logs/split_dataset"],
+        local_dirs=[f"{get_logs_root(_cfg)}/split_dataset"],
         stage_name="SPLIT",
+        config=_cfg,
     )

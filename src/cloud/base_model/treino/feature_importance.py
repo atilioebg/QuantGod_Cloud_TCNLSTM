@@ -234,10 +234,12 @@ def run_importance_analysis(model_path=None):
              logger.info(f"   {i}. {feat}")
         logger.info("="*50 + "\n")
     
-    output_path = Path("docs/reports/feature_importance.csv")
+    report_root = Path(config['pipeline_paths'].get('local_reports_root', 'docs/reports'))
+    output_path = report_root / "feature_importance.csv"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     results.to_csv(output_path, index=False)
     logger.info(f"Report saved to {output_path}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:

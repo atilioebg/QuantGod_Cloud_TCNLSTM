@@ -10,7 +10,10 @@ import pandas as pd  # For to_timedelta
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from src.cloud.base_model.utils.logging_utils import setup_logger, get_labelling_suffix, upload_audit_to_drive
-from src.cloud.base_model.utils.path_utils import get_pre_processed_dir, get_labelled_dir
+from src.cloud.base_model.utils.path_utils import (
+    get_pre_processed_dir, get_labelled_dir,
+    get_drive_dir, get_logs_root
+)
 
 logger = logging.getLogger(__name__)
 
@@ -177,31 +180,28 @@ def run_labelling():
     logger.info(f"Total processed files: {len(parquet_files)}")
     logger.info(f"CPUs used: {max_workers} / {total_cpus}")
 
-    # 4. Automated Export to Google Drive (QuantGod Cloud Extension)
+    # 4. Automated Export to Google Drive
     try:
-        num_features = config['model'].get('num_features', 30)
-        res_freq = config['pre_processing']['etl'].get('resample_freq', '1min')
-        
-        # Padrão Gold v4.5: LABELLED_L2_V4.5_GOLD_1min_30F
-        folder_name = f"LABELLED_L2_V4.5_GOLD_{res_freq}_{num_features}F"
-        local_src = str(base_output)
-        remote_dest = f"drive:PROJETOS/{folder_name}"
+        local_src   = str(base_output)
+        remote_dest = get_drive_dir(
+            config['pipeline_paths'].get('drive_labelled_remote', 'drive:PROJETOS/LABELLED_L2'),
+            config
+        )
         rclone_cfg = Path("rclone.conf")
-        
-        logger.info(f"🚀 Starting automated export to Drive: {folder_name}...")
-        
+
+        logger.info(f"🚀 Starting automated export to Drive: {remote_dest}...")
+
         # --- Run QA Tests Before Export ---
         logger.info("🧪 Running Automated Health QA (pytest)...")
         qa_log_path = Path(local_src) / "labelling_health_QA.log"
         try:
-            # Capture terminal output of pytest directly to the labelling folder
             with open(qa_log_path, 'w', encoding='utf-8') as qa_file:
                 subprocess.run(
                     ["pytest", "tests/labelling/test_labelling_output.py", "-v"],
                     stdout=qa_file,
                     stderr=subprocess.STDOUT,
                     env=dict(os.environ, PRE_PROCESSED_DIR=str(input_dir), LABELLED_DIR=local_src),
-                    check=False  # Do not raise exception if tests fail - log it and continue
+                    check=False
                 )
             logger.info(f"✅ QA Report saved to {qa_log_path}")
         except Exception as e:
@@ -210,8 +210,6 @@ def run_labelling():
         cmd = ["rclone", "copy", str(local_src), remote_dest, "-P"]
         if rclone_cfg.exists():
             cmd += ["--config", str(rclone_cfg)]
-        
-        # Using rclone.exe explicitly on Windows if it exists in root
         if os.name == 'nt' and Path("rclone.exe").exists():
             cmd[0] = str(Path("rclone.exe").absolute())
 
@@ -222,8 +220,11 @@ def run_labelling():
 
 if __name__ == "__main__":
     run_labelling()
-    # Audit Logs → Drive  (PROJETOS/AUDITORIA/LABELLING)
+    # Audit Logs → Drive  (PROJETOS/AUDITORIA_.../LABELLING)
+    import yaml as _yaml
+    with open("src/cloud/base_model/configs/master_config.yaml") as _f:
+        _cfg = _yaml.safe_load(_f)
     upload_audit_to_drive(
-        local_dirs=["logs/labelling"],
+        local_dirs=[f"{get_logs_root(_cfg)}/labelling"],
         stage_name="LABELLING",
     )

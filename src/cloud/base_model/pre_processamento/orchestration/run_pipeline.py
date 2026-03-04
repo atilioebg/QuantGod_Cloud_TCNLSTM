@@ -15,7 +15,10 @@ import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from src.cloud.base_model.utils.logging_utils import setup_logger, upload_audit_to_drive
-from src.cloud.base_model.utils.path_utils import get_pre_processed_dir, get_temp_raw_dir
+from src.cloud.base_model.utils.path_utils import (
+    get_pre_processed_dir, get_temp_raw_dir,
+    get_drive_dir, get_reports_root, get_logs_root
+)
 
 logger = logging.getLogger(__name__)
 
@@ -461,23 +464,19 @@ def run_pipeline():
 
     # 6. Automated Export to Google Drive (QuantGod Cloud Extension)
     try:
-        res_freq = config['pre_processing']['etl'].get('resample_freq', '1min')
-        res_min = "".join(filter(str.isdigit, res_freq)) or "1"
-        horizon_min = config['pre_processing']['labelling'].get('horizon_minutes', 15)
-        survival_min = config['pre_processing']['etl'].get('lookback_minutes', 120)
-        
-        # New Dynamic Format: PRE_PROCESSED_L2_{lookahead}_{lookback}_{grouping}
-        folder_name = f"PRE_PROCESSED_L2_{horizon_min}_{survival_min}_{res_min}"
-        local_src = get_pre_processed_dir(config)  # mesmo caminho usado no DataLoader
-        remote_dest = f"drive:PROJETOS/{folder_name}"
+        local_src   = get_pre_processed_dir(config)
+        remote_dest = get_drive_dir(
+            config['pipeline_paths'].get('drive_pre_processed_remote', 'drive:PROJETOS/PRE_PROCESSED_L2'),
+            config
+        )
         rclone_cfg = Path("rclone.conf")
-        
-        logger.info(f"🚀 Starting automated export to Drive: {folder_name}...")
-        
+
+        logger.info(f"🚀 Starting automated export to Drive: {remote_dest}...")
+
         cmd = ["rclone", "copy", str(local_src), remote_dest, "-P"]
         if rclone_cfg.exists():
             cmd += ["--config", str(rclone_cfg)]
-        
+
         # Using rclone.exe explicitly on Windows if it exists in root
         if os.name == 'nt' and Path("rclone.exe").exists():
             cmd[0] = str(Path("rclone.exe").absolute())
@@ -487,14 +486,15 @@ def run_pipeline():
     except Exception as e:
         logger.error(f"❌ Automated export failed: {e}")
 
-    # 7. Audit Reports + Logs → Drive  (PROJETOS/AUDITORIA/ETL)
+    # 7. Audit Reports + Logs → Drive  (PROJETOS/AUDITORIA_SELL.../ETL)
+    report_root = get_reports_root(config)
     upload_audit_to_drive(
-        local_dirs=["logs/etl"],
+        local_dirs=[f"{get_logs_root(config)}/etl"],
         stage_name="ETL",
         extra_files=[
-            "docs/reports/data_quality_report.json",
-            "docs/reports/audit_summary.csv",
-            "docs/reports/pipeline_skip_manifest.json",
+            f"{report_root}/data_quality_report.json",
+            f"{report_root}/audit_summary.csv",
+            f"{report_root}/pipeline_skip_manifest.json",
         ],
     )
 
