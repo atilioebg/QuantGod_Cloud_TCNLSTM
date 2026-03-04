@@ -15,8 +15,8 @@ pipeline_paths:
   local_data_root:    "data/L2"                        # Raiz de todos os dados L2
   temp_raw_dir:       "temp_raw"                       # Downloads temporários → data/L2/temp_raw
   pre_processed_dir:  "pre_processed"                  # Saída do ETL         → data/L2/pre_processed
-  labelled_dir:       "splits_labelled"                # Saída do Labelling   → data/L2/splits_labelled
-  specialized_dir:    "splits_specialized_labelled"    # Saída do Split Spec  → data/L2/splits_specialized_labelled
+  labelled_dir:       "labelled"                       # Saída do Labelling   → data/L2/labelled
+  specialized_dir:    "specialized"                    # Saída do Split Spec  → data/L2/specialized
 
   # ── [PASTAS LOCAIS — Auditor] ──────────────────────────────────────────────
   fused_dataset_dir:    "data/auditor/dataset_fused"   # Dataset fundido (Logits + Contexto) → XGBoost Auditor
