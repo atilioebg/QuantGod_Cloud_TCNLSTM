@@ -28,11 +28,11 @@ def cleanup_workspace():
     ]
     
     # Adiciona pastas dinâmicas de labelled e splits
-    l2_base = project_root / "data/L2"
+    l2_base = project_root / config['pipeline_paths'].get('local_data_root', 'data/L2')
     if l2_base.exists():
-        targets.extend(list(l2_base.glob("labelled*")))
-        targets.extend(list(l2_base.glob("splits*")))
-        targets.extend(list(l2_base.glob("specialized*")))
+        targets.extend(list(l2_base.glob(f"{config['pipeline_paths'].get('labelled_prefix', 'splits_labelled')}*")))
+        targets.extend(list(l2_base.glob("splits*")))  # Retrocompatibilidade
+        targets.extend(list(l2_base.glob(f"{config['pipeline_paths'].get('specialized_prefix', 'splits_specialized_labelled')}*")))
 
     print("\n--- INICIANDO LIMPEZA DO WORKSPACE ---")
     for target in targets:
@@ -48,9 +48,9 @@ def cleanup_workspace():
                 print(f"   Erro ao remover {target}: {e}")
     
     # Recriar estrutura minima necessaria
-    (project_root / "logs").mkdir(exist_ok=True)
-    (project_root / "data/L2/raw").mkdir(parents=True, exist_ok=True)
-    (project_root / "data/L2/pre_processed").mkdir(parents=True, exist_ok=True)
+    (project_root / config['pipeline_paths'].get('local_logs_root', 'logs')).mkdir(exist_ok=True)
+    temp_raw = Path(config['pipeline_paths'].get('local_data_root', 'data/L2')) / config['pipeline_paths'].get('temp_raw_dir', 'temp_raw')
+    temp_raw.mkdir(parents=True, exist_ok=True)
     print("Workspace limpo e resetado! Estrutura base recriada.\n")
 
 def transfer_results(log_filename: str, run_type: str):
@@ -112,27 +112,30 @@ def transfer_results(log_filename: str, run_type: str):
     if run_type == "foundation":
         # ── Coleção de LOGS e REPORTS ─────────────────────────────────────────
         # Log da Otimização
-        log_path = project_root / "logs" / "optimization" / log_filename
+        log_root = config['pipeline_paths'].get('local_logs_root', 'logs')
+        log_path = project_root / log_root / "optimization" / log_filename
         if log_path.exists():
             files_to_transfer.append(log_path)
             
         # Logs de ETL, Labelling, Treino e Tests
+        log_root = config['pipeline_paths'].get('local_logs_root', 'logs')
         log_patterns = [
-            "logs/etl/*.log",
-            "logs/labelling/*.log",
-            "logs/treino/*.log",           # ← logs do run_training.py (adicionado)
-            "logs/treino_specialization/*.log",  # ← especialização (foundation tb carrega)
-            "logs/auditor_preprocessing/*.log",
-            "logs/auditor_labelling/*.log",
-            "logs/train_xgboost/*.log",
-            "logs/optimization/*.log",     # ← todos os logs de optuna, não só o passado
-            "logs/tests/*.log",            # ← last_run.log + failed_files_report.log
+            f"{log_root}/etl/*.log",
+            f"{log_root}/labelling/*.log",
+            f"{log_root}/treino/*.log",           # ← logs do run_training.py (adicionado)
+            f"{log_root}/treino_specialization/*.log",  # ← especialização (foundation tb carrega)
+            f"{log_root}/auditor_preprocessing/*.log",
+            f"{log_root}/auditor_labelling/*.log",
+            f"{log_root}/train_xgboost/*.log",
+            f"{log_root}/optimization/*.log",     # ← todos os logs de optuna, não só o passado
+            f"{log_root}/tests/*.log",            # ← last_run.log + failed_files_report.log
         ]
         for pattern in log_patterns:
             files_to_transfer.extend(list(project_root.glob(pattern)))
             
         # Reports de Auditoria
-        files_to_transfer.extend(list((project_root / "docs/reports").glob("*.md")))
+        report_root = config['pipeline_paths'].get('local_reports_root', 'docs/reports')
+        files_to_transfer.extend(list((project_root / report_root).glob("*.md")))
         
         # ── DATABASE & MODELS ─────────────────────────────────────────────────
         # Priority: pipeline_paths -> optimization -> default fallback
@@ -149,9 +152,9 @@ def transfer_results(log_filename: str, run_type: str):
                 files_to_transfer.append(project_root / val)
         
     elif run_type == "specialized":
-        # Pega logs de specialization e auditoria
+        log_root = config['pipeline_paths'].get('local_logs_root', 'logs')
         for log_folder in ["treino_specialization", "auditor_preprocessing", "auditor_labelling", "train_xgboost"]:
-            spec_logs_dir = project_root / "logs" / log_folder
+            spec_logs_dir = project_root / log_root / log_folder
             if spec_logs_dir.exists():
                 logs = sorted(list(spec_logs_dir.glob("*.log")))
                 if logs:
@@ -165,19 +168,22 @@ def transfer_results(log_filename: str, run_type: str):
         
     elif run_type == "all":
         # ── COLECAO ABSOLUTA (PIPELINE COMPLETO V4.3) ─────────────────────────
+        log_root = config['pipeline_paths'].get('local_logs_root', 'logs')
+        data_root = config['pipeline_paths'].get('local_data_root', 'data/L2')
         log_patterns = [
-            "logs/etl/*.log", "logs/labelling/*.log", "logs/treino/*.log", 
-            "logs/treino_specialization/*.log", "logs/auditor_preprocessing/*.log",
-            "logs/auditor_labelling/*.log", "logs/train_xgboost/*.log",
-            "logs/optimization/*.log", "logs/tests/*.log",
-            "logs/QA/*.log",                  # Strict OOF QA Reports
-            "logs/run_manager/*.log",
-            "data/L2/split_summary_*.json"    # Temporal integrity checksums
+            f"{log_root}/etl/*.log", f"{log_root}/labelling/*.log", f"{log_root}/treino/*.log", 
+            f"{log_root}/treino_specialization/*.log", f"{log_root}/auditor_preprocessing/*.log",
+            f"{log_root}/auditor_labelling/*.log", f"{log_root}/train_xgboost/*.log",
+            f"{log_root}/optimization/*.log", f"{log_root}/tests/*.log",
+            f"{log_root}/QA/*.log",                  # Strict OOF QA Reports
+            f"{log_root}/run_manager/*.log",
+            f"{data_root}/split_summary_*.json"    # Temporal integrity checksums
         ]
         for pattern in log_patterns:
             files_to_transfer.extend(list(project_root.glob(pattern)))
             
-        files_to_transfer.extend(list((project_root / "docs/reports").glob("*.md")))
+        report_root = config['pipeline_paths'].get('local_reports_root', 'docs/reports')
+        files_to_transfer.extend(list((project_root / report_root).glob("*.md")))
         
         # All databases
         files_to_transfer.extend(list(project_root.glob("*.db")))
@@ -189,7 +195,8 @@ def transfer_results(log_filename: str, run_type: str):
             if val: files_to_transfer.append(project_root / val)
         
     # Relatorio de Feature Importance (comum a ambos, mas gerado no foundation agora)
-    fi_csv = project_root / "docs" / "reports" / "feature_importance.csv"
+    report_root = config['pipeline_paths'].get('local_reports_root', 'docs/reports')
+    fi_csv = project_root / report_root / "feature_importance.csv"
     if fi_csv.exists():
         files_to_transfer.append(fi_csv)
 

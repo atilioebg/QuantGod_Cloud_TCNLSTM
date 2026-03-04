@@ -15,6 +15,15 @@ pipeline_paths:
   scaler_auditor: "data/models/scaler_auditor.pkl"                # Normalizador fitado no Treino (Auditor)
   fused_dataset_dir: "data/auditor/dataset_fused"                 # Dataset fundido (Logits + Contexto) para o XGBoost Auditor
 
+  # ── Local Storage Roots ──
+  local_data_root: "data/L2"                                      # Raiz local para todo o armazenamento L2
+  temp_raw_dir: "temp_raw"                                        # Pasta temporária para downloads rclone
+  pre_processed_prefix: "PRE_PROCESSED_L2"                        # Prefixo da pasta de features (ETL)
+  labelled_prefix: "splits_labelled"                              # Prefixo da pasta de labels (Labelling)
+  specialized_prefix: "splits_specialized_labelled"               # Prefixo da pasta de labels do especialista (Split)
+  local_logs_root: "logs"                                         # Raiz local para logs
+  local_reports_root: "docs/reports"                              # Raiz para relatórios de auditoria e manifestos
+
 pipeline_control:
   force_full_retrain: true                                        # Se false, tenta carregar estágios já concluídos usando checkpoints
   skip_qa_on_failure: false                                       # Aborta o processo se um log de QA apontar anomalia grave

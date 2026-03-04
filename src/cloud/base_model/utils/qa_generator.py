@@ -11,6 +11,7 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 from src.cloud.base_model.utils.logging_utils import setup_logger
+from src.cloud.base_model.utils.path_utils import get_labelled_dir, get_specialized_dir
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,8 @@ def generate_qa_log(stage_name: str, data_dir: str):
     Gera um relatorio de saude estruturado com o seguinte padrao OOF:
     [Timestamp, Event, Status, Metric_Value, Details]
     """
-    log_file = Path("logs/QA") / f"{stage_name}_health_QA.log"
+    log_root = config.get('pipeline_paths', {}).get('local_logs_root', 'logs')
+    log_file = Path(log_root) / "QA" / f"{stage_name}_health_QA.log"
     log_file.parent.mkdir(parents=True, exist_ok=True)
     
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -92,6 +94,8 @@ if __name__ == "__main__":
     base_labelled_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
     
     # QA Checkpoint
-    generate_qa_log("base_labelling", f"data/L2/splits_{base_labelled_name}/train")
-    generate_qa_log("specialized_labelling", f"data/L2/splits_specialized_{base_labelled_name}/train")
-    generate_qa_log("auditor_final", "data/auditor/dataset_fused/train")
+    generate_qa_log("base_labelling", f"{get_labelled_dir(config)}/train")
+    generate_qa_log("specialized_labelling", f"{get_specialized_dir(config)}/train")
+    
+    fused_dir = config['pipeline_paths'].get('fused_dataset_dir', 'data/auditor/dataset_fused')
+    generate_qa_log("auditor_final", f"{fused_dir}/train")

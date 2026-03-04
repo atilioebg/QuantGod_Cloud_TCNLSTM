@@ -21,7 +21,8 @@ if project_root not in sys.path:
 from src.cloud.base_model.models.model import Hybrid_TCN_LSTM
 from src.cloud.base_model.treino.losses import FocalLossWithSmoothing
 from sklearn.preprocessing import StandardScaler
-from src.cloud.base_model.utils.logging_utils import setup_logger
+from src.cloud.base_model.utils.logging_utils import setup_logger, upload_audit_to_drive
+from src.cloud.base_model.utils.path_utils import get_specialized_dir
 from src.cloud.base_model.utils.experiment_utils import resolve_data_paths
 from sklearn.metrics import f1_score
 
@@ -288,18 +289,9 @@ def run_specialization():
     if 'paths' not in config: config['paths'] = {'train_dir': 'AUTO', 'val_dir': 'AUTO'}
     config['paths']['train_dir'], config['paths']['val_dir'] = resolve_data_paths(config['paths'])
     
-    # Path Resolution Fix: Using dynamic labelling suffix
-    pre = config.get('pre_processing', {})
-    lab = pre.get('labelling', {})
-    sell_th = lab.get('sell_threshold', 0.003)
-    buy_th  = lab.get('buy_threshold', 0.003)
-    mins    = lab.get('horizon_minutes', 15)
-    base_labelled_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
-    
-    # Base split is splits_labelled_...
     # Specialized split is splits_specialized_labelled_... (as per split_dataset.py)
-    spec_train_dir = Path(f"data/L2/splits_specialized_{base_labelled_name}/train")
-    spec_val_dir   = Path(f"data/L2/splits_specialized_{base_labelled_name}/val")
+    spec_train_dir = Path(get_specialized_dir(config)) / "train"
+    spec_val_dir   = Path(get_specialized_dir(config)) / "val"
     
     logger.info(f"📂 Loading Specialized Splits explicitly from: {spec_train_dir}")
     feature_cols = config['model']['feature_names']

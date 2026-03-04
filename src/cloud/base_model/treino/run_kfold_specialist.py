@@ -36,7 +36,10 @@ import sys
 import gc
 from pathlib import Path
 from datetime import datetime
+from tqdm import tqdm
+import os
 
+# Add project root to path
 project_root = str(Path(__file__).parents[4])
 if project_root not in sys.path:
     sys.path.append(project_root)
@@ -44,6 +47,7 @@ if project_root not in sys.path:
 from src.cloud.base_model.models.model import Hybrid_TCN_LSTM
 from src.cloud.base_model.treino.losses import FocalLossWithSmoothing
 from src.cloud.base_model.utils.logging_utils import setup_logger, upload_audit_to_drive
+from src.cloud.base_model.utils.path_utils import get_labelled_dir
 from src.cloud.base_model.utils.experiment_utils import resolve_data_paths
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import f1_score
@@ -383,13 +387,8 @@ def run_kfold_specialist():
         best_params = json.load(f)
     logger.info(f"Loaded Foundation Arch: seq_len={best_params['seq_len']}, tcn={best_params['tcn_channels']}, lstm={best_params['lstm_hidden']}×{best_params['num_lstm_layers']}")
 
-    # ── 3. Load Foundation Validation data ───────────────────────────────────
-    # Source: splits_{labelled_name}/val — the 30% hold-out from Foundation
-    sell_th = config['pre_processing']['labelling'].get('sell_threshold', 0.003)
-    buy_th  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
-    mins    = config['pre_processing']['labelling'].get('horizon_minutes', 15)
-    base_labelled_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
-    foundation_val_dir = Path(f"data/L2/splits_{base_labelled_name}/val")
+    # Source: {labelled_dir}/val — the 30% hold-out from Foundation
+    foundation_val_dir = Path(get_labelled_dir(config)) / "val"
 
     if not foundation_val_dir.exists():
         logger.error(f"❌ Foundation Val not found: {foundation_val_dir}. Run split_dataset.py first.")

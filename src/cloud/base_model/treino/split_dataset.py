@@ -13,16 +13,20 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 from src.cloud.base_model.utils.logging_utils import setup_logger, upload_audit_to_drive
+from src.cloud.base_model.utils.path_utils import get_labelled_dir, get_specialized_dir
 
 logger = logging.getLogger(__name__)
 
 def sha256_file(filepath):
-    """Calculates SHA256 hash of a file."""
-    h = hashlib.sha256()
-    with open(filepath, 'rb') as file:
-        while chunk := file.read(8192):
-            h.update(chunk)
-    return h.hexdigest()
+    # Calculations SHA256 hash of a file.
+    sha = hashlib.sha256()
+    with open(filepath, 'rb') as f:
+        while True:
+            data = f.read(65536)
+            if not data: break
+            sha.update(data)
+    return sha.hexdigest()
+
 
 def execute_split(stage_name, source_files, target_base_dir, train_ratio):
     """Executes a chronological split (shuffle=False) to prevent data leakage."""
@@ -100,21 +104,11 @@ def split_and_segregate():
     with open(master_cfg_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
         
-    # Reconstruindo a resolucao das pastas baseadas na configuracao
-    sell_th = config['pre_processing']['labelling'].get('sell_threshold', 0.003)
-    buy_th  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
-    mins    = config['pre_processing']['labelling'].get('horizon_minutes', 15)
-    
-    base_labelled_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
-    # O script run_labelling cria a pasta com prefixo 'splits_'
-    source_dir = Path(f"data/L2/splits_{base_labelled_name}")
+    # Resolvendo os diretórios baseados no config centralizado
+    source_dir = Path(get_labelled_dir(config))
 
     if not source_dir.exists():
-        # Fallback para o nome sem prefixo caso ja exista de outra forma
-        source_dir = Path(f"data/L2/{base_labelled_name}")
-        
-    if not source_dir.exists():
-        logger.error(f"❌ Source labelled (Master Dataset) directory not found: data/L2/splits_{base_labelled_name}")
+        logger.error(f"❌ Source labelled (Master Dataset) directory not found: {source_dir}")
         return
 
     # Garante a ordem do timestamp puramente baseando no texto da filename (arquivos parquet nomeados temporalmente)
@@ -130,8 +124,8 @@ def split_and_segregate():
     spec_train_pct = config['pre_processing']['split']['specialized'].get('train_ratio', 0.80)
     
     # Destinos
-    base_split_dir = Path(f"data/L2/splits_{base_labelled_name}")
-    spec_split_dir = Path(f"data/L2/splits_specialized_{base_labelled_name}")
+    base_split_dir = source_dir
+    spec_split_dir = Path(get_specialized_dir(config))
     
     # ── 1. LAYER 1: Foundation (splits_base) ───────────────────────────
     # Pega TODO O DATASET e corta o futuro em 30% pra validacao (invisivel aos pesos da base)

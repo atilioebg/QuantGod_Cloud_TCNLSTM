@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 class DataExtractor:
-    def __init__(self, path_or_remote: str, rclone_config: str = None):
+    def __init__(self, path_or_remote: str, rclone_config: str = None, temp_dir: str = "data/L2/temp_raw"):
         """
         path_or_remote: can be a local path or an rclone remote (e.g., 'drive:path/to/data')
         """
@@ -19,7 +19,7 @@ class DataExtractor:
         self.rclone_config = rclone_config
         # remote if it has : and it's not a single char (Windows drive)
         self.is_remote = ":" in path_or_remote and not (len(path_or_remote.split(":")[0]) == 1 and path_or_remote[1] == ":")
-        self.temp_dir = Path("data/L2/temp_raw")
+        self.temp_dir = Path(temp_dir)
         self.temp_dir.mkdir(parents=True, exist_ok=True)
 
     def _run_rclone(self, args: list) -> str:
