@@ -576,8 +576,10 @@ def run_kfold_specialist():
 
 if __name__ == "__main__":
     run_kfold_specialist()
-    # Audit Logs → Drive  (PROJETOS/AUDITORIA/KFOLD_SPECIALIST)
+    # Audit Logs → RESULTADOS_.../AUDITORIA/KFOLD_SPECIALIST/
+    _cfg = load_config()
     upload_audit_to_drive(
         local_dirs=["logs/kfold_specialist"],
         stage_name="KFOLD_SPECIALIST",
+        config=_cfg,
     )

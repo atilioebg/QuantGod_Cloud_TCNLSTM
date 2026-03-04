@@ -64,6 +64,7 @@ def transfer_results(log_filename: str, run_type: str):
     """
     Coleta os artefatos baseados no tipo de corrida ('foundation' ou 'specialized')
     e envia para a pasta de resultados hierárquica no Google Drive.
+    Destino: RESULTADOS_{SELL}_{BUY}_{min}_{timestamp}/MODELOS/{run_type}
     """
     if run_type not in ["foundation", "specialized", "all"]:
         logger.error(f"Erro: Tipo invalido '{run_type}'. Use 'foundation', 'specialized' or 'all'.")
@@ -76,23 +77,11 @@ def transfer_results(log_filename: str, run_type: str):
     with open(master_cfg_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
     
-    # Nome da pasta de destino raiz
-    folder_name = log_filename.replace(".log", "")
-    
-    # Definir base do Drive (Detecta se Windows ou Linux/Pod)
-    if os.environ.get('MOCK_DRIVE') == '1':
-        drive_base = Path("mock_drive_results")
-    elif os.name == 'nt':
-        drive_base = Path("Z:/PROJETOS/RESULTADOS")
-    else:
-        drive_base = project_root / "drive" / "PROJETOS" / "RESULTADOS"
-    
-    # Destino Final Especifico do Tipo
-    timestamp = datetime.now().strftime("%d%m%y_%H%M%S")
-    # Destino Final Especifico do Tipo
-    timestamp = datetime.now().strftime("%d%m%y_%H%M%S")
-    dest_dir = drive_base / f"{folder_name}_{timestamp}" / run_type
-    logger.info(f"--- Iniciando transferencia [{run_type.upper()}] para: {dest_dir} ---")
+    from src.cloud.base_model.utils.path_utils import get_drive_session_path
+
+    # Destino: pasta centralizada de sessão / MODELOS / run_type
+    remote_path = get_drive_session_path(f"MODELOS/{run_type}", config)
+    logger.info(f"--- Iniciando transferencia [{run_type.upper()}] para: {remote_path} ---")
 
     # 1.5 Gerar Landscape CSV (apenas no foundation para refletir a otimização)
     if run_type == "foundation":
@@ -250,7 +239,6 @@ def transfer_results(log_filename: str, run_type: str):
                 shutil.copy2(src, temp_staging / src.name)
 
             rclone_cfg = project_root / "rclone.conf"
-            remote_path = f"drive:PROJETOS/RESULTADOS/{folder_name}_{timestamp}/{run_type}"
             
             cmd = ["rclone", "copy", str(temp_staging), remote_path, "-P"]
             if rclone_cfg.exists():
@@ -263,10 +251,9 @@ def transfer_results(log_filename: str, run_type: str):
                 shutil.rmtree(project_root / "data" / "temp_results")
                 return
 
-        # Fallback ou Windows
-        if not dest_dir.exists():
-            dest_dir.mkdir(parents=True, exist_ok=True)
-            
+        # Fallback (Windows sem rclone)
+        dest_dir = project_root / "data" / "temp_results" / run_type
+        dest_dir.mkdir(parents=True, exist_ok=True)
         for src in files_to_transfer:
             logger.info(f"   📂 Copiando: {src.name}...")
             shutil.copy2(src, dest_dir / src.name)

@@ -150,16 +150,15 @@ def upload_audit_to_drive(
 
     cfg_args = ["--config", rclone_config] if Path(rclone_config).exists() else []
 
-    # Build remote base: static fallback or dynamic with run suffix
+    # Build remote base: centralized session root + stage subfolder
     if config is not None:
         try:
-            from src.cloud.base_model.utils.path_utils import get_drive_dir
-            audit_base = config['pipeline_paths'].get('drive_audit_remote', 'drive:PROJETOS/AUDITORIA')
-            remote_base = f"{get_drive_dir(audit_base, config)}/{stage_name.upper()}"
+            from src.cloud.base_model.utils.path_utils import get_drive_session_path
+            remote_base = get_drive_session_path(f"AUDITORIA/{stage_name.upper()}", config)
         except Exception:
-            remote_base = f"drive:PROJETOS/AUDITORIA/{stage_name.upper()}"
+            remote_base = f"drive:PROJETOS/RESULTADOS/AUDITORIA/{stage_name.upper()}"
     else:
-        remote_base = f"drive:PROJETOS/AUDITORIA/{stage_name.upper()}"
+        remote_base = f"drive:PROJETOS/RESULTADOS/AUDITORIA/{stage_name.upper()}"
 
     logger.info(f"📤 [AUDIT UPLOAD] Stage={stage_name} → {remote_base}")
 

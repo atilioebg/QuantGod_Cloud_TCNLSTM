@@ -213,13 +213,11 @@ def run_labelling():
     logger.info(f"Total processed files: {len(parquet_files)}")
     logger.info(f"CPUs used: {max_workers} / {total_cpus}")
 
-    # 4. Automated Export to Google Drive
+    # 4. Automated Export to Google Drive → RESULTADOS_.../LABELLED/
     try:
+        from src.cloud.base_model.utils.path_utils import get_drive_session_path
         local_src   = str(base_output)
-        remote_dest = get_drive_dir(
-            config['pipeline_paths'].get('drive_labelled_remote', 'drive:PROJETOS/LABELLED_L2'),
-            config
-        )
+        remote_dest = get_drive_session_path("LABELLED", config)
         rclone_cfg = Path("rclone.conf")
 
         logger.info(f"🚀 Starting automated export to Drive: {remote_dest}...")

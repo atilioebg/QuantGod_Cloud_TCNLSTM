@@ -462,13 +462,12 @@ def run_pipeline():
     except Exception as e:
         logger.error(f"⚠️ Gold Standard testing execution failed: {e}")
 
-    # 6. Automated Export to Google Drive (QuantGod Cloud Extension)
+    from src.cloud.base_model.utils.path_utils import get_drive_session_path
+
+    # 6. Automated Export to Google Drive → RESULTADOS_.../PRE_PROCESSED/
     try:
         local_src   = get_pre_processed_dir(config)
-        remote_dest = get_drive_dir(
-            config['pipeline_paths'].get('drive_pre_processed_remote', 'drive:PROJETOS/PRE_PROCESSED_L2'),
-            config
-        )
+        remote_dest = get_drive_session_path("PRE_PROCESSED", config)
         rclone_cfg = Path("rclone.conf")
 
         logger.info(f"🚀 Starting automated export to Drive: {remote_dest}...")
@@ -477,7 +476,6 @@ def run_pipeline():
         if rclone_cfg.exists():
             cmd += ["--config", str(rclone_cfg)]
 
-        # Using rclone.exe explicitly on Windows if it exists in root
         if os.name == 'nt' and Path("rclone.exe").exists():
             cmd[0] = str(Path("rclone.exe").absolute())
 
@@ -486,11 +484,12 @@ def run_pipeline():
     except Exception as e:
         logger.error(f"❌ Automated export failed: {e}")
 
-    # 7. Audit Reports + Logs → Drive  (PROJETOS/AUDITORIA_SELL.../ETL)
+    # 7. Audit Reports + Logs → RESULTADOS_.../AUDITORIA/ETL/
     report_root = get_reports_root(config)
     upload_audit_to_drive(
         local_dirs=[f"{get_logs_root(config)}/etl"],
         stage_name="ETL",
+        config=config,
         extra_files=[
             f"{report_root}/data_quality_report.json",
             f"{report_root}/audit_summary.csv",

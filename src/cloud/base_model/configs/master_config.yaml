@@ -5,17 +5,15 @@
 pipeline_paths:
 
   # ── [FONTES EXTERNAS — Google Drive / Rclone] ──────────────────────────────
-  raw_l2_source:              "drive:PROJETOS/BTC_USDT_L2_2023_2026"  # ZIPs brutos (streaming)
-  drive_pre_processed_remote: "drive:PROJETOS/PRE_PROCESSED_L2"       # Export do ETL (sufixo SELL/BUY/min adicionado em runtime)
-  drive_labelled_remote:      "drive:PROJETOS/LABELLED_L2"            # Export do Labelling (sufixo adicionado em runtime)
-  drive_results_remote:       "drive:PROJETOS/RESULTADOS"             # Resultados de treino (sufixo adicionado em runtime)
-  drive_audit_remote:         "drive:PROJETOS/AUDITORIA"              # Logs de auditoria (sufixo adicionado em runtime)
+  raw_l2_source:       "drive:PROJETOS/BTC_USDT_L2_2023_2026"  # ZIPs brutos (streaming)
+  drive_results_root:  "drive:PROJETOS/RESULTADOS"              # Raiz única de todos os resultados (sufixo SELL/BUY/min/timestamp adicionado em runtime)
+                                                                 # Estrutura: RESULTADOS_{SELL}_{BUY}_{min}_{timestamp}/PRE_PROCESSED | LABELLED | AUDITORIA/{ESTAGIO} | MODELOS/{tipo}
 
   # ── [PASTAS LOCAIS — Dados L2] ─────────────────────────────────────────────
   local_data_root:    "data/L2"                        # Raiz de todos os dados L2
   temp_raw_dir:       "temp_raw"                       # Downloads temporários → data/L2/temp_raw
   pre_processed_dir:  "pre_processed"                  # ETL Output: Todos os parquets processados (sem target)
-  labelled_dir:       "labelled"                       # Labelling Output: Todos os dados com coluna 'target'. O split_dataset.py criará /train e /val aqui (Usado pelo Modelo Base)
+  labelled_dir:       "labelled"                       # Labelling Output: Todos os dados com coluna 'target' na pasta labelled_dir. O split_dataset.py criará /train e /val aqui (Usado pelo Modelo Base)
   specialized_dir:    "specialized"                    # Specialist Output: O split_dataset.py pegará o /val do Modelo Base e dividirá em novo /train e /val aqui (Garante OOF puro p/ Specialist)
 
   # ── [PASTAS LOCAIS — Auditor] ──────────────────────────────────────────────
@@ -40,7 +38,6 @@ pipeline_paths:
   # ── [LOGS E RELATÓRIOS — Raízes Locais] ───────────────────────────────────
   local_logs_root:    "logs"          # Raiz de todos os logs locais
   local_reports_root: "docs/reports"  # Relatórios de qualidade, auditoria e manifestos
-
 
 pipeline_control:
   force_full_retrain: true                                        # Se false, tenta carregar estágios já concluídos usando checkpoints
