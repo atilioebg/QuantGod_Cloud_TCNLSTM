@@ -22,94 +22,122 @@ from src.cloud.base_model.utils.path_utils import (
 
 logger = logging.getLogger(__name__)
 
-def apply_labelling(file_path, config):
+def apply_labelling(file_path, config, audit_mode: bool = False):
     """
-    Applies asymmetric labelling logic to a single parquet file.
-    The lookahead window is converted from minutes to BARS based on resample_freq,
-    ensuring label correctness regardless of temporal resolution.
+    [v4.9 Gold — Point-to-Point Pure]
+    Labelling estritamente close-to-close no horizonte exato de lookahead.
+
+    Regras:
+    - Target BUY  (2): close[t+h] / close[t] >= 1 + buy_th
+    - Target SELL (0): close[t+h] / close[t] <= 1 - sell_th
+    - Target NEUTRAL(1): caso contrário
+    - Target NaN: qualquer gap (tick_count=0) no intervalo [t+1, t+h],
+                  OU se t+h pertencer a uma island_id diferente de t.
+
+    HIGH e LOW não são usados em nenhuma etapa.
     """
     try:
         sell_th = config['pre_processing']['labelling'].get('sell_threshold', 0.003)
         buy_th  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
         mins    = config['pre_processing']['labelling'].get('horizon_minutes', 15)
 
-        # v4.9 Gold: Convert horizon_minutes to BARS (not raw minutes).
-        # With resample_freq='5min', horizon=15min → 3 bars (not 15).
-        resample_freq = config['pre_processing']['etl'].get('resample_freq', '1min')
-        resample_min  = int(pd.to_timedelta(resample_freq).total_seconds() // 60)
+        # Converter horizonte para BARRAS (ex: 15min / 5min = 3 barras)
+        resample_freq  = config['pre_processing']['etl'].get('resample_freq', '1min')
+        resample_min   = int(pd.to_timedelta(resample_freq).total_seconds() // 60)
         lookahead_bars = max(1, mins // resample_min)
 
-        suffix = f"_labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
-        output_dir = Path(f"data/L2/splits{suffix}")
+        # Diretório de saída (genérico, definido no master_config)
+        output_dir = Path(get_labelled_dir(config))
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        threshold_long = buy_th
-        threshold_short = -sell_th
-        
-        # 1. Load Parquet (Selective Load to save RAM)
+        # 1. Carregar Parquet
         df = pl.read_parquet(file_path)
-        
-        # 2. Future Logic - Sniper v4.6 Gold
-        # Lookahead: calculate max high and min low in the next 'lookahead_bars' BARS
-        # Zero Tolerance Rule: Invalidate if any bar has tick_count == 0 (market silence)
-        # Protocol Island Split: Use 'over' to prevent looking into different islands
 
         island_col = 'island_id' if 'island_id' in df.columns else None
 
+        # 2. Colunas futuras — SOMENTE close e tick_count; HIGH e LOW ignorados.
         if island_col:
-            logger.debug(f"[labelling] Partitioning by {island_col} for {file_path.name} | lookahead={lookahead_bars} bars ({mins}min)")
             df = df.with_columns([
-                pl.col("high").rolling_max(window_size=lookahead_bars).shift(-lookahead_bars).over(island_col).alias("future_max_high"),
-                pl.col("low").rolling_min(window_size=lookahead_bars).shift(-lookahead_bars).over(island_col).alias("future_min_low"),
-                pl.col("tick_count").rolling_min(window_size=lookahead_bars).shift(-lookahead_bars).over(island_col).alias("future_min_ticks")
+                # Preço futuro exato (t + lookahead_bars) dentro da mesma ilha
+                pl.col("close").shift(-lookahead_bars).over(island_col).alias("future_close"),
+                # Island_id futura: se mudou → fronteira violada → NaN no target
+                pl.col(island_col).shift(-lookahead_bars).over(island_col).alias("future_island_id"),
+                # Zero Tolerance: qualquer gap no caminho invalida o sample
+                pl.col("tick_count").rolling_min(window_size=lookahead_bars)
+                    .shift(-lookahead_bars).over(island_col).alias("future_min_ticks"),
             ])
         else:
             df = df.with_columns([
-                pl.col("high").rolling_max(window_size=lookahead_bars).shift(-lookahead_bars).alias("future_max_high"),
-                pl.col("low").rolling_min(window_size=lookahead_bars).shift(-lookahead_bars).alias("future_min_low"),
-                pl.col("tick_count").rolling_min(window_size=lookahead_bars).shift(-lookahead_bars).alias("future_min_ticks")
+                pl.col("close").shift(-lookahead_bars).alias("future_close"),
+                pl.col("tick_count").rolling_min(window_size=lookahead_bars)
+                    .shift(-lookahead_bars).alias("future_min_ticks"),
             ])
-        
-        # 3. Apply Thresholds & Zero Tolerance
+            # Sem island_col, não há proteção de fronteira — adiciona coluna nula
+            df = df.with_columns(pl.lit(None).alias("future_island_id"))
+
+        # 3. Target — Point-to-Point Pure
+        island_boundary_violated = (
+            pl.col("future_island_id").is_null() |
+            (pl.col("future_island_id") != pl.col(island_col))
+        ) if island_col else pl.lit(False)
+
         df = df.with_columns([
-            pl.when(pl.col("future_min_ticks").is_null()).then(None) # Proteção contra fim da ilha
-            .when(pl.col("future_min_ticks") == 0).then(None)       # ZERO TOLERANCE: Gap no futuro = Inválido
-            .when(pl.col("future_max_high") >= pl.col("close") * (1 + buy_th)).then(2)  # BUY
-            .when(pl.col("future_min_low") <= pl.col("close") * (1 - sell_th)).then(0)  # SELL
-            .otherwise(1) # NEUTRAL
+            pl.when(pl.col("future_min_ticks").is_null())
+                .then(None)  # Fim de ilha (shift retornou null)
+            .when(pl.col("future_min_ticks") == 0)
+                .then(None)  # ZERO TOLERANCE: gap no caminho
+            .when(island_boundary_violated)
+                .then(None)  # ISLAND BOUNDARY: t+h está em ilha diferente
+            .when(pl.col("future_close") >= pl.col("close") * (1.0 + buy_th))
+                .then(pl.lit(2, dtype=pl.Int8))  # BUY
+            .when(pl.col("future_close") <= pl.col("close") * (1.0 - sell_th))
+                .then(pl.lit(0, dtype=pl.Int8))  # SELL
+            .otherwise(pl.lit(1, dtype=pl.Int8))  # NEUTRAL
             .alias("target")
         ])
-        
-        # 4. Calculation of Invalidation Rate
-        total_valid_rows = len(df) - lookahead_bars
-        invalidated_rows = df.slice(0, total_valid_rows).filter(pl.col("target").is_null()).height
+
+        # 4. Taxa de invalidação (antes do drop)
+        total_valid_rows  = len(df) - lookahead_bars
+        invalidated_rows  = df.slice(0, total_valid_rows).filter(pl.col("target").is_null()).height
         invalidation_rate = invalidated_rows / total_valid_rows if total_valid_rows > 0 else 0
-        
-        # 5. Cleanup
-        # Remove the lookahead bars + drop invalid ones (Gold Standard Policy)
-        # drop_nulls ensures the model is NOT trained with doubtful futures
-        df_final = df.slice(0, total_valid_rows).drop_nulls(subset=["target"]).drop(["future_max_high", "future_min_low", "future_min_ticks"])
-        
-        # 6. Save
+
+        # 5. Cleanup: remove lookahead tail + amostras inválidas + colunas auxiliares
+        drop_cols = ["future_close", "future_island_id", "future_min_ticks"]
+        df_final = (
+            df.slice(0, total_valid_rows)
+              .drop_nulls(subset=["target"])
+              .drop([c for c in drop_cols if c in df.columns])
+        )
+
+        # 6. Salvar
         output_path = output_dir / file_path.name
         df_final.write_parquet(output_path)
-        
+
+        counts = {row['target']: row['count'] for row in df_final['target'].value_counts().to_dicts()}
+
+        if audit_mode:
+            return {
+                "status": "success", "file": file_path.name,
+                "invalidation_rate": invalidation_rate,
+                "counts": counts,
+                "df_with_target": df.slice(0, total_valid_rows),  # para comparação externa
+            }
+
         return {
             "status": "success",
             "file": file_path.name,
             "invalidation_rate": invalidation_rate,
-            "counts": {
-                row['target']: row['count'] 
-                for row in df_final['target'].value_counts().to_dicts()
-            }
+            "counts": counts,
         }
-        
+
     except Exception as e:
         return {
             "status": "error",
             "file": file_path.name,
-            "error": str(e)
+            "error": str(e),
         }
+
+
 
 def run_labelling():
     # 1. Load Config (Base always loaded)
