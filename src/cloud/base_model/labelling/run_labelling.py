@@ -102,6 +102,19 @@ def apply_labelling(file_path, config):
             "error": str(e)
         }
 
+def _get_pre_processed_dir(config: dict) -> str:
+    """
+    Retorna o caminho local canônico de saída do ETL, derivado dinamicamente
+    dos parâmetros de config — o mesmo nome usado no export para o Google Drive.
+    Formato: data/L2/PRE_PROCESSED_L2_{horizon_min}_{lookback_min}_{resample_min}
+    """
+    res_freq     = config['pre_processing']['etl'].get('resample_freq', '5min')
+    res_min      = "".join(filter(str.isdigit, res_freq)) or "5"
+    horizon_min  = config['pre_processing']['labelling'].get('horizon_minutes', 15)
+    lookback_min = config['pre_processing']['etl'].get('lookback_minutes', 120)
+    return f"data/L2/PRE_PROCESSED_L2_{horizon_min}_{lookback_min}_{res_min}"
+
+
 def run_labelling():
     # 1. Load Config (Base always loaded)
     base_config_path = Path("src/cloud/base_model/configs/master_config.yaml")
@@ -121,8 +134,9 @@ def run_labelling():
     # Output path based on pipeline root
     base_output = Path(f"data/L2/splits{suffix}")
     
-    # 3. List Files
-    input_dir = Path("data/L2/pre_processed_L2")
+    # Diretório de entrada: pasta dinâmica PRE_PROCESSED_L2_{horizon}_{lookback}_{freq}
+    # Mesmo padrão usado pelo run_pipeline.py no DataLoader e no export para o Drive.
+    input_dir = Path(_get_pre_processed_dir(config))
     parquet_files = list(input_dir.glob("*.parquet"))
     
     if not parquet_files:
@@ -198,7 +212,7 @@ def run_labelling():
                     ["pytest", "tests/labelling/test_labelling_output.py", "-v"],
                     stdout=qa_file,
                     stderr=subprocess.STDOUT,
-                    env=dict(os.environ, PRE_PROCESSED_DIR=str("data/L2/pre_processed_L2"), LABELLED_DIR=local_src),
+                    env=dict(os.environ, PRE_PROCESSED_DIR=str(input_dir), LABELLED_DIR=local_src),
                     check=False  # Do not raise exception if tests fail - log it and continue
                 )
             logger.info(f"✅ QA Report saved to {qa_log_path}")

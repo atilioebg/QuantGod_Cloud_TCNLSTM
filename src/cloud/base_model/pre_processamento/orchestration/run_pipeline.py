@@ -138,6 +138,20 @@ def _build_quality_summary(quality_audits: list, skipped_files: list, resample_m
     }
 
 
+def _get_pre_processed_dir(config: dict) -> str:
+    """
+    Retorna o caminho local canônico de saída do ETL, derivado dinamicamente
+    dos parâmetros de config — o mesmo nome usado no export para o Google Drive.
+    Formato: data/L2/PRE_PROCESSED_L2_{horizon_min}_{lookback_min}_{resample_min}
+    """
+    import pandas as pd
+    res_freq     = config['pre_processing']['etl'].get('resample_freq', '5min')
+    res_min      = "".join(filter(str.isdigit, res_freq)) or "5"
+    horizon_min  = config['pre_processing']['labelling'].get('horizon_minutes', 15)
+    lookback_min = config['pre_processing']['etl'].get('lookback_minutes', 120)
+    return f"data/L2/PRE_PROCESSED_L2_{horizon_min}_{lookback_min}_{res_min}"
+
+
 def process_single_zip(zip_path, config):
     """
     Worker function to process a single ZIP file in parallel.
@@ -153,7 +167,7 @@ def process_single_zip(zip_path, config):
             sampling_ms=config['pre_processing']['etl']['sampling_ms'],
             etl_cfg=config['pre_processing']['etl']
         )
-        loader = DataLoader("data/L2/pre_processed_L2")
+        loader = DataLoader(_get_pre_processed_dir(config))
         validator = DataValidator()
 
         transformer.reset_book()
@@ -272,7 +286,8 @@ def run_pipeline():
     extractor.cleanup_temp()
 
     # GOLD CLEANUP: Auto-clean local output folder to prevent rclone from syncing old debris
-    local_output = Path("data/L2/pre_processed_L2")
+    # Pasta dinâmica: PRE_PROCESSED_L2_{horizon}_{lookback}_{freq}
+    local_output = Path(_get_pre_processed_dir(config))
     if local_output.exists():
         logger.info(f"🧹 GOLD CLEANUP: Clearing old parquets in {local_output}")
         for p in local_output.glob("*.parquet"):
@@ -464,7 +479,7 @@ def run_pipeline():
         
         # New Dynamic Format: PRE_PROCESSED_L2_{lookahead}_{lookback}_{grouping}
         folder_name = f"PRE_PROCESSED_L2_{horizon_min}_{survival_min}_{res_min}"
-        local_src = "data/L2/pre_processed_L2"
+        local_src = _get_pre_processed_dir(config)  # mesmo caminho usado no DataLoader
         remote_dest = f"drive:PROJETOS/{folder_name}"
         rclone_cfg = Path("rclone.conf")
         
