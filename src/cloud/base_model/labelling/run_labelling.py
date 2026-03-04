@@ -60,7 +60,7 @@ def label_full_dataset(
         df_i = df_i.with_columns(pl.lit(pf.name).alias("__source_file__"))
         dfs.append(df_i)
 
-    df = pl.concat(dfs, how="diagonal")
+    df = pl.concat(dfs, how="diagonal_relaxed")
 
     # Garantir ordem cronológica (necessário para shift funcionar corretamente)
     if "timestamp" in df.columns:
