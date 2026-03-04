@@ -43,8 +43,14 @@ pre_processing:
       generate_report: true                                       # Gera docs/reports/data_quality_report.json
 
     # ── Agregação temporal ──────────────────────────────────────
-    resample_freq: "5min" # timestep lookback-lookahead           # Frequência do resample: '1min' (alta capilaridade, ~1440 barras/dia) ou '5min' (modo legado, ~288 barras/dia).
+    # timestep lookback-lookahead
+    resample_freq: "5min"                                         # Frequência do resample: '1min' (alta capilaridade, ~1440 barras/dia) ou '5min' (modo legado, ~288 barras/dia).
                                                                   # IMPACTO: alterar este valor é seguro — todas as janelas abaixo são em MINUTOS REAIS e o ETL converte para barras automaticamente.
+
+    # ── Gap Management (v4.9 Audit Fix) ─────────────────────────────────
+    gap_fragment_threshold_min: 30                                # [NOVO] Limiar de Hard Reset de ilha (minutos). Gaps > 30min criam nova ilha. Antes hardcoded em transform.py:585.
+    healing:
+      max_gap_minutes: 5                                          # [NOVO] Gaps <= 5min são curados por interpolação linear. Gaps de 5-30min: mantidos sem cura. Antes defaultava silenciosamente para 5 sem chave no config.
 
     # ── Janelas de features derivadas (em MINUTOS REAIS) ─────────────
     # As janelas abaixo definem TEMPO REAL, não barras. O ETL calcula:
