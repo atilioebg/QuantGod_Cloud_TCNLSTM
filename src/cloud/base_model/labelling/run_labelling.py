@@ -6,8 +6,13 @@ from tqdm import tqdm
 import sys
 import os
 import subprocess
-import pandas as pd  # For to_timedelta
+import pandas as pd
 from concurrent.futures import ProcessPoolExecutor, as_completed
+
+# Ensure project root is in path
+project_root = str(Path(__file__).parents[4])
+if project_root not in sys.path:
+    sys.path.append(project_root)
 
 from src.cloud.base_model.utils.logging_utils import setup_logger, get_labelling_suffix, upload_audit_to_drive
 from src.cloud.base_model.utils.path_utils import (
