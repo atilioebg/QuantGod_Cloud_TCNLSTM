@@ -582,7 +582,13 @@ class L2Transformer:
             group_c_cols = actual_flow_cols # Unified flow columns for Zero-fill
 
             heal_threshold_min = self._etl_cfg.get("healing", {}).get("max_gap_minutes", 5)
-            fragment_threshold_min = 30.0 # Sniper Gold Hard Reset
+            # [Audit Fix NEW-1] Lê do config ao invés de usar valor hardcoded (era 30.0)
+            fragment_threshold_min = float(
+                self._etl_cfg.get("gap_fragment_threshold_min", 30.0)
+            )
+            logger.info(
+                f"🔧 Gap thresholds: heal≤{heal_threshold_min}min │ fragment>{fragment_threshold_min}min"
+            )
             
             # --- Island Management (Island Split v4.6 Protocol) ---
             # v4.8.3: Force island_id column BEFORE gap logic to guarantee presence
@@ -606,8 +612,10 @@ class L2Transformer:
                     for c_col in group_c_cols:
                         final_df.loc[group.index, c_col] = 0.0
 
-                # 2. Island Split Trigger (Hard Reset > 30 min)
-                if gap_len_min > fragment_threshold_min:
+                # 2. Island Split Trigger (Hard Reset >= fragment_threshold_min)
+                # [Fix NEW-3] Era '>' — gaps de exatamente 30min não disparavam island split (30 > 30 = False).
+                # Corrigido para '>=' — gap igual ao threshold também fragmenta.
+                if gap_len_min >= fragment_threshold_min:
                     current_island_id += 1
                     # New island starts AFTER the gap
                     start_of_new = group.index[-1] + freq_offset

@@ -17,6 +17,12 @@ def cleanup_workspace():
     """
     project_root = Path(__file__).parents[4]
     
+    master_cfg_path = project_root / "src/cloud/base_model/configs/master_config.yaml"
+    config = {}
+    if master_cfg_path.exists():
+        with open(master_cfg_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+    
     targets = [
         project_root / "data/L2/raw",
         project_root / "data/L2/pre_processed",
@@ -28,11 +34,12 @@ def cleanup_workspace():
     ]
     
     # Adiciona pastas dinâmicas de labelled e splits
-    l2_base = project_root / config['pipeline_paths'].get('local_data_root', 'data/L2')
+    pipeline_paths = config.get('pipeline_paths', {})
+    l2_base = project_root / pipeline_paths.get('local_data_root', 'data/L2')
     if l2_base.exists():
-        targets.extend(list(l2_base.glob(f"{config['pipeline_paths'].get('labelled_prefix', 'splits_labelled')}*")))
+        targets.extend(list(l2_base.glob(f"{pipeline_paths.get('labelled_prefix', 'splits_labelled')}*")))
         targets.extend(list(l2_base.glob("splits*")))  # Retrocompatibilidade
-        targets.extend(list(l2_base.glob(f"{config['pipeline_paths'].get('specialized_prefix', 'splits_specialized_labelled')}*")))
+        targets.extend(list(l2_base.glob(f"{pipeline_paths.get('specialized_prefix', 'splits_specialized_labelled')}*")))
 
     print("\n--- INICIANDO LIMPEZA DO WORKSPACE ---")
     for target in targets:
@@ -48,8 +55,8 @@ def cleanup_workspace():
                 print(f"   Erro ao remover {target}: {e}")
     
     # Recriar estrutura minima necessaria
-    (project_root / config['pipeline_paths'].get('local_logs_root', 'logs')).mkdir(exist_ok=True)
-    temp_raw = Path(config['pipeline_paths'].get('local_data_root', 'data/L2')) / config['pipeline_paths'].get('temp_raw_dir', 'temp_raw')
+    (project_root / pipeline_paths.get('local_logs_root', 'logs')).mkdir(exist_ok=True)
+    temp_raw = project_root / pipeline_paths.get('local_data_root', 'data/L2') / pipeline_paths.get('temp_raw_dir', 'temp_raw')
     temp_raw.mkdir(parents=True, exist_ok=True)
     print("Workspace limpo e resetado! Estrutura base recriada.\n")
 
