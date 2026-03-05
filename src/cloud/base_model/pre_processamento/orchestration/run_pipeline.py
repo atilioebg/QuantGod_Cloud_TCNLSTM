@@ -242,9 +242,9 @@ def process_single_zip(zip_path, config):
             
             return {
                 "status": "success" if saved else "skipped",
-                "message": f"✅ Processed {zip_p.name}" if is_valid and not df_final.empty else f"❌ Rejected {zip_p.name}",
+                "message": f"✅ Processed {zip_p.name}" if is_valid and not is_empty else f"❌ Rejected {zip_p.name}",
                 "audit": transformer.audit_report,
-                "is_valid": is_valid and not df_final.empty,
+                "is_valid": is_valid and not is_empty,
                 "reason": health_report.get('integrity_comment', "Validation Failed") if not is_valid else None
             }
         else:
