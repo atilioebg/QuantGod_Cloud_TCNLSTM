@@ -240,7 +240,8 @@ def transfer_results(log_filename: str, run_type: str):
 
             rclone_cfg = project_root / "rclone.conf"
             
-            cmd = ["rclone", "copy", str(temp_staging), remote_path, "-P"]
+            rclone_transfers = str(min(32, (os.cpu_count() or 4) * 2))
+            cmd = ["rclone", "copy", str(temp_staging), remote_path, "-P", "--transfers", rclone_transfers, "--checkers", rclone_transfers]
             if rclone_cfg.exists():
                 cmd += ["--config", str(rclone_cfg)]
             

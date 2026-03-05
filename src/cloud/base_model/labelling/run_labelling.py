@@ -212,7 +212,8 @@ def run_labelling():
         except Exception as e:
             logger.error(f"⚠️ QA Report generation failed: {e}")
 
-        cmd = ["rclone", "copy", local_src, remote_dest, "-P"]
+        rclone_transfers = str(min(32, (os.cpu_count() or 4) * 2))
+        cmd = ["rclone", "copy", local_src, remote_dest, "-P", "--transfers", rclone_transfers, "--checkers", rclone_transfers]
         if rclone_cfg.exists():
             cmd += ["--config", str(rclone_cfg)]
         if os.name == 'nt' and Path("rclone.exe").exists():

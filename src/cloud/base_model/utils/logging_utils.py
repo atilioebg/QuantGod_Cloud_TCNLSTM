@@ -149,6 +149,10 @@ def upload_audit_to_drive(
         rclone_bin = str(Path("rclone.exe").absolute())
 
     cfg_args = ["--config", rclone_config] if Path(rclone_config).exists() else []
+    
+    # Dynamically scale concurrency up to 32 parallel uploads based on CPUs
+    rclone_transfers = str(min(32, (_os.cpu_count() or 4) * 2))
+    cfg_args += ["--transfers", rclone_transfers, "--checkers", rclone_transfers]
 
     # Build remote base: centralized session root + stage subfolder
     if config is not None:
