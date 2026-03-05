@@ -24,6 +24,32 @@ def _parse_resample_minutes(freq: str) -> int:
     return 1
 
 
+def _to_polars_freq(freq: str) -> str:
+    """
+    Converts a Pandas-style frequency alias to a Polars duration string.
+
+    Polars uses 'm' for minutes (NOT 'min').
+    Mapping:
+        '5min' → '5m'   '1T' → '1m'   '1h' → '1h'
+        '1H'   → '1h'   '1d' → '1d'
+
+    Used anywhere a Polars API receives a duration/interval string
+    (group_by_dynamic, datetime_range, etc.).
+    """
+    freq = freq.strip()
+    # Pandas minute aliases → Polars 'm'
+    for suffix in ('min', 'T', 'Min'):
+        if freq.endswith(suffix):
+            n = freq.replace(suffix, '') or '1'
+            return f"{n}m"
+    # Hour aliases
+    if freq.endswith('H'):
+        n = freq[:-1] or '1'
+        return f"{n}h"
+    # Already Polars-style or day/week/etc — return as-is
+    return freq
+
+
 def _load_etl_config() -> dict:
     _DEFAULT_MINS = {
         "spread_zscore_window_min": 60,
@@ -338,6 +364,7 @@ class L2Transformer:
 
         freq        = self._resample_freq
         freq_min    = self._resample_min
+        pl_freq     = _to_polars_freq(freq)   # '5min' → '5m', '1T' → '1m'
         ds          = self._delta_short
         dl          = self._delta_long
         ds_lbl      = str(self._delta_short_min)
@@ -360,7 +387,7 @@ class L2Transformer:
         df = df.with_columns(pl.lit(1).alias("tick_count"))
 
         resampled = df.group_by_dynamic(
-            "datetime", every=freq, closed="left", label="left"
+            "datetime", every=pl_freq, closed="left", label="left"
         ).agg([
             # OHLC from micro_price
             pl.col("micro_price").first().alias("open"),
