@@ -212,7 +212,20 @@ class DataValidator:
         # 9. Time Gaps & Island Survivability (Island Split v4.6 Gold)
         # Check index continuity for abandonment report
         diffs = df.index.to_series().diff().dropna()
-        max_idx_gap = float(diffs.max().total_seconds() / 60) if not diffs.empty else 0.0
+        if not diffs.empty:
+            max_diff_raw = diffs.max()
+            # Pandas 2.x with datetime64[ms, UTC] index may return numpy.float64
+            # (ms as float) instead of pd.Timedelta — handle both cases.
+            if hasattr(max_diff_raw, "total_seconds"):
+                max_idx_gap = float(max_diff_raw.total_seconds() / 60)
+            else:
+                try:
+                    max_idx_gap = float(pd.Timedelta(max_diff_raw).total_seconds() / 60)
+                except Exception:
+                    # Last resort: assume value is in nanoseconds (numpy default)
+                    max_idx_gap = float(float(max_diff_raw) / 1e6 / 60)  # ms → minutes
+        else:
+            max_idx_gap = 0.0
 
         # v4.9: freq_min is config-driven; fallback to median if resample_freq not provided
         if _freq_min is not None:

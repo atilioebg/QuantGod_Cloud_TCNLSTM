@@ -422,27 +422,24 @@ class L2Transformer:
             else:
                 anchor = first_ts.replace(hour=0, minute=0, second=0, microsecond=0)
 
-            periods   = (24 * 60) // freq_min
-            every_dur = pl.duration(minutes=freq_min)
+            periods = (24 * 60) // freq_min
             full_grid = pl.DataFrame({
                 "datetime": pl.datetime_range(
                     start=anchor,
                     end=anchor + pl.duration(hours=24) - pl.duration(minutes=freq_min),
                     interval=f"{freq_min}m",
                     time_zone="UTC",
+                    time_unit="ms",   # match from_epoch(time_unit='ms')
                     eager=True,
                 ).slice(0, periods)
             })
 
-            # Ensure resampled datetime has the same tz
-            if resampled["datetime"].dtype == pl.Datetime("us", "UTC"):
-                pass
-            else:
-                resampled = resampled.with_columns(
-                    pl.col("datetime").dt.replace_time_zone("UTC")
-                )
+            # Normalize resampled to ms + UTC so join keys match
+            resampled = resampled.with_columns(
+                pl.col("datetime").dt.cast_time_unit("ms").dt.replace_time_zone("UTC").alias("datetime")
+            )
 
-            # Left join grid onto resampled to fill missing slots with null
+            # Left join: every grid slot gets its row or null
             df = full_grid.join(resampled, on="datetime", how="left")
 
         except Exception as e:
