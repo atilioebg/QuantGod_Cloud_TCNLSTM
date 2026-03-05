@@ -167,8 +167,8 @@ def split_and_segregate():
                 last_train_path  = split_dir / "train" / train_f[-1].name
                 first_val_path   = split_dir / "val"   / val_f[0].name
 
-                last_train_ts  = pl.read_parquet(last_train_path, columns=['ts']).row(-1)[0]
-                first_val_ts   = pl.read_parquet(first_val_path,  columns=['ts']).row(0)[0]
+                last_train_ts  = pl.read_parquet(last_train_path, columns=['datetime']).row(-1)[0]
+                first_val_ts   = pl.read_parquet(first_val_path,  columns=['datetime']).row(0)[0]
 
                 if last_train_ts >= first_val_ts:
                     logger.error(
@@ -176,7 +176,8 @@ def split_and_segregate():
                         f">= first val ts ({first_val_ts}). DATA LEAKAGE RISK!"
                     )
                 else:
-                    gap_ms = (first_val_ts - last_train_ts)
+                    gap_delta = (first_val_ts - last_train_ts)
+                    gap_ms = int(gap_delta.total_seconds() * 1000) if hasattr(gap_delta, 'total_seconds') else gap_delta
                     logger.info(f"✅ [{stage_name}] Chrono Guard PASSED — gap between train/val boundary: {gap_ms} ms")
         except Exception as e:
             logger.warning(f"⚠️ [{stage_name}] Chrono Guard check failed (non-fatal): {e}")
