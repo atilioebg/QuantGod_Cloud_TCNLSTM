@@ -709,11 +709,10 @@ class L2Transformer:
             "bid_convexity", "ask_convexity", "book_asymmetry_v5", "pressure_ratio",
         ]
 
-        ob_cols = [c for c in df.columns
-                   if ('bid_' in c or 'ask_' in c)
-                   and not any(x in c for x in ['_slope', '_rdi', '_delta_', '_asymmetry', '_convexity'])]
-
-        raw_final_cols = agg_features + ["high", "low", "close", "island_id"] + ob_cols
+        # Final output: only the 30 model features + essential price/meta columns.
+        # The raw OB level columns (bid_0_p, ask_0_p...) are intermediary computation
+        # inputs and must NOT appear in the output parquet.
+        raw_final_cols = agg_features + ["high", "low", "close", "island_id"]
         final_cols = []
         seen = set()
         for c in raw_final_cols:

@@ -118,7 +118,10 @@ def split_and_segregate():
         return
 
     logger.info(f"🚀 Starting Strict Out-of-Fold (OOF) Splitting over {len(all_files)} total files.")
-    
+
+    # Label used for naming the split_summary file
+    base_labelled_name = source_dir.name  # e.g. "labelled_SELL_00030_BUY_00030_5min_..."
+
     # Proporções
     base_train_pct = config['pre_processing']['split']['base'].get('train_ratio', 0.70)
     spec_train_pct = config['pre_processing']['split']['specialized'].get('train_ratio', 0.80)
