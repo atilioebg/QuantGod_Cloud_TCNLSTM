@@ -71,27 +71,55 @@ class TestMasterConfig:
         assert isinstance(bs_list, list), "batch_size deve ser uma lista no search_space"
         assert max(bs_list) <= 2048, f"O batch_size máximo ({max(bs_list)}) excede o limite de segurança para evitar OOM"
 
-# ── auditor_config.yaml ───────────────────────────────────────────────────────
+# ── Auditor config (consolidated into master_config.yaml since v4.5) ──────────
 class TestAuditorConfig:
+    """
+    The auditor_config.yaml was consolidated into master_config.yaml (v4.5+).
+    These tests now validate the auditor sections within master_config.yaml:
+      - model.auditor  → XGBoost params + thresholds
+      - pipeline_paths → auditor model + scaler paths
+      - pre_processing.split.auditor → train/val ratios
+      - pre_processing.kfold        → n_splits (walk-forward folds)
+    """
 
-    def test_file_exists(self):
-        assert AUDITOR_CFG.exists(), f"Config not found: {AUDITOR_CFG}"
+    def test_master_config_exists(self):
+        assert MASTER_CFG.exists(), f"master_config.yaml not found: {MASTER_CFG}"
 
-    def test_required_keys(self):
-        cfg = load(AUDITOR_CFG)
-        for key in ["paths", "walk_forward", "xgboost"]:
-            assert key in cfg, f"Missing key: {key}"
+    def test_required_auditor_keys(self):
+        cfg = load(MASTER_CFG)
+        assert "auditor" in cfg["model"], "model.auditor section missing"
+        auditor = cfg["model"]["auditor"]
+        for key in ["num_features", "num_classes", "params"]:
+            assert key in auditor, f"model.auditor.{key} missing"
 
     def test_xgb_output_is_json(self):
-        cfg = load(AUDITOR_CFG)
-        assert cfg["paths"]["xgb_model_output"].endswith(".json")
+        cfg = load(MASTER_CFG)
+        xgb_path = cfg["pipeline_paths"]["auditor_model"]
+        assert xgb_path.endswith(".json"), \
+            f"auditor_model path should end in .json, got: {xgb_path}"
 
     def test_n_folds_minimum(self):
         """Walk-forward requires at least 3 folds to be statistically meaningful."""
-        cfg = load(AUDITOR_CFG)
-        assert cfg["walk_forward"]["n_folds"] >= 3, \
-            f"n_folds={cfg['walk_forward']['n_folds']} — minimum 3 for valid walk-forward"
+        cfg = load(MASTER_CFG)
+        n_folds = cfg["pre_processing"]["kfold"]["n_splits"]
+        assert n_folds >= 3, \
+            f"kfold.n_splits={n_folds} — minimum 3 for valid walk-forward"
 
     def test_base_model_checkpoint_is_pt(self):
-        cfg = load(AUDITOR_CFG)
-        assert cfg["paths"]["base_model_checkpoint"].endswith(".pt")
+        cfg = load(MASTER_CFG)
+        checkpoint = cfg["pipeline_paths"]["best_tcn_lstm_model"]
+        assert checkpoint.endswith(".pt"), \
+            f"best_tcn_lstm_model should end in .pt, got: {checkpoint}"
+
+    def test_auditor_split_ratios_sum_to_one(self):
+        cfg = load(MASTER_CFG)
+        auditor_split = cfg["pre_processing"]["split"]["auditor"]
+        total = auditor_split["train_ratio"] + auditor_split["val_ratio"]
+        assert abs(total - 1.0) < 1e-9, \
+            f"auditor split ratios must sum to 1.0, got {total}"
+
+    def test_auditor_xgb_params_present(self):
+        cfg = load(MASTER_CFG)
+        params = cfg["model"]["auditor"]["params"]
+        for key in ["n_estimators", "max_depth", "learning_rate"]:
+            assert key in params, f"model.auditor.params.{key} missing"

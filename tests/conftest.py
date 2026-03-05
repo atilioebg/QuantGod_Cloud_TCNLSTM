@@ -37,8 +37,12 @@ NUM_FEATURES = len(FEATURE_NAMES)
 NUM_CLASSES  = master_cfg.get("model", {}).get("num_classes", 3)
 SEQ_LEN      = master_cfg.get("training", {}).get("hyperparameters", {}).get("seq_len", 720)
 
-from src.cloud.auditor_model.feature_engineering_meta import META_FEATURE_NAMES
-META_FEATURES = len(META_FEATURE_NAMES) # Dynamically extract Auditor dimensions
+try:
+    from src.cloud.auditor_model.feature_engineering_meta import META_FEATURE_NAMES
+    META_FEATURES = len(META_FEATURE_NAMES)
+except (ImportError, ModuleNotFoundError):
+    META_FEATURE_NAMES = []
+    META_FEATURES = 0  # torch not available (local dev / CI without GPU)
 
 
 # ─── Shared fixtures ─────────────────────────────────────────────────────────
