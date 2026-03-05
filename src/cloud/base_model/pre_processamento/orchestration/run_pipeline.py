@@ -477,7 +477,10 @@ def run_pipeline():
 
         logger.info(f"🚀 Starting automated export to Drive: {remote_dest}...")
 
-        cmd = ["rclone", "copy", str(local_src), remote_dest, "-P"]
+        # Calculate concurrent transfers based on CPU count (cap at 32 for drive API limits)
+        rclone_transfers = str(min(32, cpu_count * 2))
+
+        cmd = ["rclone", "copy", str(local_src), remote_dest, "-P", "--transfers", rclone_transfers, "--checkers", rclone_transfers]
         if rclone_cfg.exists():
             cmd += ["--config", str(rclone_cfg)]
 
