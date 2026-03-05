@@ -189,13 +189,12 @@ def process_single_zip(zip_path, config):
         # 2. Transformation & Loading
         zip_p = Path(zip_path)
         if sampled_rows:
-            df_sampled = pd.DataFrame(sampled_rows)
-
-            if df_sampled.empty:
-                logger.warning(f"⚠️  No rows sampled in {zip_p.name} (file might be empty or missing 1min thresholds). Skipping.")
+            # v5.0: Pass dict-of-lists directly — apply_feature_engineering builds pl.DataFrame internally
+            if not any(sampled_rows.values()):
+                logger.warning(f"⚠️  No rows sampled in {zip_p.name}. Skipping.")
                 return {"status": "skipped", "message": f"⚠️  No data in {zip_p.name}", "reason": "No rows sampled (Threshold/Empty ZIP)"}
 
-            df_final = transformer.apply_feature_engineering(df_sampled)
+            df_final = transformer.apply_feature_engineering(sampled_rows)
             logger.info(f"💓 Heartbeat [Pipeline Transform]: {zip_p.name} yielded {len(df_final)} final rows.")
             
             # Architecture Integrity (Gold v4.6): Check if all required features are present
@@ -213,7 +212,11 @@ def process_single_zip(zip_path, config):
             # Protocol Island Split: Filter only valid islands
             valid_ids = health_report.get('valid_island_ids', [])
             if valid_ids and 'island_id' in df_final.columns:
-                df_final = df_final[df_final['island_id'].isin(valid_ids)].copy()
+                import polars as _pl
+                if isinstance(df_final, _pl.DataFrame):
+                    df_final = df_final.filter(_pl.col('island_id').is_in(valid_ids))
+                else:
+                    df_final = df_final[df_final['island_id'].isin(valid_ids)].copy()
                 # Update retention count after pruning
                 transformer.audit_report["total_rows_retained"] = len(df_final)
             
@@ -226,7 +229,9 @@ def process_single_zip(zip_path, config):
             
             logger.info(f"AUDIT TRACE: {zip_p.name} -> is_valid={is_valid} (Islands: {health_report.get('num_islands_generated', 1)} | Retained: {len(df_final)} rows)")
             
-            if is_valid and not df_final.empty:
+            import polars as _pl
+            is_empty = df_final.is_empty() if isinstance(df_final, _pl.DataFrame) else df_final.empty
+            if is_valid and not is_empty:
                 saved = loader.save_parquet(df_final, output_name, config['pre_processing']['etl']['export_compression'])
                 if saved:
                     logger.info(f"✅ Saved pre-processed data: {output_name}")

@@ -26,6 +26,18 @@ class DataValidator:
         """
         logger.info(f"--- Validating {name} ---")
 
+        # v5.0: Accept pl.DataFrame transparently
+        try:
+            import polars as _pl
+            if isinstance(df, _pl.DataFrame):
+                # Polars → Pandas bridge: set datetime index if available
+                pdf = df.to_pandas()
+                if "datetime" in pdf.columns:
+                    pdf = pdf.set_index("datetime")
+                df = pdf
+        except ImportError:
+            pass
+
         feature_list = feature_list or []
         expected_count = len(feature_list)
 
