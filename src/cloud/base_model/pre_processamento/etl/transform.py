@@ -712,7 +712,7 @@ class L2Transformer:
         # Final output: only the 30 model features + essential price/meta columns.
         # The raw OB level columns (bid_0_p, ask_0_p...) are intermediary computation
         # inputs and must NOT appear in the output parquet.
-        raw_final_cols = agg_features + ["high", "low", "close", "island_id"]
+        raw_final_cols = agg_features + ["datetime", "high", "low", "close", "island_id"]
         final_cols = []
         seen = set()
         for c in raw_final_cols:
