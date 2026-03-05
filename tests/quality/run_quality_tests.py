@@ -97,11 +97,16 @@ def run_gold_tests():
                 print(f"FAIL: Clipping FAILED for {col} (val={val})")
                 clipping_ok = False
     if clipping_ok: print("PASS: Clipping OK.")
-
     # 4. Test Lineage
     print("\n--- Test 2: Lineage and Shape ---")
     validator = DataValidator()
     delta_short_min = etl_cfg.get('delta_short_min', 5)
+    
+    # Convert Polars clipped data back to Pandas for legacy validation step
+    clipped_df = clipped_pl.to_pandas()
+    if "datetime" in clipped_df.columns:
+        clipped_df = clipped_df.set_index("datetime")
+        
     report = validator.validate_integrity(
         clipped_df,
         name="Gold Test",
