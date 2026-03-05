@@ -85,12 +85,16 @@ def run_gold_tests():
         sampling_ms=1000, # Realistic sampling
         etl_cfg=etl_cfg
     )
-    clipped_df = transformer._apply_soft_clipping(df.copy())
+    import polars as pl
+    pl_df = pl.from_pandas(df)
+    clipped_pl = transformer._apply_soft_clipping_pl(pl_df)
     clipping_ok = True
     for col in target_cols:
-        if col in clipped_df.columns:
-            if clipped_df.loc[clipped_df.index[0], col] >= 5000.0:
-                print(f"FAIL: Clipping FAILED for {col}")
+        if col in clipped_pl.columns:
+            # Check the first row (where we injected 5000.0)
+            val = clipped_pl.select(pl.col(col)).row(0)[0]
+            if val >= 5000.0:
+                print(f"FAIL: Clipping FAILED for {col} (val={val})")
                 clipping_ok = False
     if clipping_ok: print("PASS: Clipping OK.")
 
@@ -126,7 +130,12 @@ def run_gold_tests():
     start_idx = 1200
     gap_df_drop = pd.concat([gap_df.iloc[:start_idx], gap_df.iloc[start_idx + gap_snaps:]])
     
-    healed_df = transformer.apply_feature_engineering(gap_df_drop)
+    healed_pl = transformer.apply_feature_engineering(gap_df_drop)
+    # Convert back to pandas for the legacy test assertions
+    healed_df = healed_pl.to_pandas()
+    if "datetime" in healed_df.columns:
+        healed_df = healed_df.set_index("datetime")
+        
     print(f"Test 4 Shape: {healed_df.shape}")
     print(f"Test 4 Index: {healed_df.index[0]} to {healed_df.index[-1]}")
     audit = transformer.audit_report
@@ -147,7 +156,12 @@ def run_gold_tests():
     # Create 65 min gap (130 snapshots)
     abandon_df_drop = pd.concat([abandon_df_raw.iloc[:1440], abandon_df_raw.iloc[1570:]])
     
-    abandon_df_processed = transformer.apply_feature_engineering(abandon_df_drop)
+    abandon_pl = transformer.apply_feature_engineering(abandon_df_drop)
+    # Convert back to pandas for the legacy test assertions/validator
+    abandon_df_processed = abandon_pl.to_pandas()
+    if "datetime" in abandon_df_processed.columns:
+        abandon_df_processed = abandon_df_processed.set_index("datetime")
+
     print(f"Abandon Test Shape: {abandon_df_processed.shape}")
     print(f"Abandon Test Index: {abandon_df_processed.index[0]} to {abandon_df_processed.index[-1]}")
     print(f"Audit Report Max Gap Before: {transformer.audit_report['max_gap_before']}")
