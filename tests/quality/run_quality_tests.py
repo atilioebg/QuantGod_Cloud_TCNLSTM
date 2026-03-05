@@ -18,7 +18,7 @@ from src.cloud.base_model.pre_processamento.etl.transform import L2Transformer
 from src.cloud.base_model.pre_processamento.etl.validate import DataValidator
 
 def run_gold_tests():
-    print("--- Starting Gold Standard Data Integrity Tests v4.6 (Standalone) ---")
+    print("--- Starting Automated Data Integrity Tests (Standalone) ---")
     
     # 1. Load Config
     config_path = Path("src/cloud/base_model/configs/master_config.yaml")
@@ -191,7 +191,7 @@ def run_gold_tests():
         print(f"FAIL: 65min Gap NOT handled correctly. Valid: {abandon_report['is_valid']}, Islands: {num_islands}, Survived: {valid_islands}")
 
     if clipping_ok and lineage_ok and empty_ok and healing_ok and abandon_ok:
-        print("\nALL GOLD v4.6 (Adaptive) TESTS PASSED!")
+        print("\nALL INTEGRITY TESTS PASSED!")
         sys.exit(0)
     else:
         sys.exit(1)

@@ -451,21 +451,21 @@ def run_pipeline():
     logger.info(f"Total processed files: {len(zip_files) - len(skipped_files) - len(failed_files)}")
     logger.info(f"CPUs used: {max_workers} / {cpu_count}")
 
-    # 5c. RUN GOLD STANDARD DATA INTEGRITY TESTS
+    # 5c. RUN AUTOMATED DATA INTEGRITY TESTS
     try:
-        logger.info("🧪 Starting Automated Gold Standard Data Integrity Tests...")
+        logger.info("🧪 Starting Automated Data Integrity Tests...")
         test_script = "tests/quality/run_quality_tests.py"
         if Path(test_script).exists():
             result = subprocess.run([sys.executable, test_script], check=False, capture_output=True, text=True)
             if result.returncode == 0:
-                logger.info("✅ GOLD STANDARD CERTIFICATION: All integrity tests passed!")
+                logger.info("✅ INTEGRITY CERTIFICATION: All integrity tests passed!")
             else:
-                logger.error("❌ GOLD STANDARD FAILURE: Integrity tests did not pass.")
+                logger.error("❌ INTEGRITY FAILURE: Integrity tests did not pass.")
                 logger.error(f"Test Output: {result.stdout}")
         else:
-            logger.warning(f"⚠️ Test script {test_script} not found. Skipping Gold Certification.")
+            logger.warning(f"⚠️ Test script {test_script} not found. Skipping Integrity Certification.")
     except Exception as e:
-        logger.error(f"⚠️ Gold Standard testing execution failed: {e}")
+        logger.error(f"⚠️ Integrity testing execution failed: {e}")
 
     from src.cloud.base_model.utils.path_utils import get_drive_session_path
 
