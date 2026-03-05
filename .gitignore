@@ -42,3 +42,6 @@ runpod_token.txt
 runpos_token.txt
 *.token
 *.secret
+
+# Temporary verification data
+PRE_PROCESSED/
