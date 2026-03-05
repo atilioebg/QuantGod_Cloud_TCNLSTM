@@ -7,6 +7,7 @@ pipeline_paths:
   # ── [FONTES EXTERNAS — Google Drive / Rclone] ──────────────────
   raw_l2_source:       "drive:PROJETOS/BTC_USDT_L2_2023_2026"      # ZIPs brutos (streaming)
   drive_results_root:  "drive:PROJETOS/RESULTADOS"                 # Raiz única de todos os resultados por sessão de treino
+  session_timestamp:   "250305_085000"                             # [FIXO] Timestamp para agrupar exportações (evita gaps de segundos entre scripts)
 
   # ── [PASTAS LOCAIS — Dados L2] ──────────────────────────────────
   local_data_root:    "data/L2"                                    # Raiz de todos os dados L2

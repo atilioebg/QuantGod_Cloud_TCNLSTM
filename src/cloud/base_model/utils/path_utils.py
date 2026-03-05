@@ -67,7 +67,15 @@ def get_drive_session_root(config: dict) -> str:
     """
     base = config['pipeline_paths'].get('drive_results_root', 'drive:PROJETOS/RESULTADOS')
     suffix = get_drive_suffix(config)
-    ts = _get_session_timestamp()
+    
+    # Check if a fixed timestamp was provided in master_config.yaml
+    cfg_ts = config.get('pipeline_paths', {}).get('session_timestamp')
+    if cfg_ts:
+        ts = str(cfg_ts).strip()
+    else:
+        # Fallback to generation if not defined
+        ts = _get_session_timestamp()
+        
     return f"{base}{suffix}_{ts}"
 
 
