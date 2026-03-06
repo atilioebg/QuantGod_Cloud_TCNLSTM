@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 
+from src.cloud.base_model.utils.path_utils import get_labelled_dir
+
 def resolve_active_labelled_dir() -> Path:
     """
     Determines the correct labelled directory based on master_config.yaml.
@@ -23,15 +25,9 @@ def resolve_active_labelled_dir() -> Path:
     with open(master_cfg_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
 
-    # Resolve name matching split_dataset.py logic
-    pre = config.get('pre_processing', {})
-    lab = pre.get('labelling', {})
-    sell_th = lab.get('sell_threshold', 0.003)
-    buy_th  = lab.get('buy_threshold', 0.003)
-    mins    = lab.get('horizon_minutes', 15)
-    
-    base_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
-    return Path("data/L2") / base_name
+    # In modern v5 architecture, the local folder is not suffixed.
+    # The suffix only applies to the Google Drive session export.
+    return Path(get_labelled_dir(config))
 
 def resolve_data_paths(config_paths: dict) -> tuple:
     """
