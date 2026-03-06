@@ -19,7 +19,7 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 from src.cloud.base_model.models.model import Hybrid_TCN_LSTM
-from src.cloud.base_model.treino.losses import FocalLossWithSmoothing
+from src.cloud.base_model.treino.losses import FocalLossWithSmoothing, compute_alpha_from_labels
 from sklearn.preprocessing import StandardScaler
 from src.cloud.base_model.utils.logging_utils import setup_logger, upload_audit_to_drive
 from src.cloud.base_model.utils.path_utils import get_specialized_dir
@@ -192,6 +192,8 @@ class SpecialistObjective:
             a_side = trial.suggest_float("spec_alpha_side", search_space['spec_alpha_side'][0], search_space['spec_alpha_side'][1])
             a_neu  = trial.suggest_float("spec_alpha_neutral", search_space['spec_alpha_neutral'][0], search_space['spec_alpha_neutral'][1])
             alpha  = torch.tensor([a_side, a_neu, a_side], dtype=torch.float32).to(self.DEVICE)
+        elif spec_cfg.get('spec_use_auto_class_weights', True):
+            alpha = compute_alpha_from_labels(self.y_train, num_classes=3, device=self.DEVICE)
         else:
             class_weights = spec_cfg.get('spec_class_weights', [4.85, 0.38, 4.61])
             alpha = torch.tensor(class_weights, dtype=torch.float32).to(self.DEVICE)
