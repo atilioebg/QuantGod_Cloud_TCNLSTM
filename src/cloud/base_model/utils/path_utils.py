@@ -7,18 +7,17 @@ Convention:
   LOCAL  → generic names, no run params (e.g. data/L2/pre_processed)
   DRIVE  → all exports go under a single session root per pipeline run:
 
-  drive:PROJETOS/RESULTADOS_SELL_{s}_BUY_{b}_{mins}min_{timestamp}/
-  ├── PRE_PROCESSED/          ← run_pipeline.py        (ETL output: parquets sem target)
-  ├── LABELLED/               ← run_labelling.py       (Labelling output: parquets com coluna 'target')
-  ├── AUDITORIA/
-  │   ├── ETL/                ← run_pipeline.py        (logs + data_quality_report.json + audit_summary.csv)
-  │   ├── LABELLING/          ← run_labelling.py       (logs + labelling_health_QA.log)
-  │   ├── SPLIT/              ← split_dataset.py       (logs + split_summary.json)
-  │   ├── KFOLD_SPECIALIST/   ← run_kfold_specialist.py (logs + kfold_security_QA.log)
-  │   └── AUDITOR/            ← train_xgboost.py       (logs + feature_importance.json)
-  └── MODELOS/
-      ├── foundation/         ← transfer.py            (best_tcn_lstm.pt + scaler.pkl + optuna.db)
-      └── specialized/        ← transfer.py            (best_specialist.pt + kfold scalers + oof.parquet)
+  drive:PROJETOS/RESULTADOS_SELL_{s}_BUY_{b}_{mins}min/               ← [MASTER BUCKET]
+  ├── MODELOS_06_03_2026_v001/    ← transfer.py        (PTs + scalers + optuna.db)
+  ├── AUDITORIA_06_03_2026_v001/  ← upload_audit_to_drive
+  │   ├── ETL/
+  │   ├── LABELLING/
+  │   └── KFOLD_SPECIALIST/
+  ├── PRE_PROCESSED_...           ← run_pipeline.py    (Parquets sem target)
+  └── LABELLED_...                ← run_labelling.py   (Parquets com target)
+
+  As subpastas (MODELOS, AUDITORIA) são versionadas pelo timestamp da sessão,
+  enquanto a raiz é compartilhada por todos os experimentos do mesmo setup (SELL/BUY).
 
   Os splits locais (labelled/train, labelled/val, specialized/) NAO sobem para o Drive.
   Eles são derivados que podem ser recriados a partir de LABELLED + split_dataset.py.
@@ -153,8 +152,7 @@ def get_auditor_oof_dir(config: dict) -> str:
 
 def get_drive_dir(base_remote: str, config: dict) -> str:
     """
-    DEPRECATED — use get_drive_session_path() instead.
-    Kept for backward compatibility with scripts not yet migrated.
-    Appends only the param suffix (no timestamp) to a given base remote.
+    DEPRECATED — use get_drive_session_path() or get_drive_session_root() instead.
+    Redirects legacy calls to the new Threshold Bucket root.
     """
-    return f"{base_remote}{get_drive_suffix(config)}"
+    return get_drive_session_root(config)

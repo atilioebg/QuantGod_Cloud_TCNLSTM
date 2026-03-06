@@ -17,7 +17,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from src.cloud.base_model.utils.logging_utils import setup_logger, upload_audit_to_drive
 from src.cloud.base_model.utils.path_utils import (
     get_pre_processed_dir, get_temp_raw_dir,
-    get_drive_dir, get_reports_root, get_logs_root
+    get_reports_root, get_logs_root
 )
 
 logger = logging.getLogger(__name__)
