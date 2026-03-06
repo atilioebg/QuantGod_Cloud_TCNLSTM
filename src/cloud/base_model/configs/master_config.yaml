@@ -112,6 +112,7 @@ pre_processing:
 
   kfold:
     enabled: true                                                 # Liga K-Fold OOF no Especialista. Se false: usa run_specialization.py legado (Holdout 80/20).
+                                                                  # [NOTA]: K-Fold OOF é mandatório para gerar sinais blindados (sem vazamento) para o Auditor treinar.
     n_splits: 5                                                   # Número de folds cronológicos (Blocked K-Fold). Cada fold cobre ~20% do Foundation Val.
     purge_minutes: 15                                             # Janela de Purga em minutos. Deve ser >= horizon_minutes para quebrar correlação serial.
                                                                   # Garante: max(treino_ts) + purge_min < min(teste_ts). Default = horizon_minutes = 15min.
@@ -218,7 +219,7 @@ training:
     base_smoothing: 0.1                                                # Label Smoothing (Preenche os alvos Zero/Um com 10% de ruidos suavisadores)
     
   specialization_weights:
-    run_specialized_after: false                                       # [AUTOMAÇÃO] Habilita Cascata Nuvem (Fundação > Especialista > Auditor XGB)
+    run_specialized_after: true                                       # [AUTOMAÇÃO] Habilita Cascata Nuvem (Fundação > Especialista > Auditor XGB)
     # ── MATRIZ DE DECISÃO DE PESOS (SNIPER) ──────────────────────────────────────────────────────
     # Ordem das flags: [spec_use_auto_class_weights + spec_optimize_class_weights]
     # optimize_class_weights tem precedência Absoluta Ouro sobre auto_class_weights.
@@ -266,7 +267,7 @@ optimization:
     base_alpha_neutral: [0.1, 0.8]                                # Base: Multiplicador achatado para NEUTRAL (1)
 
     # --- HIPERPARÂMETROS DA FOCAL LOSS: ESPECIALISTA (SNIPER) ---
-    spec_loss_gamma: [2.0, 5.0]                                   # Spec: Punição hiper-agressiva para erros
-    spec_loss_smoothing: [0.00, 0.05]                             # Spec: Certeza máxima, quase nenhum smoothing
-    spec_alpha_side: [3.0, 10.0]                                  # Spec: Foco drástico nas pontas (BUY/SELL)
-    spec_alpha_neutral: [0.01, 0.2]                               # Spec: Esmagamento total do NEUTRAL
+    spec_loss_gamma: [1.0, 3.0]                                   # Spec: Punição hiper-agressiva para erros
+    spec_loss_smoothing: [0.01, 0.15]                             # Spec: Certeza máxima, quase nenhum smoothing
+    spec_alpha_side: [1.5, 6.0]                                  # Spec: Foco drástico nas pontas (BUY/SELL)
+    spec_alpha_neutral: [0.1, 0.8]                               # Spec: Esmagamento total do NEUTRAL
