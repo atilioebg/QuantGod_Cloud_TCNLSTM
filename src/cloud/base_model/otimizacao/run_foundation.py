@@ -133,8 +133,8 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
         
         # 1. Class Weights (Alpha)
         if foundation_cfg.get('optimize_class_weights', False):
-            a_side = trial.suggest_float("alpha_side", search_space['alpha_side'][0], search_space['alpha_side'][1])
-            a_neu  = trial.suggest_float("alpha_neutral", search_space['alpha_neutral'][0], search_space['alpha_neutral'][1])
+            a_side = trial.suggest_float("base_alpha_side", search_space['base_alpha_side'][0], search_space['base_alpha_side'][1])
+            a_neu  = trial.suggest_float("base_alpha_neutral", search_space['base_alpha_neutral'][0], search_space['base_alpha_neutral'][1])
             alpha  = torch.tensor([a_side, a_neu, a_side], dtype=torch.float32).to(DEVICE)
         elif foundation_cfg.get('use_auto_class_weights', True):
             alpha = compute_alpha_from_labels(y_train, num_classes=3, device=DEVICE)
@@ -144,13 +144,13 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
             
         # 2. Gamma
         if foundation_cfg.get('optimize_gamma', False):
-            gamma = trial.suggest_float("loss_gamma", search_space['loss_gamma'][0], search_space['loss_gamma'][1])
+            gamma = trial.suggest_float("base_loss_gamma", search_space['base_loss_gamma'][0], search_space['base_loss_gamma'][1])
         else:
             gamma = foundation_cfg.get('gamma', 2.0)
             
         # 3. Label Smoothing
         if foundation_cfg.get('optimize_smoothing', False):
-            smoothing = trial.suggest_float("loss_smoothing", search_space['loss_smoothing'][0], search_space['loss_smoothing'][1])
+            smoothing = trial.suggest_float("base_loss_smoothing", search_space['base_loss_smoothing'][0], search_space['base_loss_smoothing'][1])
         else:
             smoothing = foundation_cfg.get('smoothing', 0.1)
 

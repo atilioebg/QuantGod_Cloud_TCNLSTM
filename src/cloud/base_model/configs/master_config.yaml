@@ -243,11 +243,17 @@ optimization:
     epochs: 50                                                    # REDUZIDO: Modo de teste E2E
     early_stopping_patience: 4                                    # Inteligência Auxiliar que Morre a Trial após X rounds inférteis
     
-    # --- NOVOS HIPERPARÂMETROS DA FOCAL LOSS ---
-    loss_gamma: [1.0, 3.0]                                        # Fator de punição severa para exemplos difíceis (Se otimizar ativado)
-    loss_smoothing: [0.01, 0.15]                                  # Injeção de Dúvida restrita a valores sensíveis (Se otimizar ativado)
-    alpha_side: [1.5, 6.0]                                        # Multiplicador flutuante para as classes BUY (2) e SELL (0) (Caso optimize_class_weights=true)
-    alpha_neutral: [0.1, 0.8]                                     # Multiplicador flutuante para a classe dominante NEUTRAL (1)
+    # --- HIPERPARÂMETROS DA FOCAL LOSS: BASE MODELO ---
+    base_loss_gamma: [1.0, 3.0]                                   # Base: Trade-off convergência suave vs minúcia
+    base_loss_smoothing: [0.01, 0.15]                             # Base: Injeção de Dúvida restrita
+    base_alpha_side: [1.5, 6.0]                                   # Base: Multiplicador para BUY (2) e SELL (0)
+    base_alpha_neutral: [0.1, 0.8]                                # Base: Multiplicador achatado para NEUTRAL (1)
+
+    # --- HIPERPARÂMETROS DA FOCAL LOSS: ESPECIALISTA (SNIPER) ---
+    spec_loss_gamma: [2.0, 5.0]                                   # Spec: Punição hiper-agressiva para erros
+    spec_loss_smoothing: [0.00, 0.05]                             # Spec: Certeza máxima, quase nenhum smoothing
+    spec_alpha_side: [3.0, 10.0]                                  # Spec: Foco drástico nas pontas (BUY/SELL)
+    spec_alpha_neutral: [0.01, 0.2]                               # Spec: Esmagamento total do NEUTRAL
 
     loss_gamma: [1.0, 3.0]                                        # Fator de punição severa para exemplos difíceis (Trade-off: Convergência vs Minúcia)
     loss_smoothing: [0.01, 0.15]                                  # Injeção de Dúvida: Impede que o modelo fique "Hiperconfiante" demais em Neutral
