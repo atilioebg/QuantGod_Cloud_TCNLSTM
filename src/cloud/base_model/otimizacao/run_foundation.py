@@ -104,9 +104,7 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
                                               config['optimization']['search_space']['weight_decay'][1], log=True)
         epochs          = config['optimization']['search_space']['epochs']
 
-        logger.info(f"Trial {trial.number} START | tcn={tcn_channels}, lstm={lstm_hidden}, "
-                    f"layers={num_lstm_layers}, batch={batch_size}, seq={seq_len}, "
-                    f"drop={dropout:.8f}, lr={lr:.8f}, wd={weight_decay:.8f}")
+        # Move Start Logger below Loss computation to include their values
 
         # ── Datasets ───────────────────────────────────────────────────────────
         train_dataset = SequenceDataset(X_train, y_train, island_train, seq_len)
@@ -153,6 +151,13 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
             smoothing = trial.suggest_float("base_loss_smoothing", search_space['base_loss_smoothing'][0], search_space['base_loss_smoothing'][1])
         else:
             smoothing = foundation_cfg.get('base_smoothing', 0.1)
+
+        # ── Trial Start Log (Moved here to include Focal parameters) ────────────
+        a_str = f"[{alpha[0]:.2f}, {alpha[1]:.2f}, {alpha[2]:.2f}]"
+        logger.info(f"Trial {trial.number} START | tcn={tcn_channels}, lstm={lstm_hidden}, "
+                    f"layers={num_lstm_layers}, batch={batch_size}, seq={seq_len}, "
+                    f"drop={dropout:.4f}, lr={lr:.6f}, wd={weight_decay:.4f} | "
+                    f"alpha={a_str}, gamma={gamma:.2f}, smooth={smoothing:.2f}")
 
         criterion = FocalLossWithSmoothing(alpha=alpha, gamma=gamma, smoothing=smoothing)
 
@@ -359,16 +364,16 @@ def run_optimization():
     # ── Log Alpha Class Weights Globally ─────────────────────────────────────
     import torch
     dummy_device = torch.device("cpu")
-    if foundation_cfg.get('use_auto_class_weights', True):
+    if foundation_cfg.get('base_use_auto_class_weights', True):
         # Fail fast approach if auto fails here.
         alpha_base = compute_alpha_from_labels(y_train, num_classes=3, device=dummy_device)
         logger.info(f"FocalLoss alpha (AUTO computed from foundation labels): {alpha_base.tolist()}")
     else:
         logger.info(f"FocalLoss alpha (MANUAL from config): {class_weights}")
         
-    gamma = foundation_cfg.get('gamma', 2.0)
-    smoothing = foundation_cfg.get('smoothing', 0.1)
-    logger.info(f"Loss: FocalLossWithSmoothing | gamma={gamma} | smoothing={smoothing}")
+    gamma = foundation_cfg.get('base_gamma', 2.0)
+    smoothing = foundation_cfg.get('base_smoothing', 0.1)
+    logger.info(f"Loss: FocalLossWithSmoothing | fallback_gamma={gamma} | fallback_smoothing={smoothing}")
 
 
     # ── Optuna study ──────────────────────────────────────────────────────────
@@ -423,13 +428,22 @@ def run_optimization():
     logger.info(f"Optimization complete | Melhor F1 Macro: {study.best_trial.value:.8f}")
     
     # Clean precision formatted string for logger
-    formatted_best_params = {k: f"{v:.8f}" if isinstance(v, float) else v for k, v in study.best_params.items()}
+    final_params = study.best_params.copy()
+    
+    # ── Fetch active Focal Loss parameters to store in JSON ────────────────
+    # Fetch from last known trial scope / globally set values so downstream reads them
+    if not list(filter(lambda k: "alpha" in k, final_params.keys())):
+        final_params['base_alpha_list'] = alpha.tolist() if isinstance(alpha, torch.Tensor) else alpha
+    if "base_loss_gamma" not in final_params: final_params['base_loss_gamma'] = gamma
+    if "base_loss_smoothing" not in final_params: final_params['base_loss_smoothing'] = smoothing
+        
+    formatted_best_params = {k: f"{v:.8f}" if isinstance(v, float) else v for k, v in final_params.items()}
     logger.info(f"Melhores Parametros Macro: {formatted_best_params}")
 
     # ── Save MACRO champion params (trial ranked by study objective) ─────────
     out_params_path = Path("src/cloud/base_model/otimizacao") / "best_params.json"
     with open(out_params_path, "w", encoding='utf-8') as f:
-        json.dump(study.best_params, f, indent=4, ensure_ascii=False)
+        json.dump(final_params, f, indent=4, ensure_ascii=False)
     logger.info(f"🥇 [MACRO] Best params saved: {out_params_path}")
 
     # ── Downstream Pipeline Automation ─────────────────────────────────────
@@ -442,7 +456,14 @@ def run_optimization():
                  and "best_f1_dir" in t.user_attrs]
     if completed:
         best_dir_trial = max(completed, key=lambda t: t.user_attrs["best_f1_dir"])
-        best_dir_params = best_dir_trial.params
+        best_dir_params = best_dir_trial.params.copy()
+        
+        # Inject Focal parameters into DIR params too
+        if not list(filter(lambda k: "alpha" in k, best_dir_params.keys())):
+            best_dir_params['base_alpha_list'] = alpha.tolist() if isinstance(alpha, torch.Tensor) else alpha
+        if "base_loss_gamma" not in best_dir_params: best_dir_params['base_loss_gamma'] = gamma
+        if "base_loss_smoothing" not in best_dir_params: best_dir_params['base_loss_smoothing'] = smoothing
+
         best_dir_val    = best_dir_trial.user_attrs["best_f1_dir"]
         formatted_dir_params = {k: f"{v:.8f}" if isinstance(v, float) else v for k, v in best_dir_params.items()}
         logger.info(f"🏆 [DIR]   Best trial: {best_dir_trial.number} | F1 Dir: {best_dir_val:.8f}")
