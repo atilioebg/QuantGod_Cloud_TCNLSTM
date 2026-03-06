@@ -248,14 +248,14 @@ optimization:
   run_feature_importance_after: true                              # Ao fim da Base, roda e salva a Força dos 32 Alphas originais (Integridade)
 
   search_space:
-    tcn_channels: [128, 256, 512]                                 # Filtros Dinâmicos Captadores Visuais (TCN - Redes Residuais Causais)
+    tcn_channels: [64, 128, 256, 512]                                 # Filtros Dinâmicos Captadores Visuais (TCN - Redes Residuais Causais)
     lstm_hidden: [32, 64, 128]                                    # Topologia Vetorial Oculta dos Blocos Neurais em Memória Tensa (LTSM) 
-    num_lstm_layers: [5, 6, 7, 8]                                 # Níveis Arquiteturais Subterrâneos Empilhados (Mapeamento Complexo)
-    lr: [0.00001, 0.00006]                                        # Multiplicador do Passo Gradient Descendente (AdamW) do Erro Perceptual
+    num_lstm_layers: [3, 4, 5, 6, 7, 8]                                 # Níveis Arquiteturais Subterrâneos Empilhados (Mapeamento Complexo)
+    lr: [0.00001, 0.0001]                                        # Multiplicador do Passo Gradient Descendente (AdamW) do Erro Perceptual
     weight_decay: [0.0001, 0.01]                                  # Controle Punitivo de Regularização (Peso Descontado Extra sobre a Perda)
-    batch_size: [256, 512, 1024]                                  # Lotes Simultâneos injetados Paralelamente na VRAM do Fio Tenson (Cuda GPU)
+    batch_size: [128, 256, 512]                                  # Lotes Simultâneos injetados Paralelamente na VRAM do Fio Tenson (Cuda GPU)
     seq_len: [24, 48, 96, 120]                                    # Túnel Histórico: 24min a 120min (2h contexto Sniper)
-    dropout: [0.3, 0.5, 0.75, 0.80]                               # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
+    dropout: [0.3, 0.6]                               # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
     epochs: 50                                                    # REDUZIDO: Modo de teste E2E
     early_stopping_patience: 4                                    # Inteligência Auxiliar que Morre a Trial após X rounds inférteis
     
