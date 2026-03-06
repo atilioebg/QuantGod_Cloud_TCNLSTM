@@ -133,7 +133,7 @@ def load_data(directory: str, feature_cols: list):
     return df
 
 class SpecialistObjective:
-    def __init__(self, config, spec_space, X_train, y_train, island_t, X_val, y_val, island_v, class_weights, DEVICE):
+    def __init__(self, config, spec_space, X_train, y_train, island_t, X_val, y_val, island_v, class_weights, DEVICE, best_params=None):
         self.config = config
         self.spec_space = spec_space
         self.X_train = X_train
@@ -144,6 +144,7 @@ class SpecialistObjective:
         self.island_v = island_v
         self.class_weights = class_weights
         self.DEVICE = DEVICE
+        self.best_params = best_params or {}
         
         self.feature_cols_len = X_train.shape[1]
         self.epochs = config['optimization']['search_space']['epochs']
@@ -202,13 +203,17 @@ class SpecialistObjective:
         if spec_cfg.get('spec_optimize_gamma', False):
             gamma = trial.suggest_float("spec_loss_gamma", search_space['spec_loss_gamma'][0], search_space['spec_loss_gamma'][1])
         else:
-            gamma = spec_cfg.get('spec_gamma', 2.0)
-
+            gamma = spec_cfg.get('spec_gamma')
+            if gamma is None:
+                gamma = self.best_params.get('base_loss_gamma', 2.0)
+        
         # -- Label Smoothing --
         if spec_cfg.get('spec_optimize_smoothing', False):
             smoothing = trial.suggest_float("spec_loss_smoothing", search_space['spec_loss_smoothing'][0], search_space['spec_loss_smoothing'][1])
         else:
-            smoothing = spec_cfg.get('spec_smoothing', 0.1)
+            smoothing = spec_cfg.get('spec_smoothing')
+            if smoothing is None:
+                smoothing = self.best_params.get('base_loss_smoothing', 0.1)
 
         # ── Trial Start Log (To include Focal parameters) ────────────
         a_str = f"[{alpha[0]:.2f}, {alpha[1]:.2f}, {alpha[2]:.2f}]"
@@ -360,7 +365,8 @@ def run_specialization():
         X_val=X_val_norm, y_val=y_val_raw,
         island_v=island_v,
         class_weights=class_weights,
-        DEVICE=DEVICE
+        DEVICE=DEVICE,
+        best_params=best_foundation_params
     )
     
     study_name = "quantgod_specialist_v1"
@@ -394,9 +400,16 @@ def run_specialization():
             final_alpha = spec_cfg.get('spec_class_weights', [4.85, 0.38, 4.61])
         final_params['spec_alpha_list'] = final_alpha
 
-    # 2. Gamma / Smoothing fallback injection
-    if "spec_loss_gamma" not in final_params: final_params['spec_loss_gamma'] = spec_cfg.get('spec_gamma', 2.0)
-    if "spec_loss_smoothing" not in final_params: final_params['spec_loss_smoothing'] = spec_cfg.get('spec_smoothing', 0.1)
+    # 2. Gamma / Smoothing fallback injection (Smart Inheritance)
+    if "spec_loss_gamma" not in final_params:
+        gamma = spec_cfg.get('spec_gamma')
+        if gamma is None: gamma = best_foundation_params.get('base_loss_gamma', 2.0)
+        final_params['spec_loss_gamma'] = gamma
+
+    if "spec_loss_smoothing" not in final_params:
+        smooth = spec_cfg.get('spec_smoothing')
+        if smooth is None: smooth = best_foundation_params.get('base_loss_smoothing', 0.1)
+        final_params['spec_loss_smoothing'] = smooth
 
     # Save best parameters
     best_params_path = Path("src/cloud/base_model/otimizacao/best_params_specialist.json")

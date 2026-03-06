@@ -116,7 +116,7 @@ pre_processing:
     n_splits: 5                                                   # Número de folds cronológicos (Blocked K-Fold). Cada fold cobre ~20% do Foundation Val.
     purge_minutes: 15                                             # Janela de Purga em minutos. Deve ser >= horizon_minutes para quebrar correlação serial.
                                                                   # Garante: max(treino_ts) + purge_min < min(teste_ts). Default = horizon_minutes = 15min.
-    specialist_epochs: 1                                          # REDUZIDO: Modo de teste E2E
+    specialist_epochs: 30                                         # REDUZIDO: Modo de teste E2E
     use_best_foundation_arch: true                                # Se true: usa best_params.json da Fundação sem re-otimizar (Symmetric Delta não é executado).
                                                                   # Poupa GPU: cada fold treina a MESMA arquitetura vencedora, variando apenas os pesos.
     oof_output_dir: "data/auditor/oof_predictions"                # Diretório onde os logits de cada fold e o full_oof.parquet serão salvos.
@@ -210,16 +210,17 @@ training:
     # [TRUE  + FALSE] = Scikit-Learn calcula automático baseado no CSV da Sessão mas não otimiza esses pesos no Optuna.
     # [FALSE + FALSE] = Hardcoded usa o valor exato definido em 'base_class_weights'. Não usa scikit nem Optuna.
     # ─────────────────────────────────────────────────────────────────────────────────────────────
-    base_use_auto_class_weights: true                                  # Balanço automático baseado na demografia de sinais do dataset real
-    base_optimize_class_weights: true                                  # Se true, o Optuna busca multiplicadores (side vs neutral) no espaço de busca. Sobrescreve auto/manual.
-    base_class_weights: [1.32, 0.40, 1.30]                             # Fallback Manual (Suprime Neutros Fortemente p/ balancear)
-    base_optimize_gamma: true                                         # Se true, o Optuna busca o melhor gamma no espaço loss_gamma.
-    base_gamma: 2.0                                                    # Focal Loss (Aumenta o foco de gradiente nas amostras difíceis)
-    base_optimize_smoothing: true                                     # Se true, o Optuna busca a melhor taxa de smoothing no espaço loss_smoothing.
-    base_smoothing: 0.1                                                # Label Smoothing (Preenche os alvos Zero/Um com 10% de ruidos suavisadores)
+    base_use_auto_class_weights: true                             # Balanço automático baseado na demografia de sinais do dataset real
+    base_optimize_class_weights: true                             # Se true, o Optuna busca multiplicadores (side vs neutral) no espaço de busca. Sobrescreve auto/manual.
+    base_class_weights: [1.32, 0.40, 1.30]                        # Fallback Manual (Suprime Neutros Fortemente p/ balancear)
+    base_optimize_gamma: true                                     # Se true, o Optuna busca the melhor gamma no espaço loss_gamma.
+    base_gamma: 2.0                                               # Focal Loss (Aumenta o foco de gradiente nas amostras difíceis)
+    base_optimize_smoothing: true                                 # Se true, o Optuna busca a melhor taxa de smoothing no espaço loss_smoothing.
+    base_smoothing: 0.1                                           # Label Smoothing (Preenche os alvos Zero/Um com 10% de ruidos suavisadores)
     
   specialization_weights:
-    run_specialized_after: true                                       # [AUTOMAÇÃO] Habilita Cascata Nuvem (Fundação > Especialista > Auditor XGB)
+    run_specialized_after: true                                   # [AUTOMAÇÃO] Habilita Especialista (TCN-LSTM Fine-tuning)
+    run_auditor_after: true                                       # [AUTOMAÇÃO] Habilita Auditor (XGBoost Meta-Model)
     # ── MATRIZ DE DECISÃO DE PESOS (SNIPER) ──────────────────────────────────────────────────────
     # Ordem das flags: [spec_use_auto_class_weights + spec_optimize_class_weights]
     # optimize_class_weights tem precedência Absoluta Ouro sobre auto_class_weights.
@@ -228,13 +229,13 @@ training:
     # [TRUE  + FALSE] = Scikit-Learn calcula automático baseado no CSV da Sessão mas não otimiza esses pesos no Optuna.
     # [FALSE + FALSE] = Hardcoded usa o valor exato definido em 'spec_class_weights'. Não usa scikit nem Optuna.
     # ─────────────────────────────────────────────────────────────────────────────────────────────
-    spec_use_auto_class_weights: false                                 # Habilita balanço pro modelo Especialista
-    spec_optimize_class_weights: false                                 # Otimização dinâmica de pesos da classe no Especialista
-    spec_class_weights: [4.85, 0.38, 4.61]                             # Pesos draconianos para forçar saídas SELL/BUY em vez de apenas prever Neutro
-    spec_optimize_gamma: false                                         # Otimização dinâmica do Gamma
-    spec_gamma: 2.0                                                    # Penalidade de erro continua agressiva
-    spec_optimize_smoothing: false                                     # Otimização dinâmica do Smoothing
-    spec_smoothing: 0.1                                                # Evita que hiperconcordância com classe desbalanceada superstime as predições
+    spec_use_auto_class_weights: true                             # Habilita balanço pro modelo Especialista
+    spec_optimize_class_weights: false                            # Otimização dinâmica de pesos da classe no Especialista
+    spec_class_weights: [4.85, 0.38, 4.61]                        # Pesos draconianos para forçar saídas SELL/BUY em vez de apenas prever Neutro
+    spec_optimize_gamma: false                                    # Otimização dinâmica do Gamma
+    spec_gamma: 2.0                                               # Penalidade de erro continua agressiva
+    spec_optimize_smoothing: false                                # Otimização dinâmica do Smoothing
+    spec_smoothing: 0.1                                           # Evita que hiperconcordância com classe desbalanceada superstime as predições
 
 optimization:
   study_name: "quantgod_tcn_lstm_v1_finetune"                     # Nome de identificação do experimento interno no banco SQLite
@@ -249,14 +250,14 @@ optimization:
   run_feature_importance_after: true                              # Ao fim da Base, roda e salva a Força dos 32 Alphas originais (Integridade)
 
   search_space:
-    tcn_channels: [64, 128, 256, 512]                                 # Filtros Dinâmicos Captadores Visuais (TCN - Redes Residuais Causais)
+    tcn_channels: [64, 128, 256, 512]                             # Filtros Dinâmicos Captadores Visuais (TCN - Redes Residuais Causais)
     lstm_hidden: [32, 64, 128]                                    # Topologia Vetorial Oculta dos Blocos Neurais em Memória Tensa (LTSM) 
-    num_lstm_layers: [3, 4, 5, 6, 7, 8]                                 # Níveis Arquiteturais Subterrâneos Empilhados (Mapeamento Complexo)
-    lr: [0.00001, 0.0001]                                        # Multiplicador do Passo Gradient Descendente (AdamW) do Erro Perceptual
+    num_lstm_layers: [3, 4, 5, 6, 7, 8]                           # Níveis Arquiteturais Subterrâneos Empilhados (Mapeamento Complexo)
+    lr: [0.00001, 0.0001]                                         # Multiplicador do Passo Gradient Descendente (AdamW) do Erro Perceptual
     weight_decay: [0.0001, 0.01]                                  # Controle Punitivo de Regularização (Peso Descontado Extra sobre a Perda)
-    batch_size: [128, 256, 512]                                  # Lotes Simultâneos injetados Paralelamente na VRAM do Fio Tenson (Cuda GPU)
+    batch_size: [128, 256, 512]                                   # Lotes Simultâneos injetados Paralelamente na VRAM do Fio Tenson (Cuda GPU)
     seq_len: [24, 48, 96, 120]                                    # Túnel Histórico: 24min a 120min (2h contexto Sniper)
-    dropout: [0.3, 0.6]                               # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
+    dropout: [0.3, 0.6]                                           # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
     epochs: 50                                                    # REDUZIDO: Modo de teste E2E
     early_stopping_patience: 4                                    # Inteligência Auxiliar que Morre a Trial após X rounds inférteis
     
@@ -267,7 +268,9 @@ optimization:
     base_alpha_neutral: [0.1, 0.8]                                # Base: Multiplicador achatado para NEUTRAL (1)
 
     # --- HIPERPARÂMETROS DA FOCAL LOSS: ESPECIALISTA (SNIPER) ---
+    # com o kfold.enabled: true o Optuna NÃO vai rodar logo estes
+    # parametros não serão refinados.
     spec_loss_gamma: [1.0, 3.0]                                   # Spec: Punição hiper-agressiva para erros
     spec_loss_smoothing: [0.01, 0.15]                             # Spec: Certeza máxima, quase nenhum smoothing
-    spec_alpha_side: [1.5, 6.0]                                  # Spec: Foco drástico nas pontas (BUY/SELL)
-    spec_alpha_neutral: [0.1, 0.8]                               # Spec: Esmagamento total do NEUTRAL
+    spec_alpha_side: [1.5, 6.0]                                   # Spec: Foco drástico nas pontas (BUY/SELL)
+    spec_alpha_neutral: [0.1, 0.8]                                # Spec: Esmagamento total do NEUTRAL

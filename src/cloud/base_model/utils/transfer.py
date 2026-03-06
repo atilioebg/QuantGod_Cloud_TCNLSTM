@@ -80,7 +80,9 @@ def transfer_results(log_filename: str, run_type: str):
     from src.cloud.base_model.utils.path_utils import get_drive_session_path
 
     # Destino: pasta centralizada de sessão / MODELOS / run_type
-    remote_path = get_drive_session_path(f"MODELOS/{run_type}", config)
+    # Se for "all", limpamos o sufixo para salvar diretamente na raiz de MODELOS/
+    remote_folder = f"MODELOS/{run_type}" if run_type != "all" else "MODELOS"
+    remote_path = get_drive_session_path(remote_folder, config)
     logger.info(f"--- Iniciando transferencia [{run_type.upper()}] para: {remote_path} ---")
 
     # 1.5 Gerar Landscape CSV (apenas no foundation para refletir a otimização)

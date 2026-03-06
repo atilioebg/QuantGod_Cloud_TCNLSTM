@@ -137,8 +137,11 @@ def main():
         if manage_gpu: free_memory()
 
         # ── FASE 3: Auditor (Meta-Labeling & XGBoost) ──────────────────────────────
-        # Check if models exist (OOF Condition)
-        if not Path(best_base_model).exists() or not Path(best_spec_model).exists():
+        run_auditor = spec_cfg.get('run_auditor_after', True)
+        if not run_auditor:
+            logger.warning("🛑 PARADA PROGRAMADA: 'run_auditor_after' esta FALSE no master_config.yaml.")
+            logger.info("   ↳ Pulando Fase Auditor. As predições OOF do Especialista foram geradas, mas o Juiz nao sera treinado.")
+        elif not Path(best_base_model).exists() or not Path(best_spec_model).exists():
             logger.error(f"❌ Modelos Base ou Especialista não encontrados! Requeridos para treinar o Juiz.")
             if not skip_qa_on_fail: sys.exit(1)
         else:
