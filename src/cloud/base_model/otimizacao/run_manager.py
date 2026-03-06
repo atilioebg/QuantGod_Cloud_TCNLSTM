@@ -80,10 +80,16 @@ def main():
     qa_path = Path("logs/QA")
     qa_path.mkdir(parents=True, exist_ok=True)
     
+    opt_cfg = config.get('optimization', {})
+    search_space = opt_cfg.get('search_space', {})
+    n_trials_base = opt_cfg.get('n_trials', 100)
+    epochs = search_space.get('epochs', 50)
+    patience = search_space.get('early_stopping_patience', 4)
+    
     # ── FASE 1: Foundation Optuna ──────────────────────────────────────────────
     # Calls the refactored run_foundation.py
     success = run_phase(
-        name="Foundation Optuna (60 Trials)",
+        name=f"Foundation Optuna ({n_trials_base} Trials | {epochs} Epochs | ESP: {patience})",
         script_path="src/cloud/base_model/otimizacao/run_foundation.py",
         check_exists=best_base_model,
         force_retrain=force_retrain
@@ -108,17 +114,20 @@ def main():
         oof_check     = kfold_cfg.get('oof_output_dir', 'data/auditor/oof_predictions') + '/full_oof.parquet'
 
         if kfold_enabled:
-            logger.info("🔁 K-Fold Mode ativado (kfold.enabled=true) → Executando 5-Fold Purged K-Fold Specialist")
+            n_splits = kfold_cfg.get('n_splits', 5)
+            gap = kfold_cfg.get('gap_minutes', 15)
+            logger.info(f"🔁 K-Fold Mode ativado (kfold.enabled=true) → Executando {n_splits}-Fold Purged K-Fold Specialist")
             success = run_phase(
-                name="K-Fold Specialist OOF (5 Folds + Purge 15min)",
+                name=f"K-Fold Specialist OOF ({n_splits} Folds + Purge {gap}min)",
                 script_path="src/cloud/base_model/treino/run_kfold_specialist.py",
                 check_exists=oof_check,
                 force_retrain=force_retrain
             )
         else:
+            n_trials_spec = opt_cfg.get('n_trials_specialist', 5)
             logger.info("📂 Legado Mode (kfold.enabled=false) → Executando Specialist Optuna (Holdout 80/20)")
             success = run_phase(
-                name="Specialist Optuna (Symmetric Delta)",
+                name=f"Specialist Optuna ({n_trials_spec} Trials | Symmetric Delta)",
                 script_path="src/cloud/base_model/treino/run_specialization.py",
                 check_exists=best_spec_model,
                 force_retrain=force_retrain
