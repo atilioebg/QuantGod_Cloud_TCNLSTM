@@ -431,7 +431,7 @@ def run_optimization():
     logger.info(f"Trials Executados nesta Sessao: {trials_run}")
     logger.info("="*60)
 
-    logger.info(f"Optimization complete | Melhor F1 Macro: {study.best_trial.value:.8f}")
+    logger.info(f"🥇 [MACRO] Best trial: {study.best_trial.number} | F1 Macro: {study.best_trial.value:.8f}")
     
     # Clean precision formatted string for logger
     final_params = study.best_params.copy()
@@ -451,7 +451,7 @@ def run_optimization():
         final_params['base_loss_smoothing'] = foundation_cfg.get('base_smoothing', 0.1)
         
     formatted_best_params = {k: f"{v:.8f}" if isinstance(v, float) else v for k, v in final_params.items()}
-    logger.info(f"Melhores Parametros Macro: {formatted_best_params}")
+    logger.info(f"🥇 [MACRO] Best params: {formatted_best_params}")
 
     # ── Save MACRO champion params (trial ranked by study objective) ─────────
     out_params_path = Path("src/cloud/base_model/otimizacao") / "best_params.json"
