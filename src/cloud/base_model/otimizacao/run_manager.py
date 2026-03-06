@@ -93,7 +93,8 @@ def main():
     if manage_gpu: free_memory()
     
     # ── Verify Pipeline Flow Flag ─────────────────────────────────────────────
-    run_specialized = config.get('optimization', {}).get('run_specialized_after', True)
+    spec_cfg = config.get('training', {}).get('specialization_weights', {})
+    run_specialized = spec_cfg.get('run_specialized_after', True)
     
     if not run_specialized:
         logger.warning("🛑 PARADA PROGRAMADA: 'run_specialized_after' esta FALSE no master_config.yaml.")
