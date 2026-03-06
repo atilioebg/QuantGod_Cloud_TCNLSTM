@@ -61,31 +61,33 @@ def get_drive_suffix(config: dict) -> str:
 
 def get_drive_session_root(config: dict) -> str:
     """
-    Returns the unique session root folder on Drive for this pipeline run.
-    Format: drive:PROJETOS/RESULTADOS_SELL_{s}_BUY_{b}_{mins}min_{timestamp}
-    All stages (ETL, Labelling, Audit, Models) share this same root.
+    Returns the threshold-based parent folder on Drive.
+    Format: drive:PROJETOS/RESULTADOS_SELL_{s}_BUY_{b}_{mins}min
+    This folder serves as a 'bucket' for all runs sharing the same labelling logic.
     """
     base = config['pipeline_paths'].get('drive_results_root', 'drive:PROJETOS/RESULTADOS')
     suffix = get_drive_suffix(config)
-    
-    # Check if a fixed timestamp was provided in master_config.yaml
-    cfg_ts = config.get('pipeline_paths', {}).get('session_timestamp')
-    if cfg_ts:
-        ts = str(cfg_ts).strip()
-    else:
-        # Fallback to generation if not defined
-        ts = _get_session_timestamp()
-        
-    return f"{base}{suffix}_{ts}"
+    return f"{base}{suffix}"
 
 
 def get_drive_session_path(subfolder: str, config: dict) -> str:
     """
-    Returns the full Drive path for a given subfolder within the session root.
-    Example: get_drive_session_path("AUDITORIA/ETL", cfg)
-             → "drive:PROJETOS/RESULTADOS_SELL_00030_BUY_00030_15min_260304_192238/AUDITORIA/ETL"
+    Returns the full Drive path for a given subfolder, injecting the session timestamp.
+    Example: get_drive_session_path("MODELOS", cfg)
+             → "drive:PROJETOS/RESULTADOS_SELL_..._min/MODELOS_06_03_2026_v001"
     """
-    return f"{get_drive_session_root(config)}/{subfolder}"
+    root = get_drive_session_root(config)
+    
+    cfg_ts = config.get('pipeline_paths', {}).get('session_timestamp')
+    ts = str(cfg_ts).strip() if cfg_ts else _get_session_timestamp()
+    
+    # Inject timestamp to the first folder component to group properly
+    # e.g., "AUDITORIA/ETL" -> "AUDITORIA_06_03_2026_v001/ETL"
+    parts = subfolder.split('/')
+    parts[0] = f"{parts[0]}_{ts}"
+    new_sub = "/".join(parts)
+    
+    return f"{root}/{new_sub}"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
