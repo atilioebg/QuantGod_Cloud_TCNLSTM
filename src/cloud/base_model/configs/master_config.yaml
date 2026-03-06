@@ -201,8 +201,15 @@ model:
 training:
   # Lógica da FocalLoss com Label Smoothing Anti-Overconfidence
   foundation_weights:
+    # ── MATRIZ DE DECISÃO DE PESOS (BASE/ESPECIALISTA─────────────────────────────────────────────
+    # optimize_class_weights tem precedência 1 sobre auto_class_weights. 
+    # [TRUE  + TRUE ] = Optuna Otimiza no espaço de busca (Ignora Scikit-Learn e Manual)
+    # [FALSE + TRUE ] = Scikit-Learn calcula automático baseado no CSV da Sessão (Ignora Manual)
+    # [TRUE  + FALSE] = Optuna Otimiza no espaço de busca (Ignora Manual)
+    # [FALSE + FALSE] = Hardcoded usa o valor exato definido em 'base_class_weights'
+    # ─────────────────────────────────────────────────────────────────────────────────────────────
     base_use_auto_class_weights: true                                  # Balanço automático baseado na demografia de sinais do dataset real
-    base_optimize_class_weights: false                                 # Se true, o Optuna busca multiplicadores (side vs neutral) no espaço de busca. Sobrescreve auto/manual.
+    base_optimize_class_weights: true                                  # Se true, o Optuna busca multiplicadores (side vs neutral) no espaço de busca. Sobrescreve auto/manual.
     base_class_weights: [1.32, 0.40, 1.30]                             # Fallback Manual (Suprime Neutros Fortemente p/ balancear)
     base_optimize_gamma: false                                         # Se true, o Optuna busca o melhor gamma no espaço loss_gamma.
     base_gamma: 2.0                                                    # Focal Loss (Aumenta o foco de gradiente nas amostras difíceis)
@@ -210,7 +217,15 @@ training:
     base_smoothing: 0.1                                                # Label Smoothing (Preenche os alvos Zero/Um com 10% de ruidos suavisadores)
     
   specialization_weights:
-    spec_use_auto_class_weights: true                                  # Habilita balanço pro modelo Especialista
+    run_specialized_after: false                                       # [AUTOMAÇÃO] Habilita Cascata Nuvem (Fundação > Especialista > Auditor XGB)
+    # ── MATRIZ DE DECISÃO DE PESOS (SNIPER) ──────────────────────────────────────────────────────
+    # optimize_class_weights tem precedência Absoluta Ouro sobre auto_class_weights.
+    # [TRUE  + TRUE ] = Optuna ignora Auto e tenta encontrar o Ouro Dinâmico das Classes
+    # [FALSE + TRUE ] = Recalcula auto baseado apenas na estatística OOF/Especialista (Ignora Manual)
+    # [TRUE  + FALSE] = Optuna ignora Manual e acha a Fronteira de Decisão Ouro Sozinho
+    # [FALSE + FALSE] = Hardcoded usa o array draconiano de 'spec_class_weights' (Ex: 4.85, 0.38)
+    # ─────────────────────────────────────────────────────────────────────────────────────────────
+    spec_use_auto_class_weights: false                                 # Habilita balanço pro modelo Especialista
     spec_optimize_class_weights: false                                 # Otimização dinâmica de pesos da classe no Especialista
     spec_class_weights: [4.85, 0.38, 4.61]                             # Pesos draconianos para forçar saídas SELL/BUY em vez de apenas prever Neutro
     spec_optimize_gamma: false                                         # Otimização dinâmica do Gamma
@@ -228,7 +243,6 @@ optimization:
   sniper_weights:
     dir: 0.7                                                      # A métrica Direcional (Buy e Sell ignorando Neutral) engole 70% do peso da F1
     macro: 0.3                                                    # A métrica Macro (Global F1) atua como termostato anti-sobreajuste (Overfitting) a 30%
-  run_specialized_after: true                                     # [AUTOMAÇÃO] Habilita Cascata Nuvem (Fundação > Especialista > Auditor XGB)
   run_feature_importance_after: true                              # Ao fim da Base, roda e salva a Força dos 32 Alphas originais (Integridade)
 
   search_space:
