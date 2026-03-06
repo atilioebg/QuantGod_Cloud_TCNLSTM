@@ -364,7 +364,10 @@ def run_optimization():
     # ── Log Alpha Class Weights Globally ─────────────────────────────────────
     import torch
     dummy_device = torch.device("cpu")
-    if foundation_cfg.get('base_use_auto_class_weights', True):
+    
+    if foundation_cfg.get('base_optimize_class_weights', False):
+        logger.info("FocalLoss alpha: Optuna assumira o controle Dinamico no espaco de busca.")
+    elif foundation_cfg.get('base_use_auto_class_weights', True):
         # Fail fast approach if auto fails here.
         alpha_base = compute_alpha_from_labels(y_train, num_classes=3, device=dummy_device)
         logger.info(f"FocalLoss alpha (AUTO computed from foundation labels): {alpha_base.tolist()}")
@@ -373,7 +376,10 @@ def run_optimization():
         
     gamma = foundation_cfg.get('base_gamma', 2.0)
     smoothing = foundation_cfg.get('base_smoothing', 0.1)
-    logger.info(f"Loss: FocalLossWithSmoothing | fallback_gamma={gamma} | fallback_smoothing={smoothing}")
+    
+    gamma_str = "OPTUNA_DINAMICO" if foundation_cfg.get('base_optimize_gamma', False) else f"{gamma}"
+    smooth_str = "OPTUNA_DINAMICO" if foundation_cfg.get('base_optimize_smoothing', False) else f"{smoothing}"
+    logger.info(f"Loss: FocalLossWithSmoothing | fallback_gamma={gamma_str} | fallback_smoothing={smooth_str}")
 
 
     # ── Optuna study ──────────────────────────────────────────────────────────
