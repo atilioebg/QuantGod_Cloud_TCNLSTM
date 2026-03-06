@@ -201,12 +201,13 @@ model:
 training:
   # Lógica da FocalLoss com Label Smoothing Anti-Overconfidence
   foundation_weights:
-    # ── MATRIZ DE DECISÃO DE PESOS (BASE/ESPECIALISTA─────────────────────────────────────────────
+    # ── MATRIZ DE DECISÃO DE PESOS (BASE) ────────────────────────────────────────────────────────
+    # Ordem das flags: [base_use_auto_class_weights + base_optimize_class_weights]
     # optimize_class_weights tem precedência 1 sobre auto_class_weights. 
     # [TRUE  + TRUE ] = Optuna Otimiza no espaço de busca (Ignora Scikit-Learn e Manual)
-    # [FALSE + TRUE ] = Scikit-Learn calcula automático baseado no CSV da Sessão (Ignora Manual)
-    # [TRUE  + FALSE] = Optuna Otimiza no espaço de busca (Ignora Manual)
-    # [FALSE + FALSE] = Hardcoded usa o valor exato definido em 'base_class_weights'
+    # [FALSE + TRUE ] = Análogo ao [TRUE + TRUE], ignora o peso dinâmico calculado pelo scikit-learn, Optuna roda.
+    # [TRUE  + FALSE] = Scikit-Learn calcula automático baseado no CSV da Sessão mas não otimiza esses pesos no Optuna.
+    # [FALSE + FALSE] = Hardcoded usa o valor exato definido em 'base_class_weights'. Não usa scikit nem Optuna.
     # ─────────────────────────────────────────────────────────────────────────────────────────────
     base_use_auto_class_weights: true                                  # Balanço automático baseado na demografia de sinais do dataset real
     base_optimize_class_weights: true                                  # Se true, o Optuna busca multiplicadores (side vs neutral) no espaço de busca. Sobrescreve auto/manual.
@@ -219,11 +220,12 @@ training:
   specialization_weights:
     run_specialized_after: false                                       # [AUTOMAÇÃO] Habilita Cascata Nuvem (Fundação > Especialista > Auditor XGB)
     # ── MATRIZ DE DECISÃO DE PESOS (SNIPER) ──────────────────────────────────────────────────────
+    # Ordem das flags: [spec_use_auto_class_weights + spec_optimize_class_weights]
     # optimize_class_weights tem precedência Absoluta Ouro sobre auto_class_weights.
-    # [TRUE  + TRUE ] = Optuna ignora Auto e tenta encontrar o Ouro Dinâmico das Classes
-    # [FALSE + TRUE ] = Recalcula auto baseado apenas na estatística OOF/Especialista (Ignora Manual)
-    # [TRUE  + FALSE] = Optuna ignora Manual e acha a Fronteira de Decisão Ouro Sozinho
-    # [FALSE + FALSE] = Hardcoded usa o array draconiano de 'spec_class_weights' (Ex: 4.85, 0.38)
+    # [TRUE  + TRUE ] = Optuna Otimiza no espaço de busca (Ignora Scikit-Learn e Manual)
+    # [FALSE + TRUE ] = Análogo ao [TRUE + TRUE], ignora o peso dinâmico calculado pelo scikit-learn, Optuna roda.
+    # [TRUE  + FALSE] = Scikit-Learn calcula automático baseado no CSV da Sessão mas não otimiza esses pesos no Optuna.
+    # [FALSE + FALSE] = Hardcoded usa o valor exato definido em 'spec_class_weights'. Não usa scikit nem Optuna.
     # ─────────────────────────────────────────────────────────────────────────────────────────────
     spec_use_auto_class_weights: false                                 # Habilita balanço pro modelo Especialista
     spec_optimize_class_weights: false                                 # Otimização dinâmica de pesos da classe no Especialista
