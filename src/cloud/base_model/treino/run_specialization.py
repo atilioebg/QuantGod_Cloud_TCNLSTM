@@ -188,25 +188,25 @@ class SpecialistObjective:
         search_space = self.config['optimization'].get('search_space', {})
 
         # -- Class Weights (Alpha) --
-        if spec_cfg.get('optimize_class_weights', False):
+        if spec_cfg.get('spec_optimize_class_weights', False):
             a_side = trial.suggest_float("spec_alpha_side", search_space['spec_alpha_side'][0], search_space['spec_alpha_side'][1])
             a_neu  = trial.suggest_float("spec_alpha_neutral", search_space['spec_alpha_neutral'][0], search_space['spec_alpha_neutral'][1])
             alpha  = torch.tensor([a_side, a_neu, a_side], dtype=torch.float32).to(self.DEVICE)
         else:
-            class_weights = spec_cfg.get('class_weights', [4.85, 0.38, 4.61])
+            class_weights = spec_cfg.get('spec_class_weights', [4.85, 0.38, 4.61])
             alpha = torch.tensor(class_weights, dtype=torch.float32).to(self.DEVICE)
 
         # -- Gamma --
-        if spec_cfg.get('optimize_gamma', False):
+        if spec_cfg.get('spec_optimize_gamma', False):
             gamma = trial.suggest_float("spec_loss_gamma", search_space['spec_loss_gamma'][0], search_space['spec_loss_gamma'][1])
         else:
-            gamma = spec_cfg.get('gamma', 2.0)
+            gamma = spec_cfg.get('spec_gamma', 2.0)
 
         # -- Label Smoothing --
-        if spec_cfg.get('optimize_smoothing', False):
+        if spec_cfg.get('spec_optimize_smoothing', False):
             smoothing = trial.suggest_float("spec_loss_smoothing", search_space['spec_loss_smoothing'][0], search_space['spec_loss_smoothing'][1])
         else:
-            smoothing = spec_cfg.get('smoothing', 0.1)
+            smoothing = spec_cfg.get('spec_smoothing', 0.1)
 
         criterion = FocalLossWithSmoothing(alpha=alpha, gamma=gamma, smoothing=smoothing)
         

@@ -201,22 +201,22 @@ model:
 training:
   # Lógica da FocalLoss com Label Smoothing Anti-Overconfidence
   foundation_weights:
-    use_auto_class_weights: true                                  # Balanço automático baseado na demografia de sinais do dataset real
-    optimize_class_weights: false                                 # Se true, o Optuna busca multiplicadores (side vs neutral) no espaço de busca. Sobrescreve auto/manual.
-    class_weights: [1.32, 0.40, 1.30]                             # Fallback Manual (Suprime Neutros Fortemente p/ balancear)
-    optimize_gamma: false                                         # Se true, o Optuna busca o melhor gamma no espaço loss_gamma.
-    gamma: 2.0                                                    # Focal Loss (Aumenta o foco de gradiente nas amostras difíceis)
-    optimize_smoothing: false                                     # Se true, o Optuna busca a melhor taxa de smoothing no espaço loss_smoothing.
-    smoothing: 0.1                                                # Label Smoothing (Preenche os alvos Zero/Um com 10% de ruidos suavisadores)
+    base_use_auto_class_weights: true                                  # Balanço automático baseado na demografia de sinais do dataset real
+    base_optimize_class_weights: false                                 # Se true, o Optuna busca multiplicadores (side vs neutral) no espaço de busca. Sobrescreve auto/manual.
+    base_class_weights: [1.32, 0.40, 1.30]                             # Fallback Manual (Suprime Neutros Fortemente p/ balancear)
+    base_optimize_gamma: false                                         # Se true, o Optuna busca o melhor gamma no espaço loss_gamma.
+    base_gamma: 2.0                                                    # Focal Loss (Aumenta o foco de gradiente nas amostras difíceis)
+    base_optimize_smoothing: false                                     # Se true, o Optuna busca a melhor taxa de smoothing no espaço loss_smoothing.
+    base_smoothing: 0.1                                                # Label Smoothing (Preenche os alvos Zero/Um com 10% de ruidos suavisadores)
     
   specialization_weights:
-    use_auto_class_weights: true                                  # Habilita balanço pro modelo Especialista
-    optimize_class_weights: false                                 # Otimização dinâmica de pesos da classe no Especialista
-    class_weights: [4.85, 0.38, 4.61]                             # Pesos draconianos para forçar saídas SELL/BUY em vez de apenas prever Neutro
-    optimize_gamma: false                                         # Otimização dinâmica do Gamma
-    gamma: 2.0                                                    # Penalidade de erro continua agressiva
-    optimize_smoothing: false                                     # Otimização dinâmica do Smoothing
-    smoothing: 0.1                                                # Evita que hiperconcordância com classe desbalanceada superstime as predições
+    spec_use_auto_class_weights: true                                  # Habilita balanço pro modelo Especialista
+    spec_optimize_class_weights: false                                 # Otimização dinâmica de pesos da classe no Especialista
+    spec_class_weights: [4.85, 0.38, 4.61]                             # Pesos draconianos para forçar saídas SELL/BUY em vez de apenas prever Neutro
+    spec_optimize_gamma: false                                         # Otimização dinâmica do Gamma
+    spec_gamma: 2.0                                                    # Penalidade de erro continua agressiva
+    spec_optimize_smoothing: false                                     # Otimização dinâmica do Smoothing
+    spec_smoothing: 0.1                                                # Evita que hiperconcordância com classe desbalanceada superstime as predições
 
 optimization:
   study_name: "quantgod_tcn_lstm_v1_finetune"                     # Nome de identificação do experimento interno no banco SQLite
@@ -254,8 +254,3 @@ optimization:
     spec_loss_smoothing: [0.00, 0.05]                             # Spec: Certeza máxima, quase nenhum smoothing
     spec_alpha_side: [3.0, 10.0]                                  # Spec: Foco drástico nas pontas (BUY/SELL)
     spec_alpha_neutral: [0.01, 0.2]                               # Spec: Esmagamento total do NEUTRAL
-
-    loss_gamma: [1.0, 3.0]                                        # Fator de punição severa para exemplos difíceis (Trade-off: Convergência vs Minúcia)
-    loss_smoothing: [0.01, 0.15]                                  # Injeção de Dúvida: Impede que o modelo fique "Hiperconfiante" demais em Neutral
-    alpha_side: [1.5, 6.0]                                        # Peso flutuante para as classes BUY (2) e SELL (0).
-    alpha_neutral: [0.1, 0.8]                                     # Peso flutuante restrito à classe chata NEUTRAL (1). Impede Colapso Neural.
