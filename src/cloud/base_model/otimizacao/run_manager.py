@@ -92,57 +92,65 @@ def main():
     
     if manage_gpu: free_memory()
     
-    # ── FASE 2: Specialist ─────────────────────────────────────────────────────
-    # Auto-detect: K-Fold OOF (Engorda Total) vs Legado (Holdout 80/20)
-    kfold_cfg     = config.get('pre_processing', {}).get('kfold', {})
-    kfold_enabled = kfold_cfg.get('enabled', False)
-    oof_check     = kfold_cfg.get('oof_output_dir', 'data/auditor/oof_predictions') + '/full_oof.parquet'
-
-    if kfold_enabled:
-        logger.info("🔁 K-Fold Mode ativado (kfold.enabled=true) → Executando 5-Fold Purged K-Fold Specialist")
-        success = run_phase(
-            name="K-Fold Specialist OOF (5 Folds + Purge 15min)",
-            script_path="src/cloud/base_model/treino/run_kfold_specialist.py",
-            check_exists=oof_check,
-            force_retrain=force_retrain
-        )
+    # ── Verify Pipeline Flow Flag ─────────────────────────────────────────────
+    run_specialized = config.get('optimization', {}).get('run_specialized_after', True)
+    
+    if not run_specialized:
+        logger.warning("🛑 PARADA PROGRAMADA: 'run_specialized_after' esta FALSE no master_config.yaml.")
+        logger.info("   ↳ Pulando Fases Especialista e Auditor. O Pipeline finalizara apenas com a Fundacao.")
+        # We skip Phases 2, 3, 3.5 but we STILL want to transfer the Foundation model and logs (Phase 4)
     else:
-        logger.info("📂 Legado Mode (kfold.enabled=false) → Executando Specialist Optuna (Holdout 80/20)")
-        success = run_phase(
-            name="Specialist Optuna (Symmetric Delta)",
-            script_path="src/cloud/base_model/treino/run_specialization.py",
-            check_exists=best_spec_model,
-            force_retrain=force_retrain
-        )
-    if not success and not skip_qa_on_fail: sys.exit(1)
+        # ── FASE 2: Specialist ─────────────────────────────────────────────────────
+        # Auto-detect: K-Fold OOF (Engorda Total) vs Legado (Holdout 80/20)
+        kfold_cfg     = config.get('pre_processing', {}).get('kfold', {})
+        kfold_enabled = kfold_cfg.get('enabled', False)
+        oof_check     = kfold_cfg.get('oof_output_dir', 'data/auditor/oof_predictions') + '/full_oof.parquet'
 
-    if manage_gpu: free_memory()
+        if kfold_enabled:
+            logger.info("🔁 K-Fold Mode ativado (kfold.enabled=true) → Executando 5-Fold Purged K-Fold Specialist")
+            success = run_phase(
+                name="K-Fold Specialist OOF (5 Folds + Purge 15min)",
+                script_path="src/cloud/base_model/treino/run_kfold_specialist.py",
+                check_exists=oof_check,
+                force_retrain=force_retrain
+            )
+        else:
+            logger.info("📂 Legado Mode (kfold.enabled=false) → Executando Specialist Optuna (Holdout 80/20)")
+            success = run_phase(
+                name="Specialist Optuna (Symmetric Delta)",
+                script_path="src/cloud/base_model/treino/run_specialization.py",
+                check_exists=best_spec_model,
+                force_retrain=force_retrain
+            )
+        if not success and not skip_qa_on_fail: sys.exit(1)
 
-    # ── FASE 3: Auditor (Meta-Labeling & XGBoost) ──────────────────────────────
-    # Check if models exist (OOF Condition)
-    if not Path(best_base_model).exists() or not Path(best_spec_model).exists():
-        logger.error(f"❌ Modelos Base ou Especialista não encontrados! Requeridos para treinar o Juiz.")
-        if not skip_qa_on_fail: sys.exit(1)
-    else:
-        logger.info(f"🔍 Modelos Base e Especialista carregados OK. Engatilhando Auditor OOF...")
-        
-        # Auditor Preprocessing (Alpha Sensors)
-        run_phase("Auditor Preprocessing (Context generation)", "src/cloud/auditor_model/auditor_preprocessing.py", force_retrain=force_retrain)
-        
-        # Auditor Labelling (Cross-Inference)
-        run_phase("Auditor Labelling (Fused Logits + Sinais OOF)", "src/cloud/auditor_model/auditor_labelling.py", force_retrain=force_retrain)
-        
+        if manage_gpu: free_memory()
+
+        # ── FASE 3: Auditor (Meta-Labeling & XGBoost) ──────────────────────────────
+        # Check if models exist (OOF Condition)
+        if not Path(best_base_model).exists() or not Path(best_spec_model).exists():
+            logger.error(f"❌ Modelos Base ou Especialista não encontrados! Requeridos para treinar o Juiz.")
+            if not skip_qa_on_fail: sys.exit(1)
+        else:
+            logger.info(f"🔍 Modelos Base e Especialista carregados OK. Engatilhando Auditor OOF...")
+            
+            # Auditor Preprocessing (Alpha Sensors)
+            run_phase("Auditor Preprocessing (Context generation)", "src/cloud/auditor_model/auditor_preprocessing.py", force_retrain=force_retrain)
+            
+            # Auditor Labelling (Cross-Inference)
+            run_phase("Auditor Labelling (Fused Logits + Sinais OOF)", "src/cloud/auditor_model/auditor_labelling.py", force_retrain=force_retrain)
+            
+            if manage_gpu: free_memory()
+            
+            # Auditor XGBoost Training (Dynamic F-Beta Threshold)
+            run_phase("Auditor XGBoost (Dynamic Thresholding)", "src/cloud/auditor_model/train_xgboost.py", check_exists=auditor_model, force_retrain=force_retrain)
+            
         if manage_gpu: free_memory()
         
-        # Auditor XGBoost Training (Dynamic F-Beta Threshold)
-        run_phase("Auditor XGBoost (Dynamic Thresholding)", "src/cloud/auditor_model/train_xgboost.py", check_exists=auditor_model, force_retrain=force_retrain)
-        
-    if manage_gpu: free_memory()
-    
-    # ── FASE 3.5: Geração de Logs QA (OOF Health Check) ───────────────────────
-    logger.info("="*60)
-    logger.info("🩺 INICIANDO AVALIAÇÃO DE SAÚDE (QA) OOF 🩺")
-    run_phase("Health QA Generation (Target Balance & NaNs)", "src/cloud/base_model/utils/qa_generator.py", force_retrain=True)
+        # ── FASE 3.5: Geração de Logs QA (OOF Health Check) ───────────────────────
+        logger.info("="*60)
+        logger.info("🩺 INICIANDO AVALIAÇÃO DE SAÚDE (QA) OOF 🩺")
+        run_phase("Health QA Generation (Target Balance & NaNs)", "src/cloud/base_model/utils/qa_generator.py", force_retrain=True)
     
     # ── FASE 4: Final Transfer ────────────────────────────────────────────────
     logger.info("="*60)

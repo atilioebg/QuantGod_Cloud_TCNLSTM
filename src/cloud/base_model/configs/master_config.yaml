@@ -221,7 +221,7 @@ optimization:
   sniper_weights:
     dir: 0.7                                                      # A métrica Direcional (Buy e Sell ignorando Neutral) engole 70% do peso da F1
     macro: 0.3                                                    # A métrica Macro (Global F1) atua como termostato anti-sobreajuste (Overfitting) a 30%
-  run_specialized_after: true                                     # [AUTOMAÇÃO] Habilita Cascata Nuvem (Fundação > Especialista > Auditor XGB)
+  run_specialized_after: false                                     # [AUTOMAÇÃO] Habilita Cascata Nuvem (Fundação > Especialista > Auditor XGB)
   run_feature_importance_after: true                              # Ao fim da Base, roda e salva a Força dos 32 Alphas originais (Integridade)
 
   search_space:
@@ -233,5 +233,5 @@ optimization:
     batch_size: [512, 1024, 2048]                                 # Lotes Simultâneos injetados Paralelamente na VRAM do Fio Tenson (Cuda GPU)
     seq_len: [24, 48, 96, 120]                                    # Túnel Histórico: 24min a 120min (2h contexto Sniper)
     dropout: [0.3, 0.5, 0.75, 0.80]                               # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
-    epochs: 1                                                     # REDUZIDO: Modo de teste E2E
+    epochs: 50                                                     # REDUZIDO: Modo de teste E2E
     early_stopping_patience: 4                                    # Inteligência Auxiliar que Morre a Trial após X rounds inférteis
