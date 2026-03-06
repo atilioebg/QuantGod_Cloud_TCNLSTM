@@ -439,9 +439,16 @@ def run_optimization():
     # ── Fetch active Focal Loss parameters to store in JSON ────────────────
     # Fetch from last known trial scope / globally set values so downstream reads them
     if not list(filter(lambda k: "alpha" in k, final_params.keys())):
-        final_params['base_alpha_list'] = alpha.tolist() if isinstance(alpha, torch.Tensor) else alpha
-    if "base_loss_gamma" not in final_params: final_params['base_loss_gamma'] = gamma
-    if "base_loss_smoothing" not in final_params: final_params['base_loss_smoothing'] = smoothing
+        if foundation_cfg.get('base_use_auto_class_weights', True):
+            final_alpha = compute_alpha_from_labels(y_train, num_classes=3, device=torch.device("cpu")).tolist()
+        else:
+            final_alpha = foundation_cfg.get('base_class_weights', [1.0, 1.0, 1.0])
+        final_params['base_alpha_list'] = final_alpha
+        
+    if "base_loss_gamma" not in final_params: 
+        final_params['base_loss_gamma'] = foundation_cfg.get('base_gamma', 2.0)
+    if "base_loss_smoothing" not in final_params: 
+        final_params['base_loss_smoothing'] = foundation_cfg.get('base_smoothing', 0.1)
         
     formatted_best_params = {k: f"{v:.8f}" if isinstance(v, float) else v for k, v in final_params.items()}
     logger.info(f"Melhores Parametros Macro: {formatted_best_params}")
@@ -466,9 +473,11 @@ def run_optimization():
         
         # Inject Focal parameters into DIR params too
         if not list(filter(lambda k: "alpha" in k, best_dir_params.keys())):
-            best_dir_params['base_alpha_list'] = alpha.tolist() if isinstance(alpha, torch.Tensor) else alpha
-        if "base_loss_gamma" not in best_dir_params: best_dir_params['base_loss_gamma'] = gamma
-        if "base_loss_smoothing" not in best_dir_params: best_dir_params['base_loss_smoothing'] = smoothing
+            best_dir_params['base_alpha_list'] = final_params.get('base_alpha_list', [1.0, 1.0, 1.0])
+        if "base_loss_gamma" not in best_dir_params: 
+            best_dir_params['base_loss_gamma'] = final_params.get('base_loss_gamma', 2.0)
+        if "base_loss_smoothing" not in best_dir_params: 
+            best_dir_params['base_loss_smoothing'] = final_params.get('base_loss_smoothing', 0.1)
 
         best_dir_val    = best_dir_trial.user_attrs["best_f1_dir"]
         formatted_dir_params = {k: f"{v:.8f}" if isinstance(v, float) else v for k, v in best_dir_params.items()}
