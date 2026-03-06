@@ -210,6 +210,13 @@ class SpecialistObjective:
         else:
             smoothing = spec_cfg.get('spec_smoothing', 0.1)
 
+        # ── Trial Start Log (To include Focal parameters) ────────────
+        a_str = f"[{alpha[0]:.2f}, {alpha[1]:.2f}, {alpha[2]:.2f}]"
+        logger.info(f"Trial {trial.number} START | tcn={tcn_channels}, lstm={lstm_hidden}, "
+                    f"layers={num_lstm_layers}, batch={batch_size}, seq={seq_len}, "
+                    f"drop={dropout:.4f}, lr={lr:.6f}, wd={weight_decay:.4f} | "
+                    f"alpha={a_str}, gamma={gamma:.2f}, smooth={smoothing:.2f}")
+
         criterion = FocalLossWithSmoothing(alpha=alpha, gamma=gamma, smoothing=smoothing)
         
         optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
@@ -374,10 +381,27 @@ def run_specialization():
     for key, value in study.best_params.items():
         logger.info(f"    {key}: {value}")
         
+    # Prepare Final Dictionary and Inject Global Focal Logs if not optimized
+    final_params = study.best_params.copy()
+    spec_cfg = config['training'].get('specialization_weights', {})
+    
+    # 1. Class Weights (Alpha) fallback injection
+    if not list(filter(lambda k: "alpha" in k, final_params.keys())):
+        if spec_cfg.get('spec_use_auto_class_weights', True):
+            # Recalculate OOF weights just for logging context if Auto is selected
+            final_alpha = compute_alpha_from_labels(y_train_raw, num_classes=3, device=torch.device("cpu")).tolist()
+        else:
+            final_alpha = spec_cfg.get('spec_class_weights', [4.85, 0.38, 4.61])
+        final_params['spec_alpha_list'] = final_alpha
+
+    # 2. Gamma / Smoothing fallback injection
+    if "spec_loss_gamma" not in final_params: final_params['spec_loss_gamma'] = spec_cfg.get('spec_gamma', 2.0)
+    if "spec_loss_smoothing" not in final_params: final_params['spec_loss_smoothing'] = spec_cfg.get('spec_smoothing', 0.1)
+
     # Save best parameters
     best_params_path = Path("src/cloud/base_model/otimizacao/best_params_specialist.json")
     with open(best_params_path, 'w') as f:
-        json.dump(study.best_params, f, indent=4)
+        json.dump(final_params, f, indent=4)
         
     # Save the physical model of the best trial
     best_trial = study.best_trial
