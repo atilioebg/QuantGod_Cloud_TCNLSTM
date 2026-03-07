@@ -127,7 +127,7 @@ class InferenceService:
 
 if __name__ == "__main__":
     # Test loading
-    from src.cloud.base_model.configs.master_config import load_config
+    from src.cloud.base_model.utils.config_utils import load_config
     cfg = load_config()
     try:
         service = InferenceService(cfg)

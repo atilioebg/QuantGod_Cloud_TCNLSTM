@@ -11,7 +11,7 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 # Internal Imports
-from src.cloud.base_model.configs.master_config import load_config
+from src.cloud.base_model.utils.config_utils import load_config
 from src.cloud.execution.exchange_connector import DataBuffer, ExchangeConnector
 from src.cloud.execution.streaming_etl import StreamingETL
 from src.cloud.execution.inference_service import InferenceService

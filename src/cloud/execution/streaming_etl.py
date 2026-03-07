@@ -158,7 +158,7 @@ class StreamingETL:
 
 if __name__ == "__main__":
     # Test stub
-    from src.cloud.base_model.configs.master_config import load_config
+    from src.cloud.base_model.utils.config_utils import load_config
     cfg = load_config()
     etl = StreamingETL(cfg)
     print("StreamingETL Initialized.")
