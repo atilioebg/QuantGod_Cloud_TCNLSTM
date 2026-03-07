@@ -22,9 +22,12 @@ class InferenceService:
         self.config = config
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
+        # ── Load Architecture ────────────────────────────────────────────────
+        self.arch_params = self._load_best_params()
+        
         # Load Model Parameters
         self.num_features = len(config['model']['feature_names'])
-        self.seq_len = config['optimization'].get('seq_len', 60)
+        self.seq_len = self.arch_params.get('seq_len', config['optimization'].get('seq_len', 60))
         self.num_classes = 3 # Sell, Neutral, Buy
         
         # ── Layer 1: Foundation ──────────────────────────────────────────────
@@ -40,11 +43,43 @@ class InferenceService:
         
         logger.info(f"✅ Full Inference Stack loaded on {self.device}")
 
+    def _load_best_params(self) -> Dict[str, Any]:
+        """Loads the best hyperparameters found by Optuna."""
+        # Check both Macro and Directional variants, prefer Macro as it's the primary study objective
+        paths = [
+            Path("src/cloud/base_model/otimizacao/best_params.json"),
+            Path("src/cloud/base_model/otimizacao/best_dir_params.json")
+        ]
+        
+        for p in paths:
+            if p.exists():
+                try:
+                    with open(p, 'r', encoding='utf-8') as f:
+                        params = json.load(f)
+                    logger.info(f"🎯 Loaded model architecture from {p}")
+                    return params
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to parse {p}: {e}")
+        
+        logger.warning("⚠️ No best_params.json found. Using defaults from master_config/class defaults.")
+        # Return common defaults if missing (fallback based on user's manual fix or training context)
+        return {
+            "tcn_channels": 256, # Derived from user error
+            "lstm_hidden": 64,   # Derived from user error
+            "num_lstm_layers": 2,
+            "dropout": 0.3
+        }
+
     def _load_tcn_lstm(self, model_path: str) -> Hybrid_TCN_LSTM:
+        # Resolve hyperparams from JSON or fallback to class defaults
         model = Hybrid_TCN_LSTM(
             num_features=self.num_features,
             seq_len=self.seq_len,
-            num_classes=self.num_classes
+            tcn_channels=self.arch_params.get('tcn_channels', 64),
+            lstm_hidden=self.arch_params.get('lstm_hidden', 256),
+            num_lstm_layers=self.arch_params.get('num_lstm_layers', 2),
+            num_classes=self.num_classes,
+            dropout=self.arch_params.get('dropout', 0.3)
         ).to(self.device)
         
         state_dict = torch.load(model_path, map_location=self.device)
