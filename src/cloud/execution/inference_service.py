@@ -47,8 +47,7 @@ class InferenceService:
         """Loads the best hyperparameters found by Optuna."""
         # Check both Macro and Directional variants, prefer Macro as it's the primary study objective
         paths = [
-            Path("src/cloud/base_model/otimizacao/best_params.json"),
-            Path("src/cloud/base_model/otimizacao/best_dir_params.json")
+            Path("src/cloud/base_model/otimizacao/best_params.json")
         ]
         
         for p in paths:
