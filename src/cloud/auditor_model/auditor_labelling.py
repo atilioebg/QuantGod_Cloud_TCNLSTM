@@ -209,20 +209,7 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
     
     if not val_files:
         logger.error(f"❌ NENHUM ARQUIVO .parquet ENCONTRADO EM {foundation_val_dir}!")
-        # Tentativa de fallback para splits_... caso o labelled/val esteja realmente vazio
-        sell_th = config['pre_processing']['labelling'].get('sell_threshold', 0.003)
-        buy_th  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
-        mins    = config['pre_processing']['labelling'].get('horizon_minutes', 15)
-        base_labelled_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
-        fallback_dir = Path(f"data/L2/splits_{base_labelled_name}/val")
-        logger.info(f"🔍 [Audit Diagnostic] Tentando fallback para: {fallback_dir}")
-        val_files = sorted(list(fallback_dir.glob("*.parquet")))
-        if val_files:
-            logger.info(f"✅ Fallback funcionou! Encontrados {len(val_files)} arquivos em {fallback_dir}")
-            foundation_val_dir = fallback_dir
-        else:
-            logger.error("❌ Falha crítica: Nem a pasta unificada nem a pasta splits contém parquets.")
-            raise ValueError("foundation_val_dir is empty and fallback failed.")
+        raise FileNotFoundError(f"foundation_val_dir is empty: {foundation_val_dir}")
 
     dfs_val   = []
     for i, vf in enumerate(val_files):
