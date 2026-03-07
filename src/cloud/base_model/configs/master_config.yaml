@@ -220,7 +220,7 @@ training:
     
   specialization_weights:
     run_specialized_after: true                                   # [AUTOMAÇÃO] Habilita Especialista (TCN-LSTM Fine-tuning)
-    run_auditor_after: false                                      # [AUTOMAÇÃO] Habilita Auditor (XGBoost Meta-Model)
+    run_auditor_after: true                                       # [AUTOMAÇÃO] Habilita Auditor (XGBoost Meta-Model)
     # ── MATRIZ DE DECISÃO DE PESOS (SNIPER) ──────────────────────────────────────────────────────
     # Ordem das flags: [spec_use_auto_class_weights + spec_optimize_class_weights]
     # optimize_class_weights tem precedência Absoluta Ouro sobre auto_class_weights.
