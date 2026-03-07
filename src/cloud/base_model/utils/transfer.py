@@ -192,6 +192,13 @@ def transfer_results(log_filename: str, run_type: str):
             val = config['pipeline_paths'].get(key)
             if val: files_to_transfer.append(project_root / val)
         
+        # ── K-Fold OOF Models \u0026 Scalers (Paper Trading Ready) ────────────────
+        oof_dir = project_root / config.get('pre_processing', {}).get('kfold', {}).get('oof_output_dir', 'data/auditor/oof_predictions')
+        if oof_dir.exists():
+            files_to_transfer.extend(list(oof_dir.glob("*.pt")))
+            files_to_transfer.extend(list(oof_dir.glob("*.pkl")))
+            files_to_transfer.extend(list(oof_dir.glob("*.parquet"))) # OOF signals
+        
     # Relatorio de Feature Importance (comum a ambos, mas gerado no foundation agora)
     report_root = config['pipeline_paths'].get('local_reports_root', 'docs/reports')
     fi_csv = project_root / report_root / "feature_importance.csv"

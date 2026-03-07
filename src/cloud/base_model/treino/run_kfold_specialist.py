@@ -506,6 +506,11 @@ def run_kfold_specialist():
             fold_k=fold_k,
         )
 
+        # ── Save Specialist Model Weights ─────────────────────────────────────
+        model_path = oof_dir / f"model_fold_{fold_k}.pt"
+        torch.save(model.state_dict(), model_path)
+        logger.info(f"[Fold {fold_k}] Model saved: {model_path.name}")
+
         # ── OOF Inference (raw logits on unseen test block) ───────────────────
         probs, targets = run_inference(model, X_test_norm, y_test, island_test, seq_len, batch_size, DEVICE)
         pred_classes   = np.argmax(probs, axis=1)
