@@ -37,6 +37,7 @@ if project_root not in sys.path:
 from src.cloud.base_model.models.model import Hybrid_TCN_LSTM
 from src.cloud.base_model.utils.logging_utils import setup_logger
 from src.cloud.base_model.utils.experiment_utils import resolve_data_paths
+from src.cloud.base_model.utils.path_utils import get_labelled_dir, get_auditor_context_dir
 
 logger = logging.getLogger(__name__)
 
@@ -194,8 +195,7 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
     sell_th = config['pre_processing']['labelling'].get('sell_threshold', 0.003)
     buy_th  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
     mins    = config['pre_processing']['labelling'].get('horizon_minutes', 15)
-    base_labelled_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
-    foundation_val_dir = Path(f"data/L2/splits_{base_labelled_name}/val")
+    foundation_val_dir = Path(get_labelled_dir(config)) / "val"
 
     base_params_path = Path("src/cloud/base_model/otimizacao/best_params.json")
     with open(base_params_path, 'r') as f:
@@ -426,8 +426,7 @@ if __name__ == "__main__":
         sell_th = conf['pre_processing']['labelling'].get('sell_threshold', 0.003)
         buy_th  = conf['pre_processing']['labelling'].get('buy_threshold', 0.003)
         mins    = conf['pre_processing']['labelling'].get('horizon_minutes', 15)
-        base_labelled_name = f"labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
-        spec_val_dir = Path(f"data/L2/splits_specialized_{base_labelled_name}/val")
+        spec_val_dir = Path(get_labelled_dir(conf)) / "val"
 
         if spec_val_dir.exists():
             logger.info(f"📂 Legado Mode: {spec_val_dir}")
