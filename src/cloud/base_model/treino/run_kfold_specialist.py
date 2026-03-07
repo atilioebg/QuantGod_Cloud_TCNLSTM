@@ -253,22 +253,25 @@ def train_specialist_fold(
     
     model = model.to(DEVICE)
 
-    # Loss & Optimizer
     # ── Focal Loss Params: Genetic Inheritance ──────────────────────────
-    # Priority: master_config.yaml (spec_gamma / spec_smoothing) > best_params.json (Foundation) > default 2.0/0.1
+    # Priority: best_params.json (Foundation Genetic) > master_config.yaml (Spec Override) > default 2.0/0.1
     spec_cfg = config['training'].get('specialization_weights', {})
     
-    gamma = spec_cfg.get('spec_gamma')
+    # Heritage logic: Foundation Params (Genetic) > Master Config Fallback
+    gamma = best_params.get('base_loss_gamma')
     if gamma is None:
-        gamma = best_params.get('base_loss_gamma', 2.0)
+        gamma = spec_cfg.get('spec_gamma', 2.0)
         
-    smoothing = spec_cfg.get('spec_smoothing')
+    smoothing = best_params.get('base_loss_smoothing')
     if smoothing is None:
-        smoothing = best_params.get('base_loss_smoothing', 0.1)
+        smoothing = spec_cfg.get('spec_smoothing', 0.1)
+
+    # Ensure class_weights (alpha) is a Tensor for FocalLossWithSmoothing
+    alpha_tensor = torch.tensor(class_weights, dtype=torch.float32).to(DEVICE)
 
     logger.info(f"⚖️ Specialist Loss: alpha={class_weights}, gamma={gamma:.2f}, smoothing={smoothing:.2f} (Inherited: {gamma==best_params.get('base_loss_gamma')})")
     
-    criterion = FocalLossWithSmoothing(alpha=class_weights, gamma=gamma, smoothing=smoothing)
+    criterion = FocalLossWithSmoothing(alpha=alpha_tensor, gamma=gamma, smoothing=smoothing)
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
     amp_scaler = torch.amp.GradScaler('cuda') if DEVICE.type == 'cuda' else None
