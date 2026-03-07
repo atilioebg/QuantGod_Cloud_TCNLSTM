@@ -98,16 +98,15 @@ def main():
     
     if manage_gpu: free_memory()
     
-    # ── Verify Pipeline Flow Flag ─────────────────────────────────────────────
+    # ── Verify Pipeline Flow Flags ─────────────────────────────────────────────
     spec_cfg = config.get('training', {}).get('specialization_weights', {})
     run_specialized = spec_cfg.get('run_specialized_after', True)
-    
+    run_auditor     = spec_cfg.get('run_auditor_after', True)
+
+    # ── FASE 2: Specialist ─────────────────────────────────────────────────────
     if not run_specialized:
-        logger.warning("🛑 PARADA PROGRAMADA: 'run_specialized_after' esta FALSE no master_config.yaml.")
-        logger.info("   ↳ Pulando Fases Especialista e Auditor. O Pipeline finalizara apenas com a Fundacao.")
-        # We skip Phases 2, 3, 3.5 but we STILL want to transfer the Foundation model and logs (Phase 4)
+        logger.warning("🛑 PARADA PROGRAMADA: 'run_specialized_after' esta FALSE no master_config.yaml. Pulando treinamento do Especialista.")
     else:
-        # ── FASE 2: Specialist ─────────────────────────────────────────────────────
         # Auto-detect: K-Fold OOF (Engorda Total) vs Legado (Holdout 80/20)
         kfold_cfg     = config.get('pre_processing', {}).get('kfold', {})
         kfold_enabled = kfold_cfg.get('enabled', False)
@@ -136,16 +135,34 @@ def main():
 
         if manage_gpu: free_memory()
 
-        # ── FASE 3: Auditor (Meta-Labeling & XGBoost) ──────────────────────────────
-        run_auditor = spec_cfg.get('run_auditor_after', True)
-        if not run_auditor:
-            logger.warning("🛑 PARADA PROGRAMADA: 'run_auditor_after' esta FALSE no master_config.yaml.")
-            logger.info("   ↳ Pulando Fase Auditor. As predições OOF do Especialista foram geradas, mas o Juiz nao sera treinado.")
-        elif not Path(best_base_model).exists() or not Path(best_spec_model).exists():
-            logger.error(f"❌ Modelos Base ou Especialista não encontrados! Requeridos para treinar o Juiz.")
+    # ── FASE 3: Auditor (Meta-Labeling & XGBoost) ──────────────────────────────
+
+    if not run_auditor:
+        logger.warning("🛑 PARADA PROGRAMADA: 'run_auditor_after' esta FALSE no master_config.yaml.")
+        logger.info("   ↳ Pulando Fase Auditor. As predições OOF do Especialista foram geradas, mas o Juiz nao sera treinado.")
+    else:
+        # Auditor Requirements Check
+        kfold_cfg     = config.get('pre_processing', {}).get('kfold', {})
+        kfold_enabled = kfold_cfg.get('enabled', False)
+        oof_check     = kfold_cfg.get('oof_output_dir', 'data/auditor/oof_predictions') + '/full_oof.parquet'
+        
+        # Check if we have what we need
+        base_exists = Path(best_base_model).exists()
+        
+        if kfold_enabled:
+            # For K-Fold, we need base model + full_oof.parquet
+            spec_signal_exists = Path(oof_check).exists()
+            req_msg = f"Requeridos: Base Model ({best_base_model}) e Specialist OOF ({oof_check})"
+        else:
+            # For Legacy, we need base model + specialist model
+            spec_signal_exists = Path(best_spec_model).exists()
+            req_msg = f"Requeridos: Base Model ({best_base_model}) e Specialist Model ({best_spec_model})"
+
+        if not base_exists or not spec_signal_exists:
+            logger.error(f"❌ Requisitos do Auditor não encontrados! {req_msg}")
             if not skip_qa_on_fail: sys.exit(1)
         else:
-            logger.info(f"🔍 Modelos Base e Especialista carregados OK. Engatilhando Auditor OOF...")
+            logger.info(f"🔍 Requisitos do Auditor carregados OK. Engatilhando Auditor...")
             
             # Auditor Preprocessing (Alpha Sensors)
             run_phase("Auditor Preprocessing (Context generation)", "src/cloud/auditor_model/auditor_preprocessing.py", force_retrain=force_retrain)
@@ -160,10 +177,10 @@ def main():
             
         if manage_gpu: free_memory()
         
-        # ── FASE 3.5: Geração de Logs QA (OOF Health Check) ───────────────────────
-        logger.info("="*60)
-        logger.info("🩺 INICIANDO AVALIAÇÃO DE SAÚDE (QA) OOF 🩺")
-        run_phase("Health QA Generation (Target Balance & NaNs)", "src/cloud/base_model/utils/qa_generator.py", force_retrain=True)
+    # ── FASE 3.5: Geração de Logs QA (OOF Health Check) ───────────────────────
+    logger.info("="*60)
+    logger.info("🩺 INICIANDO AVALIAÇÃO DE SAÚDE (QA) OOF 🩺")
+    run_phase("Health QA Generation (Target Balance & NaNs)", "src/cloud/base_model/utils/qa_generator.py", force_retrain=True)
     
     # ── FASE 4: Final Transfer ────────────────────────────────────────────────
     logger.info("="*60)
