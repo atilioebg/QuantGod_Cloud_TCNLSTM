@@ -1,0 +1,116 @@
+import asyncio
+import logging
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+# Fix path to allow imports from project root
+project_root = str(Path(__file__).parents[4])
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
+# Internal Imports
+from src.cloud.base_model.configs.master_config import load_config
+from src.cloud.execution.exchange_connector import DataBuffer, ExchangeConnector
+from src.cloud.execution.streaming_etl import StreamingETL
+from src.cloud.execution.inference_service import InferenceService
+from src.cloud.execution.virtual_broker import VirtualBroker
+
+# Setup specialized logger for paper trading
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(f"logs/paper_trading_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log", encoding='utf-8')
+    ]
+)
+logger = logging.getLogger("PaperTrading")
+
+async def main():
+    logger.info("🚀 Starting QuantGod Paper Trading System...")
+    
+    # 1. Configuration & Initialization
+    config = load_config()
+    symbol = config.get('symbol', 'BTCUSDT').lower()
+    resample_min = config['pre_processing']['etl'].get('resample_min', 1)
+    
+    buffer = DataBuffer()
+    connector = ExchangeConnector(symbol, buffer)
+    etl = StreamingETL(config)
+    inference = InferenceService(config)
+    broker = VirtualBroker(initial_balance=10000.0)
+    
+    # 2. Start Data Ingestion
+    connector.start()
+    
+    logger.info(f"📍 Monitoring {symbol.upper()} | Resample: {resample_min}min")
+    logger.info("⏳ Waiting for data buffer to stabilize (2s)...")
+    await asyncio.sleep(2)
+    
+    last_bar_time = None
+    
+    try:
+        while True:
+            # Current time in UTC (Standard for Crypto)
+            now = datetime.now(timezone.utc)
+            ts_ms = int(now.timestamp() * 1000)
+            
+            # 3. Ingest Data into ETL State
+            snapshot = await buffer.get_snapshot()
+            if snapshot['depth'] and snapshot['trades']:
+                etl.process_data(snapshot['depth'], snapshot['trades'], ts_ms)
+            
+            # 4. Check for Bar Boundary transition (e.g. crossing a 1min mark)
+            # Logic: (minutes // resample_min) change
+            current_bar_idx = now.minute // resample_min
+            if last_bar_time is not None and now.minute != last_bar_time.minute and (now.minute % resample_min == 0):
+                logger.info(f"🔔 Bar Close Detected: {now.strftime('%H:%M:%S')} UTC")
+                
+                # Calculate Features
+                inputs = etl.on_bar_close()
+                
+                if inputs:
+                    # 5. Run Full 3-Layer Inference
+                    result = inference.predict(
+                        foundation_input=inputs['foundation_input'],
+                        auditor_input=inputs['auditor_input']
+                    )
+                    
+                    # 6. Virtual Execution
+                    price_snap = {
+                        "bid": snapshot['depth'].get('bids', [[0]])[0][0],
+                        "ask": snapshot['depth'].get('asks', [[0]])[0][0]
+                    }
+                    
+                    broker.execute_signal(result['signal'], price_snap, now)
+                    
+                    # 7. Monitoring & Logging
+                    stats = broker.get_stats(price_snap['bid'])
+                    logger.info(
+                        f"📊 [INFERÊNCIA] Sinal: {result['signal']} | "
+                        f"Confiança: {result['auditor_score']:.4f} | "
+                        f"Equity: ${stats['equity']:.2f} ({stats['pnl_pct']:.2f}%)"
+                    )
+                    
+                    # Detailed Probs log for debugging
+                    logger.debug(f"DEBUG: Found_Probs: {result['probs_foundation']} | Spec_Probs: {result['probs_specialist']}")
+                
+            last_bar_time = now
+            
+            # Sleep until next check (e.g. 1s resolution for ETL injection)
+            await asyncio.sleep(1)
+            
+    except KeyboardInterrupt:
+        logger.info("🛑 Termination requested by user.")
+    except Exception as e:
+        logger.error(f"💥 CRITICAL ERROR in Main Loop: {e}", exc_info=True)
+    finally:
+        connector.stop()
+        logger.info("👋 System shutdown complete.")
+
+if __name__ == "__main__":
+    # Create logs dir if not exists
+    Path("logs").mkdir(exist_ok=True)
+    asyncio.run(main())
