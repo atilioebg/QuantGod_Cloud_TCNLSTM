@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Any
 from collections import deque
 from pathlib import Path
 import pickle
+import joblib
 
 # Internal imports for L2 transformation logic
 from src.cloud.base_model.pre_processamento.etl.transform import L2Transformer
@@ -46,12 +47,14 @@ class StreamingETL:
         try:
             # We need the foundation scaler (Z-Score)
             scaler_path = self.config['pipeline_paths'].get('scaler_foundation', 'data/models/scaler_foundation.pkl')
-            with open(scaler_path, 'rb') as f:
-                self.scaler_foundation = pickle.load(f)
-            logger.info(f"✅ Foundation Scaler loaded: {scaler_path}")
-            
-            # Note: For Specialist (K-Fold), in real-time we might need a specific fold scaler or ensemble strategy.
-            # For now, we'll focus on getting the foundation features right.
+            path = Path(scaler_path)
+            if path.exists():
+                # run_foundation.py uses joblib.dump
+                self.scaler_foundation = joblib.load(path)
+                logger.info(f"✅ Foundation Scaler loaded: {scaler_path}")
+            else:
+                logger.warning(f"⚠️ Foundation Scaler not found at {scaler_path}. Features will NOT be scaled.")
+                self.scaler_foundation = None
         except Exception as e:
             logger.error(f"❌ Failed to load scalers: {e}")
             self.scaler_foundation = None
@@ -101,10 +104,16 @@ class StreamingETL:
             return None
 
         # 3. Apply Z-Score scaling to Foundation Features
-        # Note: L2Transformer.apply_zscore expects a scaler path or it re-fits.
-        # We'll manually apply it if we have the scaler bundle.
-        df_foundation_norm = self.transformer.apply_zscore(df_foundation, self.config['pipeline_paths']['scaler_foundation'])
-        
+        if self.scaler_foundation is not None:
+             # Apply using the loaded scaler
+             df_foundation_norm = self.transformer.apply_zscore(df_foundation, self.scaler_foundation)
+        else:
+             # Skip scaling but log warning once
+             if not hasattr(self, '_scaling_warned'):
+                 logger.warning("🕒 Scaling skipped because scaler_foundation is missing. Predictions will be inaccurate.")
+                 self._scaling_warned = True
+             df_foundation_norm = df_foundation
+
         # 4. Run Auditor Alpha Sensors
         # Requirement: calculate_context_features expects OHLCV from the and context.
         # It's better to use the resampled 'df_foundation' (which has high/low/close/log_volume)

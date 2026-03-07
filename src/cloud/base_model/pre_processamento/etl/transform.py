@@ -798,12 +798,13 @@ class L2Transformer:
         self.audit_report["clipped_count"]   = int(clipped_count)
         return df
 
-    def apply_zscore(self, df: pl.DataFrame, scaler_path: Optional[str] = None) -> pl.DataFrame:
+    def apply_zscore(self, df: pl.DataFrame, scaler_or_path: Optional[Any] = None) -> pl.DataFrame:
         """
         Normalizes features. Returns a pl.DataFrame.
-        Converts to/from pandas internally for sklearn compatibility.
+        - scaler_or_path: Path to .pkl, or a pre-loaded scaler object/dict.
         """
         import pandas as pd
+        import joblib
         from sklearn.preprocessing import StandardScaler, RobustScaler
 
         ds_lbl   = str(self._delta_short_min)
@@ -832,25 +833,38 @@ class L2Transformer:
         # Convert to pandas for sklearn
         pdf = df.to_pandas()
 
-        if scaler_path and Path(scaler_path).exists():
-            with open(scaler_path, 'rb') as f:
-                scaler_bundle = pickle.load(f)
-            if isinstance(scaler_bundle, dict):
+        scaler_bundle = None
+        if scaler_or_path is not None:
+            if isinstance(scaler_or_path, (str, Path)):
+                path = Path(scaler_or_path)
+                if path.exists():
+                    try:
+                        # Try joblib first (modern) then pickle
+                        scaler_bundle = joblib.load(path)
+                    except:
+                        with open(path, 'rb') as f:
+                            scaler_bundle = pickle.load(f)
+            else:
+                scaler_bundle = scaler_or_path
+
+        if scaler_bundle is not None:
+            if isinstance(scaler_bundle, dict) and 'standard' in scaler_bundle:
                 std_sc = scaler_bundle['standard']
                 rob_sc = scaler_bundle['robust']
                 if original_cols: pdf[original_cols] = std_sc.transform(pdf[original_cols])
                 if flow_cols:     pdf[flow_cols]     = rob_sc.transform(pdf[flow_cols])
             else:
-                all_legacy = [c for c in original_cols if c in pdf.columns]
-                if all_legacy: pdf[all_legacy] = scaler_bundle.transform(pdf[all_legacy])
+                 # Single scaler for everything (as in run_foundation.py)
+                 all_features = original_cols + flow_cols
+                 target_cols = [c for c in all_features if c in pdf.columns]
+                 if target_cols:
+                     pdf[target_cols] = scaler_bundle.transform(pdf[target_cols])
         else:
+            # Fallback: fit a new one (not recommended for production inference)
+            logger.warning("⚠️ No scaler provided to apply_zscore. Fitting a NEW one (Inference will be WRONG!)")
             std_sc = StandardScaler()
             rob_sc = RobustScaler()
             if original_cols: pdf[original_cols] = std_sc.fit_transform(pdf[original_cols])
             if flow_cols:     pdf[flow_cols]     = rob_sc.fit_transform(pdf[flow_cols])
-            if scaler_path:
-                Path(scaler_path).parent.mkdir(parents=True, exist_ok=True)
-                with open(scaler_path, 'wb') as f:
-                    pickle.dump({'standard': std_sc, 'robust': rob_sc}, f)
 
         return pl.from_pandas(pdf)
