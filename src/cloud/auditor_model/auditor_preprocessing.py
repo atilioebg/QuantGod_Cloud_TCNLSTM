@@ -212,7 +212,7 @@ def process_and_save_context(input_dir, output_dir):
         logger.error(f"Nenhum arquivo encontrado em {input_dir}")
         return
 
-    logger.info(f"Processando {len(parquet_files)} arquivos em {input_dir}...")
+    logger.info(f"Carregando {len(parquet_files)} arquivos para processamento CONTÍNUO...")
 
     # v4.9: resolve resample_min from master_config
     config = load_config()
@@ -221,31 +221,55 @@ def process_and_save_context(input_dir, output_dir):
     resample_min = max(1, int(_pd_inner.to_timedelta(resample_freq).total_seconds() // 60))
     logger.info(f"auditor_preprocessing: resample_freq={resample_freq} ({resample_min} min/bar)")
 
+    # 1. Carregar todos os arquivos e manter o controle de tamanhos
+    all_dfs = []
+    file_metadata = [] # list of (filename, row_count)
+
     for pf in parquet_files:
         try:
-            df = pl.read_parquet(pf).to_pandas()
-            df_enriched = calculate_context_features(df, resample_min=resample_min)
-            
-            # Manter apenas as colunas essenciais para o output, economizando espaço
-            core_features = [
-                'ema_trend', 'ema_cross_dist', 'bb_pct', 'rsi_14', 'stoch_14', 
-                'atr_norm', 'vol_1h', 'vol_zscore_1h', 'delta_vol_24h',
-                'adx_14', 'vwap_zscore', 'mfi_14', 'book_skew_bid', 'book_skew_ask'
-            ]
-            
-            # Se você precisar manter os dados do livro, pode exportar tudo. 
-            # Mas aqui o auditor precisará da concatenação. Vamos manter o target histórico também.
-            export_cols = core_features
-            if 'target' in df_enriched.columns:
-                export_cols.append('target')
-                
-            # Converter de volta para polars
-            df_out = pl.DataFrame(df_enriched[export_cols])
-            out_file = output_path / f"context_{pf.name}"
-            df_out.write_parquet(out_file)
-            logger.info(f"   [OK] Processado e salvo: {out_file.name}")
+            df_i = pl.read_parquet(pf)
+            row_count = len(df_i)
+            all_dfs.append(df_i)
+            file_metadata.append((pf.name, row_count))
         except Exception as e:
-            logger.error(f"Erro processando {pf.name}: {e}")
+            logger.error(f"Erro ao carregar {pf.name}: {e}")
+
+    if not all_dfs:
+        return
+
+    # 2. Concatenar em uma série temporal única e contínua
+    logger.info(f"Concatenando {len(all_dfs)} dataframes para cálculo global de indicadores...")
+    df_full = pl.concat(all_dfs).to_pandas()
+    
+    # 3. Calcular indicadores sobre a série completa (SEM BURACOS NAS FRONTEIRAS)
+    logger.info("Calculando indicators Alpha Sensors sobre o dataset completo...")
+    df_full_enriched = calculate_context_features(df_full, resample_min=resample_min)
+
+    # 4. Definir colunas de exportação
+    core_features = [
+        'ema_trend', 'ema_cross_dist', 'bb_pct', 'rsi_14', 'stoch_14', 
+        'atr_norm', 'vol_1h', 'vol_zscore_1h', 'delta_vol_24h',
+        'adx_14', 'vwap_zscore', 'mfi_14', 'book_skew_bid', 'book_skew_ask'
+    ]
+    export_cols = core_features
+    if 'target' in df_full_enriched.columns:
+        export_cols.append('target')
+
+    # 5. Splitter: Quebrar de volta nos arquivos originais e salvar
+    logger.info(f"Desmembrando {len(file_metadata)} arquivos e salvando em {output_dir}...")
+    current_start = 0
+    for filename, row_count in file_metadata:
+        df_slice = df_full_enriched.iloc[current_start : current_start + row_count]
+        
+        # Converter de volta para polars
+        df_out = pl.DataFrame(df_slice[export_cols])
+        out_file = output_path / f"context_{filename}"
+        df_out.write_parquet(out_file)
+        
+        current_start += row_count
+        # logger.info(f"   [OK] Processado e salvo: {out_file.name}")
+
+    logger.info(f"✅ Processamento contínuo finalizado para {len(file_metadata)} arquivos.")
 
 if __name__ == "__main__":
     setup_logger("auditor_preprocessing", "")
