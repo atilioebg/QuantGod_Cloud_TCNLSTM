@@ -40,7 +40,7 @@ pipeline_paths:
   local_reports_root: "docs/reports"  # Relatórios de qualidade, auditoria e manifestos
 
 pipeline_control:
-  force_full_retrain: true                                        # Se false, tenta carregar estágios já concluídos usando checkpoints
+  force_full_retrain: false                                        # Se false, tenta carregar estágios já concluídos usando checkpoints
   skip_qa_on_failure: false                                       # Aborta o processo se um log de QA apontar anomalia grave
   retention_policy: "keep_all"                                    # Mantém logs de rodadas anteriores (evita sobrescrever blindly)
   gpu_memory_management: true                                     # Ativa limpezas agressivas de cache (gc.collect/empty_cache) entre fases

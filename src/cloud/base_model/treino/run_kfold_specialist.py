@@ -268,7 +268,7 @@ def train_specialist_fold(
 
     logger.info(f"⚖️ Specialist Loss: alpha={class_weights}, gamma={gamma:.2f}, smoothing={smoothing:.2f} (Inherited: {gamma==best_params.get('base_loss_gamma')})")
     
-    criterion = FocalLossWithSmoothing(alpha=alpha, gamma=gamma, smoothing=smoothing)
+    criterion = FocalLossWithSmoothing(alpha=class_weights, gamma=gamma, smoothing=smoothing)
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
     amp_scaler = torch.amp.GradScaler('cuda') if DEVICE.type == 'cuda' else None
