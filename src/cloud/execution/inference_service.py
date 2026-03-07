@@ -61,26 +61,24 @@ class InferenceService:
                 except Exception as e:
                     logger.warning(f"⚠️ Failed to parse {p}: {e}")
         
-        logger.warning("⚠️ No best_params.json found. Using defaults from master_config/class defaults.")
-        # Return common defaults if missing (fallback based on user's manual fix or training context)
-        return {
-            "tcn_channels": 256, # Derived from user error
-            "lstm_hidden": 64,   # Derived from user error
-            "num_lstm_layers": 2,
-            "dropout": 0.3
-        }
+        logger.error("❌ No best_params.json or best_dir_params.json found! Cannot initialize model architecture.")
+        raise FileNotFoundError("Critical model architecture configuration (best_params.json) is missing.")
 
     def _load_tcn_lstm(self, model_path: str) -> Hybrid_TCN_LSTM:
-        # Resolve hyperparams from JSON or fallback to class defaults
-        model = Hybrid_TCN_LSTM(
-            num_features=self.num_features,
-            seq_len=self.seq_len,
-            tcn_channels=self.arch_params.get('tcn_channels', 64),
-            lstm_hidden=self.arch_params.get('lstm_hidden', 256),
-            num_lstm_layers=self.arch_params.get('num_lstm_layers', 2),
-            num_classes=self.num_classes,
-            dropout=self.arch_params.get('dropout', 0.3)
-        ).to(self.device)
+        # Resolve hyperparams strictly from arch_params
+        try:
+            model = Hybrid_TCN_LSTM(
+                num_features=self.num_features,
+                seq_len=self.seq_len,
+                tcn_channels=int(self.arch_params['tcn_channels']),
+                lstm_hidden=int(self.arch_params['lstm_hidden']),
+                num_lstm_layers=int(self.arch_params['num_lstm_layers']),
+                num_classes=self.num_classes,
+                dropout=float(self.arch_params.get('dropout', 0.3))
+            ).to(self.device)
+        except KeyError as e:
+            logger.error(f"❌ Missing required architecture parameter in JSON: {e}")
+            raise KeyError(f"Missing required architecture parameter in best_params.json: {e}")
         
         state_dict = torch.load(model_path, map_location=self.device)
         model.load_state_dict(state_dict)
