@@ -136,7 +136,6 @@ def main():
         if manage_gpu: free_memory()
 
     # ── FASE 3: Auditor (Meta-Labeling & XGBoost) ──────────────────────────────
-
     if not run_auditor:
         logger.warning("🛑 PARADA PROGRAMADA: 'run_auditor_after' esta FALSE no master_config.yaml.")
         logger.info("   ↳ Pulando Fase Auditor. As predições OOF do Especialista foram geradas, mas o Juiz nao sera treinado.")
@@ -165,15 +164,18 @@ def main():
             logger.info(f"🔍 Requisitos do Auditor carregados OK. Engatilhando Auditor...")
             
             # Auditor Preprocessing (Alpha Sensors)
-            run_phase("Auditor Preprocessing (Context generation)", "src/cloud/auditor_model/auditor_preprocessing.py", force_retrain=force_retrain)
+            if not run_phase("Auditor Preprocessing (Context generation)", "src/cloud/auditor_model/auditor_preprocessing.py", force_retrain=force_retrain):
+                sys.exit(1)
             
             # Auditor Labelling (Cross-Inference)
-            run_phase("Auditor Labelling (Fused Logits + Sinais OOF)", "src/cloud/auditor_model/auditor_labelling.py", force_retrain=force_retrain)
+            if not run_phase("Auditor Labelling (Fused Logits + Sinais OOF)", "src/cloud/auditor_model/auditor_labelling.py", force_retrain=force_retrain):
+                sys.exit(1)
             
             if manage_gpu: free_memory()
             
             # Auditor XGBoost Training (Dynamic F-Beta Threshold)
-            run_phase("Auditor XGBoost (Dynamic Thresholding)", "src/cloud/auditor_model/train_xgboost.py", check_exists=auditor_model, force_retrain=force_retrain)
+            if not run_phase("Auditor XGBoost (Dynamic Thresholding)", "src/cloud/auditor_model/train_xgboost.py", check_exists=auditor_model, force_retrain=force_retrain):
+                sys.exit(1)
             
         if manage_gpu: free_memory()
         
