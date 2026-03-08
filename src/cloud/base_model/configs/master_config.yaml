@@ -40,7 +40,7 @@ pipeline_paths:
   local_reports_root: "docs/reports"  # Relatórios de qualidade, auditoria e manifestos
 
 pipeline_control:
-  force_full_retrain: false                                        # Se false, tenta carregar estágios já concluídos usando checkpoints
+  force_full_retrain: true                                        # Se false, tenta carregar estágios já concluídos usando checkpoints
   skip_qa_on_failure: false                                       # Aborta o processo se um log de QA apontar anomalia grave
   retention_policy: "keep_all"                                    # Mantém logs de rodadas anteriores (evita sobrescrever blindly)
   gpu_memory_management: true                                     # Ativa limpezas agressivas de cache (gc.collect/empty_cache) entre fases
@@ -97,7 +97,7 @@ pre_processing:
     buy_threshold: 0.003                                          # Sniper Gold: 0.3% alvo
     # lookahead 
     horizon_minutes: 15                                           # Janela de Lookahead de 15 minutos
-    use_dynamic_workers: false                                    # Se true: usa os.cpu_count()-1 dinâmico; se false: usa max_workers abaixo
+    use_dynamic_workers: true                                    # Se true: usa os.cpu_count()-1 dinâmico; se false: usa max_workers abaixo
     max_workers: 14                                               # Número de workers paralelos quando use_dynamic_workers=false (útil em cloud com CPUs fixas conhecidas)
   split:
     base:
@@ -219,7 +219,7 @@ training:
     base_smoothing: 0.1                                           # Label Smoothing (Preenche os alvos Zero/Um com 10% de ruidos suavisadores)
     
   specialization_weights:
-    run_specialized_after: False                                   # [AUTOMAÇÃO] Habilita Especialista (TCN-LSTM Fine-tuning)
+    run_specialized_after: true                                   # [AUTOMAÇÃO] Habilita Especialista (TCN-LSTM Fine-tuning)
     run_auditor_after: true                                       # [AUTOMAÇÃO] Habilita Auditor (XGBoost Meta-Model)
     # ── MATRIZ DE DECISÃO DE PESOS (SNIPER) ──────────────────────────────────────────────────────
     # Ordem das flags: [spec_use_auto_class_weights + spec_optimize_class_weights]
