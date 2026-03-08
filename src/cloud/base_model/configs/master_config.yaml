@@ -7,7 +7,7 @@ pipeline_paths:
   # ── [FONTES EXTERNAS — Google Drive / Rclone] ──────────────────
   raw_l2_source:       "drive:PROJETOS/BTC_USDT_L2_2023_2026"      # ZIPs brutos (streaming)
   drive_results_root:  "drive:PROJETOS/RESULTADOS"                 # Raiz única de todos os resultados por sessão de treino
-  session_timestamp:   "06_03_2026_v001"                             # [FIXO] Timestamp para agrupar exportações (evita gaps de segundos entre scripts)
+  session_timestamp:   "08_03_2026_v000"                           # [FIXO] Timestamp para agrupar exportações (evita gaps de segundos entre scripts)
  
   # ── [PASTAS LOCAIS — Dados L2] ──────────────────────────────────
   local_data_root:    "data/L2"                                    # Raiz de todos os dados L2
@@ -33,7 +33,7 @@ pipeline_paths:
   scaler_auditor:  "data/models/scaler_auditor.pkl"                # Scaler fitado no treino Auditor
 
   # ── [BANCO DE DADOS — Optuna HPO] ──────────────────────────────
-  db_path: "sqlite:///optuna_tcn_lstm_v1_finetune.db"              # Banco SQLite do Optuna
+  db_path: "sqlite:///optuna_tcn_lstm_v0_finetune.db"              # Banco SQLite do Optuna
 
   # ── [LOGS E RELATÓRIOS — Raízes Locais] ────────────────────────
   local_logs_root:    "logs"          # Raiz de todos os logs locais
@@ -238,7 +238,7 @@ training:
     spec_smoothing: 0.1                                           # Evita que hiperconcordância com classe desbalanceada superstime as predições
 
 optimization:
-  study_name: "quantgod_tcn_lstm_v1_finetune"                     # Nome de identificação do experimento interno no banco SQLite
+  study_name: "QUANTGOD_V000"                                     # Nome de identificação do experimento interno no banco SQLite
   n_trials: 100                                                   # REDUZIDO: Modo de teste E2E
   n_trials_specialist: 5                                          # REDUZIDO: Modo de teste E2E
   timeout: 72000                                                  # Teto limite cronometrado na Nuvem (Ex: Parada rígida em 20 horas de máquina ~ 72000s)
