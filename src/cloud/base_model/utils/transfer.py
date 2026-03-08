@@ -236,42 +236,69 @@ def transfer_results(log_filename: str, run_type: str):
 
     # ── Executar Transferência ───────────────────────────────────────────────
     try:
+        staging_root = project_root / "data" / "temp_results" / run_type
+        if staging_root.exists():
+            shutil.rmtree(staging_root)
+        staging_root.mkdir(parents=True)
+
+        if run_type == "all":
+            # 1. Prepare Subfolders
+            subfolders = ["CONFIG", "BASE_MODEL", "SPECIALIST", "AUDITOR", "REPORTS"]
+            for sf in subfolders:
+                (staging_root / sf).mkdir(parents=True, exist_ok=True)
+                if sf in ["BASE_MODEL", "SPECIALIST", "AUDITOR"]:
+                    (staging_root / sf / "logs").mkdir(parents=True, exist_ok=True)
+
+            # 2. Map and Copy Files
+            for src in files_to_transfer:
+                if not src.exists(): continue
+                
+                dest_sf = "REPORTS" # Default
+                
+                name = src.name.lower()
+                path_str = str(src).lower()
+                
+                # Logic to determine destination subfolder
+                if "master_config" in name or "best_params" in name or "best_dir_params" in name:
+                    dest_sf = "CONFIG"
+                elif "auditor" in name or "xgboost" in name or "context" in name:
+                    dest_sf = "AUDITOR"
+                elif "fold" in name or "oof" in name:
+                    dest_sf = "SPECIALIST"
+                elif "tcn_lstm" in name or "scaler_foundation" in name:
+                    dest_sf = "BASE_MODEL"
+                elif name.endswith(".md") or "landscape" in name or "importance" in name:
+                    dest_sf = "REPORTS"
+                
+                # refinement for logs
+                final_dest = staging_root / dest_sf
+                if "/logs/" in path_str.replace("\\", "/"):
+                    final_dest = final_dest / "logs"
+                
+                shutil.copy2(src, final_dest / src.name)
+        else:
+            # Legacy/Single-type flat copy
+            for src in files_to_transfer:
+                shutil.copy2(src, staging_root / src.name)
 
         if os.name != 'nt':
-            temp_staging = project_root / "data" / "temp_results" / run_type
-            if temp_staging.exists():
-                shutil.rmtree(temp_staging)
-            temp_staging.mkdir(parents=True)
-
-            logger.info(f"Agrupando {len(files_to_transfer)} arquivos em {temp_staging.relative_to(project_root)}...")
-            for src in files_to_transfer:
-                shutil.copy2(src, temp_staging / src.name)
-
             rclone_cfg = project_root / "rclone.conf"
-            
             rclone_transfers = str(min(32, (os.cpu_count() or 4) * 2))
-            cmd = ["rclone", "copy", str(temp_staging), remote_path, "-P", "--transfers", rclone_transfers, "--checkers", rclone_transfers]
+            cmd = ["rclone", "copy", str(staging_root), remote_path, "-P", "--transfers", rclone_transfers, "--checkers", rclone_transfers]
             if rclone_cfg.exists():
                 cmd += ["--config", str(rclone_cfg)]
             
             result = subprocess.run(cmd)
-
             if result.returncode == 0:
-                logger.info(f"SUCESSO! Resultados copiados (rclone) para: {remote_path}")
+                logger.info(f"✅ SUCESSO! Resultados hierárquicos copiados para: {remote_path}")
                 shutil.rmtree(project_root / "data" / "temp_results")
                 return
-
-        # Fallback (Windows sem rclone)
-        dest_dir = project_root / "data" / "temp_results" / run_type
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        for src in files_to_transfer:
-            logger.info(f"   📂 Copiando: {src.name}...")
-            shutil.copy2(src, dest_dir / src.name)
-
-        logger.info(f"\nSUCESSO! Resultados copiados localmente para: {dest_dir}")
+        else:
+            logger.info(f"\n✅ SUCESSO! Resultados organizados em: {staging_root}")
 
     except Exception as e:
-        logger.error(f"Erro na transferencia: {e}")
+        logger.error(f"❌ Erro na transferencia: {e}")
+        traceback.print_exc()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Gerenciador de Resultados e Workspace QuantGod.")

@@ -6,21 +6,36 @@ Este guia é a referência completa de todos os artefatos gerados pelo pipeline,
 
 ## 🗂️ Estrutura no Google Drive (por sessão de treino)
 
-Cada execução do pipeline cria uma **pasta raiz única** no Drive, identificada pelos parâmetros de rotulação e o timestamp da sessão. Todos os artefatos daquela corrida ficam centralizados aqui.
+Cada execução do pipeline cria uma **pasta raiz única** no Drive, identificada pelos parâmetros de rotulação e o timestamp da sessão. Todos os artefatos daquela corrida ficam centralizados aqui, organizados de forma granular por camada do projeto.
 
-```
-drive:PROJETOS/RESULTADOS_SELL_{s}_BUY_{b}_{min}_{timestamp}/
-├── PRE_PROCESSED/          ← run_pipeline.py        (parquets sem target)
-├── LABELLED/               ← run_labelling.py       (parquets com coluna 'target')
-├── AUDITORIA/
-│   ├── ETL/                ← run_pipeline.py        (logs + data_quality_report.json + audit_summary.csv)
-│   ├── LABELLING/          ← run_labelling.py       (logs + labelling_health_QA.log)
-│   ├── SPLIT/              ← split_dataset.py       (logs + split_summary.json)
-│   ├── KFOLD_SPECIALIST/   ← run_kfold_specialist.py (logs + kfold_security_QA.log)
-│   └── AUDITOR/            ← train_xgboost.py       (logs + feature_importance.json)
-└── MODELOS/
-    ├── foundation/         ← transfer.py            (best_tcn_lstm.pt + scaler.pkl + optuna.db)
-    └── specialized/        ← transfer.py            (best_specialist.pt + kfold scalers + oof.parquet)
+```text
+drive:PROJETOS/RESULTADOS_SELL_{S}_BUY_{B}_{M}min/
+└── MODELOS_{timestamp}/
+    ├── CONFIG/
+    │   ├── master_config.yaml          # Configuração mestre (Source of Truth)
+    │   ├── best_params.json            # Hiperparâmetros da Fundação (Optuna)
+    │   └── best_dir_params.json        # Hiperparâmetros de Direção
+    ├── BASE_MODEL/
+    │   ├── best_tcn_lstm.pt           # Pesos do Modelo Base (Fundação)
+    │   ├── best_tcn_lstm_dir.pt       # Pesos do Modelo de Direção
+    │   ├── scaler_foundation.pkl      # Scaler (Comum a ambos)
+    │   └── logs/                      # Logs da Fundação (Opt/ETL/Train)
+    ├── SPECIALIST/
+    │   ├── model_fold_0.pt            # Pesos das Folds do K-Fold (0-4)
+    │   ├── model_fold_...pt
+    │   ├── scaler_fold_0.pkl          # Scalers específicos de cada Fold
+    │   ├── scaler_fold_...pkl
+    │   ├── full_oof.parquet           # Sinais Out-of-Fold (Input p/ Auditor)
+    │   └── logs/                      # Logs do Especialista K-Fold
+    ├── AUDITOR/
+    │   ├── auditor_xgboost.json       # O Modelo do Juiz (XGBoost)
+    │   ├── scaler_auditor.pkl         # Normalização do Auditor
+    │   └── logs/                      # Logs do Auditor e Meta-Labeling
+    └── REPORTS/
+        ├── quality_report_...md       # Relatórios de Saúde (QA)
+        ├── kfold_security_QA.log      # Auditoria de Vazamento Temporal
+        ├── feature_importance.csv     # Ranking de features do Auditor
+        └── landscape_optuna_trials.csv # Panorama Geral da Otimização
 ```
 
 > [!NOTE]
