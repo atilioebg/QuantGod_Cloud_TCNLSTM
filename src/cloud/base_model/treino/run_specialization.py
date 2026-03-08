@@ -203,17 +203,17 @@ class SpecialistObjective:
         if spec_cfg.get('spec_optimize_gamma', False):
             gamma = trial.suggest_float("spec_loss_gamma", search_space['spec_loss_gamma'][0], search_space['spec_loss_gamma'][1])
         else:
-            gamma = spec_cfg.get('spec_gamma')
+            gamma = self.best_params.get('base_loss_gamma')
             if gamma is None:
-                gamma = self.best_params.get('base_loss_gamma', 2.0)
+                gamma = spec_cfg.get('spec_gamma', 2.0)
         
         # -- Label Smoothing --
         if spec_cfg.get('spec_optimize_smoothing', False):
             smoothing = trial.suggest_float("spec_loss_smoothing", search_space['spec_loss_smoothing'][0], search_space['spec_loss_smoothing'][1])
         else:
-            smoothing = spec_cfg.get('spec_smoothing')
+            smoothing = self.best_params.get('base_loss_smoothing')
             if smoothing is None:
-                smoothing = self.best_params.get('base_loss_smoothing', 0.1)
+                smoothing = spec_cfg.get('spec_smoothing', 0.1)
 
         # ── Trial Start Log (To include Focal parameters) ────────────
         a_str = f"[{alpha[0]:.2f}, {alpha[1]:.2f}, {alpha[2]:.2f}]"
