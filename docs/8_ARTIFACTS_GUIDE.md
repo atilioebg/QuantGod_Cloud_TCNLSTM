@@ -10,32 +10,16 @@ Cada execução do pipeline cria uma **pasta raiz única** no Drive, identificad
 
 ```text
 drive:PROJETOS/RESULTADOS_SELL_{S}_BUY_{B}_{M}min/
-└── MODELOS_{timestamp}/
-    ├── CONFIG/
-    │   ├── master_config.yaml          # Configuração mestre (Source of Truth)
-    │   ├── best_params.json            # Hiperparâmetros da Fundação (Optuna)
-    │   └── best_dir_params.json        # Hiperparâmetros de Direção
-    ├── BASE_MODEL/
-    │   ├── best_tcn_lstm.pt           # Pesos do Modelo Base (Fundação)
-    │   ├── best_tcn_lstm_dir.pt       # Pesos do Modelo de Direção
-    │   ├── scaler_foundation.pkl      # Scaler (Comum a ambos)
-    │   └── logs/                      # Logs da Fundação (Opt/ETL/Train)
-    ├── SPECIALIST/
-    │   ├── model_fold_0.pt            # Pesos das Folds do K-Fold (0-4)
-    │   ├── model_fold_...pt
-    │   ├── scaler_fold_0.pkl          # Scalers específicos de cada Fold
-    │   ├── scaler_fold_...pkl
-    │   ├── full_oof.parquet           # Sinais Out-of-Fold (Input p/ Auditor)
-    │   └── logs/                      # Logs do Especialista K-Fold
-    ├── AUDITOR/
-    │   ├── auditor_xgboost.json       # O Modelo do Juiz (XGBoost)
-    │   ├── scaler_auditor.pkl         # Normalização do Auditor
-    │   └── logs/                      # Logs do Auditor e Meta-Labeling
-    └── REPORTS/
-        ├── quality_report_...md       # Relatórios de Saúde (QA)
-        ├── kfold_security_QA.log      # Auditoria de Vazamento Temporal
-        ├── feature_importance.csv     # Ranking de features do Auditor
-        └── landscape_optuna_trials.csv # Panorama Geral da Otimização
+└── {timestamp}/                   # Única pasta por execução (ex: 08_03_2026_v000)
+    ├── MODELOS/                   # Artefatos organizados (via transfer.py)
+    │   ├── CONFIG/
+    │   ├── BASE_MODEL/
+    │   ├── SPECIALIST/
+    │   ├── AUDITOR/
+    │   └── REPORTS/
+    ├── PRE_PROCESSED/             # Parquets sem target
+    ├── LABELLED/                  # Parquets com target
+    └── AUDITORIA/                 # Logs e Relatórios de QA (ETL/Labelling/KFold)
 ```
 
 > [!NOTE]

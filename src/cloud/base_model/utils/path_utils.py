@@ -71,22 +71,18 @@ def get_drive_session_root(config: dict) -> str:
 
 def get_drive_session_path(subfolder: str, config: dict) -> str:
     """
-    Returns the full Drive path for a given subfolder, injecting the session timestamp.
+    Returns the full Drive path for a given subfolder, grouping all stages
+    under a single session timestamp directory.
     Example: get_drive_session_path("MODELOS", cfg)
-             → "drive:PROJETOS/RESULTADOS_SELL_..._min/MODELOS_06_03_2026_v001"
+             → "drive:PROJETOS/RESULTADOS_.../06_03_2026_v001/MODELOS"
     """
     root = get_drive_session_root(config)
     
     cfg_ts = config.get('pipeline_paths', {}).get('session_timestamp')
     ts = str(cfg_ts).strip() if cfg_ts else _get_session_timestamp()
     
-    # Inject timestamp to the first folder component to group properly
-    # e.g., "AUDITORIA/ETL" -> "AUDITORIA_06_03_2026_v001/ETL"
-    parts = subfolder.split('/')
-    parts[0] = f"{parts[0]}_{ts}"
-    new_sub = "/".join(parts)
-    
-    return f"{root}/{new_sub}"
+    # Group all subfolders under the session timestamp folder
+    return f"{root}/{ts}/{subfolder}"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
