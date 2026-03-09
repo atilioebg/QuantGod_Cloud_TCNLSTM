@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 import argparse
+import traceback
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -275,6 +276,7 @@ def transfer_results(log_filename: str, run_type: str):
                 if "/logs/" in path_str.replace("\\", "/"):
                     final_dest = final_dest / "logs"
                 
+                final_dest.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(src, final_dest / src.name)
         else:
             # Legacy/Single-type flat copy
