@@ -15,6 +15,7 @@ import logging
 from pathlib import Path
 from sklearn.preprocessing import StandardScaler
 import pickle
+import json
 import sys
 
 project_root = str(Path(__file__).parents[3])
@@ -216,6 +217,17 @@ def train_auditor():
     model_path.parent.mkdir(parents=True, exist_ok=True)
     model.save_model(str(model_path))
     logger.info(f"🤖 Modelo XGBoost Auditor Salvo: {model_path}")
+
+    # NOVO: Salvar Metadados (Threshold dinâmico)
+    config_path = model_path.parent / "auditor_config.json"
+    auditor_meta = {
+        "best_threshold": float(threshold),
+        "f_beta_score": float(best_fbeta) if use_dyn else None,
+        "timestamp": pd.Timestamp.now().isoformat()
+    }
+    with open(config_path, 'w', encoding='utf-8') as f:
+        json.dump(auditor_meta, f, indent=4)
+    logger.info(f"⚙️ Configurações do Auditor (Threshold) salvas em: {config_path}")
     
     scaler_path = Path(master_cfg['pipeline_paths'].get('scaler_auditor', 'data/models/scaler_auditor.pkl'))
     scaler_path.parent.mkdir(parents=True, exist_ok=True)

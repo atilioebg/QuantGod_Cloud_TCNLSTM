@@ -47,15 +47,19 @@ def _get_session_timestamp() -> str:
 def get_drive_suffix(config: dict) -> str:
     """
     Builds the run-specific suffix appended to the Drive session root folder.
-    Format: _SELL_{sell_val}_BUY_{buy_val}_{horizon}min
-    Example: _SELL_00030_BUY_00030_15min
+    Format: _SELL_{s}_BUY_{b}_{t}min_lookahead_{lookback}min_lookback_{freq}
     """
     sell = config['pre_processing']['labelling'].get('sell_threshold', 0.003)
     buy  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
-    mins = config['pre_processing']['labelling'].get('horizon_minutes', 15)
-    sell_str = f"{int(round(sell * 10000)):05d}"
-    buy_str  = f"{int(round(buy  * 10000)):05d}"
-    return f"_SELL_{sell_str}_BUY_{buy_str}_{mins}min"
+    t = config['pre_processing']['labelling'].get('horizon_minutes', 15)
+    lookback = config['pre_processing']['etl'].get('lookback_minutes', 120)
+    freq = config['pre_processing']['etl'].get('resample_freq', "1min")
+    
+    # Remove dots from thresholds as requested
+    sell_str = str(sell).replace(".", "")
+    buy_str  = str(buy).replace(".", "")
+    
+    return f"_SELL_{sell_str}_BUY_{buy_str}_{t}min_lookahead_{lookback}min_lookback_{freq}"
 
 
 def get_drive_session_root(config: dict) -> str:

@@ -7,7 +7,7 @@ pipeline_paths:
   # ── [FONTES EXTERNAS — Google Drive / Rclone] ──────────────────
   raw_l2_source:       "drive:PROJETOS/BTC_USDT_L2_2023_2026"      # ZIPs brutos (streaming)
   drive_results_root:  "drive:PROJETOS/RESULTADOS"                 # Raiz única de todos os resultados por sessão de treino
-  session_timestamp:   "08_03_2026_v000"                           # [FIXO] Timestamp para agrupar exportações (evita gaps de segundos entre scripts)
+  session_timestamp:   "10_03_2026_v000"                           # [FIXO] Timestamp para agrupar exportações (evita gaps de segundos entre scripts)
  
   # ── [PASTAS LOCAIS — Dados L2] ──────────────────────────────────
   local_data_root:    "data/L2"                                    # Raiz de todos os dados L2
@@ -19,18 +19,18 @@ pipeline_paths:
   # ── [PASTAS LOCAIS — Auditor] ──────────────────────────────────
   fused_dataset_dir:    "data/auditor/dataset_fused"               # Dataset fundido (Logits + Contexto) → XGBoost Auditor
   auditor_context_dir:  "data/auditor/context"                     # Features de contexto do Auditor
-  auditor_oof_dir:      "data/auditor/oof_predictions"             # Predições Out-of-Fold do Especialista
+  auditor_oof_dir:      "RESULTADOS_SELL_0003_BUY_0003_15min_lookahead_600min_lookback_5min/08_03_2026_v000/MODELOS/SPECIALIST"             # Predições Out-of-Fold do Especialista
 
   # ── [MODELOS — Checkpoints .pt / .pkl] ─────────────────────────
-  best_tcn_lstm_model:     "data/models/best_tcn_lstm.pt"          # Modelo Foundation (Optuna champion)
-  best_tcn_lstm_dir_model: "data/models/best_tcn_lstm_dir.pt"      # Modelo de direção (Foundation)
+  best_tcn_lstm_model:     "RESULTADOS_SELL_0003_BUY_0003_15min_lookahead_600min_lookback_5min/08_03_2026_v000/MODELOS/BASE_MODEL/best_tcn_lstm.pt"          # Modelo Foundation (Optuna champion)
+  best_tcn_lstm_dir_model: "RESULTADOS_SELL_0003_BUY_0003_15min_lookahead_600min_lookback_5min/08_03_2026_v000/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt"      # Modelo de direção (Foundation)
   best_specialized_model:  "data/models/treino_best_model.pt"      # Modelo Specialist (fine-tuning)
-  scaler_foundation:       "data/models/scaler_foundation.pkl"     # Scaler fitado no treino Foundation
+  scaler_foundation:       "RESULTADOS_SELL_0003_BUY_0003_15min_lookahead_600min_lookback_5min/08_03_2026_v000/MODELOS/BASE_MODEL/scaler_foundation.pkl"     # Scaler fitado no treino Foundation
   scaler_specialized:      "data/models/scaler_specialized.pkl"    # Scaler fitado no treino Specialist
 
   # ── [MODELOS — Auditor XGBoost] ────────────────────────────────
-  auditor_model:   "data/models/auditor_xgboost.json"              # Modelo XGBoost (Juiz Auditor)
-  scaler_auditor:  "data/models/scaler_auditor.pkl"                # Scaler fitado no treino Auditor
+  auditor_model:   "RESULTADOS_SELL_0003_BUY_0003_15min_lookahead_600min_lookback_5min/08_03_2026_v000/MODELOS/AUDITOR/auditor_xgboost.json"              # Modelo XGBoost (Juiz Auditor)
+  scaler_auditor:  "RESULTADOS_SELL_0003_BUY_0003_15min_lookahead_600min_lookback_5min/08_03_2026_v000/MODELOS/AUDITOR/scaler_auditor.pkl"                # Scaler fitado no treino Auditor
 
   # ── [BANCO DE DADOS — Optuna HPO] ──────────────────────────────
   db_path: "sqlite:///optuna_tcn_lstm_v0_finetune.db"              # Banco SQLite do Optuna
@@ -44,6 +44,11 @@ pipeline_control:
   skip_qa_on_failure: false                                       # Aborta o processo se um log de QA apontar anomalia grave
   retention_policy: "keep_all"                                    # Mantém logs de rodadas anteriores (evita sobrescrever blindly)
   gpu_memory_management: true                                     # Ativa limpezas agressivas de cache (gc.collect/empty_cache) entre fases
+  
+# ── [EXECUÇÃO — Paper Trading / Inference] ─────────────────────
+execution:
+  manual_security_threshold: 0.68                                 # Threshold fixo para o Auditor (v000 default: 0.68)
+  dynamic_security_threshold: true                                # If true: loads threshold from auditor_config.json; If false: uses manual value above.
 
 pre_processing:
   etl:
@@ -55,7 +60,7 @@ pre_processing:
     use_dynamic_workers: true                                     # [NOVO] True: vCPUs - 1; False: Usa max_workers abaixo
     max_workers: 15                                               # Número de workers quando use_dynamic_workers=false
     #lookback
-    lookback_minutes: 120                                         # [SOLICITADO] Contexto histórico máximo p/ features e integridade
+    lookback_minutes: 120                                         # [SYNC] 10 horas de histórico p/ satisfazer 120 barras de 5min
 
     # ── Clipping & Auditoria (v4.5 Patch) ──────────────────────
     clipping:
@@ -119,7 +124,7 @@ pre_processing:
     specialist_epochs: 30                                         # REDUZIDO: Modo de teste E2E
     use_best_foundation_arch: true                                # Se true: usa best_params.json da Fundação sem re-otimizar (Symmetric Delta não é executado).
                                                                   # Poupa GPU: cada fold treina a MESMA arquitetura vencedora, variando apenas os pesos.
-    oof_output_dir: "data/auditor/oof_predictions"                # Diretório onde os logits de cada fold e o full_oof.parquet serão salvos.
+    oof_output_dir: "RESULTADOS_SELL_00030_BUY_00030_15min/08_03_2026_v000/MODELOS/SPECIALIST"                # Diretório onde os logits de cada fold e o full_oof.parquet serão salvos.
 
 model:
   num_features: 30                                                # QuantGod v4.5: 9 Aggregated + 21 Dynamic (Sniper)

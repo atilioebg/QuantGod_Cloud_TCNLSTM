@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # Fix path to allow imports from project root
-project_root = str(Path(__file__).parents[4])
+project_root = Path(__file__).parents[3]
 if project_root not in sys.path:
     sys.path.append(project_root)
 
@@ -16,6 +16,7 @@ from src.cloud.execution.exchange_connector import DataBuffer, ExchangeConnector
 from src.cloud.execution.streaming_etl import StreamingETL
 from src.cloud.execution.inference_service import InferenceService
 from src.cloud.execution.virtual_broker import VirtualBroker
+from src.cloud.execution.performance_journal import PerformanceJournal
 
 # Setup specialized logger for paper trading
 logging.basicConfig(
@@ -34,18 +35,49 @@ async def main():
     # 1. Configuration & Initialization
     config = load_config()
     symbol = config.get('symbol', 'BTCUSDT').lower()
-    resample_min = config['pre_processing']['etl'].get('resample_min', 1)
     
+    logger.info("📡 Initializing Data Infrastructure...")
     buffer = DataBuffer()
     connector = ExchangeConnector(symbol, buffer)
+    
+    logger.info("📊 Initializing Streaming ETL & Scalers...")
     etl = StreamingETL(config)
+    
+    # Sync settings from ETL (which carefully parses them from config/models)
+    resample_min = etl.resample_min
+    seq_len = etl.seq_len
+    lookahead = config['pre_processing']['labelling'].get('horizon_minutes', 15)
+    lookback = config['pre_processing']['etl'].get('lookback_minutes', 600)
+    target = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
+    
+    # --- MODEL INFO BANNER (FULLY DYNAMIC) ---
+    lookahead_bars = max(1, lookahead // resample_min)
+    logger.info("="*55)
+    logger.info("  💎 QUANTGOD SYSTEM CONFIGURATION 💎")
+    logger.info(f"  • TIMEFRAME:       {resample_min} min")
+    logger.info(f"  • LOOKBACK (PAST):  {lookback} min ({seq_len} bars)")
+    logger.info(f"  • LOOKAHEAD (GOAL): {lookahead} min ({lookahead_bars} bars)")
+    logger.info(f"  • TARGET PROFIT:    {target*100:.2f}%")
+    logger.info(f"  • SEQ_LEN (TENSOR): {seq_len}")
+    logger.info("="*55)
+
+    logger.info("🛡️ Initializing Inference Stack (3-Layers)...")
     inference = InferenceService(config)
+    
+    logger.info("💰 Initializing Virtual Broker...")
     broker = VirtualBroker(initial_balance=10000.0)
     
+    logger.info("🗒️ Initializing Performance Journal...")
+    journal = PerformanceJournal(
+        horizon_minutes=lookahead,
+        target_pct=target
+    )
+    
     # 2. Start Data Ingestion
+    logger.info(f"🔗 Connecting to Binance WebSocket for {symbol.upper()}...")
     connector.start()
     
-    logger.info(f"📍 Monitoring {symbol.upper()} | Resample: {resample_min}min")
+    logger.info(f"📍 Monitoring {symbol.upper()} | System is LIVE and collecting data.")
     logger.info("⏳ Waiting for data buffer to stabilize (2s)...")
     await asyncio.sleep(2)
     
@@ -59,11 +91,21 @@ async def main():
             
             # 3. Ingest Data into ETL State
             snapshot = await buffer.get_snapshot()
+            current_price = 0.0
+            
             if snapshot['depth'] and snapshot['trades']:
                 etl.process_data(snapshot['depth'], snapshot['trades'], ts_ms)
+                # Use Best Bid/Ask mid as current price for the journal
+                # IMPORTANT: Binance API returns prices as strings, must cast to float
+                best_bid = float(snapshot['depth'].get('bids', [[0]])[0][0])
+                best_ask = float(snapshot['depth'].get('asks', [[0]])[0][0])
+                current_price = (best_bid + best_ask) / 2
+                
+                # Update journal's high/low tracking for all pending predictions
+                if current_price > 0:
+                    journal.update_market_price(current_price, now)
             
             # 4. Check for Bar Boundary transition (e.g. crossing a 1min mark)
-            # Logic: (minutes // resample_min) change
             current_bar_idx = now.minute // resample_min
             if last_bar_time is not None and now.minute != last_bar_time.minute and (now.minute % resample_min == 0):
                 logger.info(f"🔔 Bar Close Detected: {now.strftime('%H:%M:%S')} UTC")
@@ -80,13 +122,22 @@ async def main():
                     
                     # 6. Virtual Execution
                     price_snap = {
-                        "bid": snapshot['depth'].get('bids', [[0]])[0][0],
-                        "ask": snapshot['depth'].get('asks', [[0]])[0][0]
+                        "bid": best_bid,
+                        "ask": best_ask
                     }
                     
                     broker.execute_signal(result['signal'], price_snap, now)
                     
-                    # 7. Monitoring & Logging
+                    # 7. Record in Performance Journal
+                    journal.add_prediction(
+                        ts=now,
+                        symbol=symbol.upper(),
+                        signal=result['signal'],
+                        score=result['auditor_score'],
+                        current_price=current_price
+                    )
+                    
+                    # 8. Monitoring & Logging
                     stats = broker.get_stats(price_snap['bid'])
                     logger.info(
                         f"📊 [INFERÊNCIA] Sinal: {result['signal']} | "

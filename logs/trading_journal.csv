@@ -1,0 +1,1 @@
+timestamp_prediction,symbol,prediction,auditor_score,price_at_prediction,horizon_deadline,price_at_deadline,max_price_reached,min_price_reached,was_correct,pnl_observed_pct

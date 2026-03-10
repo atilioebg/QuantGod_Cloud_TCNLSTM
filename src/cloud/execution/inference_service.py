@@ -40,15 +40,51 @@ class InferenceService:
         
         # ── Layer 3: Auditor ──────────────────────────────────────────────────
         self.auditor_model = self._load_auditor()
+        self.threshold = self._load_auditor_threshold()
         
         logger.info(f"✅ Full Inference Stack loaded on {self.device}")
+        logger.info(f"🛡️ Active Auditor Threshold: {self.threshold:.4f}")
+
+    def _load_auditor_threshold(self) -> float:
+        """Determines the threshold based on config (dynamic vs manual)."""
+        exec_cfg = self.config.get('execution', {})
+        manual_val = exec_cfg.get('manual_security_threshold', 0.68)
+        
+        if exec_cfg.get('dynamic_security_threshold', True):
+            # Try to find auditor_config.json in the same folder as the model
+            model_path = Path(self.config['pipeline_paths'].get('auditor_model', ''))
+            if model_path:
+                config_path = model_path.parent / "auditor_config.json"
+                if config_path.exists():
+                    try:
+                        with open(config_path, 'r', encoding='utf-8') as f:
+                            meta = json.load(f)
+                        auto_val = meta.get('best_threshold')
+                        if auto_val:
+                            logger.info(f"🤖 Dynamic Threshold detected in file: {auto_val}")
+                            return float(auto_val)
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to read auditor_config.json: {e}")
+            
+            logger.info(f"ℹ️ No dynamic threshold file found. Falling back to manual: {manual_val}")
+            
+        return float(manual_val)
 
     def _load_best_params(self) -> Dict[str, Any]:
         """Loads the best hyperparameters found by Optuna."""
-        # Check both Macro and Directional variants, prefer Macro as it's the primary study objective
-        paths = [
-            Path("src/cloud/base_model/otimizacao/best_params.json")
-        ]
+        project_root = Path(__file__).parents[3]
+        
+        # 1. Derive from the model path in config (most reliable)
+        paths = []
+        model_path_cfg = self.config.get('pipeline_paths', {}).get('best_tcn_lstm_model')
+        if model_path_cfg:
+            p_model = Path(model_path_cfg)
+            # Replace MODELOS/BASE_MODEL/best_tcn_lstm.pt with MODELOS/CONFIG/best_params.json
+            p_json = project_root / p_model.parent.parent / "CONFIG" / "best_params.json"
+            paths.append(p_json)
+        
+        # 2. Local fallback
+        paths.append(project_root / "src/cloud/base_model/otimizacao/best_params.json")
         
         for p in paths:
             if p.exists():
@@ -60,11 +96,20 @@ class InferenceService:
                 except Exception as e:
                     logger.warning(f"⚠️ Failed to parse {p}: {e}")
         
-        logger.error("❌ No best_params.json or best_dir_params.json found! Cannot initialize model architecture.")
+        logger.error("❌ No best_params.json found! Cannot initialize model architecture.")
         raise FileNotFoundError("Critical model architecture configuration (best_params.json) is missing.")
 
     def _load_tcn_lstm(self, model_path: str) -> Hybrid_TCN_LSTM:
         # Resolve hyperparams strictly from arch_params
+        project_root = Path(__file__).parents[3]
+        p = Path(model_path)
+        if not p.is_absolute():
+            p = project_root / p
+            
+        if not p.exists():
+            logger.error(f"❌ Model file not found: {p}")
+            raise FileNotFoundError(f"Model file not found: {p}")
+
         try:
             model = Hybrid_TCN_LSTM(
                 num_features=self.num_features,
@@ -79,16 +124,20 @@ class InferenceService:
             logger.error(f"❌ Missing required architecture parameter in JSON: {e}")
             raise KeyError(f"Missing required architecture parameter in best_params.json: {e}")
         
-        state_dict = torch.load(model_path, map_location=self.device)
+        state_dict = torch.load(p, map_location=self.device)
         model.load_state_dict(state_dict)
         model.eval()
         return model
 
     def _load_kfold_specialists(self) -> List[Hybrid_TCN_LSTM]:
         # We look for model_fold_k.pt in the OOF directory
-        oof_dir = Path(self.config.get('pre_processing', {}).get('kfold', {}).get('oof_output_dir', 'data/auditor/oof_predictions'))
+        project_root = Path(__file__).parents[3]
+        oof_path = self.config.get('pipeline_paths', {}).get('auditor_oof_dir', 'data/auditor/oof_predictions')
+        oof_dir = Path(oof_path)
+        if not oof_dir.is_absolute():
+            oof_dir = project_root / oof_dir
+            
         models = []
-        
         for i in range(5): # Assuming 5 folds
             path = oof_dir / f"model_fold_{i}.pt"
             if path.exists():
@@ -97,23 +146,32 @@ class InferenceService:
                 logger.warning(f"⚠️ Specialist Fold {i} model not found at {path}")
         
         if not models:
-            logger.error("❌ No Specialist models found! Paper Trading will likely fail Auditor stage.")
+            logger.error(f"❌ No Specialist models found in {oof_dir}! Paper Trading will likely fail Auditor stage.")
         return models
 
     def _load_auditor(self) -> xgb.Booster:
-        model_path = self.config['pipeline_paths'].get('auditor_model', 'data/auditor/auditor_xgboost.json')
+        project_root = Path(__file__).parents[3]
+        model_path_str = self.config['pipeline_paths'].get('auditor_model', 'data/auditor/auditor_xgboost.json')
+        model_path = Path(model_path_str)
+        if not model_path.is_absolute():
+            model_path = project_root / model_path
+            
+        if not model_path.exists():
+             logger.error(f"❌ Auditor model not found at {model_path}")
+             raise FileNotFoundError(f"Auditor model not found at {model_path}")
+             
         bst = xgb.Booster()
-        bst.load_model(model_path)
+        bst.load_model(str(model_path))
         return bst
 
     @torch.no_grad()
     def predict(self, foundation_input: np.ndarray, auditor_context: np.ndarray) -> Dict[str, Any]:
         """
         Runs the full 3-layer pipeline.
-        foundation_input: (seq_len, 32)
+        foundation_input: (seq_len, 30)
         auditor_context: (1, 14) 
         """
-        # (1, seq_len, 32)
+        # (1, seq_len, 30)
         x = torch.from_numpy(foundation_input).unsqueeze(0).to(self.device).float()
         
         # 1. Foundation Probabilities
@@ -146,8 +204,7 @@ class InferenceService:
         raw_direction = directions[direction_idx]
         
         # Final Signal (Audit Check)
-        threshold = 0.92 # Recommended in training analysis
-        signal = raw_direction if (auditor_score > threshold and raw_direction != "NEUTRAL") else "NEUTRAL"
+        signal = raw_direction if (auditor_score > self.threshold and raw_direction != "NEUTRAL") else "NEUTRAL"
         
         return {
             "signal": signal,

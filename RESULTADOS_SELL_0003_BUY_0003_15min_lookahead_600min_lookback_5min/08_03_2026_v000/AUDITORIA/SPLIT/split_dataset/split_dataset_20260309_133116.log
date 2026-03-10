@@ -1,0 +1,14 @@
+﻿2026-03-09 13:31:16,383 - INFO - 
+📝 LOGGING INITIALIZED (UTF-8-SIG): logs/split_dataset/split_dataset_20260309_133116.log
+2026-03-09 13:31:16,413 - INFO - 🚀 Starting Strict Out-of-Fold (OOF) Splitting over 1133 total files.
+2026-03-09 13:31:16,422 - INFO - [Foundation] Splitting 1133 files -> 793 Train (70%), 340 Val
+2026-03-09 13:31:24,831 - INFO - [Specialist] Splitting 340 files -> 272 Train (80%), 68 Val
+2026-03-09 13:31:35,050 - INFO - 🛡️ [Foundation] PURGE GAP APLICADO: 3 barras (15 min) removidas do final de 2025-03-20_BTCUSDT_ob500.data.parquet
+2026-03-09 13:31:35,112 - INFO - 🛡️ [Specialist] PURGE GAP APLICADO: 3 barras (15 min) removidas do final de 2025-12-17_BTCUSDT_ob200.data.parquet
+2026-03-09 13:31:35,112 - INFO - 🕵️ [CHRONO GUARD] Validating chronological integrity of splits...
+2026-03-09 13:31:35,180 - INFO - ✅ [Foundation] Chrono Guard PASSED — gap between train/val boundary: 1200000 ms
+2026-03-09 13:31:35,227 - INFO - ✅ [Specialist] Chrono Guard PASSED — gap between train/val boundary: 1200000 ms
+2026-03-09 13:31:35,227 - INFO - ⏳ Generating split_summary.json with hashes and timestamp boundaries...
+2026-03-09 13:32:02,766 - INFO - ✅ Strict OOF Splitting complete! Summary saved to data/L2/split_summary_labelled.json
+2026-03-09 13:32:02,768 - INFO -    ↳ Rclone will upload this summary artifact in the Final Transfer.
+2026-03-09 13:32:02,796 - INFO - 📤 [AUDIT UPLOAD] Stage=SPLIT → drive:PROJETOS/RESULTADOS_SELL_00030_BUY_00030_15min/08_03_2026_v000/AUDITORIA/SPLIT

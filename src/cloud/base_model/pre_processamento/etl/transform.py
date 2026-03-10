@@ -411,40 +411,46 @@ class L2Transformer:
         ])
 
         # ── 3. Reindex full day grid (regularize to exact freq slots) ─────────
-        try:
-            first_ts = resampled["datetime"][0]
-            hour = first_ts.hour
-            if hour >= 20:
-                from datetime import timedelta
-                anchor = (first_ts + timedelta(hours=4)).replace(
-                    hour=0, minute=0, second=0, microsecond=0
+        if not getattr(self, '_streaming_mode', False):
+            try:
+                first_ts = resampled["datetime"][0]
+                hour = first_ts.hour
+                if hour >= 20:
+                    from datetime import timedelta
+                    anchor = (first_ts + timedelta(hours=4)).replace(
+                        hour=0, minute=0, second=0, microsecond=0
+                    )
+                else:
+                    anchor = first_ts.replace(hour=0, minute=0, second=0, microsecond=0)
+    
+                periods = (24 * 60) // freq_min
+                full_grid = pl.DataFrame({
+                    "datetime": pl.datetime_range(
+                        start=anchor,
+                        end=anchor + pl.duration(hours=24) - pl.duration(minutes=freq_min),
+                        interval=f"{freq_min}m",
+                        time_zone="UTC",
+                        time_unit="ms",   # match from_epoch(time_unit='ms')
+                        eager=True,
+                    ).slice(0, periods)
+                })
+    
+                # Normalize resampled to ms + UTC so join keys match
+                resampled = resampled.with_columns(
+                    pl.col("datetime").dt.cast_time_unit("ms").dt.replace_time_zone("UTC").alias("datetime")
                 )
-            else:
-                anchor = first_ts.replace(hour=0, minute=0, second=0, microsecond=0)
-
-            periods = (24 * 60) // freq_min
-            full_grid = pl.DataFrame({
-                "datetime": pl.datetime_range(
-                    start=anchor,
-                    end=anchor + pl.duration(hours=24) - pl.duration(minutes=freq_min),
-                    interval=f"{freq_min}m",
-                    time_zone="UTC",
-                    time_unit="ms",   # match from_epoch(time_unit='ms')
-                    eager=True,
-                ).slice(0, periods)
-            })
-
-            # Normalize resampled to ms + UTC so join keys match
-            resampled = resampled.with_columns(
+    
+                # Left join: every grid slot gets its row or null
+                df = full_grid.join(resampled, on="datetime", how="left")
+    
+            except Exception as e:
+                logger.warning(f"[transform] Reindex failed: {e}. Proceeding without full-day grid.")
+                df = resampled
+        else:
+            # Simple normalization for stream mode
+            df = resampled.with_columns(
                 pl.col("datetime").dt.cast_time_unit("ms").dt.replace_time_zone("UTC").alias("datetime")
             )
-
-            # Left join: every grid slot gets its row or null
-            df = full_grid.join(resampled, on="datetime", how="left")
-
-        except Exception as e:
-            logger.warning(f"[transform] Reindex failed: {e}. Proceeding without full-day grid.")
-            df = resampled
 
         # ── 4. Gap Detection ──────────────────────────────────────────────────
         is_gap = pl.col("tick_count").is_null() | (pl.col("tick_count") == 0)
@@ -699,7 +705,7 @@ class L2Transformer:
         # ── 10. Select final columns ──────────────────────────────────────────
         agg_features = [
             "body", "upper_wick", "lower_wick", "log_ret_close",
-            "volatility", "max_spread", "mean_obi", "mean_deep_obi", "log_volume", "tick_count",
+            "volatility", "max_spread", "mean_obi", "mean_deep_obi", "log_volume",
             "ofi", f"ofi_delta_{ds_lbl}", f"ofi_delta_{dl_lbl}",
             "micro_price_momentum", f"micro_price_delta_{ds_lbl}", f"micro_price_delta_{dl_lbl}",
             "bid_rdi", f"bid_rdi_delta_{ds_lbl}", f"bid_rdi_delta_{dl_lbl}",
@@ -812,6 +818,7 @@ class L2Transformer:
         vpin_col = f"vpin_min{self._vpin_window_min}"
 
         original_cols = [c for c in [
+            'body', 'upper_wick', 'lower_wick',
             'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi',
             'log_volume', 'log_ret_close',
         ] if c in df.columns]
@@ -819,7 +826,6 @@ class L2Transformer:
         flow_cols = [c for c in [
             'ofi', f'ofi_delta_{ds_lbl}', f'ofi_delta_{dl_lbl}',
             'micro_price_momentum', f'micro_price_delta_{ds_lbl}', f'micro_price_delta_{dl_lbl}',
-            'bid_slope', 'ask_slope',
             'bid_rdi', f'bid_rdi_delta_{ds_lbl}', f'bid_rdi_delta_{dl_lbl}',
             'ask_rdi', f'ask_rdi_delta_{ds_lbl}', f'ask_rdi_delta_{dl_lbl}',
             'book_asymmetry_v5', 'spread_zscore_60', vpin_col,
@@ -836,10 +842,15 @@ class L2Transformer:
         scaler_bundle = None
         if scaler_or_path is not None:
             if isinstance(scaler_or_path, (str, Path)):
+                # Ensure we have an absolute path if it's relative
                 path = Path(scaler_or_path)
+                if not path.is_absolute():
+                     # Try relative to project root (5 levels up from this file)
+                     project_root = Path(__file__).parents[5]
+                     path = project_root / path
+                
                 if path.exists():
                     try:
-                        # Try joblib first (modern) then pickle
                         scaler_bundle = joblib.load(path)
                     except:
                         with open(path, 'rb') as f:
@@ -848,16 +859,32 @@ class L2Transformer:
                 scaler_bundle = scaler_or_path
 
         if scaler_bundle is not None:
+            # Logic for bundled (dict) or single scaler
             if isinstance(scaler_bundle, dict) and 'standard' in scaler_bundle:
+                # Legacy multi-scaler support
                 std_sc = scaler_bundle['standard']
                 rob_sc = scaler_bundle['robust']
-                if original_cols: pdf[original_cols] = std_sc.transform(pdf[original_cols])
-                if flow_cols:     pdf[flow_cols]     = rob_sc.transform(pdf[flow_cols])
+                # Try to use feature names from scaler if available
+                if hasattr(std_sc, 'feature_names_in_'):
+                    cols = std_sc.feature_names_in_
+                    pdf[cols] = std_sc.transform(pdf[cols])
+                if hasattr(rob_sc, 'feature_names_in_'):
+                    cols = rob_sc.feature_names_in_
+                    pdf[cols] = rob_sc.transform(pdf[cols])
             else:
-                 # Single scaler for everything (as in run_foundation.py)
-                 all_features = original_cols + flow_cols
-                 target_cols = [c for c in all_features if c in pdf.columns]
-                 if target_cols:
+                 # Single scaler for everything (Standard behavior for QuantGod v4+)
+                 # CRITICAL: We MUST use the columns in the order the scaler expects.
+                 if hasattr(scaler_bundle, 'feature_names_in_'):
+                     target_cols = [c for c in scaler_bundle.feature_names_in_ if c in pdf.columns]
+                     if len(target_cols) != len(scaler_bundle.feature_names_in_):
+                         missing = set(scaler_bundle.feature_names_in_) - set(pdf.columns)
+                         logger.warning(f"⚠️ Scaler expects {len(scaler_bundle.feature_names_in_)} features, but {len(target_cols)} found. Missing: {missing}")
+                     
+                     # Transform using the exact order of the scaler
+                     pdf[scaler_bundle.feature_names_in_] = scaler_bundle.transform(pdf[scaler_bundle.feature_names_in_])
+                 else:
+                     # Fallback to current columns if scaler has no names (not ideal)
+                     target_cols = [c for c in pdf.columns if c not in ['datetime', 'island_id', 'open', 'high', 'low', 'close']]
                      pdf[target_cols] = scaler_bundle.transform(pdf[target_cols])
         else:
             # Fallback: fit a new one (not recommended for production inference)

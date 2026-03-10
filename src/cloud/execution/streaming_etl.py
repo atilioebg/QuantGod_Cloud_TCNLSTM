@@ -8,9 +8,10 @@ from collections import deque
 from pathlib import Path
 import pickle
 import joblib
+import json
 
 # Internal imports for L2 transformation logic
-from src.cloud.base_model.pre_processamento.etl.transform import L2Transformer
+from src.cloud.base_model.pre_processamento.etl.transform import L2Transformer, _parse_resample_minutes
 from src.cloud.auditor_model.auditor_preprocessing import calculate_context_features
 
 logger = logging.getLogger(__name__)
@@ -24,15 +25,24 @@ class StreamingETL:
     """
     def __init__(self, config: Dict, levels: int = 200):
         self.config = config
-        self.resample_min = config['pre_processing']['etl'].get('resample_min', 1)
-        self.seq_len = config['optimization'].get('seq_len', 60)
+        
+        # Correctly parse resample frequency from config
+        self.resample_freq = config['pre_processing']['etl'].get('resample_freq', "1min")
+        self.resample_min = _parse_resample_minutes(self.resample_freq)
+        
+        # Load seq_len from the actual best_params.json of the session
+        self.seq_len = self._load_actual_seq_len()
         
         # Internal L2 State (reuse project logic)
         self.transformer = L2Transformer(levels=levels, sampling_ms=1000)
         
         # History buffers
-        # For 24h @ 1min we need 1440 bars. For 5min we need 288.
-        # We use a large enough buffer (2000) to cover all indicators.
+        # How many 1s samples do we need? 
+        # For indicators and sequence, we need at least: seq_len * resample_min * 60 seconds
+        # Example: 120 bars * 5 min * 60s = 36,000 samples.
+        needed_samples = (self.seq_len + 10) * self.resample_min * 60
+        self.row_buffer = deque(maxlen=max(7200, needed_samples)) 
+        
         self.bar_history: deque = deque(maxlen=2000)
         self.sampled_rows: List[Dict] = []
         
@@ -43,20 +53,54 @@ class StreamingETL:
         # Scalers
         self._load_scalers()
 
+    def _load_actual_seq_len(self) -> int:
+        project_root = Path(__file__).parents[3]
+        
+        # 1. Derive from the model path in config (most reliable)
+        paths = []
+        model_path_cfg = self.config.get('pipeline_paths', {}).get('best_tcn_lstm_model')
+        if model_path_cfg:
+            p_model = Path(model_path_cfg)
+            # Replace MODELOS/BASE_MODEL/best_tcn_lstm.pt with MODELOS/CONFIG/best_params.json
+            p_json = project_root / p_model.parent.parent / "CONFIG" / "best_params.json"
+            paths.append(p_json)
+        
+        # 2. Local fallback
+        paths.append(project_root / "src/cloud/base_model/otimizacao/best_params.json")
+
+        for p in paths:
+            if p.exists():
+                try:
+                    with open(p, 'r', encoding='utf-8') as f:
+                        params = json.load(f)
+                    val = params.get('seq_len', 120) 
+                    logger.info(f"📏 StreamingETL: Using dynamic seq_len={val} from {p}")
+                    return int(val)
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to parse {p} for seq_len: {e}")
+
+        fallback = self.config['optimization'].get('seq_len', 120)
+        logger.info(f"📏 StreamingETL: Using fallback seq_len={fallback}")
+        return fallback
+
     def _load_scalers(self):
+        project_root = Path(__file__).parents[3]
         try:
             # We need the foundation scaler (Z-Score)
             scaler_path = self.config['pipeline_paths'].get('scaler_foundation', 'data/models/scaler_foundation.pkl')
             path = Path(scaler_path)
+            if not path.is_absolute():
+                path = project_root / path
+                
             if path.exists():
-                # run_foundation.py uses joblib.dump
-                self.scaler_foundation = joblib.load(path)
-                logger.info(f"✅ Foundation Scaler loaded: {scaler_path}")
+                # Store the path; L2Transformer.apply_zscore will handle the loading
+                self.scaler_foundation = str(path)
+                logger.info(f"✅ Foundation Scaler verified: {path}")
             else:
-                logger.warning(f"⚠️ Foundation Scaler not found at {scaler_path}. Features will NOT be scaled.")
+                logger.warning(f"⚠️ Foundation Scaler not found at {path}. Features will NOT be scaled.")
                 self.scaler_foundation = None
         except Exception as e:
-            logger.error(f"❌ Failed to load scalers: {e}")
+            logger.error(f"❌ Error during scaler verification: {e}")
             self.scaler_foundation = None
 
     def process_data(self, l2_data: Dict, trades: List[Dict], ts: int):
@@ -81,22 +125,20 @@ class StreamingETL:
         if not self.sampled_rows:
             return None
         
-        # 1. Convert accumulated samples to Polars
-        df_new_samples = pl.DataFrame(self.sampled_rows)
-        # We don't clear sampled_rows yet? Actually, L2Transformer needs historical rows 
-        # for its rolling features (spread_zscore, vpin, etc.)
-        
-        # Maintain a buffer of raw samples (1s sampled state) for the last 2 hours 
-        # to ensure all rolling features (max 60min) are accurate.
-        # We'll use a local buffer of rows.
-        if not hasattr(self, 'row_buffer'):
-            self.row_buffer = deque(maxlen=7200) # 2 hours of 1s samples
-        
+        # Add new samples to the history buffer
         self.row_buffer.extend(self.sampled_rows)
         self.sampled_rows = []
         
-        # 2. Run Foundation Feature Engineering (identical to training)
+        # 1. Convert accumulated samples to Polars
         df_raw_all = pl.DataFrame(list(self.row_buffer))
+        
+        # 2. Run Foundation Feature Engineering
+        # Bypass 'Hard Reset' for streaming:
+        # We tell the transformer this is a stream, so it shouldn't try to 
+        # reindex a full 24h grid (which causes gaps/resets).
+        if not hasattr(self.transformer, '_streaming_mode'):
+             self.transformer._streaming_mode = True
+             
         df_foundation = self.transformer.apply_feature_engineering(df_raw_all)
         
         if len(df_foundation) < self.seq_len:
@@ -115,19 +157,27 @@ class StreamingETL:
              df_foundation_norm = df_foundation
 
         # 4. Run Auditor Alpha Sensors
-        # Requirement: calculate_context_features expects OHLCV from the and context.
-        # It's better to use the resampled 'df_foundation' (which has high/low/close/log_volume)
+        # Requirement: calculate_context_features expects OHLCV from the context.
         df_pd_ohlcv = df_foundation.to_pandas()
         df_auditor = calculate_context_features(df_pd_ohlcv, self.resample_min)
         
         # 5. Extract latest inputs
-        # Foundation Input: (seq_len, 32)
-        # features_foundation is mapped in master_config.yaml
+        # Foundation Input: (seq_len, 30)
         latest_foundation = df_foundation_norm.tail(self.seq_len).select(self.foundation_features).to_numpy().astype(np.float32)
         
         # Auditor Input: (1, 14) 
-        # auditor_features = ['ema_trend', 'ema_cross_dist', 'bb_pct', 'rsi_14', ...]
-        latest_auditor = df_auditor.tail(1)[self.auditor_features].values.astype(np.float32)
+        # We only want the SENSORS here (the 14 technical indicators)
+        # Probabilities are added inside InferenceService.predict
+        sensor_names = [f for f in self.auditor_features if f in df_auditor.columns]
+        if len(sensor_names) != 14:
+             # Fallback: if names mismatch, just take the known 14
+             sensor_names = [
+                'ema_trend', 'ema_cross_dist', 'bb_pct', 'rsi_14', 'stoch_14', 
+                'atr_norm', 'vol_1h', 'vol_zscore_1h', 'delta_vol_24h',
+                'adx_14', 'vwap_zscore', 'mfi_14', 'book_skew_bid', 'book_skew_ask'
+             ]
+             
+        latest_auditor = df_auditor.tail(1)[sensor_names].values.astype(np.float32)
 
         return {
             "foundation_input": latest_foundation, 
