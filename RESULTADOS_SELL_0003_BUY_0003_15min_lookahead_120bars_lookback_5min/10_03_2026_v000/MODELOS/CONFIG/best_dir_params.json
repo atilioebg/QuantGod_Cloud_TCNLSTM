@@ -1,0 +1,14 @@
+{
+    "tcn_channels": 128,
+    "lstm_hidden": 128,
+    "num_lstm_layers": 3,
+    "batch_size": 128,
+    "dropout": 0.5696284252195113,
+    "seq_len": 96,
+    "lr": 4.283599229880263e-05,
+    "weight_decay": 0.0004557980818954942,
+    "base_alpha_side": 2.643235181902651,
+    "base_alpha_neutral": 0.619503107491618,
+    "base_loss_gamma": 1.1405364883114728,
+    "base_loss_smoothing": 0.01649536736118795
+}

@@ -225,10 +225,13 @@ def train_specialist_fold(
     
     # ── Safe Warm-start Injection ─────────────────────────────────────────────
     # Load Foundation model weights if shapes match
-    base_model_path = Path(config['pipeline_paths']['best_tcn_lstm_model'])
-    if base_model_path.exists():
+    from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
+    base_dir = get_drive_session_path("MODELOS", config)
+    warm_start_path = resolve_local_drive(Path(base_dir) / config['pipeline_paths']['best_tcn_lstm_model'])
+    logger.info(f"🔄 Warm-Starting from Foundation Checkpoint: {warm_start_path}")
+    if warm_start_path.exists():
         try:
-            state_dict = torch.load(base_model_path, map_location='cpu')
+            state_dict = torch.load(warm_start_path, map_location='cpu')
             if 'model_state_dict' in state_dict:
                 state_dict = state_dict['model_state_dict']
             
@@ -383,7 +386,10 @@ def run_kfold_specialist():
     kfold_cfg  = config['pre_processing']['kfold']
     n_splits   = kfold_cfg.get('n_splits', 5)
     purge_min  = kfold_cfg.get('purge_minutes', 15)
-    oof_dir    = Path(kfold_cfg.get('oof_output_dir', 'data/auditor/oof_predictions'))
+    
+    from src.cloud.base_model.utils.path_utils import get_drive_session_path
+    base_dir = get_drive_session_path("MODELOS", config)
+    oof_dir    = Path(base_dir) / kfold_cfg.get('oof_output_dir', 'SPECIALIST')
     oof_dir.mkdir(parents=True, exist_ok=True)
 
     # purge_bars = purge_minutes / resample_freq_minutes

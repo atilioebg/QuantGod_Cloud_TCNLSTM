@@ -26,9 +26,8 @@ def run_visual_audit():
     res_freq = config['pre_processing']['etl'].get('resample_freq', '1min')
     res_min = int("".join(filter(str.isdigit, res_freq)) or "1")
     
-    # Lookback and Lookahead in logic bars (or minutes if 1min freq)
-    lookback_min = config['pre_processing']['etl'].get('lookback_minutes', 120)
-    lookback_bars = lookback_min // res_min
+    # Lookback in logic bars directly from config instead of lookback_minutes
+    lookback_bars = config['optimization'].get('seq_len', 60)
     
     lookahead_min = config['pre_processing']['labelling'].get('horizon_minutes', 15)
     lookahead_bars = lookahead_min // res_min

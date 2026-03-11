@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import shutil
 import sys
 import time
 from datetime import datetime, timezone
@@ -19,15 +20,26 @@ from src.cloud.execution.virtual_broker import VirtualBroker
 from src.cloud.execution.performance_journal import PerformanceJournal
 
 # Setup specialized logger for paper trading
+# Log file is FIXED (append mode) so every run accumulates in the same file.
+# This means if the system stops and restarts, the full history is preserved and
+# the exact same output visible on the terminal is also persisted to disk.
+LOG_FILE = Path("logs") / "paper_trading.log"
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler(f"logs/paper_trading_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log", encoding='utf-8')
+        logging.FileHandler(LOG_FILE, mode='a', encoding='utf-8')   # 'a' = append across restarts
     ]
 )
 logger = logging.getLogger("PaperTrading")
+
+# ── Session separator (written once at startup, visible in the persistent log) ──
+_SESSION_START = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+logger.info("=" * 70)
+logger.info(f"  🔁 NEW SESSION STARTED AT {_SESSION_START}")
+logger.info("=" * 70)
 
 async def main():
     logger.info("🚀 Starting QuantGod Paper Trading System...")
@@ -47,7 +59,7 @@ async def main():
     resample_min = etl.resample_min
     seq_len = etl.seq_len
     lookahead = config['pre_processing']['labelling'].get('horizon_minutes', 15)
-    lookback = config['pre_processing']['etl'].get('lookback_minutes', 600)
+    lookback = seq_len * resample_min
     target = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
     
     # --- MODEL INFO BANNER (FULLY DYNAMIC) ---
@@ -110,14 +122,17 @@ async def main():
             if last_bar_time is not None and now.minute != last_bar_time.minute and (now.minute % resample_min == 0):
                 logger.info(f"🔔 Bar Close Detected: {now.strftime('%H:%M:%S')} UTC")
                 
+                # Calculate boundary to filter out incomplete spillover bars
+                boundary = now.replace(second=0, microsecond=0)
+                
                 # Calculate Features
-                inputs = etl.on_bar_close()
+                inputs = etl.on_bar_close(boundary)
                 
                 if inputs:
                     # 5. Run Full 3-Layer Inference
                     result = inference.predict(
                         foundation_input=inputs['foundation_input'],
-                        auditor_input=inputs['auditor_input']
+                        auditor_context=inputs['auditor_input']
                     )
                     
                     # 6. Virtual Execution
@@ -158,10 +173,35 @@ async def main():
     except Exception as e:
         logger.error(f"💥 CRITICAL ERROR in Main Loop: {e}", exc_info=True)
     finally:
-        connector.stop()
+        if 'etl' in locals():
+            logger.info("💾 Triggering final state save before shutdown...")
+            etl.save_state()
+        if 'connector' in locals():
+            connector.stop()
         logger.info("👋 System shutdown complete.")
 
 if __name__ == "__main__":
     # Create logs dir if not exists
     Path("logs").mkdir(exist_ok=True)
+
+    def _backup_log_to_resultados():
+        """Copies the persistent paper_trading.log into the RESULTADOS folder at every startup."""
+        if not LOG_FILE.exists():
+            return  # Nothing to copy on very first run
+        try:
+            from src.cloud.base_model.utils.config_utils import load_config
+            from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_project
+            _project_root = Path(__file__).parents[3]
+            cfg = load_config()
+            base_dir = get_drive_session_path("MODELOS", cfg)
+            dest_dir = resolve_local_project(base_dir, _project_root).parent / "LOGS"
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            dest_file = dest_dir / f"paper_trading_{ts}.log"
+            shutil.copy2(LOG_FILE, dest_file)
+            print(f"📋 Log backup saved to: {dest_file}")
+        except Exception as e:
+            print(f"⚠️  Could not backup log to RESULTADOS: {e}")
+
+    _backup_log_to_resultados()
     asyncio.run(main())

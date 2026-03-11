@@ -4,6 +4,7 @@ import polars as pl
 import logging
 import time
 from typing import Dict, List, Optional, Any
+from datetime import datetime
 from collections import deque
 from pathlib import Path
 import pickle
@@ -46,12 +47,39 @@ class StreamingETL:
         self.bar_history: deque = deque(maxlen=2000)
         self.sampled_rows: List[Dict] = []
         
+        # State Persistence File
+        project_root = Path(__file__).parents[3]
+        self.state_file = project_root / "data" / "paper_trading_state" / "row_buffer.parquet"
+        
         # Feature names (canonical order)
         self.foundation_features = config['model']['feature_names']
         self.auditor_features = config['auditor_features'] if 'auditor_features' in config else []
         
         # Scalers
         self._load_scalers()
+        
+        # Load any existing warmed-up state
+        self.load_state()
+
+    def load_state(self):
+        if self.state_file.exists():
+            try:
+                df = pl.read_parquet(str(self.state_file))
+                records = df.to_dicts()
+                self.row_buffer.extend(records)
+                logger.info(f"🔄 State Persistence: Loaded {len(records)} warmed-up ticks from disk. Bypassing manual wait.")
+            except Exception as e:
+                logger.error(f"❌ Failed to load state from {self.state_file}: {e}")
+
+    def save_state(self):
+        if len(self.row_buffer) > 0:
+            try:
+                self.state_file.parent.mkdir(parents=True, exist_ok=True)
+                df = pl.DataFrame(list(self.row_buffer))
+                df.write_parquet(str(self.state_file), compression='snappy')
+                logger.info(f"💾 State Persistence: Saved {len(self.row_buffer)} ticks to disk safely.")
+            except Exception as e:
+                logger.error(f"❌ Failed to save state to {self.state_file}: {e}")
 
     def _load_actual_seq_len(self) -> int:
         project_root = Path(__file__).parents[3]
@@ -60,9 +88,12 @@ class StreamingETL:
         paths = []
         model_path_cfg = self.config.get('pipeline_paths', {}).get('best_tcn_lstm_model')
         if model_path_cfg:
-            p_model = Path(model_path_cfg)
-            # Replace MODELOS/BASE_MODEL/best_tcn_lstm.pt with MODELOS/CONFIG/best_params.json
-            p_json = project_root / p_model.parent.parent / "CONFIG" / "best_params.json"
+            from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_project
+            base_dir = get_drive_session_path("MODELOS", self.config)
+            base_path = resolve_local_project(base_dir, project_root)
+            p_model = base_path / model_path_cfg
+            # Replace BASE_MODEL/best_tcn_lstm.pt with CONFIG/best_params.json
+            p_json = p_model.parent.parent / "CONFIG" / "best_params.json"
             paths.append(p_json)
         
         # 2. Local fallback
@@ -87,10 +118,10 @@ class StreamingETL:
         project_root = Path(__file__).parents[3]
         try:
             # We need the foundation scaler (Z-Score)
-            scaler_path = self.config['pipeline_paths'].get('scaler_foundation', 'data/models/scaler_foundation.pkl')
-            path = Path(scaler_path)
-            if not path.is_absolute():
-                path = project_root / path
+            from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_project
+            base_dir = get_drive_session_path("MODELOS", self.config)
+            scaler_path = self.config['pipeline_paths'].get('scaler_foundation', 'BASE_MODEL/scaler_foundation.pkl')
+            path = resolve_local_project(base_dir, project_root) / scaler_path
                 
             if path.exists():
                 # Store the path; L2Transformer.apply_zscore will handle the loading
@@ -118,7 +149,7 @@ class StreamingETL:
             # For simplicity, we'll rely on the L2Transformer's tick_count or similar.
             self.sampled_rows.append(row)
 
-    def on_bar_close(self) -> Optional[Dict[str, Any]]:
+    def on_bar_close(self, current_boundary: Optional[datetime] = None) -> Optional[Dict[str, Any]]:
         """
         Calculates all features (Foundation + Auditor) for the current window.
         """
@@ -140,6 +171,10 @@ class StreamingETL:
              self.transformer._streaming_mode = True
              
         df_foundation = self.transformer.apply_feature_engineering(df_raw_all)
+        
+        # Filter out the incomplete bar that spills over the boundary
+        if current_boundary is not None:
+             df_foundation = df_foundation.filter(pl.col("datetime") < current_boundary)
         
         if len(df_foundation) < self.seq_len:
             logger.info(f"⏳ Warming up Foundation bars: {len(df_foundation)}/{self.seq_len}")
@@ -178,6 +213,9 @@ class StreamingETL:
              ]
              
         latest_auditor = df_auditor.tail(1)[sensor_names].values.astype(np.float32)
+
+        # 6. Safe state
+        self.save_state()
 
         return {
             "foundation_input": latest_foundation, 

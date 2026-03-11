@@ -19,18 +19,18 @@ pipeline_paths:
   # ── [PASTAS LOCAIS — Auditor] ──────────────────────────────────
   fused_dataset_dir:    "data/auditor/dataset_fused"               # Dataset fundido (Logits + Contexto) → XGBoost Auditor
   auditor_context_dir:  "data/auditor/context"                     # Features de contexto do Auditor
-  auditor_oof_dir:      "RESULTADOS_SELL_0003_BUY_0003_15min_lookahead_600min_lookback_5min/08_03_2026_v000/MODELOS/SPECIALIST"             # Predições Out-of-Fold do Especialista
+  auditor_oof_dir:      "SPECIALIST"             # Predições Out-of-Fold do Especialista
 
   # ── [MODELOS — Checkpoints .pt / .pkl] ─────────────────────────
-  best_tcn_lstm_model:     "RESULTADOS_SELL_0003_BUY_0003_15min_lookahead_600min_lookback_5min/08_03_2026_v000/MODELOS/BASE_MODEL/best_tcn_lstm.pt"          # Modelo Foundation (Optuna champion)
-  best_tcn_lstm_dir_model: "RESULTADOS_SELL_0003_BUY_0003_15min_lookahead_600min_lookback_5min/08_03_2026_v000/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt"      # Modelo de direção (Foundation)
+  best_tcn_lstm_model:     "BASE_MODEL/best_tcn_lstm.pt"          # Modelo Foundation (Optuna champion)
+  best_tcn_lstm_dir_model: "BASE_MODEL/best_tcn_lstm_dir.pt"      # Modelo de direção (Foundation)
   best_specialized_model:  "data/models/treino_best_model.pt"      # Modelo Specialist (fine-tuning)
-  scaler_foundation:       "RESULTADOS_SELL_0003_BUY_0003_15min_lookahead_600min_lookback_5min/08_03_2026_v000/MODELOS/BASE_MODEL/scaler_foundation.pkl"     # Scaler fitado no treino Foundation
+  scaler_foundation:       "BASE_MODEL/scaler_foundation.pkl"     # Scaler fitado no treino Foundation
   scaler_specialized:      "data/models/scaler_specialized.pkl"    # Scaler fitado no treino Specialist
 
   # ── [MODELOS — Auditor XGBoost] ────────────────────────────────
-  auditor_model:   "RESULTADOS_SELL_0003_BUY_0003_15min_lookahead_600min_lookback_5min/08_03_2026_v000/MODELOS/AUDITOR/auditor_xgboost.json"              # Modelo XGBoost (Juiz Auditor)
-  scaler_auditor:  "RESULTADOS_SELL_0003_BUY_0003_15min_lookahead_600min_lookback_5min/08_03_2026_v000/MODELOS/AUDITOR/scaler_auditor.pkl"                # Scaler fitado no treino Auditor
+  auditor_model:   "AUDITOR/auditor_xgboost.json"              # Modelo XGBoost (Juiz Auditor)
+  scaler_auditor:  "AUDITOR/scaler_auditor.pkl"                # Scaler fitado no treino Auditor
 
   # ── [BANCO DE DADOS — Optuna HPO] ──────────────────────────────
   db_path: "sqlite:///optuna_tcn_lstm_v0_finetune.db"              # Banco SQLite do Optuna
@@ -59,8 +59,6 @@ pre_processing:
     flow_depth: 5                                                 # Top-N níveis usados para OFI, Slope e RDI — Wall liquidity sem ruído profundo
     use_dynamic_workers: true                                     # [NOVO] True: vCPUs - 1; False: Usa max_workers abaixo
     max_workers: 15                                               # Número de workers quando use_dynamic_workers=false
-    #lookback
-    lookback_minutes: 120                                         # [SYNC] 10 horas de histórico p/ satisfazer 120 barras de 5min
 
     # ── Clipping & Auditoria (v4.5 Patch) ──────────────────────
     clipping:
@@ -124,7 +122,7 @@ pre_processing:
     specialist_epochs: 30                                         # REDUZIDO: Modo de teste E2E
     use_best_foundation_arch: true                                # Se true: usa best_params.json da Fundação sem re-otimizar (Symmetric Delta não é executado).
                                                                   # Poupa GPU: cada fold treina a MESMA arquitetura vencedora, variando apenas os pesos.
-    oof_output_dir: "RESULTADOS_SELL_00030_BUY_00030_15min/08_03_2026_v000/MODELOS/SPECIALIST"                # Diretório onde os logits de cada fold e o full_oof.parquet serão salvos.
+    oof_output_dir: "SPECIALIST"                # Diretório onde os logits de cada fold e o full_oof.parquet serão salvos.
 
 model:
   num_features: 30                                                # QuantGod v4.5: 9 Aggregated + 21 Dynamic (Sniper)

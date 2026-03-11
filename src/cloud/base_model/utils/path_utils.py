@@ -47,19 +47,23 @@ def _get_session_timestamp() -> str:
 def get_drive_suffix(config: dict) -> str:
     """
     Builds the run-specific suffix appended to the Drive session root folder.
-    Format: _SELL_{s}_BUY_{b}_{t}min_lookahead_{lookback}min_lookback_{freq}
+    Format: _SELL_{s}_BUY_{b}_{t}min_lookahead_{max_seq_len}bars_lookback_{freq}
     """
     sell = config['pre_processing']['labelling'].get('sell_threshold', 0.003)
     buy  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
     t = config['pre_processing']['labelling'].get('horizon_minutes', 15)
-    lookback = config['pre_processing']['etl'].get('lookback_minutes', 120)
+    
+    # Dynamic sequence length from search space
+    seq_lens = config.get('optimization', {}).get('search_space', {}).get('seq_len', [120])
+    max_seq_len = max(seq_lens) if seq_lens else 120
+    
     freq = config['pre_processing']['etl'].get('resample_freq', "1min")
     
     # Remove dots from thresholds as requested
     sell_str = str(sell).replace(".", "")
     buy_str  = str(buy).replace(".", "")
     
-    return f"_SELL_{sell_str}_BUY_{buy_str}_{t}min_lookahead_{lookback}min_lookback_{freq}"
+    return f"_SELL_{sell_str}_BUY_{buy_str}_{t}min_lookahead_{max_seq_len}bars_lookback_{freq}"
 
 
 def get_drive_session_root(config: dict) -> str:
@@ -155,4 +159,48 @@ def get_drive_dir(base_remote: str, config: dict) -> str:
     DEPRECATED — use get_drive_session_path() or get_drive_session_root() instead.
     Redirects legacy calls to the new Threshold Bucket root.
     """
-    return get_drive_session_root(config)
+    from .logging_utils import logger
+    logger.warning("get_drive_dir is deprecated. Using get_drive_session_path instead.")
+    return get_drive_session_path("MODELOS", config)
+
+def resolve_local_drive(path_str) -> Path:
+    """
+    Converts a rclone-style 'drive:...' path into a local Windows Google Drive mount 
+    (G:/Meu Drive) if present, allowing local Python functions to use torch.load, etc.
+    If the path does not start with drive:, it returns a regular Path.
+    """
+    path_str = str(path_str)
+    
+    # Check if the path is trying to use a remote 'drive:' location
+    if "drive:" in path_str:
+        # Split on drive: and take whatever is after
+        _, subpath = path_str.split("drive:", 1)
+        subpath = subpath.lstrip("\\/")
+        return Path("G:/Meu Drive") / subpath
+        
+    return Path(path_str)
+
+
+def resolve_local_project(path_str, project_root: Path) -> Path:
+    """
+    Resolves a rclone-style 'drive:PROJETOS/RESULTADOS_...' path to the local
+    RESULTADOS_... folder that already exists at the project root.
+
+    This is used exclusively by the Paper Trading system so that it reads
+    models & configs from the project directory instead of Google Drive.
+    
+    Convention: drive:PROJETOS/RESULTADOS_X/Y → <project_root>/RESULTADOS_X/Y
+
+    If the path does not include a Drive prefix, falls back to a plain Path.
+    """
+    path_str = str(path_str).replace("\\", "/")
+
+    if "drive:" in path_str:
+        _, subpath = path_str.split("drive:", 1)
+        # Remove leading 'PROJETOS/' prefix that lives on the Drive root
+        subpath = subpath.lstrip("/")
+        if subpath.upper().startswith("PROJETOS/"):
+            subpath = subpath[len("PROJETOS/"):]
+        return project_root / subpath
+
+    return project_root / path_str if not Path(path_str).is_absolute() else Path(path_str)

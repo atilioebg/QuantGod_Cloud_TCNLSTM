@@ -151,7 +151,9 @@ def run_importance_analysis(model_path=None):
     # 4. Load Model
     if model_path is None:
         # Check current config for output macro path
-        model_path = Path(config['pipeline_paths']['best_tcn_lstm_model'])
+        from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
+        base_dir = get_drive_session_path("MODELOS", config)
+        model_path = resolve_local_drive(Path(base_dir) / config['pipeline_paths']['best_tcn_lstm_model'])
         if not model_path.exists():
             logger.error(f"No model checkpoint found at {model_path}")
             return
@@ -181,7 +183,9 @@ def run_importance_analysis(model_path=None):
     y_raw = val_df['target'].to_numpy().astype(np.int64)
     
     # Scaling (Must use same scaler as training)
-    scaler_path = Path(config['pipeline_paths']['scaler_foundation'])
+    from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
+    base_dir = get_drive_session_path("MODELOS", config)
+    scaler_path = resolve_local_drive(Path(base_dir) / config['pipeline_paths']['scaler_foundation'])
     if scaler_path.exists():
         import joblib
         scaler = joblib.load(scaler_path)

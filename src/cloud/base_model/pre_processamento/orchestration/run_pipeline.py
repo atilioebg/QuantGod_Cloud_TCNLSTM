@@ -423,7 +423,7 @@ def run_pipeline():
             "levels":          etl_cfg_snap.get('levels', 200),
             "clipping_enabled": etl_cfg_snap.get('clipping', {}).get('enabled', False),
             "p99_multiplier":  etl_cfg_snap.get('clipping', {}).get('p99_multiplier', 10),
-            "lookback_minutes": etl_cfg_snap.get('lookback_minutes', 120),
+            "lookback_minutes": config.get('optimization', {}).get('seq_len', 60) * resample_min_r,
             "flow_depth":       etl_cfg_snap.get('flow_depth', 5),
         }
 

@@ -69,12 +69,13 @@ def main():
     ctrl = config.get('pipeline_control', {})
     force_retrain = ctrl.get('force_full_retrain', True)
     skip_qa_on_fail = ctrl.get('skip_qa_on_failure', False)
-    manage_gpu = ctrl.get('gpu_memory_management', True)
-    
     paths = config.get('pipeline_paths', {})
-    best_base_model = paths.get('best_tcn_lstm_model', 'data/models/best_tcn_lstm.pt')
-    best_spec_model = paths.get('best_specialized_model', 'data/models/best_specialized_model.pt')
-    auditor_model   = paths.get('auditor_model', 'data/models/auditor_xgboost.json')
+    
+    from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
+    mod_dir = resolve_local_drive(Path(get_drive_session_path("MODELOS", config)))
+    best_base_model = str(mod_dir / paths.get('best_tcn_lstm_model', 'BASE_MODEL/best_tcn_lstm.pt'))
+    best_spec_model = str(mod_dir / paths.get('best_specialized_model', 'BASE_MODEL/test.pt'))
+    auditor_model   = str(mod_dir / paths.get('auditor_model', 'AUDITOR/auditor_xgboost.json'))
     
     # QA logs Directory Generation
     qa_path = Path("logs/QA")
@@ -110,7 +111,7 @@ def main():
         # Auto-detect: K-Fold OOF (Engorda Total) vs Legado (Holdout 80/20)
         kfold_cfg     = config.get('pre_processing', {}).get('kfold', {})
         kfold_enabled = kfold_cfg.get('enabled', False)
-        oof_check     = kfold_cfg.get('oof_output_dir', 'data/auditor/oof_predictions') + '/full_oof.parquet'
+        oof_check     = str(mod_dir / kfold_cfg.get('oof_output_dir', 'SPECIALIST') / 'full_oof.parquet')
 
         if kfold_enabled:
             n_splits = kfold_cfg.get('n_splits', 5)
@@ -143,7 +144,7 @@ def main():
         # Auditor Requirements Check
         kfold_cfg     = config.get('pre_processing', {}).get('kfold', {})
         kfold_enabled = kfold_cfg.get('enabled', False)
-        oof_check     = kfold_cfg.get('oof_output_dir', 'data/auditor/oof_predictions') + '/full_oof.parquet'
+        oof_check     = str(mod_dir / kfold_cfg.get('oof_output_dir', 'SPECIALIST') / 'full_oof.parquet')
         
         # Check if we have what we need
         base_exists = Path(best_base_model).exists()

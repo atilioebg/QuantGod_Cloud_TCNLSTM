@@ -155,8 +155,12 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
     only rows present in BOTH the OOF predictions AND the context features
     are included in the final dataset. No positional-offset assumptions.
     """
-    kfold_cfg   = config['pre_processing']['kfold']
-    oof_dir     = Path(config['pipeline_paths'].get('auditor_oof_dir', 'data/auditor/oof_predictions'))
+    kfold_cfg = config['pre_processing']['kfold']
+    
+    from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
+    # Find OOF predictions using the shared session structure
+    base_oof_path = get_drive_session_path("AUDITORIA/KFOLD_SPECIALIST", config)
+    oof_dir = resolve_local_drive(Path(base_oof_path))
     full_oof_path = oof_dir / "full_oof.parquet"
 
     if not full_oof_path.exists():
@@ -224,7 +228,10 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
     island_val   = df_fval.select('island_id').to_numpy().flatten()
 
     import joblib
-    scaler_path = Path(config['pipeline_paths']['scaler_foundation'])
+    
+    from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
+    base_dir = get_drive_session_path("MODELOS", config)
+    scaler_path = resolve_local_drive(Path(base_dir) / config['pipeline_paths']['scaler_foundation'])
     logger.info(f"🔑 [Audit Fix] Scaler carregado de: {scaler_path}")
     scaler_base = joblib.load(scaler_path)
     X_val_norm = scaler_base.transform(X_val_raw).astype(np.float32)
@@ -245,7 +252,9 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
         dropout=base_params['dropout'],
     ).to(DEVICE)
 
-    base_model_path = Path(config['pipeline_paths']['best_tcn_lstm_model'])
+    from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
+    base_dir = get_drive_session_path("MODELOS", config)
+    base_model_path = resolve_local_drive(Path(base_dir) / config['pipeline_paths']['best_tcn_lstm_model'])
     try:
         model_base.load_state_dict(torch.load(base_model_path, map_location=DEVICE))
     except KeyError:
@@ -330,8 +339,10 @@ def load_and_predict(config, val_dir, context_dir, output_dir):
     island_raw  = df_val['island_id'].to_numpy()
 
     # ── Normalization ──────────────────────────────────────────────────────────
-    scaler_foundation_path  = Path(config['pipeline_paths']['scaler_foundation'])
-    scaler_specialized_path = Path(config['pipeline_paths']['scaler_specialized'])
+    from src.cloud.base_model.utils.path_utils import get_drive_session_path
+    base_dir = get_drive_session_path("MODELOS", config)
+    scaler_foundation_path  = Path(base_dir) / config['pipeline_paths']['scaler_foundation']
+    scaler_specialized_path = Path(base_dir) / config['pipeline_paths']['scaler_specialized']
     logger.info(f"🔑 [Audit Fix] Scalers: foundation={scaler_foundation_path.name}, specialist={scaler_specialized_path.name}")
 
     with open(scaler_foundation_path, 'rb') as f:
@@ -377,8 +388,10 @@ def load_and_predict(config, val_dir, context_dir, output_dir):
         num_lstm_layers=spec_params['num_lstm_layers'], num_classes=3, dropout=spec_params['dropout']
     ).to(DEVICE)
 
-    base_path = Path(config['pipeline_paths']['best_tcn_lstm_model'])
-    spec_path = Path(config['pipeline_paths']['best_specialized_model'])
+    from src.cloud.base_model.utils.path_utils import get_drive_session_path
+    base_dir = get_drive_session_path("MODELOS", config)
+    base_path = Path(base_dir) / config['pipeline_paths']['best_tcn_lstm_model']
+    spec_path = Path(base_dir) / config['pipeline_paths']['best_specialized_model']
 
     try:
         model_base.load_state_dict(torch.load(base_path, map_location=DEVICE))

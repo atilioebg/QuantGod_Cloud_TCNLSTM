@@ -31,9 +31,11 @@ class InferenceService:
         self.num_classes = 3 # Sell, Neutral, Buy
         
         # ── Layer 1: Foundation ──────────────────────────────────────────────
-        self.foundation_model = self._load_tcn_lstm(
-            self.config['pipeline_paths']['best_tcn_lstm_model']
-        )
+        from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_project
+        _project_root = Path(__file__).parents[3]
+        base_dir = get_drive_session_path("MODELOS", config)
+        foundation_path = resolve_local_project(base_dir, _project_root) / self.config['pipeline_paths']['best_tcn_lstm_model']
+        self.foundation_model = self._load_tcn_lstm(str(foundation_path))
         
         # ── Layer 2: Specialist Ensemble ─────────────────────────────────────
         self.specialist_models = self._load_kfold_specialists()
@@ -52,8 +54,12 @@ class InferenceService:
         
         if exec_cfg.get('dynamic_security_threshold', True):
             # Try to find auditor_config.json in the same folder as the model
-            model_path = Path(self.config['pipeline_paths'].get('auditor_model', ''))
-            if model_path:
+            from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_project
+            _project_root = Path(__file__).parents[3]
+            base_dir = get_drive_session_path("MODELOS", self.config)
+            model_path_str = self.config['pipeline_paths'].get('auditor_model', '')
+            if model_path_str:
+                model_path = resolve_local_project(base_dir, _project_root) / model_path_str
                 config_path = model_path.parent / "auditor_config.json"
                 if config_path.exists():
                     try:
@@ -78,9 +84,12 @@ class InferenceService:
         paths = []
         model_path_cfg = self.config.get('pipeline_paths', {}).get('best_tcn_lstm_model')
         if model_path_cfg:
-            p_model = Path(model_path_cfg)
-            # Replace MODELOS/BASE_MODEL/best_tcn_lstm.pt with MODELOS/CONFIG/best_params.json
-            p_json = project_root / p_model.parent.parent / "CONFIG" / "best_params.json"
+            from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_project
+            base_dir = get_drive_session_path("MODELOS", self.config)
+            base_path = resolve_local_project(base_dir, project_root)
+            p_model = base_path / model_path_cfg
+            # Replace BASE_MODEL/best_tcn_lstm.pt with CONFIG/best_params.json
+            p_json = p_model.parent.parent / "CONFIG" / "best_params.json"
             paths.append(p_json)
         
         # 2. Local fallback
@@ -131,11 +140,11 @@ class InferenceService:
 
     def _load_kfold_specialists(self) -> List[Hybrid_TCN_LSTM]:
         # We look for model_fold_k.pt in the OOF directory
-        project_root = Path(__file__).parents[3]
-        oof_path = self.config.get('pipeline_paths', {}).get('auditor_oof_dir', 'data/auditor/oof_predictions')
-        oof_dir = Path(oof_path)
-        if not oof_dir.is_absolute():
-            oof_dir = project_root / oof_dir
+        from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_project
+        _project_root = Path(__file__).parents[3]
+        base_dir = get_drive_session_path("MODELOS", self.config)
+        oof_path = self.config.get('pipeline_paths', {}).get('auditor_oof_dir', 'SPECIALIST')
+        oof_dir = resolve_local_project(base_dir, _project_root) / oof_path
             
         models = []
         for i in range(5): # Assuming 5 folds
@@ -150,11 +159,11 @@ class InferenceService:
         return models
 
     def _load_auditor(self) -> xgb.Booster:
-        project_root = Path(__file__).parents[3]
-        model_path_str = self.config['pipeline_paths'].get('auditor_model', 'data/auditor/auditor_xgboost.json')
-        model_path = Path(model_path_str)
-        if not model_path.is_absolute():
-            model_path = project_root / model_path
+        from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_project
+        _project_root = Path(__file__).parents[3]
+        base_dir = get_drive_session_path("MODELOS", self.config)
+        model_path_str = self.config['pipeline_paths'].get('auditor_model', 'AUDITOR/auditor_xgboost.json')
+        model_path = resolve_local_project(base_dir, _project_root) / model_path_str
             
         if not model_path.exists():
              logger.error(f"❌ Auditor model not found at {model_path}")

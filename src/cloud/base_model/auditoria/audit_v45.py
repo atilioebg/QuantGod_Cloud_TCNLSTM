@@ -567,7 +567,9 @@ def etapa_5_auditor_fusion(df_val: pl.DataFrame, config: dict):
     # fitado no TRAIN (df_train não disponível aqui — usamos os stats da amostra de train).
     # Em produção: scaler deve ser salvo junto com os modelos.
     from sklearn.preprocessing import StandardScaler
-    scaler_path = ROOT / "data" / "models" / "audit_scaler.pkl"
+    from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
+    oof_base_parent = get_drive_session_path("AUDITORIA", config)
+    scaler_path = resolve_local_drive(Path(oof_base_parent) / "KFOLD_SPECIALIST" / config['pipeline_paths']['scaler_foundation'])
 
     if scaler_path.exists():
         with open(scaler_path, "rb") as f:
@@ -590,8 +592,9 @@ def etapa_5_auditor_fusion(df_val: pl.DataFrame, config: dict):
 
     # ── Carregar Foundation Model ─────────────────────────────────────────────
     # Paths estritos pelo yaml
-    base_model_path  = Path(config['pipeline_paths']['best_tcn_lstm_model'])
-    spec_model_path  = Path(config['pipeline_paths']['best_specialized_model'])
+    logger.info("🤖 Carregando modelo Base (Foundation)...")
+    base_model_path  = resolve_local_drive(Path(base_dir) / config['pipeline_paths']['best_tcn_lstm_model'])
+    spec_model_path  = resolve_local_drive(Path(base_dir) / config['pipeline_paths']['best_specialized_model'])
     
     # Tentaremos localizar o best_params.json na pasta do modelo carregado (ex: G:/Meu Drive/.../foundation/best_params.json)
     base_params_path = base_model_path.parent / "best_params.json"

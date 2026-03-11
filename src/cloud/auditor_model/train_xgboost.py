@@ -210,10 +210,10 @@ def train_auditor():
     logger.info(" " * 60)
     
     # ── Salvamento ───────────────────────────────────────────────────────────
-    out_dir = Path("data/models")
-    out_dir.mkdir(parents=True, exist_ok=True)
+    from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
+    base_dir = get_drive_session_path("MODELOS", master_cfg)
     
-    model_path = Path(master_cfg['pipeline_paths'].get('auditor_model', 'data/models/auditor_xgboost.json'))
+    model_path = resolve_local_drive(Path(base_dir) / master_cfg['pipeline_paths'].get('auditor_model', 'AUDITOR/auditor_xgboost.json'))
     model_path.parent.mkdir(parents=True, exist_ok=True)
     model.save_model(str(model_path))
     logger.info(f"🤖 Modelo XGBoost Auditor Salvo: {model_path}")
@@ -229,7 +229,8 @@ def train_auditor():
         json.dump(auditor_meta, f, indent=4)
     logger.info(f"⚙️ Configurações do Auditor (Threshold) salvas em: {config_path}")
     
-    scaler_path = Path(master_cfg['pipeline_paths'].get('scaler_auditor', 'data/models/scaler_auditor.pkl'))
+    from src.cloud.base_model.utils.path_utils import resolve_local_drive
+    scaler_path = resolve_local_drive(Path(base_dir) / master_cfg['pipeline_paths'].get('scaler_auditor', 'AUDITOR/scaler_auditor.pkl'))
     scaler_path.parent.mkdir(parents=True, exist_ok=True)
     with open(scaler_path, 'wb') as f:
         pickle.dump(scaler, f)

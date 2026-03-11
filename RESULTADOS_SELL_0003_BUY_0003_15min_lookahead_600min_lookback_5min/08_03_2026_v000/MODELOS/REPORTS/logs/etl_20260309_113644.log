@@ -1,4 +1,0 @@
-﻿2026-03-09 11:36:44,438 - INFO - 
-📝 LOGGING INITIALIZED (UTF-8-SIG): logs/etl/etl_20260309_113644.log
-2026-03-09 11:36:44,449 - INFO - 🧹 PRE-PROCESS: Cleaning up old temp files in data/L2/temp_raw
-2026-03-09 11:36:44,456 - INFO - Listing ZIP files from remote: drive:PROJETOS/BTC_USDT_L2_2023_2026...
