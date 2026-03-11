@@ -39,9 +39,9 @@ class StreamingETL:
         
         # History buffers
         # How many 1s samples do we need? 
-        # For indicators and sequence, we need at least: seq_len * resample_min * 60 seconds
-        # Example: 120 bars * 5 min * 60s = 36,000 samples.
-        needed_samples = (self.seq_len + 10) * self.resample_min * 60
+        # We need enough ticks for the TCN sequence length AND the Auditor's 24h features (288 bars)
+        max_bars_needed = max(self.seq_len, 288) + 10
+        needed_samples = max_bars_needed * self.resample_min * 60
         self.row_buffer = deque(maxlen=max(7200, needed_samples)) 
         
         self.bar_history: deque = deque(maxlen=2000)
