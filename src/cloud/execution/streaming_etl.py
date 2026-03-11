@@ -184,6 +184,11 @@ class StreamingETL:
         if current_boundary is not None:
              df_foundation = df_foundation.filter(pl.col("datetime") < current_boundary)
         
+        # ── CHECPOINT DE SEGURANÇA ──
+        # Salvar estado no disco A CADA BARRA (ex: a cada 5min), 
+        # para que um 'Killed' abrupto (ex: OOM) não jogue fora as horas de aquecimento acumuladas.
+        self.save_state()
+
         if len(df_foundation) < self.seq_len:
             logger.info(f"⏳ Warming up Foundation bars: {len(df_foundation)}/{self.seq_len}")
             return None
@@ -204,7 +209,7 @@ class StreamingETL:
         df_pd_ohlcv = df_foundation.to_pandas()
         df_auditor = calculate_context_features(df_pd_ohlcv, self.resample_min)
         
-        # 5. Extract latest inputs
+        # 6. Extract latest inputs
         # Foundation Input: (seq_len, 30)
         latest_foundation = df_foundation_norm.tail(self.seq_len).select(self.foundation_features).to_numpy().astype(np.float32)
         
@@ -222,11 +227,9 @@ class StreamingETL:
              
         latest_auditor = df_auditor.tail(1)[sensor_names].values.astype(np.float32)
 
-        # 6. Safe state
-        self.save_state()
-
         return {
             "foundation_input": latest_foundation, 
+
             "auditor_input": latest_auditor,
             "metadata": {
                 "ts": df_foundation['datetime'].max(),
