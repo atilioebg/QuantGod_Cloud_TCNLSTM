@@ -880,12 +880,12 @@ class L2Transformer:
                          missing = set(scaler_bundle.feature_names_in_) - set(pdf.columns)
                          logger.warning(f"⚠️ Scaler expects {len(scaler_bundle.feature_names_in_)} features, but {len(target_cols)} found. Missing: {missing}")
                      
-                     # Transform using the exact order of the scaler
-                     pdf[scaler_bundle.feature_names_in_] = scaler_bundle.transform(pdf[scaler_bundle.feature_names_in_])
+                     # Transform using the exact order of the scaler, passing .values to suppress sklearn warnings
+                     pdf[scaler_bundle.feature_names_in_] = scaler_bundle.transform(pdf[scaler_bundle.feature_names_in_].values)
                  else:
                      # Fallback to current columns if scaler has no names (not ideal)
                      target_cols = [c for c in pdf.columns if c not in ['datetime', 'island_id', 'open', 'high', 'low', 'close']]
-                     pdf[target_cols] = scaler_bundle.transform(pdf[target_cols])
+                     pdf[target_cols] = scaler_bundle.transform(pdf[target_cols].values)
         else:
             # Fallback: fit a new one (not recommended for production inference)
             logger.warning("⚠️ No scaler provided to apply_zscore. Fitting a NEW one (Inference will be WRONG!)")
