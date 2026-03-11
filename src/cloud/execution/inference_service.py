@@ -94,7 +94,7 @@ class InferenceService:
         # 1. Explicit models_local_dir from config (most reliable)
         explicit = self.config.get('execution', {}).get('models_local_dir')
         if explicit:
-            p_json = project_root / explicit / ".." / "CONFIG" / "best_params.json"
+            p_json = project_root / explicit / "BASE_MODEL" / "best_params.json"
             paths.append(p_json.resolve())
         else:
             model_path_cfg = self.config.get('pipeline_paths', {}).get('best_tcn_lstm_model')

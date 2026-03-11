@@ -88,7 +88,7 @@ class StreamingETL:
         # 1. Explicit models_local_dir (priority)
         explicit = self.config.get('execution', {}).get('models_local_dir')
         if explicit:
-            p_json = (project_root / explicit / ".." / "CONFIG" / "best_params.json").resolve()
+            p_json = (project_root / explicit / "BASE_MODEL" / "best_params.json").resolve()
             paths.append(p_json)
         else:
             model_path_cfg = self.config.get('pipeline_paths', {}).get('best_tcn_lstm_model')
