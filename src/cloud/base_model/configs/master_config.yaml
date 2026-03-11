@@ -47,8 +47,15 @@ pipeline_control:
   
 # ── [EXECUÇÃO — Paper Trading / Inference] ─────────────────────
 execution:
+  # Caminho LOCAL e FIXO para a pasta MODELOS do paper trading.
+  # Este path é relativo à raiz do projeto (QuantGod_Cloud_TCNLSTM/).
+  # Ao mudar de sessão de treino, atualize APENAS este campo.
+  # Isso SUBSTITUI a resolução dinâmica via get_drive_suffix/get_drive_session_path.
+  models_local_dir: "RESULTADOS_SELL_0003_BUY_0003_15min_lookahead_120bars_lookback_5min/10_03_2026_v000/MODELOS"
+
   manual_security_threshold: 0.68                                 # Threshold fixo para o Auditor (v000 default: 0.68)
   dynamic_security_threshold: true                                # If true: loads threshold from auditor_config.json; If false: uses manual value above.
+
 
 pre_processing:
   etl:

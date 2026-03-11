@@ -84,17 +84,21 @@ class StreamingETL:
     def _load_actual_seq_len(self) -> int:
         project_root = Path(__file__).parents[3]
         
-        # 1. Derive from the model path in config (most reliable)
         paths = []
-        model_path_cfg = self.config.get('pipeline_paths', {}).get('best_tcn_lstm_model')
-        if model_path_cfg:
-            from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_project
-            base_dir = get_drive_session_path("MODELOS", self.config)
-            base_path = resolve_local_project(base_dir, project_root)
-            p_model = base_path / model_path_cfg
-            # Replace BASE_MODEL/best_tcn_lstm.pt with CONFIG/best_params.json
-            p_json = p_model.parent.parent / "CONFIG" / "best_params.json"
+        # 1. Explicit models_local_dir (priority)
+        explicit = self.config.get('execution', {}).get('models_local_dir')
+        if explicit:
+            p_json = (project_root / explicit / ".." / "CONFIG" / "best_params.json").resolve()
             paths.append(p_json)
+        else:
+            model_path_cfg = self.config.get('pipeline_paths', {}).get('best_tcn_lstm_model')
+            if model_path_cfg:
+                from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_project
+                base_dir = get_drive_session_path("MODELOS", self.config)
+                base_path = resolve_local_project(base_dir, project_root)
+                p_model = base_path / model_path_cfg
+                p_json = p_model.parent.parent / "CONFIG" / "best_params.json"
+                paths.append(p_json)
         
         # 2. Local fallback
         paths.append(project_root / "src/cloud/base_model/otimizacao/best_params.json")
@@ -117,11 +121,15 @@ class StreamingETL:
     def _load_scalers(self):
         project_root = Path(__file__).parents[3]
         try:
-            # We need the foundation scaler (Z-Score)
-            from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_project
-            base_dir = get_drive_session_path("MODELOS", self.config)
-            scaler_path = self.config['pipeline_paths'].get('scaler_foundation', 'BASE_MODEL/scaler_foundation.pkl')
-            path = resolve_local_project(base_dir, project_root) / scaler_path
+            scaler_rel = self.config['pipeline_paths'].get('scaler_foundation', 'BASE_MODEL/scaler_foundation.pkl')
+            # Priority: explicit models_local_dir
+            explicit = self.config.get('execution', {}).get('models_local_dir')
+            if explicit:
+                path = (project_root / explicit / scaler_rel).resolve()
+            else:
+                from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_project
+                base_dir = get_drive_session_path("MODELOS", self.config)
+                path = resolve_local_project(base_dir, project_root) / scaler_rel
                 
             if path.exists():
                 # Store the path; L2Transformer.apply_zscore will handle the loading
