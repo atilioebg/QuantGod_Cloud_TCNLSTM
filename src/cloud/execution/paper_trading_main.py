@@ -154,11 +154,13 @@ async def main():
                     
                     # 8. Monitoring & Logging
                     stats = broker.get_stats(price_snap['bid'])
+                    logger.info("##########################################")
                     logger.info(
-                        f"📊 [INFERÊNCIA] Sinal: {result['signal']} | "
+                        f"📊 [INFERÊNCIA] Sinal: {result['signal']} | BTC: ${current_price:.2f} | "
                         f"Confiança: {result['auditor_score']:.4f} | "
                         f"Equity: ${stats['equity']:.2f} ({stats['pnl_pct']:.2f}%)"
                     )
+                    logger.info("##########################################")
                     
                     # Detailed Probs log for debugging
                     logger.debug(f"DEBUG: Found_Probs: {result['probs_foundation']} | Spec_Probs: {result['probs_specialist']}")
