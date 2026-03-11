@@ -170,7 +170,7 @@ async def main():
             # Sleep until next check (e.g. 1s resolution for ETL injection)
             await asyncio.sleep(1)
             
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, asyncio.CancelledError):
         logger.info("🛑 Termination requested by user.")
     except Exception as e:
         logger.error(f"💥 CRITICAL ERROR in Main Loop: {e}", exc_info=True)
