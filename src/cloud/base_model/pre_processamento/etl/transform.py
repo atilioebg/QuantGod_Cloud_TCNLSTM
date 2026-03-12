@@ -837,7 +837,12 @@ class L2Transformer:
             return df
 
         # Convert to pandas for sklearn
+        import gc
         pdf = df.to_pandas()
+        
+        # v5.1: Clear Polars memory if we have a large dataframe
+        # (df is still in scope, but we can't delete it safely as it's an arg)
+        gc.collect()
 
         scaler_bundle = None
         if scaler_or_path is not None:
@@ -894,4 +899,8 @@ class L2Transformer:
             if original_cols: pdf[original_cols] = std_sc.fit_transform(pdf[original_cols])
             if flow_cols:     pdf[flow_cols]     = rob_sc.fit_transform(pdf[flow_cols])
 
-        return pl.from_pandas(pdf)
+        # v5.1: Convert back to Polars and clean up the bulky Pandas copy
+        res_df = pl.from_pandas(pdf)
+        del pdf
+        gc.collect()
+        return res_df

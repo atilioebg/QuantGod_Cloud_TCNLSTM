@@ -10,6 +10,7 @@ from pathlib import Path
 import pickle
 import joblib
 import json
+import gc
 
 # Internal imports for L2 transformation logic
 from src.cloud.base_model.pre_processamento.etl.transform import L2Transformer, _parse_resample_minutes
@@ -41,8 +42,10 @@ class StreamingETL:
         # How many 1s samples do we need? 
         # We need enough ticks for the TCN sequence length AND the Auditor's 24h features (288 bars)
         max_bars_needed = max(self.seq_len, 288) + 10
-        needed_samples = max_bars_needed * self.resample_min * 60
-        self.row_buffer = deque(maxlen=max(7200, needed_samples)) 
+        self.needed_samples = max_bars_needed * self.resample_min * 60
+        
+        # v5.1: Memory Optimization - Using Polars DataFrame instead of Deque of dicts
+        self.row_buffer: pl.DataFrame = pl.DataFrame()
         
         self.bar_history: deque = deque(maxlen=2000)
         self.sampled_rows: List[Dict] = []
@@ -64,10 +67,13 @@ class StreamingETL:
     def load_state(self):
         if self.state_file.exists():
             try:
-                df = pl.read_parquet(str(self.state_file))
-                records = df.to_dicts()
-                self.row_buffer.extend(records)
-                logger.info(f"🔄 State Persistence: Loaded {len(records)} warmed-up ticks from disk. Bypassing manual wait.")
+                # v5.1: Load directly into the Polars buffer
+                self.row_buffer = pl.read_parquet(str(self.state_file))
+                logger.info(f"🔄 State Persistence: Loaded {len(self.row_buffer)} warmed-up ticks from disk. Bypassing manual wait.")
+                
+                # Trim immediately if needed
+                if len(self.row_buffer) > self.needed_samples:
+                    self.row_buffer = self.row_buffer.tail(self.needed_samples)
             except Exception as e:
                 logger.error(f"❌ Failed to load state from {self.state_file}: {e}")
 
@@ -75,8 +81,8 @@ class StreamingETL:
         if len(self.row_buffer) > 0:
             try:
                 self.state_file.parent.mkdir(parents=True, exist_ok=True)
-                df = pl.DataFrame(list(self.row_buffer))
-                df.write_parquet(str(self.state_file), compression='snappy')
+                # v5.1: Save the DataFrame directly
+                self.row_buffer.write_parquet(str(self.state_file), compression='snappy')
                 logger.info(f"💾 State Persistence: Saved {len(self.row_buffer)} ticks to disk safely.")
             except Exception as e:
                 logger.error(f"❌ Failed to save state to {self.state_file}: {e}")
@@ -164,21 +170,25 @@ class StreamingETL:
         if not self.sampled_rows:
             return None
         
-        # Add new samples to the history buffer
-        self.row_buffer.extend(self.sampled_rows)
+        # v5.1: Efficiently append new samples to the Polars buffer
+        new_ticks = pl.DataFrame(self.sampled_rows)
+        if self.row_buffer.is_empty():
+            self.row_buffer = new_ticks
+        else:
+            self.row_buffer = pl.concat([self.row_buffer, new_ticks])
+        
         self.sampled_rows = []
         
-        # 1. Convert accumulated samples to Polars
-        df_raw_all = pl.DataFrame(list(self.row_buffer))
+        # v5.1: Strict memory-efficient trimming
+        if len(self.row_buffer) > self.needed_samples:
+            self.row_buffer = self.row_buffer.tail(self.needed_samples)
         
         # 2. Run Foundation Feature Engineering
         # Bypass 'Hard Reset' for streaming:
-        # We tell the transformer this is a stream, so it shouldn't try to 
-        # reindex a full 24h grid (which causes gaps/resets).
         if not hasattr(self.transformer, '_streaming_mode'):
              self.transformer._streaming_mode = True
              
-        df_foundation = self.transformer.apply_feature_engineering(df_raw_all)
+        df_foundation = self.transformer.apply_feature_engineering(self.row_buffer)
         
         # Filter out the incomplete bar that spills over the boundary
         if current_boundary is not None:
@@ -207,6 +217,10 @@ class StreamingETL:
         # 4. Run Auditor Alpha Sensors
         # Requirement: calculate_context_features expects OHLCV from the context.
         df_pd_ohlcv = df_foundation.to_pandas()
+        
+        # v5.1: Immediate GC after potentially large conversion
+        gc.collect()
+        
         df_auditor = calculate_context_features(df_pd_ohlcv, self.resample_min)
         
         # 6. Extract latest inputs
