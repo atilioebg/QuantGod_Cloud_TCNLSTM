@@ -182,16 +182,34 @@ async def main():
                     if result['signal'] == "NEUTRAL": sig_color = TC.YELLOW
                     
                     # --- INFERÊNCIA BOX LOG ---
-                    info_line = (
+                    # Row 1: Main Inference Info
+                    info_line1 = (
                         f"# 📊 [INFERÊNCIA] Sinal: {result['signal']} | BTC: ${current_price:.2f} | "
                         f"Confiança: {result['auditor_score']:.4f} | "
                         f"Equity: ${stats['equity']:.2f} ({stats['pnl_pct']:.2f}%) | "
                         f"Pos: {stats['position']:.6f} ({stats['last_position']:.6f}) BTC #"
                     )
-                    header_footer = "#" * len(info_line)
+                    
+                    # Row 2: Probabilities Breakdown
+                    # Indices: 0=SELL (S), 1=NEUTRAL (N), 2=BUY (B)
+                    f_p = result['probs_foundation']
+                    s_p = result['probs_specialist']
+                    info_line2 = (
+                        f"# FOUNDATION: [S: {f_p[0]:.0%} | N: {f_p[1]:.0%} | B: {f_p[2]:.0%}] "
+                        f"::: SPECIALIST: [S: {s_p[0]:.0%} | N: {s_p[1]:.0%} | B: {s_p[2]:.0%}] #"
+                    )
+                    
+                    # Calculate max width for perfect alignment
+                    box_width = max(len(info_line1), len(info_line2))
+                    header_footer = "#" * box_width
+                    
+                    # Pad lines to match box_width
+                    padded_line1 = info_line1[:-1] + (" " * (box_width - len(info_line1))) + "#"
+                    padded_line2 = info_line2[:-1] + (" " * (box_width - len(info_line2))) + "#"
 
                     logger.info(TC.color_text(header_footer, sig_color))
-                    logger.info(TC.color_text(info_line, sig_color))
+                    logger.info(TC.color_text(padded_line1, sig_color))
+                    logger.info(TC.color_text(padded_line2, sig_color))
                     logger.info(TC.color_text(header_footer, sig_color))
 
                     
