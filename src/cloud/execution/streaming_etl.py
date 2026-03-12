@@ -81,9 +81,16 @@ class StreamingETL:
         if len(self.row_buffer) > 0:
             try:
                 self.state_file.parent.mkdir(parents=True, exist_ok=True)
-                # v5.1: Save the DataFrame directly
-                self.row_buffer.write_parquet(str(self.state_file), compression='snappy')
-                logger.info(f"💾 State Persistence: Saved {len(self.row_buffer)} ticks to disk safely.")
+                
+                # v5.2: Atomic Save to prevent corruption if process is killed during write
+                temp_file = self.state_file.with_suffix(".tmp")
+                self.row_buffer.write_parquet(str(temp_file), compression='snappy')
+                
+                # Atomic rename (on Linux/Cloud this is guaranteed, on Windows it's best effort)
+                import os
+                os.replace(temp_file, self.state_file)
+                
+                logger.info(f"💾 State Persistence: Saved {len(self.row_buffer)} ticks to disk safely (atomic).")
             except Exception as e:
                 logger.error(f"❌ Failed to save state to {self.state_file}: {e}")
 
