@@ -52,6 +52,10 @@ class ExchangeConnector:
 
     async def _handle_depth(self, data: Dict[str, Any]):
         # data: {'lastUpdateId': ..., 'bids': [[price, qty], ...], 'asks': ...}
+        # Transformer expects 'b' and 'a' keys for snapshots.
+        # We preserve 'bids' and 'asks' for compatibility with paper_trading_main logic.
+        data['b'] = data.get('bids', [])
+        data['a'] = data.get('asks', [])
         await self.buffer.update_depth(data)
 
     async def _handle_trade(self, data: Dict[str, Any]):

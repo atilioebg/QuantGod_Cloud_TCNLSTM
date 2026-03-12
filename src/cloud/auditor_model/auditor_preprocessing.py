@@ -40,11 +40,12 @@ def calculate_context_features(df_pd: pd.DataFrame, resample_min: int = 1) -> pd
     bars_4h       = max(1, 240  // resample_min)  # Fallback for short DataFrames
 
     if 'close' not in df_pd.columns:
-        logger.warning("'close' não encontrado! Tentando usar 'micro_price' ou aproximando via bid_0_p.")
-        if 'bid_0_p' in df_pd.columns and 'ask_0_p' in df_pd.columns:
+        if 'micro_price' in df_pd.columns:
+            df_pd['close'] = df_pd['micro_price']
+        elif 'bid_0_p' in df_pd.columns and 'ask_0_p' in df_pd.columns:
             df_pd['close'] = (df_pd['bid_0_p'] + df_pd['ask_0_p']) / 2.0
         else:
-            raise ValueError("Não há preço base para calcular indicadores no DataFrame.")
+            raise ValueError("Não há preço base ('close', 'micro_price' ou 'bid_0_p') para calcular indicadores no DataFrame.")
 
     # High/Low pseudo-rebuy logic (se não disponíveis, simulamos a volatilidade)
     # Como os dados de input têm 'volatility' (std do micro_price), podemos aproximar High e Low
