@@ -37,9 +37,20 @@ def run_guardian():
         try:
             logger.info(f"🚀 Starting Paper Trading Process (Attempt #{restart_count + 1})...")
             
-            # Start the subprocess and wait for it to finish
-            # Using sys.executable ensures it uses the same python environment (venv)
-            process = subprocess.Popen([sys.executable, script_path])
+            # ── Fix: Ensure PYTHONPATH includes project root for the child process ──
+            import os
+            env = os.environ.copy()
+            project_root = str(Path(__file__).parent.absolute())
+            
+            # Add current dir to PYTHONPATH (handle both Windows ; and Linux :)
+            sep = ";" if os.name == "nt" else ":"
+            if "PYTHONPATH" in env:
+                env["PYTHONPATH"] = f"{project_root}{sep}{env['PYTHONPATH']}"
+            else:
+                env["PYTHONPATH"] = project_root
+                
+            # Start the subprocess with the augmented environment
+            process = subprocess.Popen([sys.executable, script_path], env=env)
             process.wait()  # Blocks until the script exits randomly
             
             # Check why it exited
