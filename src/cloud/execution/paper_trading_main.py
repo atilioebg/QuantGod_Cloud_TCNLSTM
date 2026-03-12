@@ -133,8 +133,17 @@ async def main():
                         logger.info(TC.color_text(f"│ 🔍 AUDITORIA (Janela: {res['ts_start'][-8:]} -> {res['ts_end'][-8:]})", audit_color))
                         logger.info(TC.color_text("├──────────────────────────────────────────────────────────┤", audit_color))
                         logger.info(TC.color_text(f"│ Previsão: {res['pred']} @ ${res['price_init']:.2f}", audit_color))
-                        logger.info(TC.color_text(f"│ Realidade: BTC @ ${res['price_final']:.2f}", audit_color))
+                        
+                        f_p = res.get('probs_f', [0,0,0])
+                        s_p = res.get('probs_s', [0,0,0])
+                        score = res.get('score', 0.0)
+                        
+                        # Pretty probability row
+                        logger.info(TC.color_text(f"│ F: [S:{f_p[0]:.0%} N:{f_p[1]:.0%} B:{f_p[2]:.0%}] | Score: {score:.4f}", audit_color))
+                        logger.info(TC.color_text(f"│ S: [S:{s_p[0]:.0%} N:{s_p[1]:.0%} B:{s_p[2]:.0%}]", audit_color))
+                        
                         logger.info(TC.color_text("├──────────────────────────────────────────────────────────┤", audit_color))
+                        logger.info(TC.color_text(f"│ Realidade: BTC @ ${res['price_final']:.2f}", audit_color))
                         diff_usd = res['price_final'] - res['price_init']
                         logger.info(TC.color_text(f"│ Evolução: {'+' if diff_usd > 0 else ''}{diff_usd:.2f} | Max PnL: {res['max_pnl']:.2f}%", audit_color))
                         status_txt = "SUCESSO (Target Hit)" if res['correct'] else "FALHA (Target Missed)"
@@ -174,7 +183,9 @@ async def main():
                         symbol=symbol.upper(),
                         signal=result['signal'],
                         score=result['auditor_score'],
-                        current_price=current_price
+                        current_price=current_price,
+                        probs_f=result['probs_foundation'],
+                        probs_s=result['probs_specialist']
                     )
                     
                     # 8. Monitoring & Logging

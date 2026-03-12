@@ -27,7 +27,8 @@ class PerformanceJournal:
             ])
             df.to_csv(self.log_path, index=False)
 
-    def add_prediction(self, ts: datetime, symbol: str, signal: str, score: float, current_price: float):
+    def add_prediction(self, ts: datetime, symbol: str, signal: str, score: float, current_price: float, 
+                       probs_f: List[float] = None, probs_s: List[float] = None):
         """Registers a new prediction to be checked later."""
         deadline = ts + timedelta(minutes=self.horizon_minutes)
         
@@ -40,6 +41,8 @@ class PerformanceJournal:
             "horizon_deadline": deadline, # DateTime object for comparison
             "max_price_reached": current_price,
             "min_price_reached": current_price,
+            "probs_f": probs_f,
+            "probs_s": probs_s,
             "checked": False
         }
         self.pending_checks.append(entry)
@@ -58,7 +61,7 @@ class PerformanceJournal:
                 # Check if deadline reached
                 if current_ts >= entry["horizon_deadline"]:
                     ready_to_finalize.append(entry)
-
+ 
         for entry in ready_to_finalize:
             self._finalize_entry(entry, current_price)
             self.pending_checks.remove(entry)
@@ -91,7 +94,10 @@ class PerformanceJournal:
         clean_entry["horizon_deadline"] = entry["horizon_deadline"].strftime('%Y-%m-%d %H:%M:%S')
         clean_entry["was_correct"] = was_correct
         clean_entry["pnl_observed_pct"] = pnl_pct * 100
+        # Remove objects not serializable to CSV directly if needed, but probs are lists
         del clean_entry["checked"]
+        del clean_entry["probs_f"]
+        del clean_entry["probs_s"]
         
         # Append to CSV
         df = pd.DataFrame([clean_entry])
@@ -106,6 +112,7 @@ class PerformanceJournal:
             res_color = TC.CYAN
         
         log_msg = f"🔍 Journal CHECK: Pred {pred} @ {entry['timestamp_prediction']} | Result: {status_icon} (Max PnL: {pnl_pct*100:.2f}%)"
+        
         # We store the last check result for paper_trading_main to pick up and display
         self.last_check_result = {
             "pred": pred,
@@ -115,6 +122,9 @@ class PerformanceJournal:
             "price_final": final_price,
             "max_pnl": pnl_pct * 100,
             "correct": was_correct,
-            "status_icon": status_icon
+            "status_icon": status_icon,
+            "score": entry['auditor_score'],
+            "probs_f": entry['probs_f'],
+            "probs_s": entry['probs_s']
         }
         logger.info(TC.color_text(log_msg, res_color))
