@@ -120,10 +120,10 @@ def calculate_context_features(df_pd: pd.DataFrame, resample_min: int = 1) -> pd
         # Progress logging with visual prominence
         from src.cloud.base_model.utils.color_utils import TerminalColors as TC
         progress_pct = (actual_bars / bars_per_day) * 100
-        msg = f"Auditor 24h Sensor: {actual_bars}/{bars_per_day} bars ({progress_pct:.1f}% filled)"
+        msg = f"# Auditor 24h Sensor: {actual_bars}/{bars_per_day} bars ({progress_pct:.1f}% filled)"
         
         logger.info("######################################################")
-        logger.info(f"# {TC.color_text(msg, TC.CYAN)}")
+        logger.info(TC.color_text(msg, TC.CYAN))
         logger.info("######################################################")
         
         # Use whatever we have (min 1 bar to avoid division by zero)

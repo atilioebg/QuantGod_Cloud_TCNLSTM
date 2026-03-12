@@ -106,4 +106,15 @@ class PerformanceJournal:
             res_color = TC.CYAN
         
         log_msg = f"🔍 Journal CHECK: Pred {pred} @ {entry['timestamp_prediction']} | Result: {status_icon} (Max PnL: {pnl_pct*100:.2f}%)"
+        # We store the last check result for paper_trading_main to pick up and display
+        self.last_check_result = {
+            "pred": pred,
+            "ts_start": entry['timestamp_prediction'],
+            "ts_end": clean_entry["horizon_deadline"],
+            "price_init": price_init,
+            "price_final": final_price,
+            "max_pnl": pnl_pct * 100,
+            "correct": was_correct,
+            "status_icon": status_icon
+        }
         logger.info(TC.color_text(log_msg, res_color))

@@ -155,18 +155,51 @@ async def main():
                     # 8. Monitoring & Logging
                     stats = broker.get_stats(price_snap['bid'])
                     from src.cloud.base_model.utils.color_utils import TerminalColors as TC
-                    sig_color = TC.GREEN if result['signal'] == "BUY" else TC.RED
-                    if result['signal'] == "NEUTRAL": sig_color = TC.CYAN
                     
-                    logger.info(TC.color_text("##########################################", sig_color))
+                    # Colors: BUY=Green, SELL=Red, NEUTRAL=Yellow
+                    sig_color = TC.GREEN if result['signal'] == "BUY" else TC.RED
+                    if result['signal'] == "NEUTRAL": sig_color = TC.YELLOW
+                    
+                    # --- PERFORMANCE AUDIT CARD (Detailed 15min Check) ---
+                    if hasattr(journal, 'last_check_result') and journal.last_check_result:
+                        res = journal.last_check_result
+                        journal.last_check_result = None # Clear after display
+                        
+                        audit_color = TC.GREEN if res['correct'] else TC.RED
+                        if res['correct'] is None: audit_color = TC.YELLOW
+                        
+                        logger.info(TC.color_text("┌──────────────────────────────────────────────────────────┐", audit_color))
+                        logger.info(TC.color_text(f"│ 🔍 AUDITORIA (Janela: {res['ts_start'][-8:]} -> {res['ts_end'][-8:]})", audit_color))
+                        logger.info(TC.color_text("├──────────────────────────────────────────────────────────┤", audit_color))
+                        logger.info(TC.color_text(f"│ Previsão: {res['pred']} @ ${res['price_init']:.2f}", audit_color))
+                        logger.info(TC.color_text(f"│ Realidade: BTC @ ${res['price_final']:.2f}", audit_color))
+                        logger.info(TC.color_text("├──────────────────────────────────────────────────────────┤", audit_color))
+                        diff_usd = res['price_final'] - res['price_init']
+                        logger.info(TC.color_text(f"│ Evolução: {'+' if diff_usd > 0 else ''}{diff_usd:.2f} | Max PnL: {res['max_pnl']:.2f}%", audit_color))
+                        status_txt = "SUCESSO (Target Hit)" if res['correct'] else "FALHA (Target Missed)"
+                        if res['correct'] is None: status_txt = "FINISHED (Neutral)"
+                        logger.info(TC.color_text(f"│ Resultado: {res['status_icon']} {status_txt}", audit_color))
+                        logger.info(TC.color_text("└──────────────────────────────────────────────────────────┘", audit_color))
+
+                    # --- INFERÊNCIA BOX LOG ---
+                    box_width = 94
+                    header_footer = "#" * box_width
                     info_text = (
-                        f"📊 [INFERÊNCIA] Sinal: {result['signal']} | BTC: ${current_price:.2f} | "
+                        f"# 📊 [INFERÊNCIA] Sinal: {result['signal']} | BTC: ${current_price:.2f} | "
                         f"Confiança: {result['auditor_score']:.4f} | "
                         f"Equity: ${stats['equity']:.2f} ({stats['pnl_pct']:.2f}%) | "
-                        f"Pos: {stats['position']:.6f} ({stats['last_position']:.6f}) BTC"
+                        f"Pos: {stats['position']:.6f} ({stats['last_position']:.6f}) BTC #"
                     )
+                    
+                    # Adjust info_text to fit the box if it has different length
+                    # Note: we use simple padding here
+                    padding = box_width - len(info_text)
+                    if padding > 0:
+                        info_text = info_text[:-1] + (" " * padding) + "#"
+
+                    logger.info(TC.color_text(header_footer, sig_color))
                     logger.info(TC.color_text(info_text, sig_color))
-                    logger.info(TC.color_text("##########################################", sig_color))
+                    logger.info(TC.color_text(header_footer, sig_color))
                     
                     # Detailed Probs log for debugging
                     logger.debug(f"DEBUG: Found_Probs: {result['probs_foundation']} | Spec_Probs: {result['probs_specialist']}")
