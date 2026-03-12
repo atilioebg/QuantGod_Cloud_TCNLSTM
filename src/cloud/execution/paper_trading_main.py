@@ -18,6 +18,7 @@ from src.cloud.execution.streaming_etl import StreamingETL
 from src.cloud.execution.inference_service import InferenceService
 from src.cloud.execution.virtual_broker import VirtualBroker
 from src.cloud.execution.performance_journal import PerformanceJournal
+from src.cloud.base_model.utils.color_utils import TerminalColors as TC
 
 # Setup specialized logger for paper trading
 # Log file is FIXED (append mode) so every run accumulates in the same file.
@@ -116,7 +117,28 @@ async def main():
                 # Update journal's high/low tracking for all pending predictions
                 if current_price > 0:
                     journal.update_market_price(current_price, now)
-            
+                    
+                    # --- PERFORMANCE AUDIT CARD (Real-time Display) ---
+                    if hasattr(journal, 'last_check_result') and journal.last_check_result:
+                        res = journal.last_check_result
+                        journal.last_check_result = None # Clear after display
+                        
+                        audit_color = TC.GREEN if res['correct'] else TC.RED
+                        if res['correct'] is None: audit_color = TC.YELLOW
+                        
+                        logger.info(TC.color_text("┌──────────────────────────────────────────────────────────┐", audit_color))
+                        logger.info(TC.color_text(f"│ 🔍 AUDITORIA (Janela: {res['ts_start'][-8:]} -> {res['ts_end'][-8:]})", audit_color))
+                        logger.info(TC.color_text("├──────────────────────────────────────────────────────────┤", audit_color))
+                        logger.info(TC.color_text(f"│ Previsão: {res['pred']} @ ${res['price_init']:.2f}", audit_color))
+                        logger.info(TC.color_text(f"│ Realidade: BTC @ ${res['price_final']:.2f}", audit_color))
+                        logger.info(TC.color_text("├──────────────────────────────────────────────────────────┤", audit_color))
+                        diff_usd = res['price_final'] - res['price_init']
+                        logger.info(TC.color_text(f"│ Evolução: {'+' if diff_usd > 0 else ''}{diff_usd:.2f} | Max PnL: {res['max_pnl']:.2f}%", audit_color))
+                        status_txt = "SUCESSO (Target Hit)" if res['correct'] else "FALHA (Target Missed)"
+                        if res['correct'] is None: status_txt = "FINISHED (Neutral)"
+                        logger.info(TC.color_text(f"│ Resultado: {res['status_icon']} {status_txt}", audit_color))
+                        logger.info(TC.color_text("└──────────────────────────────────────────────────────────┘", audit_color))
+
             # 4. Check for Bar Boundary transition (e.g. crossing a 1min mark)
             current_bar_idx = now.minute // resample_min
             if last_bar_time is not None and now.minute != last_bar_time.minute and (now.minute % resample_min == 0):
@@ -154,33 +176,11 @@ async def main():
                     
                     # 8. Monitoring & Logging
                     stats = broker.get_stats(price_snap['bid'])
-                    from src.cloud.base_model.utils.color_utils import TerminalColors as TC
                     
                     # Colors: BUY=Green, SELL=Red, NEUTRAL=Yellow
                     sig_color = TC.GREEN if result['signal'] == "BUY" else TC.RED
                     if result['signal'] == "NEUTRAL": sig_color = TC.YELLOW
                     
-                    # --- PERFORMANCE AUDIT CARD (Detailed 15min Check) ---
-                    if hasattr(journal, 'last_check_result') and journal.last_check_result:
-                        res = journal.last_check_result
-                        journal.last_check_result = None # Clear after display
-                        
-                        audit_color = TC.GREEN if res['correct'] else TC.RED
-                        if res['correct'] is None: audit_color = TC.YELLOW
-                        
-                        logger.info(TC.color_text("┌──────────────────────────────────────────────────────────┐", audit_color))
-                        logger.info(TC.color_text(f"│ 🔍 AUDITORIA (Janela: {res['ts_start'][-8:]} -> {res['ts_end'][-8:]})", audit_color))
-                        logger.info(TC.color_text("├──────────────────────────────────────────────────────────┤", audit_color))
-                        logger.info(TC.color_text(f"│ Previsão: {res['pred']} @ ${res['price_init']:.2f}", audit_color))
-                        logger.info(TC.color_text(f"│ Realidade: BTC @ ${res['price_final']:.2f}", audit_color))
-                        logger.info(TC.color_text("├──────────────────────────────────────────────────────────┤", audit_color))
-                        diff_usd = res['price_final'] - res['price_init']
-                        logger.info(TC.color_text(f"│ Evolução: {'+' if diff_usd > 0 else ''}{diff_usd:.2f} | Max PnL: {res['max_pnl']:.2f}%", audit_color))
-                        status_txt = "SUCESSO (Target Hit)" if res['correct'] else "FALHA (Target Missed)"
-                        if res['correct'] is None: status_txt = "FINISHED (Neutral)"
-                        logger.info(TC.color_text(f"│ Resultado: {res['status_icon']} {status_txt}", audit_color))
-                        logger.info(TC.color_text("└──────────────────────────────────────────────────────────┘", audit_color))
-
                     # --- INFERÊNCIA BOX LOG ---
                     info_line = (
                         f"# 📊 [INFERÊNCIA] Sinal: {result['signal']} | BTC: ${current_price:.2f} | "
@@ -193,6 +193,7 @@ async def main():
                     logger.info(TC.color_text(header_footer, sig_color))
                     logger.info(TC.color_text(info_line, sig_color))
                     logger.info(TC.color_text(header_footer, sig_color))
+
                     
                     # Detailed Probs log for debugging
                     logger.debug(f"DEBUG: Found_Probs: {result['probs_foundation']} | Spec_Probs: {result['probs_specialist']}")
