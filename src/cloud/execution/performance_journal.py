@@ -97,7 +97,13 @@ class PerformanceJournal:
         df = pd.DataFrame([clean_entry])
         df.to_csv(self.log_path, mode='a', header=False, index=False)
         
+        from src.cloud.base_model.utils.color_utils import TerminalColors as TC
         status_icon = "✅" if was_correct else "❌"
-        if was_correct is None: status_icon = "⚪"
+        res_color = TC.GREEN if was_correct else TC.RED
         
-        logger.info(f"🔍 Journal CHECK: Pred {pred} @ {entry['timestamp_prediction']} | Result: {status_icon} (Max PnL: {pnl_pct*100:.2f}%)")
+        if was_correct is None: 
+            status_icon = "⚪"
+            res_color = TC.CYAN
+        
+        log_msg = f"🔍 Journal CHECK: Pred {pred} @ {entry['timestamp_prediction']} | Result: {status_icon} (Max PnL: {pnl_pct*100:.2f}%)"
+        logger.info(TC.color_text(log_msg, res_color))

@@ -112,17 +112,27 @@ def calculate_context_features(df_pd: pd.DataFrame, resample_min: int = 1) -> pd
     vol_std  = v.rolling(window=bars_per_hour).std()
     df_pd['vol_zscore_1h'] = np.where(vol_std > 0, (v - vol_mean) / vol_std, 0.0)
 
-    # Delta de Volume (bars_per_day rolling sum; fallback bars_4h for short files)
-    if len(df_pd) > bars_per_day:
+    # v4.9.1: Dynamic Growing Window for Delta Vol (requested by user)
+    # Instead of a hard fallback of 4h, we use the MAX available history up to 288 bars.
+    actual_bars = len(df_pd)
+    if actual_bars < bars_per_day:
+        # Progress logging with visual prominence
+        from src.cloud.base_model.utils.color_utils import TerminalColors as TC
+        progress_pct = (actual_bars / bars_per_day) * 100
+        msg = f"Auditor 24h Sensor: {actual_bars}/{bars_per_day} bars ({progress_pct:.1f}% filled)"
+        
+        logger.info("######################################################")
+        logger.info(f"# {TC.color_text(msg, TC.CYAN)}")
+        logger.info("######################################################")
+        
+        # Use whatever we have (min 1 bar to avoid division by zero)
+        dynamic_window = max(2, actual_bars - 1) 
+        vol_sum = v.rolling(window=dynamic_window, min_periods=1).sum()
+        df_pd['delta_vol_24h'] = vol_sum.pct_change(fill_method=None)
+    else:
+        # Full 24h window
         vol_day_sum = v.rolling(window=bars_per_day).sum()
         df_pd['delta_vol_24h'] = vol_day_sum.pct_change(fill_method=None)
-    else:
-        logger.warning(
-            f"⚠️ AVISO: Dados insuficientes para delta_vol_24h "
-            f"(Tamanho: {len(df_pd)} < {bars_per_day} bars). Usando fallback de 4h."
-        )
-        vol_4h_sum = v.rolling(window=bars_4h).sum()
-        df_pd['delta_vol_24h'] = vol_4h_sum.pct_change(fill_method=None)
 
     # ── Refatoração v4.2: Alpha Sensors ──────────────────────────────────────
     
