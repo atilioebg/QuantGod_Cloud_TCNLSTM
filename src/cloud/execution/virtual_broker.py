@@ -17,6 +17,7 @@ class VirtualBroker:
         self.fee_pct = fee_pct # 0.1% Binance Standard Fee
         
         self.position_size = 0.0 # Current amount of Asset (e.g. BTC)
+        self.last_position_size = 0.0 # Size of the last closed position
         self.entry_price = 0.0
         self.trades_history: List[Dict] = []
         
@@ -73,6 +74,7 @@ class VirtualBroker:
         self.trades_history.append(trade)
         logger.info(f"🔴 [TRADE] SELL {self.position_size:.6f} @ ${price:.2f} | P&L: ${pnl:.2f} | Balance: ${self.balance:.2f}")
         
+        self.last_position_size = self.position_size
         self.position_size = 0.0
         self.entry_price = 0.0
 
@@ -90,5 +92,6 @@ class VirtualBroker:
             "pnl_pct": pnl_pct,
             "num_trades": len(self.trades_history) // 2,
             "current_balance": self.balance,
-            "position": self.position_size
+            "position": self.position_size,
+            "last_position": self.last_position_size
         }

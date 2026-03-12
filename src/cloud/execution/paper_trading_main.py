@@ -163,7 +163,7 @@ async def main():
                         f"📊 [INFERÊNCIA] Sinal: {result['signal']} | BTC: ${current_price:.2f} | "
                         f"Confiança: {result['auditor_score']:.4f} | "
                         f"Equity: ${stats['equity']:.2f} ({stats['pnl_pct']:.2f}%) | "
-                        f"Pos: {stats['position']:.6f} BTC"
+                        f"Pos: {stats['position']:.6f} ({stats['last_position']:.6f}) BTC"
                     )
                     logger.info(TC.color_text(info_text, sig_color))
                     logger.info(TC.color_text("##########################################", sig_color))
