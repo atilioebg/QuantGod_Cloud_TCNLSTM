@@ -182,23 +182,16 @@ async def main():
                         logger.info(TC.color_text("└──────────────────────────────────────────────────────────┘", audit_color))
 
                     # --- INFERÊNCIA BOX LOG ---
-                    box_width = 94
-                    header_footer = "#" * box_width
-                    info_text = (
+                    info_line = (
                         f"# 📊 [INFERÊNCIA] Sinal: {result['signal']} | BTC: ${current_price:.2f} | "
                         f"Confiança: {result['auditor_score']:.4f} | "
                         f"Equity: ${stats['equity']:.2f} ({stats['pnl_pct']:.2f}%) | "
                         f"Pos: {stats['position']:.6f} ({stats['last_position']:.6f}) BTC #"
                     )
-                    
-                    # Adjust info_text to fit the box if it has different length
-                    # Note: we use simple padding here
-                    padding = box_width - len(info_text)
-                    if padding > 0:
-                        info_text = info_text[:-1] + (" " * padding) + "#"
+                    header_footer = "#" * len(info_line)
 
                     logger.info(TC.color_text(header_footer, sig_color))
-                    logger.info(TC.color_text(info_text, sig_color))
+                    logger.info(TC.color_text(info_line, sig_color))
                     logger.info(TC.color_text(header_footer, sig_color))
                     
                     # Detailed Probs log for debugging
