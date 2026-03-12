@@ -5,6 +5,10 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+# Force UTC in logs for market consistency
+import time
+logging.Formatter.converter = time.gmtime
+
 # Setup logging
 logging.basicConfig(
     level=logging.INFO,

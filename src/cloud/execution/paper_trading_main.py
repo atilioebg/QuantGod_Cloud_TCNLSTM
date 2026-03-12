@@ -26,6 +26,9 @@ from src.cloud.base_model.utils.color_utils import TerminalColors as TC
 # the exact same output visible on the terminal is also persisted to disk.
 LOG_FILE = Path("logs") / "paper_trading.log"
 
+# Force UTC in logs for market consistency
+logging.Formatter.converter = time.gmtime
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
