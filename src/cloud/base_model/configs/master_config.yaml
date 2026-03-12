@@ -53,7 +53,7 @@ execution:
   # Isso SUBSTITUI a resolução dinâmica via get_drive_suffix/get_drive_session_path.
   models_local_dir: "RESULTADOS_SELL_0003_BUY_0003_15min_lookahead_120bars_lookback_5min/10_03_2026_v000/MODELOS"
 
-  manual_security_threshold: 0.85                                 # Threshold fixo para o Auditor (v0.85: Sniper Mode - Mais seletivo)
+  manual_security_threshold: 0.80                                 # Threshold fixo para o Auditor (v0.80: Balanced Sniper)
   dynamic_security_threshold: true                                # If true: loads threshold from auditor_config.json; If false: uses manual value above.
 
 
