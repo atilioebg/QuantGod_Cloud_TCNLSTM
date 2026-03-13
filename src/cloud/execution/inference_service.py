@@ -42,6 +42,7 @@ class InferenceService:
         # ── Layer 3: Auditor ──────────────────────────────────────────────────
         self.auditor_model = self._load_auditor()
         self.threshold = self._load_auditor_threshold()
+        self.scaler_auditor = self._load_auditor_scaler()
         
         logger.info(f"✅ Full Inference Stack loaded on {self.device}")
         logger.info(f"🛡️ Active Auditor Threshold: {self.threshold:.4f}")
@@ -181,6 +182,23 @@ class InferenceService:
         bst.load_model(str(model_path))
         return bst
 
+    def _load_auditor_scaler(self) -> Optional[Any]:
+        import pickle
+        scaler_rel = self.config['pipeline_paths'].get('scaler_auditor', 'AUDITOR/scaler_auditor.pkl')
+        scaler_path = self._get_models_dir() / scaler_rel
+        
+        if scaler_path.exists():
+            try:
+                with open(scaler_path, 'rb') as f:
+                    scaler = pickle.load(f)
+                logger.info(f"✅ Auditor Scaler loaded: {scaler_path}")
+                return scaler
+            except Exception as e:
+                logger.error(f"⚠️ Failed to load Auditor Scaler: {e}")
+        else:
+            logger.warning(f"⚠️ Auditor Scaler NOT found at {scaler_path}. Accuracy will be severely degraded.")
+        return None
+
     @torch.no_grad()
     def predict(self, foundation_input: np.ndarray, auditor_context: np.ndarray) -> Dict[str, Any]:
         """
@@ -210,6 +228,10 @@ class InferenceService:
         # Context contains the 14 Alpha Sensors
         auditor_input = np.concatenate([f_probs, s_probs, auditor_context.flatten()]).reshape(1, -1)
         
+        # Apply Normalization to Auditor Input (CRITICAL BUG FIX)
+        if self.scaler_auditor:
+            auditor_input = self.scaler_auditor.transform(auditor_input.astype(np.float32))
+
         # 4. Auditor Decision (XGBoost)
         dmatrix = xgb.DMatrix(auditor_input)
         auditor_score = self.auditor_model.predict(dmatrix)[0] # Confidence [0-1]
