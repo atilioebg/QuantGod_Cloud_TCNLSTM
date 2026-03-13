@@ -72,7 +72,7 @@ def main():
     manage_gpu = ctrl.get('gpu_memory_management', True)
     paths = config.get('pipeline_paths', {})
     
-    from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
+    from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive, get_labelled_dir
     mod_dir = resolve_local_drive(Path(get_drive_session_path("MODELOS", config)))
     best_base_model = str(mod_dir / paths.get('best_tcn_lstm_model', 'BASE_MODEL/best_tcn_lstm.pt'))
     best_spec_model = str(mod_dir / paths.get('best_specialized_model', 'BASE_MODEL/test.pt'))
