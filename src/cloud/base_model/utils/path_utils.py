@@ -47,15 +47,11 @@ def _get_session_timestamp() -> str:
 def get_drive_suffix(config: dict) -> str:
     """
     Builds the run-specific suffix appended to the Drive session root folder.
-    Format: _SELL_{s}_BUY_{b}_{t}min_lookahead_{max_seq_len}bars_lookback_{freq}
+    Format: _SELL_{s}_BUY_{b}_{t}min_lookahead_{freq}
     """
     sell = config['pre_processing']['labelling'].get('sell_threshold', 0.003)
     buy  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
     t = config['pre_processing']['labelling'].get('horizon_minutes', 15)
-    
-    # Dynamic sequence length from search space
-    seq_lens = config.get('optimization', {}).get('search_space', {}).get('seq_len', [120])
-    max_seq_len = max(seq_lens) if seq_lens else 120
     
     freq = config['pre_processing']['etl'].get('resample_freq', "1min")
     
@@ -63,7 +59,7 @@ def get_drive_suffix(config: dict) -> str:
     sell_str = str(sell).replace(".", "")
     buy_str  = str(buy).replace(".", "")
     
-    return f"_SELL_{sell_str}_BUY_{buy_str}_{t}min_lookahead_{max_seq_len}bars_lookback_{freq}"
+    return f"_SELL_{sell_str}_BUY_{buy_str}_{t}min_lookahead_{freq}"
 
 
 def get_drive_session_root(config: dict) -> str:
