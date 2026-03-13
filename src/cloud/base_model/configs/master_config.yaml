@@ -51,7 +51,7 @@ execution:
   # Este path é relativo à raiz do projeto (QuantGod_Cloud_TCNLSTM/).
   # Ao mudar de sessão de treino, atualize APENAS este campo.
   # Isso SUBSTITUI a resolução dinâmica via get_drive_suffix/get_drive_session_path.
-  models_local_dir: "RESULTADOS_SELL_0002_BUY_00015_5min_lookahead_120bars_lookback_5min/13_03_2026_v000/MODELOS"
+  models_local_dir: "RESULTADOS_SELL_0003_BUY_0003_15min_lookahead_120bars_lookback_5min/10_03_2026_v000/MODELOS"
 
   manual_security_threshold: 0.80                                 # Threshold fixo para o Auditor (v0.80: Balanced Sniper)
   dynamic_security_threshold: true                                # If true: loads threshold from auditor_config.json; If false: uses manual value above.
@@ -105,10 +105,10 @@ pre_processing:
     convexity_far_end: 20                                         # Limite superior dos níveis "longe" para Book Convexity
   labelling:
     # Limiares de alvo futuro (Rentabilidade para Target 0 ou 2)
-    sell_threshold: 0.0015                                         # Sniper Gold: 0.15% alvo
-    buy_threshold: 0.002                                          # Sniper Gold: 0.2% alvo
+    sell_threshold: 0.003                                         # Sincronizado com modelo 10/03
+    buy_threshold: 0.003                                          # Sincronizado com modelo 10/03
     # lookahead 
-    horizon_minutes: 5                                           # Janela de Lookahead de 5 minutos
+    horizon_minutes: 15                                           # Janela de Lookahead de 15 minutos (Data Sync)
     use_dynamic_workers: true                                    # Se true: usa os.cpu_count()-1 dinâmico; se false: usa max_workers abaixo
     max_workers: 14                                               # Número de workers paralelos quando use_dynamic_workers=false (útil em cloud com CPUs fixas conhecidas)
   split:
