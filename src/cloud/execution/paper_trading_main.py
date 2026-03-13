@@ -165,7 +165,7 @@ async def main():
                 if inputs:
                     # 5. Run Full 3-Layer Inference
                     result = inference.predict(
-                        foundation_input=inputs['foundation_input'],
+                        raw_foundation_input=inputs['raw_foundation_input'],
                         auditor_context=inputs['auditor_input']
                     )
                     

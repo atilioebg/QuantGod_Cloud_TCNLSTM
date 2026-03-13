@@ -250,7 +250,7 @@ class StreamingETL:
 
         return {
             "foundation_input": latest_foundation, 
-
+            "raw_foundation_input": df_foundation.tail(self.seq_len).select(self.foundation_features).to_numpy().astype(np.float32),
             "auditor_input": latest_auditor,
             "metadata": {
                 "ts": df_foundation['datetime'].max(),

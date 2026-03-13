@@ -35,9 +35,11 @@ class InferenceService:
         models_dir = self._get_models_dir()
         foundation_path = models_dir / self.config['pipeline_paths']['best_tcn_lstm_model']
         self.foundation_model = self._load_tcn_lstm(str(foundation_path))
+        self.scaler_foundation = self._load_foundation_scaler()
         
         # ── Layer 2: Specialist Ensemble ─────────────────────────────────────
-        self.specialist_models = self._load_kfold_specialists()
+        # Now returns a list of (model, scaler) tuples
+        self.specialist_pairs = self._load_kfold_specialists()
         
         # ── Layer 3: Auditor ──────────────────────────────────────────────────
         self.auditor_model = self._load_auditor()
@@ -153,22 +155,39 @@ class InferenceService:
         model.eval()
         return model
 
-    def _load_kfold_specialists(self) -> List[Hybrid_TCN_LSTM]:
-        # We look for model_fold_k.pt in the OOF directory
+    def _load_foundation_scaler(self) -> Optional[Any]:
+        import pickle
+        scaler_rel = self.config['pipeline_paths'].get('scaler_foundation', 'BASE_MODEL/scaler_foundation.pkl')
+        scaler_path = self._get_models_dir() / scaler_rel
+        
+        if scaler_path.exists():
+            with open(scaler_path, 'rb') as f:
+                return pickle.load(f)
+        return None
+
+    def _load_kfold_specialists(self) -> List[tuple]:
+        import pickle
+        # We look for model_fold_k.pt and scaler_fold_k.pkl in the OOF directory
         oof_path = self.config.get('pipeline_paths', {}).get('auditor_oof_dir', 'SPECIALIST')
         oof_dir = self._get_models_dir() / oof_path
             
-        models = []
+        pairs = []
         for i in range(5): # Assuming 5 folds
-            path = oof_dir / f"model_fold_{i}.pt"
-            if path.exists():
-                models.append(self._load_tcn_lstm(str(path)))
+            m_path = oof_dir / f"model_fold_{i}.pt"
+            s_path = oof_dir / f"scaler_fold_{i}.pkl"
+            
+            if m_path.exists() and s_path.exists():
+                model = self._load_tcn_lstm(str(m_path))
+                with open(s_path, 'rb') as f:
+                    scaler = pickle.load(f)
+                pairs.append((model, scaler))
+                logger.info(f"🎭 Specialist Pair {i} loaded: {m_path.name} + {s_path.name}")
             else:
-                logger.warning(f"⚠️ Specialist Fold {i} model not found at {path}")
+                logger.warning(f"⚠️ Specialist Fold {i} model or scaler missing in {oof_dir}")
         
-        if not models:
-            logger.error(f"❌ No Specialist models found in {oof_dir}! Paper Trading will likely fail Auditor stage.")
-        return models
+        if not pairs:
+            logger.error(f"❌ No Specialist pairs found in {oof_dir}!")
+        return pairs
 
     def _load_auditor(self) -> xgb.Booster:
         model_path_str = self.config['pipeline_paths'].get('auditor_model', 'AUDITOR/auditor_xgboost.json')
@@ -200,24 +219,31 @@ class InferenceService:
         return None
 
     @torch.no_grad()
-    def predict(self, foundation_input: np.ndarray, auditor_context: np.ndarray) -> Dict[str, Any]:
+    def predict(self, raw_foundation_input: np.ndarray, auditor_context: np.ndarray) -> Dict[str, Any]:
         """
         Runs the full 3-layer pipeline.
-        foundation_input: (seq_len, 30)
+        raw_foundation_input: (seq_len, 30) -- DATA WITHOUT SCALING
         auditor_context: (1, 14) 
         """
-        # (1, seq_len, 30)
-        x = torch.from_numpy(foundation_input).unsqueeze(0).to(self.device).float()
-        
-        # 1. Foundation Probabilities
-        f_out = self.foundation_model(x)
+        # 1. Foundation Probabilities (Scaled with Foundation Scaler)
+        if self.scaler_foundation:
+            f_norm = self.scaler_foundation.transform(raw_foundation_input).astype(np.float32)
+        else:
+            f_norm = raw_foundation_input
+            
+        x_f = torch.from_numpy(f_norm).unsqueeze(0).to(self.device).float()
+        f_out = self.foundation_model(x_f)
         f_probs = f_out['probs'].cpu().numpy()[0] # [p_sell, p_neu, p_buy]
         
-        # 2. Specialist Ensemble Probabilities
-        if self.specialist_models:
+        # 2. Specialist Ensemble Probabilities (Each with its OWN Scaler)
+        if self.specialist_pairs:
             s_probs_list = []
-            for m in self.specialist_models:
-                s_out = m(x)
+            for model, scaler in self.specialist_pairs:
+                # Normalização Dedicada do Fold (Mathematical Parity)
+                s_norm = scaler.transform(raw_foundation_input).astype(np.float32)
+                x_s = torch.from_numpy(s_norm).unsqueeze(0).to(self.device).float()
+                
+                s_out = model(x_s)
                 s_probs_list.append(s_out['probs'].cpu().numpy()[0])
             s_probs = np.mean(s_probs_list, axis=0) # Average across folds
         else:
