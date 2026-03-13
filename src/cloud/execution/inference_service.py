@@ -156,17 +156,19 @@ class InferenceService:
         return model
 
     def _load_foundation_scaler(self) -> Optional[Any]:
-        import pickle
+        import joblib
         scaler_rel = self.config['pipeline_paths'].get('scaler_foundation', 'BASE_MODEL/scaler_foundation.pkl')
         scaler_path = self._get_models_dir() / scaler_rel
         
         if scaler_path.exists():
-            with open(scaler_path, 'rb') as f:
-                return pickle.load(f)
+            try:
+                return joblib.load(scaler_path)
+            except Exception as e:
+                logger.error(f"⚠️ Failed to load Foundation Scaler: {e}")
         return None
 
     def _load_kfold_specialists(self) -> List[tuple]:
-        import pickle
+        import joblib
         # We look for model_fold_k.pt and scaler_fold_k.pkl in the OOF directory
         oof_path = self.config.get('pipeline_paths', {}).get('auditor_oof_dir', 'SPECIALIST')
         oof_dir = self._get_models_dir() / oof_path
@@ -178,10 +180,12 @@ class InferenceService:
             
             if m_path.exists() and s_path.exists():
                 model = self._load_tcn_lstm(str(m_path))
-                with open(s_path, 'rb') as f:
-                    scaler = pickle.load(f)
-                pairs.append((model, scaler))
-                logger.info(f"🎭 Specialist Pair {i} loaded: {m_path.name} + {s_path.name}")
+                try:
+                    scaler = joblib.load(s_path)
+                    pairs.append((model, scaler))
+                    logger.info(f"🎭 Specialist Pair {i} loaded: {m_path.name} + {s_path.name}")
+                except Exception as e:
+                    logger.error(f"⚠️ Failed to load Specialist Scaler {i}: {e}")
             else:
                 logger.warning(f"⚠️ Specialist Fold {i} model or scaler missing in {oof_dir}")
         
@@ -202,14 +206,13 @@ class InferenceService:
         return bst
 
     def _load_auditor_scaler(self) -> Optional[Any]:
-        import pickle
+        import joblib
         scaler_rel = self.config['pipeline_paths'].get('scaler_auditor', 'AUDITOR/scaler_auditor.pkl')
         scaler_path = self._get_models_dir() / scaler_rel
         
         if scaler_path.exists():
             try:
-                with open(scaler_path, 'rb') as f:
-                    scaler = pickle.load(f)
+                scaler = joblib.load(scaler_path)
                 logger.info(f"✅ Auditor Scaler loaded: {scaler_path}")
                 return scaler
             except Exception as e:
