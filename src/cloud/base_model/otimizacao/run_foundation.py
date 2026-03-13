@@ -238,6 +238,20 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
                         all_preds.extend(preds.cpu().numpy())
                         all_targets.extend(batch_y.cpu().numpy())
 
+            # Calculation of metrics
+            f1_macro = f1_score(all_targets, all_preds, average='macro', zero_division=0)
+            f1_per_cls = f1_score(all_targets, all_preds, average=None, zero_division=0)
+            if len(f1_per_cls) < 3:
+                # Padding case
+                tmp = np.zeros(3)
+                for i, val in enumerate(f1_per_cls): tmp[i] = val
+                f1_per_cls = tmp
+            f1_dir = np.mean([f1_per_cls[0], f1_per_cls[2]])
+
+            # Penalidade por classe zerada (Zero Penalty)
+            has_zero_class = np.any(f1_per_cls == 0)
+            penalty = 0.5 if has_zero_class else 1.0
+
             # ── Sniper Metric Adaptation: Minimum F1 optimization ──────────
             use_min_f1 = config['training']['foundation_weights'].get('base_use_min_f1_optimization', False)
             if use_min_f1:
