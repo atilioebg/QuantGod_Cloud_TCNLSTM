@@ -252,13 +252,21 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
             has_zero_signal = (f1_per_cls[0] == 0 or f1_per_cls[2] == 0)
             has_zero_class  = np.any(f1_per_cls == 0)
             
-            # Se tiver signal zerado, a penalidade é aniquiladora (1e-5) para descarte imediato.
-            # Se tiver apenas o Neutral zerado (raro), a penalidade é 0.5.
-            penalty = 1e-5 if has_zero_signal else (0.5 if has_zero_class else 1.0)
+            # Se tiver signal zerado, a punição é ABSOLUTA (0.0). Para o Optuna, esse modelo é nulo.
+            penalty = 0.0 if has_zero_signal else (0.5 if has_zero_class else 1.0)
 
             # Aplica penalidade em ambas as métricas
             f1_macro = f1_macro * penalty
             f1_dir   = f1_dir * penalty
+
+            # ── Dead Model Guard: Economia de GPU ──────────────────────────
+            # Se após 10 épocas o modelo não produz sinal em ambos os lados, aborta.
+            if epoch >= 9 and has_zero_signal:
+                logger.info(f"🚫 Trial {trial.number} ABORTADO: Modelo 'Cérebro Morto' (Signal Zero na Época {epoch+1})")
+                del model, train_loader, val_loader, train_dataset, val_dataset
+                torch.cuda.empty_cache()
+                return 0.0  # Retorna nota zero para o Optuna descartar a região
+
 
             # ── Sniper Metric Adaptation: Minimum F1 optimization ──────────
             use_min_f1 = config['training']['foundation_weights'].get('base_use_min_f1_optimization', False)
