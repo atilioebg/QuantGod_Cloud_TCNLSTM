@@ -246,6 +246,7 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
                 tmp = np.zeros(3)
                 for i, val in enumerate(f1_per_cls): tmp[i] = val
                 f1_per_cls = tmp
+            f1_dir = np.mean([f1_per_cls[0], f1_per_cls[2]])
             # Penalidade por classe zerada (Zero Penalty)
             # Sniper Guard: Se Sell (0) ou Buy (2) for 0, o modelo é severamente punido.
             has_zero_signal = (f1_per_cls[0] == 0 or f1_per_cls[2] == 0)
