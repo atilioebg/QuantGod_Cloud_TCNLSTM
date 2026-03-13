@@ -69,6 +69,7 @@ def main():
     ctrl = config.get('pipeline_control', {})
     force_retrain = ctrl.get('force_full_retrain', True)
     skip_qa_on_fail = ctrl.get('skip_qa_on_failure', False)
+    manage_gpu = ctrl.get('gpu_memory_management', True)
     paths = config.get('pipeline_paths', {})
     
     from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
