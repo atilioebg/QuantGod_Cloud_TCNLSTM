@@ -255,7 +255,7 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
                 model_path.parent.mkdir(parents=True, exist_ok=True)
                 torch.save(model.state_dict(), str(model_path))
                 logger.info(f"🥇 [MACRO]  Trial {trial.number} | Global F1 Macro record: {f1_macro:.8f} "
-                            f"(prev: {prev_macro:.8f}) → saved {macro_save_path.name}")
+                            f"(prev: {prev_macro:.8f}) → saved {model_path.name}")
 
             # DIR global best
             if f1_dir > GLOBAL_BEST_DIR:
