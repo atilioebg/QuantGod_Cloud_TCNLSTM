@@ -141,7 +141,7 @@ model:
     num_features: 20                                              # Tensores do Juiz (6 Probabilidades Modelos + 14 Sensores Alphas)
     num_classes: 2                                                # Meta-Labeling Binário: 0 (Veto/Fake), 1 (Aprovado/Acurado)
     use_dynamic_threshold: true                                   # Se true, procura limiar F-Beta (0.5) dinamicamente na Precision-Recall curve
-    manual_threshold: 0.65                                        # Fallback caso use_dynamic_threshold seja false
+    manual_threshold: 0.68                                        # Fallback caso use_dynamic_threshold seja false
     params:                                                       # Hiperparâmetros do XGBoost Auditor
       n_estimators: 500
       max_depth: 6
