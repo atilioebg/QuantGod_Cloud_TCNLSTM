@@ -252,9 +252,9 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
             has_zero_signal = (f1_per_cls[0] == 0 or f1_per_cls[2] == 0)
             has_zero_class  = np.any(f1_per_cls == 0)
             
-            # Se tiver signal zerado, a penalidade é drástica (0.1) para forçar o Optuna a fugir daqui.
+            # Se tiver signal zerado, a penalidade é aniquiladora (1e-5) para descarte imediato.
             # Se tiver apenas o Neutral zerado (raro), a penalidade é 0.5.
-            penalty = 0.1 if has_zero_signal else (0.5 if has_zero_class else 1.0)
+            penalty = 1e-5 if has_zero_signal else (0.5 if has_zero_class else 1.0)
 
             # Aplica penalidade em ambas as métricas
             f1_macro = f1_macro * penalty
