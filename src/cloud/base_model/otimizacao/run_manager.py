@@ -88,6 +88,19 @@ def main():
     epochs = search_space.get('epochs', 50)
     patience = search_space.get('early_stopping_patience', 4)
     
+    # ── FASE 0: Data Preparation (Split & Purge) ──────────────────────────────
+    # Ensures data/L2/labelled/train and val exist to prevent leakage.
+    labelled_dir = Path(get_labelled_dir(config))
+    train_dir = labelled_dir / "train"
+    
+    success = run_phase(
+        name="Data Split & Purge Guard",
+        script_path="src/cloud/base_model/treino/split_dataset.py",
+        check_exists=str(train_dir),
+        force_retrain=force_retrain
+    )
+    if not success and not skip_qa_on_fail: sys.exit(1)
+
     # ── FASE 1: Foundation Optuna ──────────────────────────────────────────────
     # Calls the refactored run_foundation.py
     success = run_phase(
