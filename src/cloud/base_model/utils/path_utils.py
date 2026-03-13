@@ -165,19 +165,31 @@ def get_drive_dir(base_remote: str, config: dict) -> str:
 
 def resolve_local_drive(path_str) -> Path:
     """
-    Converts a rclone-style 'drive:...' path into a local Windows Google Drive mount 
-    (G:/Meu Drive) if present, allowing local Python functions to use torch.load, etc.
-    If the path does not start with drive:, it returns a regular Path.
+    Converts a rclone-style 'drive:...' path into a local filesystem path.
+    - Windows Local: Resolves to 'G:/Meu Drive' if 'G:' existe.
+    - Cloud/Linux/No G:: Resolve para o diretório de trabalho atual (pasta do projeto).
     """
+    import os
+    import sys
     path_str = str(path_str)
     
-    # Check if the path is trying to use a remote 'drive:' location
     if "drive:" in path_str:
-        # Split on drive: and take whatever is after
         _, subpath = path_str.split("drive:", 1)
         subpath = subpath.lstrip("\\/")
-        return Path("G:/Meu Drive") / subpath
         
+        # Se contiver o prefixo PROJETOS/, removemos para o path local ficar limpo
+        if subpath.upper().startswith("PROJETOS/"):
+            subpath = subpath[len("PROJETOS/"):]
+
+        # Se for Windows e existir o drive G:, usamos ele.
+        # Caso contrário (Linux/Cloud), usamos a raiz do projeto.
+        g_drive = Path("G:/Meu Drive")
+        if sys.platform == "win32" and g_drive.exists():
+            return g_drive / subpath
+        
+        # Fallback para Cloud (RunPod/Lambda) ou sistemas sem G:
+        return Path.cwd() / subpath
+            
     return Path(path_str)
 
 
