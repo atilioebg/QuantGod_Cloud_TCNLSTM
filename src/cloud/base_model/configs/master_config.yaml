@@ -105,8 +105,8 @@ pre_processing:
     convexity_far_end: 20                                         # Limite superior dos níveis "longe" para Book Convexity
   labelling:
     # Limiares de alvo futuro (Rentabilidade para Target 0 ou 2)
-    sell_threshold: 0.0015                                         # Sniper Gold: 0.3% alvo
-    buy_threshold: 0.002                                          # Sniper Gold: 0.3% alvo
+    sell_threshold: 0.0015                                         # Sniper Gold: 0.15% alvo
+    buy_threshold: 0.002                                          # Sniper Gold: 0.2% alvo
     # lookahead 
     horizon_minutes: 5                                           # Janela de Lookahead de 5 minutos
     use_dynamic_workers: true                                    # Se true: usa os.cpu_count()-1 dinâmico; se false: usa max_workers abaixo
@@ -233,6 +233,7 @@ training:
   specialization_weights:
     run_specialized_after: true                                   # [AUTOMAÇÃO] Habilita Especialista (TCN-LSTM Fine-tuning)
     run_auditor_after: true                                       # [AUTOMAÇÃO] Habilita Auditor (XGBoost Meta-Model)
+    use_best_f1_dir: true                                         # Se true: usa best_dir_params.json e best_tcn_lstm_dir.pt para o Especialista. Se false: usa o champion Macro.
     # ── MATRIZ DE DECISÃO DE PESOS (SNIPER) ──────────────────────────────────────────────────────
     # Ordem das flags: [spec_use_auto_class_weights + spec_optimize_class_weights]
     # optimize_class_weights tem precedência Absoluta Ouro sobre auto_class_weights.
@@ -268,7 +269,7 @@ optimization:
     lr: [0.00001, 0.0001]                                         # Multiplicador do Passo Gradient Descendente (AdamW) do Erro Perceptual
     weight_decay: [0.0001, 0.01]                                  # Controle Punitivo de Regularização (Peso Descontado Extra sobre a Perda)
     batch_size: [128, 256, 512]                                   # Lotes Simultâneos injetados Paralelamente na VRAM do Fio Tenson (Cuda GPU)
-    seq_len: [24, 48, 96, 120]                                    # Túnel Histórico: 24min a 120min (2h contexto Sniper)
+    seq_len: [24, 48, 96, 120, 144]                               # Túnel Histórico: 24 barras a 144 barras
     dropout: [0.3, 0.6]                                           # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
     epochs: 50                                                    # REDUZIDO: Modo de teste E2E
     early_stopping_patience: 4                                    # Inteligência Auxiliar que Morre a Trial após X rounds inférteis

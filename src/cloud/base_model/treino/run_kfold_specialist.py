@@ -225,9 +225,13 @@ def train_specialist_fold(
     
     # ── Safe Warm-start Injection ─────────────────────────────────────────────
     # Load Foundation model weights if shapes match
+    spec_cfg = config['training'].get('specialization_weights', {})
+    use_dir = spec_cfg.get('use_best_f1_dir', False)
+    mod_key = 'best_tcn_lstm_dir_model' if use_dir else 'best_tcn_lstm_model'
+    
     from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
     base_dir = get_drive_session_path("MODELOS", config)
-    warm_start_path = resolve_local_drive(Path(base_dir) / config['pipeline_paths']['best_tcn_lstm_model'])
+    warm_start_path = resolve_local_drive(Path(base_dir) / config['pipeline_paths'][mod_key])
     logger.info(f"🔄 Warm-Starting from Foundation Checkpoint: {warm_start_path}")
     if warm_start_path.exists():
         try:
@@ -399,13 +403,17 @@ def run_kfold_specialist():
     logger.info(f"📐 K-Fold Setup: {n_splits} folds, purge={purge_min}min ({purge_bars} bars), resample={resample_freq}")
 
     # ── 2. Load Foundation best params ───────────────────────────────────────
-    base_params_path = Path("src/cloud/base_model/otimizacao/best_params.json")
+    spec_cfg = config['training'].get('specialization_weights', {})
+    use_dir = spec_cfg.get('use_best_f1_dir', False)
+    param_file = "best_dir_params.json" if use_dir else "best_params.json"
+    
+    base_params_path = Path("src/cloud/base_model/otimizacao") / param_file
     if not base_params_path.exists():
-        logger.error("❌ best_params.json not found. Run Foundation Optuna first.")
+        logger.error(f"❌ {param_file} not found. Run Foundation Optuna first.")
         sys.exit(1)
     with open(base_params_path, 'r') as f:
         best_params = json.load(f)
-    logger.info(f"Loaded Foundation Arch: seq_len={best_params['seq_len']}, tcn={best_params['tcn_channels']}, lstm={best_params['lstm_hidden']}×{best_params['num_lstm_layers']}")
+    logger.info(f"Loaded Foundation Arch ({param_file}): seq_len={best_params['seq_len']}, tcn={best_params['tcn_channels']}, lstm={best_params['lstm_hidden']}×{best_params['num_lstm_layers']}")
 
     # Source: {labelled_dir}/val — the 30% hold-out from Foundation
     foundation_val_dir = Path(get_labelled_dir(config)) / "val"

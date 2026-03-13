@@ -304,15 +304,19 @@ def run_specialization():
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # 1. Load best params from Foundation
-    foundation_params_path = Path("src/cloud/base_model/otimizacao/best_params.json")
+    spec_cfg = config['training'].get('specialization_weights', {})
+    use_dir = spec_cfg.get('use_best_f1_dir', False)
+    param_file = "best_dir_params.json" if use_dir else "best_params.json"
+    
+    foundation_params_path = Path("src/cloud/base_model/otimizacao") / param_file
     if not foundation_params_path.exists():
-        logger.error(f"❌ Foundation best_params.json missing at {foundation_params_path}. Run base optimization first.")
+        logger.error(f"❌ {param_file} missing at {foundation_params_path}. Run base optimization first.")
         sys.exit(1)
         
     with open(foundation_params_path, 'r', encoding='utf-8') as f:
         best_foundation_params = json.load(f)
         
-    logger.info(f"Loaded Foundation Params: {best_foundation_params}")
+    logger.info(f"Loaded Foundation Params ({param_file}): {best_foundation_params}")
     
     # 2. Build Specialist Space
     spec_space = build_specialist_space(config, best_foundation_params)
