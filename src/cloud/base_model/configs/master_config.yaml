@@ -230,6 +230,8 @@ training:
     base_gamma: 2.0                                               # Focal Loss (Aumenta o foco de gradiente nas amostras difíceis)
     base_optimize_smoothing: true                                 # Se true, o Optuna busca a melhor taxa de smoothing no espaço loss_smoothing.
     base_smoothing: 0.1                                           # Label Smoothing (Preenche os alvos Zero/Um com 10% de ruidos suavisadores)
+    base_use_sniper_loss: true                                    # [NOVO] Se true, penaliza erros de inversão (BUY vs SELL) com peso extra.
+    base_sniper_weight: 3.0                                       # Multiplicador para a penalidade direcional
     
   specialization_weights:
     run_specialized_after: true                                   # [AUTOMAÇÃO] Habilita Especialista (TCN-LSTM Fine-tuning)

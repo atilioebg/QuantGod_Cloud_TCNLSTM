@@ -48,12 +48,16 @@ class FocalLossWithSmoothing(nn.Module):
         gamma: float = 2.0,
         smoothing: float = 0.1,
         reduction: str = 'mean',
+        use_sniper: bool = False,
+        sniper_weight: float = 1.0,
     ):
         super().__init__()
         self.alpha = alpha
         self.gamma = gamma
         self.smoothing = smoothing
         self.reduction = reduction
+        self.use_sniper = use_sniper
+        self.sniper_weight = sniper_weight
 
     def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         """
@@ -64,8 +68,7 @@ class FocalLossWithSmoothing(nn.Module):
         Returns:
             Scalar focal loss (if reduction='mean'|'sum') or (B,) tensor.
         """
-        # PyTorch applies label_smoothing and alpha (weight) internally with
-        # numerical stability (log-sum-exp trick). reduction='none' gives per-sample loss.
+        # PyTorch applies label_smoothing and alpha (weight) internally
         ce_loss = F.cross_entropy(
             logits,
             targets,
@@ -74,12 +77,27 @@ class FocalLossWithSmoothing(nn.Module):
             reduction='none',
         )
 
-        # pt: estimated probability of the correct class under the CE loss.
-        # exp(-CE) ≈ p_correct when no smoothing; stable approximation with smoothing.
         pt = torch.exp(-ce_loss)
-
-        # Apply focal modulation: down-weight easy examples (pt → 1), keep hard ones.
         focal_loss = ((1.0 - pt) ** self.gamma) * ce_loss
+
+        # ── Sniper Loss Extension: Penalize directional inversions ────────────
+        if self.use_sniper:
+            # We assume classes are ordered: 0=SELL, 1=NEUTRAL, 2=BUY
+            # Erring from 2 to 0 (SELL instead of BUY) is much worse than 2 to 1.
+            probs = F.softmax(logits, dim=1)
+            num_classes = logits.size(1)
+            
+            # Create a distance matrix: (indices - target)^2
+            indices = torch.arange(num_classes, device=logits.device).float() # [0, 1, 2]
+            t = targets.view(-1, 1).float()                                   # (B, 1)
+            
+            # Squared distance penalizes opposite ends much harder (2^2=4 vs 1^2=1)
+            dist_sq = (indices - t) ** 2                                     # (B, num_classes)
+            
+            # Directional penalty is the weighted sum of probs based on distance
+            directional_penalty = torch.sum(probs * dist_sq, dim=1)           # (B,)
+            
+            focal_loss = focal_loss + (self.sniper_weight * directional_penalty)
 
         if self.reduction == 'mean':
             return focal_loss.mean()

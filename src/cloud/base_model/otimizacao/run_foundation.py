@@ -164,14 +164,25 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
         else:
             smoothing = foundation_cfg.get('base_smoothing', 0.1)
 
+        # 4. Sniper Loss (Directional Penalty)
+        use_sniper = foundation_cfg.get('base_use_sniper_loss', False)
+        sniper_weight = foundation_cfg.get('base_sniper_weight', 1.0)
+
         # ── Trial Start Log (Moved here to include Focal parameters) ────────────
         a_str = f"[{alpha[0]:.2f}, {alpha[1]:.2f}, {alpha[2]:.2f}]"
+        s_str = f"ON (w={sniper_weight})" if use_sniper else "OFF"
         logger.info(f"Trial {trial.number} START | tcn={tcn_channels}, lstm={lstm_hidden}, "
                     f"layers={num_lstm_layers}, batch={batch_size}, seq={seq_len}, "
                     f"drop={dropout:.4f}, lr={lr:.6f}, wd={weight_decay:.4f} | "
-                    f"alpha={a_str}, gamma={gamma:.2f}, smooth={smoothing:.2f}")
+                    f"alpha={a_str}, gamma={gamma:.2f}, smooth={smoothing:.2f}, sniper={s_str}")
 
-        criterion = FocalLossWithSmoothing(alpha=alpha, gamma=gamma, smoothing=smoothing)
+        criterion = FocalLossWithSmoothing(
+            alpha=alpha, 
+            gamma=gamma, 
+            smoothing=smoothing,
+            use_sniper=use_sniper,
+            sniper_weight=sniper_weight
+        )
 
         optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
@@ -410,7 +421,8 @@ def run_optimization():
     
     gamma_str = "OPTUNA_DINAMICO" if foundation_cfg.get('base_optimize_gamma', False) else f"{gamma}"
     smooth_str = "OPTUNA_DINAMICO" if foundation_cfg.get('base_optimize_smoothing', False) else f"{smoothing}"
-    logger.info(f"Loss: FocalLossWithSmoothing | fallback_gamma={gamma_str} | fallback_smoothing={smooth_str}")
+    sniper_status = "ENABLED" if foundation_cfg.get('base_use_sniper_loss', False) else "DISABLED"
+    logger.info(f"Loss: FocalLossWithSmoothing | fallback_gamma={gamma_str} | fallback_smoothing={smooth_str} | SniperLoss={sniper_status}")
 
 
     # ── Optuna study ──────────────────────────────────────────────────────────
