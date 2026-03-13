@@ -222,22 +222,22 @@ training:
     # [TRUE  + FALSE] = Scikit-Learn calcula automático baseado no CSV da Sessão mas não otimiza esses pesos no Optuna.
     # [FALSE + FALSE] = Hardcoded usa o valor exato definido em 'base_class_weights'. Não usa scikit nem Optuna.
     # ─────────────────────────────────────────────────────────────────────────────────────────────
-    base_use_auto_class_weights: true                             # Balanço automático baseado na demografia de sinais do dataset real
-    base_optimize_class_weights: true                             # Se true, o Optuna busca multiplicadores no espaço de busca.
-    base_use_dynamic_range_optuna: true                           # Se true, calcula o espaço de busca de alpha dinamicamente baseado na frequência real.
-    base_class_weights: [1.32, 0.40, 1.30]                        # Fallback Manual
-    base_optimize_gamma: true                                     # Se true, o Optuna busca the melhor gamma no espaço loss_gamma.
-    base_gamma: 2.0                                               # Focal Loss (Aumenta o foco de gradiente nas amostras difíceis)
-    base_optimize_smoothing: true                                 # Se true, o Optuna busca a melhor taxa de smoothing no espaço loss_smoothing.
-    base_smoothing: 0.1                                           # Label Smoothing (Preenche os alvos Zero/Um com 10% de ruidos suavisadores)
-    base_use_sniper_loss: true                                    # [NOVO] Se true, penaliza erros de inversão (BUY vs SELL) com peso extra.
-    base_sniper_weight: 3.0                                       # Multiplicador para a penalidade direcional
-    base_use_min_f1_optimization: true                            # [NOVO] Se true, o Optuna maximiza o MINIMO entre (Sell, Neutral, Buy) em vez da média Macro.
+    base_use_auto_class_weights: true                             # [AUTO-ALPHA] Calcula pesos inversamente proporcionais à frequência das classes no dataset (Scikit-learn 'balanced'). Reduz o peso do NEUTRAL e aumenta o de BUY/SELL.
+    base_optimize_class_weights: true                             # [HPO-ALPHA] Permite que o Optuna refine os pesos das classes. Se true, ignora valores fixos e busca o melhor equilíbrio dinamicamente.
+    base_use_dynamic_range_optuna: true                           # [ANCHOR-RANGE] Define o espaço de busca do Optuna baseado na frequência real (âncora). Evita que o otimizador busque pesos absurdos ou irreais.
+    base_class_weights: [1.32, 0.40, 1.30]                        # [FALLBACK] Pesos manuais [SELL, NEU, BUY] usados apenas se 'auto' e 'optimize' estiverem desativados.
+    base_optimize_gamma: true                                     # [HPO-GAMMA] Habilita o Optuna a encontrar o valor ideal de Gamma para a Focal Loss, ajustando o foco em exemplos "difíceis".
+    base_gamma: 2.0                                               # [FOCUS] Valor base da Focal Loss. Gammas maiores (ex: 3.0) forçam a rede a ignorar acertos fáceis e focar em casos de erro persistente.
+    base_optimize_smoothing: true                                 # [HPO-SMOOTH] Permite otimizar a taxa de suavização de labels (Label Smoothing) para evitar que a rede fique "overconfident" e o erro exploda.
+    base_smoothing: 0.1                                           # [REGULARIZE] Distribue 10% da probabilidade do alvo entre as outras classes. Atua como um ruído preventivo contra overfitting em classes dominantes.
+    base_use_sniper_loss: true                                    # [DIRECTIONAL-GUARD] Ativa punição extra para erros graves de lado (Inversão: Prever BUY quando era SELL). Força a rede a respeitar a distância entre classes.
+    base_sniper_weight: 3.0                                       # [PENALTY-SCALE] Multiplicador da Sniper Loss. Valores altos (ex: 5.0) tornam a inversão de sinal financeiramente "insuportável" para o gradiente do modelo.
+    base_use_min_f1_optimization: true                            # [RANKING-STRATEGY] O Optuna passa a considerar o PIOR F1 entre (S, N, B) como métrica de sucesso. Garante que o modelo não negligencie minorias (Buy/Sell).
     
   specialization_weights:
-    run_specialized_after: true                                   # [AUTOMAÇÃO] Habilita Especialista (TCN-LSTM Fine-tuning)
-    run_auditor_after: true                                       # [AUTOMAÇÃO] Habilita Auditor (XGBoost Meta-Model)
-    use_best_f1_dir: true                                         # Se true: usa best_dir_params.json e best_tcn_lstm_dir.pt para o Especialista. Se false: usa o champion Macro.
+    run_specialized_after: true                                   # [WORKFLOW] Se true, executa o Fine-tuning do Especialista (TCN-LSTM) logo após o término da Fundação Foundation.
+    run_auditor_after: true                                       # [WORKFLOW] Se true, inicia o treinamento do Juiz Auditor (XGBoost) assim que o Especialista gerar os sinais Out-of-Fold (OOF).
+    use_best_f1_dir: true                                         # [CHAMPION-SELECT] Se true, o Especialista usará o modelo vencedor em DIREÇÃO (Buy+Sell). Se false, usará o vencedor em F1 Macro (Média).
     # ── MATRIZ DE DECISÃO DE PESOS (SNIPER) ──────────────────────────────────────────────────────
     # Ordem das flags: [spec_use_auto_class_weights + spec_optimize_class_weights]
     # optimize_class_weights tem precedência Absoluta Ouro sobre auto_class_weights.
