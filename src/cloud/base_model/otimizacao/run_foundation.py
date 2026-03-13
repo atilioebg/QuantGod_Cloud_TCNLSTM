@@ -73,7 +73,7 @@ def load_data(directory, feature_cols):
     return df, feature_cols
 
 
-def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, config, base_cfg):
+def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, config, base_cfg, auto_alphas=None):
     """
     Optuna objective function for TCN+LSTM hyperparameter search.
 
@@ -130,7 +130,19 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
         search_space = config['optimization']['search_space']
         
         # 1. Class Weights (Alpha)
-        if foundation_cfg.get('base_optimize_class_weights', False):
+        if foundation_cfg.get('base_use_dynamic_range_optuna', False) and auto_alphas is not None:
+            dyn_cfg = config['optimization'].get('dynamic_range_config', {})
+            mult = dyn_cfg.get('range_multiplier', 0.5)
+            floor = dyn_cfg.get('min_floor_alpha', 0.05)
+            
+            # center = auto_alphas[c]
+            # low = max(floor, center * (1 - mult))
+            # high = center * (1 + mult)
+            a_sell = trial.suggest_float("base_alpha_sell", max(floor, auto_alphas[0].item() * (1 - mult)), auto_alphas[0].item() * (1 + mult))
+            a_neu  = trial.suggest_float("base_alpha_neutral", max(floor, auto_alphas[1].item() * (1 - mult)), auto_alphas[1].item() * (1 + mult))
+            a_buy  = trial.suggest_float("base_alpha_buy", max(floor, auto_alphas[2].item() * (1 - mult)), auto_alphas[2].item() * (1 + mult))
+            alpha = torch.tensor([a_sell, a_neu, a_buy], dtype=torch.float32).to(DEVICE)
+        elif foundation_cfg.get('base_optimize_class_weights', False):
             a_side = trial.suggest_float("base_alpha_side", search_space['base_alpha_side'][0], search_space['base_alpha_side'][1])
             a_neu  = trial.suggest_float("base_alpha_neutral", search_space['base_alpha_neutral'][0], search_space['base_alpha_neutral'][1])
             alpha  = torch.tensor([a_side, a_neu, a_side], dtype=torch.float32).to(DEVICE)
@@ -371,13 +383,14 @@ def run_optimization():
     # ── Log Alpha Class Weights Globally ─────────────────────────────────────
     import torch
     dummy_device = torch.device("cpu")
+    auto_alphas = compute_alpha_from_labels(y_train, num_classes=3, device=dummy_device)
     
-    if foundation_cfg.get('base_optimize_class_weights', False):
-        logger.info("FocalLoss alpha: Optuna assumira o controle Dinamico no espaco de busca.")
+    if foundation_cfg.get('base_use_dynamic_range_optuna', False):
+        logger.info(f"FocalLoss alpha: DYNAMIC RANGE active anchor points: [S:{auto_alphas[0]:.2f}, N:{auto_alphas[1]:.2f}, B:{auto_alphas[2]:.2f}]")
+    elif foundation_cfg.get('base_optimize_class_weights', False):
+        logger.info("FocalLoss alpha: Optuna assumira o controle Dinamico no espaco de busca (Static).")
     elif foundation_cfg.get('base_use_auto_class_weights', True):
-        # Fail fast approach if auto fails here.
-        alpha_base = compute_alpha_from_labels(y_train, num_classes=3, device=dummy_device)
-        logger.info(f"FocalLoss alpha (AUTO computed from foundation labels): {alpha_base.tolist()}")
+        logger.info(f"FocalLoss alpha (AUTO computed from foundation labels): {auto_alphas.tolist()}")
     else:
         logger.info(f"FocalLoss alpha (MANUAL from config): {class_weights}")
         
@@ -414,7 +427,7 @@ def run_optimization():
     start_time = datetime.now()
 
     study.optimize(
-        lambda trial: objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, config, config),
+        lambda trial: objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, config, config, auto_alphas=auto_alphas),
         n_trials=config['optimization']['n_trials'],
         timeout=config['optimization']['timeout'],
     )
@@ -445,7 +458,21 @@ def run_optimization():
     
     # ── Fetch active Focal Loss parameters to store in JSON ────────────────
     # Fetch from last known trial scope / globally set values so downstream reads them
-    if not list(filter(lambda k: "alpha" in k, final_params.keys())):
+    if any(k in final_params for k in ["base_alpha_sell", "base_alpha_buy"]):
+        # Dynamic Range mode: consolidate into list for compatibility
+        final_params['base_alpha_list'] = [
+            float(final_params.get('base_alpha_sell', 1.0)),
+            float(final_params.get('base_alpha_neutral', 1.0)),
+            float(final_params.get('base_alpha_buy', 1.0))
+        ]
+    elif "base_alpha_side" in final_params:
+        # Static Optimization mode
+        final_params['base_alpha_list'] = [
+            float(final_params['base_alpha_side']),
+            float(final_params['base_alpha_neutral']),
+            float(final_params['base_alpha_side'])
+        ]
+    elif "base_alpha_list" not in final_params:
         if foundation_cfg.get('base_use_auto_class_weights', True):
             final_alpha = compute_alpha_from_labels(y_train, num_classes=3, device=torch.device("cpu")).tolist()
         else:

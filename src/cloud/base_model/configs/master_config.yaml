@@ -223,8 +223,9 @@ training:
     # [FALSE + FALSE] = Hardcoded usa o valor exato definido em 'base_class_weights'. Não usa scikit nem Optuna.
     # ─────────────────────────────────────────────────────────────────────────────────────────────
     base_use_auto_class_weights: true                             # Balanço automático baseado na demografia de sinais do dataset real
-    base_optimize_class_weights: true                             # Se true, o Optuna busca multiplicadores (side vs neutral) no espaço de busca. Sobrescreve auto/manual.
-    base_class_weights: [1.32, 0.40, 1.30]                        # Fallback Manual (Suprime Neutros Fortemente p/ balancear)
+    base_optimize_class_weights: true                             # Se true, o Optuna busca multiplicadores no espaço de busca.
+    base_use_dynamic_range_optuna: true                           # Se true, calcula o espaço de busca de alpha dinamicamente baseado na frequência real.
+    base_class_weights: [1.32, 0.40, 1.30]                        # Fallback Manual
     base_optimize_gamma: true                                     # Se true, o Optuna busca the melhor gamma no espaço loss_gamma.
     base_gamma: 2.0                                               # Focal Loss (Aumenta o foco de gradiente nas amostras difíceis)
     base_optimize_smoothing: true                                 # Se true, o Optuna busca a melhor taxa de smoothing no espaço loss_smoothing.
@@ -261,6 +262,10 @@ optimization:
     dir: 0.7                                                      # A métrica Direcional (Buy e Sell ignorando Neutral) engole 70% do peso da F1
     macro: 0.3                                                    # A métrica Macro (Global F1) atua como termostato anti-sobreajuste (Overfitting) a 30%
   run_feature_importance_after: true                              # Ao fim da Base, roda e salva a Força dos 32 Alphas originais (Integridade)
+  
+  dynamic_range_config:
+    range_multiplier: 0.5                                         # Define os limites como [centro * 50%, centro * 150%]
+    min_floor_alpha: 0.05                                         # Piso mínimo para evitar alpha <= 0
 
   search_space:
     tcn_channels: [64, 128, 256, 512]                             # Filtros Dinâmicos Captadores Visuais (TCN - Redes Residuais Causais)
