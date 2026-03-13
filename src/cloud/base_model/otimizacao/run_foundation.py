@@ -246,22 +246,29 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
                 tmp = np.zeros(3)
                 for i, val in enumerate(f1_per_cls): tmp[i] = val
                 f1_per_cls = tmp
-            f1_dir = np.mean([f1_per_cls[0], f1_per_cls[2]])
-
             # Penalidade por classe zerada (Zero Penalty)
-            has_zero_class = np.any(f1_per_cls == 0)
-            penalty = 0.5 if has_zero_class else 1.0
+            # Sniper Guard: Se Sell (0) ou Buy (2) for 0, o modelo é severamente punido.
+            has_zero_signal = (f1_per_cls[0] == 0 or f1_per_cls[2] == 0)
+            has_zero_class  = np.any(f1_per_cls == 0)
+            
+            # Se tiver signal zerado, a penalidade é drástica (0.1) para forçar o Optuna a fugir daqui.
+            # Se tiver apenas o Neutral zerado (raro), a penalidade é 0.5.
+            penalty = 0.1 if has_zero_signal else (0.5 if has_zero_class else 1.0)
+
+            # Aplica penalidade em ambas as métricas
+            f1_macro = f1_macro * penalty
+            f1_dir   = f1_dir * penalty
 
             # ── Sniper Metric Adaptation: Minimum F1 optimization ──────────
             use_min_f1 = config['training']['foundation_weights'].get('base_use_min_f1_optimization', False)
             if use_min_f1:
-                # Instead of Macro (average), we force the metric to be the weakest link
-                # This makes the "reported score" to Optuna be the worst performing class.
+                # O objetivo principal passa a ser o elo mais fraco, também punido
                 orig_f1_macro = f1_macro
                 f1_macro = float(np.min(f1_per_cls)) * penalty
                 
             current_lr = scheduler.get_last_lr()[0]
             current_val_loss = val_loss / len(val_loader)
+
 
             # ── Epoch Summary ─────────────────────────────────────────────────────────
             p_status = "⚠️ ZERO_PENALTY" if has_zero_class else "✅ OK"
