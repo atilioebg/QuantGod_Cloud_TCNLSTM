@@ -59,7 +59,7 @@ def get_drive_suffix(config: dict) -> str:
     sell_str = str(sell).replace(".", "")
     buy_str  = str(buy).replace(".", "")
     
-    return f"_SELL_{sell_str}_BUY_{buy_str}_{t}min_lookahead_{freq}"
+    return f"_SELL_{sell_str}_BUY_{buy_str}_{t}min_lookahead_{freq}_bar"
 
 
 def get_drive_session_root(config: dict) -> str:
