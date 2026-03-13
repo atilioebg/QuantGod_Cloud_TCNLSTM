@@ -232,6 +232,7 @@ training:
     base_smoothing: 0.1                                           # Label Smoothing (Preenche os alvos Zero/Um com 10% de ruidos suavisadores)
     base_use_sniper_loss: true                                    # [NOVO] Se true, penaliza erros de inversão (BUY vs SELL) com peso extra.
     base_sniper_weight: 3.0                                       # Multiplicador para a penalidade direcional
+    base_use_min_f1_optimization: true                            # [NOVO] Se true, o Optuna maximiza o MINIMO entre (Sell, Neutral, Buy) em vez da média Macro.
     
   specialization_weights:
     run_specialized_after: true                                   # [AUTOMAÇÃO] Habilita Especialista (TCN-LSTM Fine-tuning)

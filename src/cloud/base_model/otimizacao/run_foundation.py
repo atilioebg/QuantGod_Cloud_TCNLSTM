@@ -238,28 +238,24 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
                         all_preds.extend(preds.cpu().numpy())
                         all_targets.extend(batch_y.cpu().numpy())
 
-            f1_macro   = f1_score(all_targets, all_preds, average='macro',    zero_division=0)
-            f1_per_cls = f1_score(all_targets, all_preds, average=None,       zero_division=0, labels=[0, 1, 2])
-            f1_dir     = (f1_per_cls[0] + f1_per_cls[2]) / 2
-            
-            # --- EXISTENCE PENALTY (v5.1 Patch) ---
-            # If any class has 0 F1, we drastically penalize the score to force the model 
-            # to learn ALL directions, even if the macro is high.
-            has_zero_class = any(f1_per_cls <= 0.0)
-            penalty = 1e-6 if has_zero_class else 1.0
-            
-            f1_macro *= penalty
-            f1_dir *= penalty
-            
+            # ── Sniper Metric Adaptation: Minimum F1 optimization ──────────
+            use_min_f1 = config['training']['foundation_weights'].get('base_use_min_f1_optimization', False)
+            if use_min_f1:
+                # Instead of Macro (average), we force the metric to be the weakest link
+                # This makes the "reported score" to Optuna be the worst performing class.
+                orig_f1_macro = f1_macro
+                f1_macro = float(np.min(f1_per_cls)) * penalty
+                
             current_lr = scheduler.get_last_lr()[0]
             current_val_loss = val_loss / len(val_loader)
 
             # ── Epoch Summary ─────────────────────────────────────────────────────────
             p_status = "⚠️ ZERO_PENALTY" if has_zero_class else "✅ OK"
+            m_label = "F1 MIN" if use_min_f1 else "F1 M"
             logger.info(
                 f"T{trial.number} E{epoch+1}/{epochs} | {p_status} | "
                 f"L: {train_loss/len(train_loader):.8f}/{current_val_loss:.8f} | "
-                f"F1 M: {f1_macro:.8f} D: {f1_dir:.8f} | "
+                f"{m_label}: {f1_macro:.8f} D: {f1_dir:.8f} | "
                 f"[S/N/B]: [{f1_per_cls[0]:.4f}/{f1_per_cls[1]:.4f}/{f1_per_cls[2]:.4f}] | "
                 f"LR: {current_lr:.8f}"
             )
@@ -442,8 +438,12 @@ def run_optimization():
         GLOBAL_BEST_DIR = max((t.user_attrs.get("best_f1_dir", 0.0) for t in completed), default=0.0)
         logger.info(f"Resuming study. Current records: Macro={GLOBAL_BEST_MACRO:.4f}, Dir={GLOBAL_BEST_DIR:.4f}")
 
+    metric_to_max = config['optimization']['base_metric']
+    if foundation_cfg.get('base_use_min_f1_optimization', False) and metric_to_max == 'f1_macro':
+        metric_to_max = "MIN(Sell, Neu, Buy)"
+    
     logger.info(f"Starting {config['optimization']['n_trials']} trials | "
-                f"Metric: {config['optimization']['base_metric']} | "
+                f"Metric: {metric_to_max} | "
                 f"Timeout: {config['optimization']['timeout']}s")
     
     start_trials = len(study.trials)
