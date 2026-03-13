@@ -72,7 +72,7 @@ def main():
     manage_gpu = ctrl.get('gpu_memory_management', True)
     paths = config.get('pipeline_paths', {})
     
-    from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive, get_labelled_dir
+    from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
     mod_dir = resolve_local_drive(Path(get_drive_session_path("MODELOS", config)))
     best_base_model = str(mod_dir / paths.get('best_tcn_lstm_model', 'BASE_MODEL/best_tcn_lstm.pt'))
     best_spec_model = str(mod_dir / paths.get('best_specialized_model', 'BASE_MODEL/test.pt'))
@@ -88,19 +88,6 @@ def main():
     epochs = search_space.get('epochs', 50)
     patience = search_space.get('early_stopping_patience', 4)
     
-    # ── FASE 0: Data Preparation (Split & Purge) ──────────────────────────────
-    # Ensures data/L2/labelled/train and val exist to prevent leakage.
-    labelled_dir = Path(get_labelled_dir(config))
-    train_dir = labelled_dir / "train"
-    
-    success = run_phase(
-        name="Data Split & Purge Guard",
-        script_path="src/cloud/base_model/treino/split_dataset.py",
-        check_exists=str(train_dir),
-        force_retrain=force_retrain
-    )
-    if not success and not skip_qa_on_fail: sys.exit(1)
-
     # ── FASE 1: Foundation Optuna ──────────────────────────────────────────────
     # Calls the refactored run_foundation.py
     success = run_phase(
