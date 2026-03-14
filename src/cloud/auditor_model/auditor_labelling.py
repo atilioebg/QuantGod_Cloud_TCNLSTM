@@ -157,18 +157,15 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
     """
     kfold_cfg = config['pre_processing']['kfold']
     
-    from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
-    # Find OOF predictions using the shared session structure
-    base_oof_path = get_drive_session_path("AUDITORIA/KFOLD_SPECIALIST", config)
-    oof_dir = resolve_local_drive(Path(base_oof_path))
+    # Unificacao de Path: O OOF agora vive na pasta do Especialista (MODELOS/SPECIALIST)
+    base_model_dir = get_drive_session_path("MODELOS", config)
+    oof_dir = resolve_local_drive(Path(base_model_dir) / kfold_cfg.get('oof_output_dir', 'SPECIALIST'))
     full_oof_path = oof_dir / "full_oof.parquet"
 
     if not full_oof_path.exists():
-        logger.error(
-            f"❌ full_oof.parquet not found at {full_oof_path}. "
-            "Run run_kfold_specialist.py first (Phase 2)."
-        )
-        return
+        logger.error(f"❌ full_oof.parquet NAO ENCONTRADO em: {full_oof_path}")
+        logger.error("   ↳ Certifique-se que o Especialista K-Fold rodou e gerou o arquivo.")
+        sys.exit(1)
 
     logger.info(f"🔗 K-Fold Mode: loading OOF predictions from {full_oof_path}")
     df_oof = pl.read_parquet(full_oof_path)
@@ -254,12 +251,29 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
 
     from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
     base_dir = get_drive_session_path("MODELOS", config)
-    base_model_path = resolve_local_drive(Path(base_dir) / config['pipeline_paths']['best_tcn_lstm_model'])
+    
+    # Inteligencia Dinamica (Macro/Dir): Procura o melhor modelo disponivel
+    paths = config.get('pipeline_paths', {})
+    best_base_macro = resolve_local_drive(Path(base_dir) / paths.get('best_tcn_lstm_model', 'BASE_MODEL/best_tcn_lstm.pt'))
+    best_base_dir   = resolve_local_drive(Path(base_dir) / paths.get('best_tcn_lstm_dir_model', 'BASE_MODEL/best_tcn_lstm_dir.pt'))
+    
+    use_dir_strategy = config.get('training', {}).get('specialization_weights', {}).get('use_best_f1_dir', True)
+    primary_base = best_base_dir if use_dir_strategy else best_base_macro
+    fallback_base = best_base_macro if use_dir_strategy else best_base_dir
+    
+    active_base_path = primary_base if primary_base.exists() else (fallback_base if fallback_base.exists() else None)
+
+    if not active_base_path:
+        logger.error(f"❌ MODELO BASE AUSENTE PARA FUSION: {primary_base}")
+        sys.exit(1)
+
+    logger.info(f"🔑 [Audit Fix] Usando Base Model: {active_base_path.name}")
     try:
-        model_base.load_state_dict(torch.load(base_model_path, map_location=DEVICE))
-    except KeyError:
-        sd = torch.load(base_model_path, map_location=DEVICE)
+        sd = torch.load(active_base_path, map_location=DEVICE, weights_only=True)
         model_base.load_state_dict(sd.get('model_state_dict', sd))
+    except Exception as e:
+        logger.error(f"❌ Erro ao carregar state_dict do modelo base: {e}")
+        sys.exit(1)
 
     logger.info("🤖 Generating Foundation Model probabilities over Foundation Val...")
     probs_base, _ = generate_predictions(model_base, loader_base, DEVICE)

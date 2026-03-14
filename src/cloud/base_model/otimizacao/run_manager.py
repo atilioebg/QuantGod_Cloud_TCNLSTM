@@ -197,7 +197,9 @@ def main():
             sys.exit(1)
         
         # Auditor Labelling (Cross-Inference)
-        if not run_phase("Auditor Labelling (Fused Logits + Sinais OOF)", "src/cloud/auditor_model/auditor_labelling.py", force_retrain=force_retrain):
+        # Force retrain para garantir que o fusion data seja gerado com os novos thresholds
+        if not run_phase("Auditor Labelling (Fused Logits + Sinais OOF)", "src/cloud/auditor_model/auditor_labelling.py", force_retrain=True):
+            logger.error("❌ Falha critica no Auditor Labelling! Abortando.")
             sys.exit(1)
         
         if manage_gpu: free_memory()
