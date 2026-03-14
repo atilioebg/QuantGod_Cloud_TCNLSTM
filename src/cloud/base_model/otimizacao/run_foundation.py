@@ -25,8 +25,8 @@ from src.cloud.base_model.models.model import Hybrid_TCN_LSTM
 from src.cloud.base_model.treino.losses import FocalLossWithSmoothing, compute_alpha_from_labels
 
 # Tracking variables for cross-trial real-time logging
-GLOBAL_BEST_MACRO = 0.0
-GLOBAL_BEST_DIR   = 0.0
+GLOBAL_BEST_MACRO = -1.0
+GLOBAL_BEST_DIR   = -1.0
 
 # ── Logging Setup ──────────────────────────────────────────────────────────
 from src.cloud.base_model.utils.logging_utils import setup_logger, setup_optuna_logging
@@ -317,7 +317,7 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
             global GLOBAL_BEST_MACRO, GLOBAL_BEST_DIR
 
             # MACRO global best
-            if f1_macro > GLOBAL_BEST_MACRO:
+            if f1_macro >= GLOBAL_BEST_MACRO:
                 prev_macro = GLOBAL_BEST_MACRO
                 GLOBAL_BEST_MACRO = f1_macro
                 from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
@@ -329,7 +329,7 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
                             f"(prev: {prev_macro:.8f}) → saved {model_path.name}")
 
             # DIR global best
-            if f1_dir > GLOBAL_BEST_DIR:
+            if f1_dir >= GLOBAL_BEST_DIR:
                 prev_dir = GLOBAL_BEST_DIR
                 GLOBAL_BEST_DIR = f1_dir
                 from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
@@ -341,7 +341,7 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
                             f"(prev: {prev_dir:.8f}) → saved {dir_save_path.name}")
 
             # Update this trial's running best_f1_dir attribute for ranking later
-            if f1_dir > trial.user_attrs.get("best_f1_dir", 0.0):
+            if f1_dir >= trial.user_attrs.get("best_f1_dir", -1.0):
                 trial.set_user_attr("best_f1_dir", f1_dir)
 
             # ── Optimization Target Update ──────────────────────────────────
