@@ -340,6 +340,10 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
                 logger.info(f"🏆 [DIR]    Trial {trial.number} | Global F1 Dir record: {f1_dir:.8f} "
                             f"(prev: {prev_dir:.8f}) → saved {dir_save_path.name}")
 
+            # Update this trial's running best_f1_dir attribute for ranking later
+            if f1_dir > trial.user_attrs.get("best_f1_dir", 0.0):
+                trial.set_user_attr("best_f1_dir", f1_dir)
+
             # ── Optimization Target Update ──────────────────────────────────
             trial_metric_val = f1_macro if base_metric_name == 'f1_macro' else f1_dir
             trial_best_val = best_macro_f1 if base_metric_name == 'f1_macro' else best_dir_f1
