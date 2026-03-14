@@ -268,7 +268,7 @@ optimization:
 
   auditor:
     enabled: true                                                 # [AUTO-HPO] Se true, o Auditor fará uma busca HPO via Optuna antes do treino final.
-    n_trials: 10                                                  # Ciclos de busca para encontrar o Juiz perfeito
+    n_trials: 5                                                  # Ciclos de busca para encontrar o Juiz perfeito
     search_space:
       max_depth: [3, 8]                                           # Profundidade da árvore (4-6 costuma ser o sweet spot)
       learning_rate: [0.01, 0.1]                                  # Velocidade de aprendizado (Shrinkage)
@@ -291,7 +291,7 @@ optimization:
     batch_size: [256, 512]                                        # Focado em estabilidade de gradiente (512 foi o melhor)
     seq_len: [96, 144]                                            # Focado em contexto longo (144 foi o melhor)
     dropout: [0.3, 0.6]                                           # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
-    epochs: 50                                                    # REDUZIDO: Modo de teste E2E
+    epochs: 5                                                    # REDUZIDO: Modo de teste E2E
     early_stopping_patience: 6                                    # Mais tempo para o modelo estabilizar após sair do zero
     
     # --- HIPERPARÂMETROS DA FOCAL LOSS: BASE MODELO ---
