@@ -282,7 +282,9 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
 
             # ── Epoch Summary ─────────────────────────────────────────────────────────
             p_status = "⚠️ ZERO_PENALTY" if has_zero_class else "✅ OK"
-            m_label = "F1 MIN" if use_min_f1 else "F1 M"
+            m_label = "F1 M MIN" if use_min_f1 else "F1 M"
+            # ASCII cleanup for status
+            p_status = "[WARN] ZERO_PENALTY" if has_zero_class else "[OK]"
             logger.info(
                 f"T{trial.number} E{epoch+1}/{epochs} | {p_status} | "
                 f"L: {train_loss/len(train_loader):.8f}/{current_val_loss:.8f} | "
@@ -325,7 +327,8 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
                 model_path = resolve_local_drive(Path(base_dir) / config['pipeline_paths']['best_tcn_lstm_model'])
                 model_path.parent.mkdir(parents=True, exist_ok=True)
                 torch.save(model.state_dict(), str(model_path))
-                logger.info(f"[BEST MACRO]  Trial {trial.number} | Global F1 Macro record: {f1_macro:.8f} "
+                m_rec_label = "F1 M MIN" if use_min_f1 else "F1 Macro"
+                logger.info(f"[BEST MACRO]  Trial {trial.number} | Global {m_rec_label} record: {f1_macro:.8f} "
                             f"(prev: {prev_macro:.8f}) -> saved {model_path.name}")
 
             # DIR global best
@@ -566,12 +569,15 @@ def run_optimization():
 
     logger.info("="*60)
 
-    logger.info(f"🥇 [MACRO] Best trial: {study.best_trial.number} | F1 Macro: {study.best_trial.value:.8f}")
+    use_min_f1 = config['training']['foundation_weights'].get('base_use_min_f1_optimization', False)
+    m_f_label = "F1 M MIN" if use_min_f1 else "F1 Macro"
+    
+    logger.info(f"[MACRO] Best trial: {study.best_trial.number} | {m_f_label}: {study.best_trial.value:.8f}")
     
     final_params = extract_full_params(study.best_trial, foundation_cfg, y_train, X_train.shape[1])
     
     formatted_best_params = {k: f"{v:.8f}" if isinstance(v, float) else v for k, v in final_params.items()}
-    logger.info(f"🥇 [MACRO] Best params: {formatted_best_params}")
+    logger.info(f"[MACRO] Best params: {formatted_best_params}")
 
     # ── Save MACRO champion params
     out_params_path = Path("src/cloud/base_model/otimizacao") / "best_params.json"
