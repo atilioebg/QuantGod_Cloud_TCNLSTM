@@ -282,7 +282,10 @@ def train_specialist_fold(
     # Ensure class_weights (alpha) is a Tensor for FocalLossWithSmoothing
     alpha_tensor = torch.tensor(class_weights, dtype=torch.float32).to(DEVICE)
 
-    logger.info(f"⚖️ Specialist Loss: alpha={class_weights}, gamma={gamma:.2f}, smoothing={smoothing:.2f} (Inherited: {gamma==best_params.get('base_loss_gamma')})")
+    inh_bool = (gamma == best_params.get('base_loss_gamma'))
+    inh_str = "YES" if inh_bool else "NO"
+    logger.info(f"[LOSS] Specialist Loss: alpha={class_weights}, gamma={gamma:.2f}, "
+                f"smoothing={smoothing:.2f} (Inherited: {inh_str})")
     
     criterion = FocalLossWithSmoothing(alpha=alpha_tensor, gamma=gamma, smoothing=smoothing)
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
@@ -473,13 +476,14 @@ def run_kfold_specialist():
     seq_len       = best_params['seq_len']
 
     # ── 4. K-Fold Loop ────────────────────────────────────────────────────────
+    # -- 4. K-Fold Loop --------------------------------------------------------
     fold_results = []   # list of (test_original_idx, probs, targets)
 
     for fold_k, (train_idx, test_idx) in enumerate(
         blocked_purged_kfold_indices(n_total, n_splits, purge_bars)
     ):
-        logger.info("=" * 60)
-        logger.info(f"🔁 FOLD {fold_k + 1}/{n_splits} | Train: {len(train_idx):,} rows | Test: {len(test_idx):,} rows")
+        logger.info("="*60)
+        logger.info(f"[KFOLD] FOLD {fold_k+1}/{n_splits} | Train: {len(train_idx):,} rows | Test: {len(test_idx):,} rows")
 
         # Temporal Leakage Guard (logged for test_no_temporal_leakage)
         if len(train_idx) > 0 and len(test_idx) > 0:
@@ -493,16 +497,16 @@ def run_kfold_specialist():
             if len(left_train) > 0:
                 gap_left = test_min - left_train.max() - 1
                 if gap_left < purge_bars:
-                    logger.warning(f"[Fold {fold_k}] ⚠️ Left Gap VIOLATION: {gap_left} < {purge_bars} bars!")
+                    logger.warning(f"[Fold {fold_k}] Left Gap VIOLATION: {gap_left} < {purge_bars} bars!")
                 else:
-                    logger.info(f"[Fold {fold_k}] ✅ Left Purge Gap OK: {gap_left} bars ({gap_left * resample_min} min)")
+                    logger.info(f"[Fold {fold_k}] Left Purge Gap OK: {gap_left} bars ({gap_left * resample_min} min)")
                     
             if len(right_train) > 0:
                 gap_right = right_train.min() - test_max - 1
                 if gap_right < purge_bars:
-                    logger.warning(f"[Fold {fold_k}] ⚠️ Right Gap VIOLATION: {gap_right} < {purge_bars} bars!")
+                    logger.warning(f"[Fold {fold_k}] Right Gap VIOLATION: {gap_right} < {purge_bars} bars!")
                 else:
-                    logger.info(f"[Fold {fold_k}] ✅ Right Purge Gap OK: {gap_right} bars ({gap_right * resample_min} min)")
+                    logger.info(f"[Fold {fold_k}] Right Purge Gap OK: {gap_right} bars ({gap_right * resample_min} min)")
 
         X_train_raw  = X_raw[train_idx]
         y_train      = y_raw[train_idx]
@@ -511,7 +515,7 @@ def run_kfold_specialist():
         y_test       = y_raw[test_idx]
         island_test  = island_raw[test_idx]
 
-        # ── Per-Fold Scaler (NEVER global) ────────────────────────────────────
+        # -- Per-Fold Scaler (NEVER global) ------------------------------------
         # Anti-Leakage: scaler is fit ONLY on fold's training data.
         # Using test stats in normalization would leak distribution into training.
         scaler = StandardScaler()
@@ -524,7 +528,7 @@ def run_kfold_specialist():
             pickle.dump(scaler, sf)
         logger.info(f"[Fold {fold_k}] Scaler saved: {scaler_path.name}")
 
-        # ── Train clone ───────────────────────────────────────────────────────
+        # -- Train clone -------------------------------------------------------
         model = train_specialist_fold(
             X_train_norm=X_train_norm,
             y_train=y_train,
@@ -539,12 +543,12 @@ def run_kfold_specialist():
             fold_k=fold_k,
         )
 
-        # ── Save Specialist Model Weights ─────────────────────────────────────
+        # -- Save Specialist Model Weights -------------------------------------
         model_path = oof_dir / f"model_fold_{fold_k}.pt"
         torch.save(model.state_dict(), model_path)
         logger.info(f"[Fold {fold_k}] Model saved: {model_path.name}")
 
-        # ── OOF Inference (raw logits on unseen test block) ───────────────────
+        # -- OOF Inference (raw logits on unseen test block) -------------------
         probs, targets, valid_idx = run_inference(model, X_test_norm, y_test, island_test, seq_len, batch_size, DEVICE)
         pred_classes = np.argmax(probs, axis=1)
 
@@ -581,9 +585,8 @@ def run_kfold_specialist():
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-    # ── 5. Assemble full_oof.parquet ──────────────────────────────────────────
-    logger.info("=" * 60)
-    logger.info("📦 Assembling full_oof.parquet (chronological order)...")
+    # -- 5. Assemble full_oof.parquet ------------------------------------------
+    logger.info("Assembling full_oof.parquet (chronological order)...")
 
     # Concatenate and sort by original_row_idx to restore chronological order
     all_fold_dfs = [pl.read_parquet(oof_dir / f"fold_{k}.parquet") for k in range(n_splits)]
@@ -595,18 +598,18 @@ def run_kfold_specialist():
     # Final stats
     n_oof = len(full_oof_df)
     coverage = n_oof / n_total
-    logger.info(f"✅ full_oof.parquet: {n_oof:,} rows | Coverage: {coverage:.1%} of Foundation Val")
-    logger.info(f"   Expected: ~{n_total - n_splits * purge_bars:,} (after purge removal)")
+    logger.info(f"full_oof.parquet: {n_oof:,} rows | Coverage: {coverage:.1%} of Foundation Val")
+    logger.info(f"Expected: ~{n_total - n_splits * purge_bars:,} (after purge removal)")
 
     # Validate no duplicate original_row_idx
     n_unique = full_oof_df['original_row_idx'].n_unique()
     if n_unique < n_oof:
-        logger.warning(f"⚠️  {n_oof - n_unique} duplicate rows in full_oof.parquet!")
+        logger.warning(f"{n_oof - n_unique} duplicate rows in full_oof.parquet!")
     else:
-        logger.info("✅ No duplicate rows in full_oof.parquet")
+        logger.info("No duplicate rows in full_oof.parquet")
 
-    # ── 6. Integrated Security QA ─────────────────────────────────────────────
-    logger.info("🧪 Running Automated Specialist Security QA (pytest)...")
+    # -- 6. Integrated Security QA ---------------------------------------------
+    logger.info("Running Automated Specialist Security QA (pytest)...")
     try:
         import subprocess
         import os
@@ -619,16 +622,15 @@ def run_kfold_specialist():
                 env=os.environ.copy(),
                 check=False
             )
-        logger.info(f"✅ Specialist QA Report saved to {qa_log_path}")
+        logger.info("[OK] Specialist QA Report saved to " + str(qa_log_path))
     except Exception as e:
-        logger.error(f"⚠️ Specialist QA Report generation failed: {e}")
-
-    logger.info("🏁 K-Fold Specialist finished. Auditor fusion ready.")
+        logger.info("[OK] Specialist QA Report saved to " + str(report_path))
+    logger.info("[END] K-Fold Specialist finished. Auditor fusion ready.")
 
 
 if __name__ == "__main__":
     run_kfold_specialist()
-    # Audit Logs → RESULTADOS_.../AUDITORIA/KFOLD_SPECIALIST/
+    # Audit Logs -> RESULTADOS_.../AUDITORIA/KFOLD_SPECIALIST/
     _cfg = load_config()
     upload_audit_to_drive(
         local_dirs=["logs/kfold_specialist"],

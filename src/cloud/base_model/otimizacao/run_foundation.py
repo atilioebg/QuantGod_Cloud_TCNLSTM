@@ -325,8 +325,8 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
                 model_path = resolve_local_drive(Path(base_dir) / config['pipeline_paths']['best_tcn_lstm_model'])
                 model_path.parent.mkdir(parents=True, exist_ok=True)
                 torch.save(model.state_dict(), str(model_path))
-                logger.info(f"🥇 [MACRO]  Trial {trial.number} | Global F1 Macro record: {f1_macro:.8f} "
-                            f"(prev: {prev_macro:.8f}) → saved {model_path.name}")
+                logger.info(f"[BEST MACRO]  Trial {trial.number} | Global F1 Macro record: {f1_macro:.8f} "
+                            f"(prev: {prev_macro:.8f}) -> saved {model_path.name}")
 
             # DIR global best
             if f1_dir >= GLOBAL_BEST_DIR:
@@ -337,8 +337,8 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
                 dir_save_path = resolve_local_drive(Path(base_dir) / config['pipeline_paths']['best_tcn_lstm_dir_model'])
                 dir_save_path.parent.mkdir(parents=True, exist_ok=True)
                 torch.save(model.state_dict(), str(dir_save_path))
-                logger.info(f"🏆 [DIR]    Trial {trial.number} | Global F1 Dir record: {f1_dir:.8f} "
-                            f"(prev: {prev_dir:.8f}) → saved {dir_save_path.name}")
+                logger.info(f"[BEST DIR]    Trial {trial.number} | Global F1 Dir record: {f1_dir:.8f} "
+                            f"(prev: {prev_dir:.8f}) -> saved {dir_save_path.name}")
 
             # Update this trial's running best_f1_dir attribute for ranking later
             if f1_dir >= trial.user_attrs.get("best_f1_dir", -1.0):
@@ -577,7 +577,7 @@ def run_optimization():
     out_params_path = Path("src/cloud/base_model/otimizacao") / "best_params.json"
     with open(out_params_path, "w", encoding='utf-8') as f:
         json.dump(final_params, f, indent=4, ensure_ascii=False)
-    logger.info(f"🥇 [MACRO] Best params saved: {out_params_path}")
+    logger.info(f"[BEST MACRO] Best params saved: {out_params_path}")
 
     # ── Downstream Pipeline Automation ─────────────────────────────────────
     # We no longer auto-update master_config.yaml to avoid Git conflicts.
@@ -592,18 +592,18 @@ def run_optimization():
         best_dir_params = extract_full_params(best_dir_trial, foundation_cfg, y_train, X_train.shape[1])
 
         best_dir_val = best_dir_trial.user_attrs["best_f1_dir"]
-        logger.info(f"🏆 [DIR]   Best trial: {best_dir_trial.number} | F1 Dir: {best_dir_val:.8f}")
+        logger.info(f"[BEST DIR]   Best trial: {best_dir_trial.number} | F1 Dir: {best_dir_val:.8f}")
         
         out_dir_path = Path("src/cloud/base_model/otimizacao") / "best_dir_params.json"
         with open(out_dir_path, "w", encoding='utf-8') as f:
             json.dump(best_dir_params, f, indent=4, ensure_ascii=False)
-        logger.info(f"🏆 [DIR]   Best params saved: {out_dir_path}")
+        logger.info(f"[BEST DIR]   Best params saved: {out_dir_path}")
     else:
-        logger.warning("⚠️ No completed trials with f1_dir attribute found. best_dir_params.json not updated.")
+        logger.warning("[WARN] No completed trials with f1_dir attribute found. best_dir_params.json not updated.")
 
     # ── Pipeline Execution Finished ──────────────────────────────────────────
     logger.info("="*60)
-    logger.info("✅ Optuna Foundation Training completed. Orchestration is now handled by run_manager.py")
+    logger.info("[OK] Optuna Foundation Training completed. Orchestration is now handled by run_manager.py")
     logger.info("="*60)
 
 if __name__ == "__main__":

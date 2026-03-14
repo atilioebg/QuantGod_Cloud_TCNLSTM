@@ -18,13 +18,13 @@ logger = logging.getLogger(__name__)
 
 def free_memory():
     """Implements aggressive garbage collection to prevent VRAM spikes across phases."""
-    logger.info("🧹 Initiating deep memory sweep (gc.collect and torch.cuda.empty_cache)...")
+    logger.info("[CLEAN] Initiating deep memory sweep (gc.collect and torch.cuda.empty_cache)...")
     gc.collect()
     try:
         import torch
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-            logger.info("  ↳ CUDA VRAM cache cleared.")
+            logger.info("  -> CUDA VRAM cache cleared.")
     except ImportError:
         pass
 
@@ -38,14 +38,14 @@ def run_phase(name, script_path, check_exists=None, force_retrain=True):
     If check_exists is provided and force_retrain is False, checks if the target file exists to skip the phase.
     """
     logger.info("="*60)
-    logger.info(f"🚀 INICIANDO FASE: {name}")
+    logger.info(f"[START] INICIANDO FASE: {name}")
     logger.info("="*60)
     
     if not force_retrain and check_exists:
         # Checkpoint logic
         target_path = Path(check_exists)
         if target_path.exists():
-            logger.info(f"⏭️ CHECKPOINT ENCONTRADO: {target_path.name} ja existe. Pulando {name} (force_full_retrain=False).")
+            logger.info(f"[SKIP] CHECKPOINT ENCONTRADO: {target_path.name} ja existe. Pulando {name} (force_full_retrain=False).")
             return True
             
     env = os.environ.copy()
@@ -85,13 +85,13 @@ def run_phase(name, script_path, check_exists=None, force_retrain=True):
         process.wait()
         
         if process.returncode == 0:
-            logger.info(f"✅ FASE CONCLUIDA: {name}")
+            logger.info(f"[OK] FASE CONCLUIDA: {name}")
             return True
         else:
-            logger.error(f"❌ FASE FALHOU: {name} (Exit Code: {process.returncode})")
+            logger.error(f"[FAIL] FASE FALHOU: {name} (Exit Code: {process.returncode})")
             return False
     except Exception as e:
-        logger.error(f"❌ ERRO AO EXECUTAR FASE: {name} | {e}")
+        logger.error(f"[ERROR] ERRO AO EXECUTAR FASE: {name} | {e}")
         return False
 
 def main():
@@ -99,7 +99,7 @@ def main():
     
     # ── Session Start Marker (v4.9) ──────────────────────────────────────────
     logger.info("=" * 60)
-    logger.info(f"🚀 INICIANDO NOVA SESSÃO DO PIPELINE: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info(f"[START] INICIANDO NOVA SESSAO DO PIPELINE: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info("=" * 60)
     
     # Load config
@@ -119,7 +119,7 @@ def main():
     best_base_macro = mod_dir / paths.get('best_tcn_lstm_model', 'BASE_MODEL/best_tcn_lstm.pt')
     best_base_dir   = mod_dir / paths.get('best_tcn_lstm_dir_model', 'BASE_MODEL/best_tcn_lstm_dir.pt')
     
-    # Define o modelo base principal de acordo com a estratégia de seleção
+    # Define o modelo base principal de acordo com a estrategia de selecao
     use_dir_strategy = config.get('training', {}).get('specialization_weights', {}).get('use_best_f1_dir', True)
     primary_base = best_base_dir if use_dir_strategy else best_base_macro
     fallback_base = best_base_macro if use_dir_strategy else best_base_dir
@@ -163,7 +163,7 @@ def main():
 
     # ── FASE 2: Specialist ─────────────────────────────────────────────────────
     if not run_specialized:
-        logger.warning("🛑 PARADA PROGRAMADA: 'run_specialized_after' esta FALSE no master_config.yaml. Pulando treinamento do Especialista.")
+        logger.warning("[STOP] PARADA PROGRAMADA: 'run_specialized_after' esta FALSE no master_config.yaml. Pulando treinamento do Especialista.")
     else:
         # Auto-detect: K-Fold OOF (Engorda Total) vs Legado (Holdout 80/20)
         kfold_cfg     = config.get('pre_processing', {}).get('kfold', {})
@@ -177,7 +177,7 @@ def main():
             p_min = kfold_cfg.get('purge_minutes', 0)
             p_final = (h_min + 1) if p_min <= 0 else p_min
             
-            logger.info(f"🔁 K-Fold Mode ativado (kfold.enabled=true) | Executando {n_splits}-Fold Purged K-Fold Specialist")
+            logger.info(f"[KFOLD] K-Fold Mode ativado (kfold.enabled=true) | Executando {n_splits}-Fold Purged K-Fold Specialist")
             success = run_phase(
                 name=f"K-Fold Specialist OOF ({n_splits} Folds + Purge {p_final}min)",
                 script_path="src/cloud/base_model/treino/run_kfold_specialist.py",
@@ -186,7 +186,7 @@ def main():
             )
         else:
             n_trials_spec = opt_cfg.get('n_trials_specialist', 5)
-            logger.info("📂 Legado Mode (kfold.enabled=false) → Executando Specialist Optuna (Holdout 80/20)")
+            logger.info("[PATH] Legado Mode (kfold.enabled=false) -> Executando Specialist Optuna (Holdout 80/20)")
             success = run_phase(
                 name=f"Specialist Optuna ({n_trials_spec} Trials | Symmetric Delta)",
                 script_path="src/cloud/base_model/treino/run_specialization.py",
@@ -199,10 +199,10 @@ def main():
 
     # ── FASE 3: Auditor (Meta-Labeling & XGBoost) ──────────────────────────────
     if not run_auditor:
-        logger.warning("🛑 PARADA PROGRAMADA: 'run_auditor_after' esta FALSE no master_config.yaml.")
-        logger.info("   ↳ Pulando Fase Auditor. As predições OOF do Especialista foram geradas, mas o Juiz nao sera treinado.")
+        logger.warning("[STOP] PARADA PROGRAMADA: 'run_auditor_after' esta FALSE no master_config.yaml.")
+        logger.info("   -> Pulando Fase Auditor. As predicoes OOF do Especialista foram geradas, mas o Juiz nao sera treinado.")
     else:
-        # Recalcula caminhos: Se você mudou o threshold no YAML durante o treino do Especialista, 
+        # Recalcula caminhos: Se voce mudou o threshold no YAML durante o treino do Especialista, 
         # o Manager agora vai detectar a nova pasta automaticamente aqui.
         from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
         mod_dir = resolve_local_drive(Path(get_drive_session_path("MODELOS", config)))
@@ -225,16 +225,16 @@ def main():
             req_msg = f"Base Model e Specialist Model"
 
         if not base_exists:
-            logger.error(f"❌ MODELO BASE AUSENTE CERIFIQUE")
-            logger.error(f"   ↳ Verificado em: {mod_dir}")
+            logger.error(f"[FAIL] MODELO BASE AUSENTE CERIFIQUE")
+            logger.error(f"   -> Verificado em: {mod_dir}")
             if not skip_qa_on_fail: sys.exit(1)
             
         if not spec_signal_exists:
-            logger.error(f"❌ SINAL OOF AUSENTE CERIFIQUE")
-            logger.error(f"   ↳ Procurado em: {oof_check}")
+            logger.error(f"[FAIL] SINAL OOF AUSENTE CERIFIQUE")
+            logger.error(f"   -> Procurado em: {oof_check}")
             if not skip_qa_on_fail: sys.exit(1)
 
-        logger.info(f"🔍 Auditor Requirements OK. Usando Base Model: {active_base_path.name}")
+        logger.info(f"[DIAG] Auditor Requirements OK. Usando Base Model: {active_base_path.name}")
 
             
         # Auditor Preprocessing (Alpha Sensors)
@@ -244,7 +244,7 @@ def main():
         # Auditor Labelling (Cross-Inference)
         # Force retrain para garantir que o fusion data seja gerado com os novos thresholds
         if not run_phase("Auditor Labelling (Fused Logits + Sinais OOF)", "src/cloud/auditor_model/auditor_labelling.py", force_retrain=True):
-            logger.error("❌ Falha critica no Auditor Labelling! Abortando.")
+            logger.error("[FAIL] Falha critica no Auditor Labelling! Abortando.")
             sys.exit(1)
         
         if manage_gpu: free_memory()
@@ -255,14 +255,14 @@ def main():
             
         if manage_gpu: free_memory()
         
-    # ── FASE 3.5: Geração de Logs QA (OOF Health Check) ───────────────────────
+    # ── FASE 3.5: Geracao de Logs QA (OOF Health Check) ───────────────────────
     logger.info("="*60)
-    logger.info("🩺 INICIANDO AVALIAÇÃO DE SAÚDE (QA) OOF 🩺")
+    logger.info("[HEALTH] INICIANDO AVALIACAO DE SAUDE (QA) OOF")
     run_phase("Health QA Generation (Target Balance & NaNs)", "src/cloud/base_model/utils/qa_generator.py", force_retrain=True)
     
     # ── FASE 4: Final Transfer ────────────────────────────────────────────────
     logger.info("="*60)
-    logger.info("📦 INICIANDO TRANSFERENCIA INTEGRAL (QA LOGS E MODELOS) 📦")
+    logger.info("[TRANSFER] INICIANDO TRANSFERENCIA INTEGRAL (QA LOGS E MODELOS)")
     
     log_filename = "run_manager.log"
     for handler in logger.handlers:
@@ -275,9 +275,9 @@ def main():
         env["QUIET_LOGGING"] = "1"
         # Adjusted transfer call
         subprocess.run([sys.executable, "src/cloud/base_model/utils/transfer.py", log_filename, "all"], check=True, env=env)
-        logger.info("✅ PIPELINE 100% EXECUTADO E SINCRONIZADO NO GOOGLE DRIVE.")
+        logger.info("[OK] PIPELINE 100% EXECUTADO E SINCRONIZADO NO GOOGLE DRIVE.")
     except subprocess.CalledProcessError as e:
-        logger.error(f"❌ Transfer Failed: {e}")
+        logger.error(f"[FAIL] Transfer Failed: {e}")
 
 if __name__ == "__main__":
     main()

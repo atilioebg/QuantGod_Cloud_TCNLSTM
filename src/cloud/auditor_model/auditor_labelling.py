@@ -208,7 +208,7 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
     active_base_path = primary_base if primary_base.exists() else (fallback_base if fallback_base.exists() else None)
 
     if not active_base_path:
-        logger.error(f"❌ MODELO BASE AUSENTE PARA FUSION: {primary_base}")
+        logger.error(f"[FAIL] MODELO BASE AUSENTE PARA FUSION: {primary_base}")
         sys.exit(1)
 
     # Choice of parameters JSON must match the chosen weights file
@@ -217,7 +217,7 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
     base_params_path = Path("src/cloud/base_model/otimizacao") / param_file
     
     if not base_params_path.exists():
-        logger.error(f"❌ {param_file} not found. Ensure Foundation Optuna updated both JSONs.")
+        logger.error(f"[FAIL] {param_file} not found. Ensure Foundation Optuna updated both JSONs.")
         sys.exit(1)
 
     with open(base_params_path, 'r') as f:
@@ -232,7 +232,7 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
     logger.info(f"🔍 [Audit Diagnostic] Found {len(val_files)} parquet files in {foundation_val_dir}")
     
     if not val_files:
-        logger.error(f"❌ NENHUM ARQUIVO .parquet ENCONTRADO EM {foundation_val_dir}!")
+        logger.error(f"[FAIL] NENHUM ARQUIVO .parquet ENCONTRADO EM {foundation_val_dir}!")
         raise FileNotFoundError(f"foundation_val_dir is empty: {foundation_val_dir}")
 
     dfs_val   = []
@@ -271,21 +271,15 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
         dropout=base_params['dropout'],
     ).to(DEVICE)
 
-    logger.info(f"🔑 [Audit Fix] Usando Base Model: {active_base_path.name}")
-
-    if not active_base_path:
-        logger.error(f"❌ MODELO BASE AUSENTE PARA FUSION: {primary_base}")
-        sys.exit(1)
-
-    logger.info(f"🔑 [Audit Fix] Usando Base Model: {active_base_path.name}")
+    logger.info(f"[OK] [Audit Fix] Usando Base Model: {active_base_path.name}")
     try:
         sd = torch.load(active_base_path, map_location=DEVICE, weights_only=True)
         model_base.load_state_dict(sd.get('model_state_dict', sd))
     except Exception as e:
-        logger.error(f"❌ Erro ao carregar state_dict do modelo base: {e}")
+        logger.error(f"[FAIL] Erro ao carregar state_dict do modelo base: {e}")
         sys.exit(1)
 
-    logger.info("🤖 Generating Foundation Model probabilities over Foundation Val...")
+    logger.info("[MODEL] Generating Foundation Model probabilities over Foundation Val...")
     probs_base, _ = generate_predictions(model_base, loader_base, DEVICE)
 
     # SequenceDataset offsets: first valid prediction corresponds to original_row_idx = valid_indices[i] + seq_len - 1
