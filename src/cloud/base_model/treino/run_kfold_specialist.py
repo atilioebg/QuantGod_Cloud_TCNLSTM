@@ -75,9 +75,11 @@ class SequenceDataset(Dataset):
                 island_ids[:max_idx + 1] == island_ids[seq_len - 1:]
             )[0].astype(np.int64)
 
+        total_possible = max_idx + 1 if max_idx >= 0 else 0
+        dropped = total_possible - len(self.valid_indices)
         logger.info(
-            f"SequenceDataset: {len(self.valid_indices)}/{max_idx + 1 if max_idx >= 0 else 0} "
-            f"valid sequences (Lookback protection active)."
+            f"SequenceDataset: {len(self.valid_indices)}/{total_possible} valid sequences "
+            f"(Dropped {dropped} due to Island Crossings | Lookback={seq_len})"
         )
 
     def __len__(self):
@@ -461,7 +463,14 @@ def run_kfold_specialist():
             f"O Especialista terá poucos sinais de volatilidade para aprender."
         )
 
-    class_weights = config['training']['specialization_weights'].get('class_weights', [4.85, 0.38, 4.61])
+    # Sniper Inheritance: Herdar alphas genéticos do best_params se disponíveis
+    class_weights = best_params.get('base_alpha_list') 
+    if class_weights is None:
+        # Fallback para master_config ou valor padrão
+        class_weights = config['training']['specialization_weights'].get('class_weights', [4.85, 0.38, 4.61])
+        logger.info(f"⚖️ Alphas Fallback: {class_weights}")
+    else:
+        logger.info(f"🧬 Alphas Genetic Inheritance: {class_weights}")
     batch_size    = best_params.get('batch_size', 512)
     seq_len       = best_params['seq_len']
 
