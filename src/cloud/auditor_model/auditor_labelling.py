@@ -35,6 +35,7 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 from src.cloud.base_model.models.model import Hybrid_TCN_LSTM
+from src.cloud.base_model.utils.logging_utils import setup_logger
 from src.cloud.base_model.utils.path_utils import get_labelled_dir, get_auditor_context_dir, get_drive_session_path, resolve_local_drive
 
 logger = logging.getLogger(__name__)
