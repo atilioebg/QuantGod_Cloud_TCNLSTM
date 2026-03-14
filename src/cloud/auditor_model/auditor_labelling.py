@@ -197,9 +197,33 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
     mins    = config['pre_processing']['labelling'].get('horizon_minutes', 15)
     foundation_val_dir = Path(get_labelled_dir(config)) / "val"
     
-    base_params_path = Path("src/cloud/base_model/otimizacao/best_params.json")
+    # ── Foundation Model Selection & Parameter Loading ─────────────────────────
+    paths = config.get('pipeline_paths', {})
+    best_base_macro = resolve_local_drive(Path(base_model_dir) / paths.get('best_tcn_lstm_model', 'BASE_MODEL/best_tcn_lstm.pt'))
+    best_base_dir   = resolve_local_drive(Path(base_model_dir) / paths.get('best_tcn_lstm_dir_model', 'BASE_MODEL/best_tcn_lstm_dir.pt'))
+    
+    use_dir_strategy = config.get('training', {}).get('specialization_weights', {}).get('use_best_f1_dir', True)
+    primary_base = best_base_dir if use_dir_strategy else best_base_macro
+    fallback_base = best_base_macro if use_dir_strategy else best_base_dir
+    active_base_path = primary_base if primary_base.exists() else (fallback_base if fallback_base.exists() else None)
+
+    if not active_base_path:
+        logger.error(f"❌ MODELO BASE AUSENTE PARA FUSION: {primary_base}")
+        sys.exit(1)
+
+    # Choice of parameters JSON must match the chosen weights file
+    is_dir_model = (active_base_path == best_base_dir)
+    param_file = "best_dir_params.json" if is_dir_model else "best_params.json"
+    base_params_path = Path("src/cloud/base_model/otimizacao") / param_file
+    
+    if not base_params_path.exists():
+        logger.error(f"❌ {param_file} not found. Ensure Foundation Optuna updated both JSONs.")
+        sys.exit(1)
+
     with open(base_params_path, 'r') as f:
         base_params = json.load(f)
+    
+    logger.info(f"Loaded Foundation Arch ({param_file}): seq_len={base_params['seq_len']}, tcn={base_params['tcn_channels']}, lstm={base_params['lstm_hidden']}×{base_params['num_lstm_layers']}")
 
     logger.info(f"🔍 [Audit Diagnostic] foundation_val_dir: {foundation_val_dir.absolute()}")
     logger.info(f"🔍 [Audit Diagnostic] Directory exists? {foundation_val_dir.exists()}")
@@ -247,18 +271,7 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
         dropout=base_params['dropout'],
     ).to(DEVICE)
 
-    base_dir = get_drive_session_path("MODELOS", config)
-    
-    # Inteligencia Dinamica (Macro/Dir): Procura o melhor modelo disponivel
-    paths = config.get('pipeline_paths', {})
-    best_base_macro = resolve_local_drive(Path(base_dir) / paths.get('best_tcn_lstm_model', 'BASE_MODEL/best_tcn_lstm.pt'))
-    best_base_dir   = resolve_local_drive(Path(base_dir) / paths.get('best_tcn_lstm_dir_model', 'BASE_MODEL/best_tcn_lstm_dir.pt'))
-    
-    use_dir_strategy = config.get('training', {}).get('specialization_weights', {}).get('use_best_f1_dir', True)
-    primary_base = best_base_dir if use_dir_strategy else best_base_macro
-    fallback_base = best_base_macro if use_dir_strategy else best_base_dir
-    
-    active_base_path = primary_base if primary_base.exists() else (fallback_base if fallback_base.exists() else None)
+    logger.info(f"🔑 [Audit Fix] Usando Base Model: {active_base_path.name}")
 
     if not active_base_path:
         logger.error(f"❌ MODELO BASE AUSENTE PARA FUSION: {primary_base}")
@@ -372,11 +385,15 @@ def load_and_predict(config, val_dir, context_dir, output_dir):
 
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    base_params_path = Path("src/cloud/base_model/otimizacao/best_params.json")
-    spec_params_path = Path("src/cloud/base_model/otimizacao/best_params_specialist.json")
+    # Selection logic for parameters (Legacy Mode)
+    use_dir_strategy = config.get('training', {}).get('specialization_weights', {}).get('use_best_f1_dir', True)
+    base_param_file = "best_dir_params.json" if use_dir_strategy else "best_params.json"
+    
+    base_params_path = Path("src/cloud/base_model/otimizacao") / base_param_file
+    spec_params_path = Path("src/cloud/base_model/otimizacao") / "best_params_specialist.json"
 
     if not base_params_path.exists() or not spec_params_path.exists():
-        logger.error("❌ best_params.json ou best_params_specialist.json não encontrados.")
+        logger.error(f"❌ {base_param_file} ou best_params_specialist.json não encontrados.")
         return
 
     with open(base_params_path, 'r') as f:
