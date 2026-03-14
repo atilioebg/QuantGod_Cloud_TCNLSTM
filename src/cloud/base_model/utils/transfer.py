@@ -145,12 +145,14 @@ def transfer_results(log_filename: str, run_type: str):
         files_to_transfer.append(project_root / db_filename)
         
         # Adding items directly from master_config mappings
-        from src.cloud.base_model.utils.path_utils import get_drive_session_path
-        base_dir = get_drive_session_path("MODELOS", config)
+        from src.cloud.base_model.utils.path_utils import resolve_local_drive, get_drive_session_path
+        base_dir_remote = get_drive_session_path("MODELOS", config)
+        base_dir_local = resolve_local_drive(base_dir_remote)
+
         for key in ['best_tcn_lstm_model', 'best_tcn_lstm_dir_model', 'scaler_foundation']:
             val = config['pipeline_paths'].get(key)
             if val:
-                files_to_transfer.append(Path(base_dir) / val)
+                files_to_transfer.append(base_dir_local / val)
         
     elif run_type == "specialized":
         log_root = config['pipeline_paths'].get('local_logs_root', 'logs')
@@ -161,12 +163,14 @@ def transfer_results(log_filename: str, run_type: str):
                 if logs:
                      files_to_transfer.append(logs[-1])
 
-        from src.cloud.base_model.utils.path_utils import get_drive_session_path
-        base_dir = get_drive_session_path("MODELOS", config)
+        from src.cloud.base_model.utils.path_utils import resolve_local_drive, get_drive_session_path
+        base_dir_remote = get_drive_session_path("MODELOS", config)
+        base_dir_local = resolve_local_drive(base_dir_remote)
+        
         files_to_transfer.extend([
-            Path(base_dir) / config['pipeline_paths']['best_specialized_model'],
-            Path(base_dir) / config['pipeline_paths']['scaler_specialized'],
-            Path(base_dir) / config['pipeline_paths'].get('auditor_model', 'AUDITOR/auditor_xgboost.json')
+            base_dir_local / config['pipeline_paths']['best_specialized_model'],
+            base_dir_local / config['pipeline_paths']['scaler_specialized'],
+            base_dir_local / config['pipeline_paths'].get('auditor_model', 'AUDITOR/auditor_xgboost.json')
         ])
         
     elif run_type == "all":
@@ -192,12 +196,14 @@ def transfer_results(log_filename: str, run_type: str):
         files_to_transfer.extend(list(project_root.glob("*.db")))
         
         # All models & scalers
-        from src.cloud.base_model.utils.path_utils import get_drive_session_path
-        base_dir = get_drive_session_path("MODELOS", config)
+        from src.cloud.base_model.utils.path_utils import resolve_local_drive, get_drive_session_path
+        base_dir_remote = get_drive_session_path("MODELOS", config)
+        base_dir_local = resolve_local_drive(base_dir_remote)
+
         for key in ['best_tcn_lstm_model', 'best_tcn_lstm_dir_model', 'best_specialized_model', 
                     'scaler_foundation', 'scaler_specialized', 'auditor_model', 'scaler_auditor']:
             val = config['pipeline_paths'].get(key)
-            if val: files_to_transfer.append(Path(base_dir) / val)
+            if val: files_to_transfer.append(base_dir_local / val)
         
         # ── K-Fold OOF Models \u0026 Scalers (Paper Trading Ready) ────────────────
         oof_dir = project_root / config.get('pre_processing', {}).get('kfold', {}).get('oof_output_dir', 'data/auditor/oof_predictions')
