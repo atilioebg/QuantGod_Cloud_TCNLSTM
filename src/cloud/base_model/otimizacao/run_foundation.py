@@ -576,13 +576,17 @@ def run_optimization():
         best_dir_trial = max(completed, key=lambda t: t.user_attrs["best_f1_dir"])
         best_dir_params = best_dir_trial.params.copy()
         
-        # Inject Focal parameters into DIR params too
-        if not list(filter(lambda k: "alpha" in k, best_dir_params.keys())):
-            best_dir_params['base_alpha_list'] = final_params.get('base_alpha_list', [1.0, 1.0, 1.0])
+        # Inject Focal parameters into DIR params too (Genetic Inheritance)
+        # Reconstruct alpha list from DIR trial params specifically
+        a_sell = best_dir_params.get('base_alpha_sell', final_params.get('base_alpha_sell', 1.0))
+        a_neu  = best_dir_params.get('base_alpha_neutral', final_params.get('base_alpha_neutral', 1.0))
+        a_buy  = best_dir_params.get('base_alpha_buy', final_params.get('base_alpha_buy', 1.0))
+        best_dir_params['base_alpha_list'] = [float(a_sell), float(a_neu), float(a_buy)]
+
         if "base_loss_gamma" not in best_dir_params: 
-            best_dir_params['base_loss_gamma'] = final_params.get('base_loss_gamma', 2.0)
+            best_dir_params['base_loss_gamma'] = best_dir_trial.params.get('base_loss_gamma', final_params.get('base_loss_gamma', 2.0))
         if "base_loss_smoothing" not in best_dir_params: 
-            best_dir_params['base_loss_smoothing'] = final_params.get('base_loss_smoothing', 0.1)
+            best_dir_params['base_loss_smoothing'] = best_dir_trial.params.get('base_loss_smoothing', final_params.get('base_loss_smoothing', 0.1))
 
         best_dir_val    = best_dir_trial.user_attrs["best_f1_dir"]
         formatted_dir_params = {k: f"{v:.8f}" if isinstance(v, float) else v for k, v in best_dir_params.items()}

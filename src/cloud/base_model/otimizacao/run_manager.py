@@ -131,10 +131,14 @@ def main():
 
         if kfold_enabled:
             n_splits = kfold_cfg.get('n_splits', 5)
-            gap = kfold_cfg.get('gap_minutes', 15)
-            logger.info(f"🔁 K-Fold Mode ativado (kfold.enabled=true) → Executando {n_splits}-Fold Purged K-Fold Specialist")
+            # Sniper Dynamic Purge Logic (Horizon + 1)
+            h_min = config.get('pre_processing', {}).get('labelling', {}).get('horizon_minutes', 15)
+            p_min = kfold_cfg.get('purge_minutes', 0)
+            p_final = (h_min + 1) if p_min <= 0 else p_min
+            
+            logger.info(f"🔁 K-Fold Mode ativado (kfold.enabled=true) | Executando {n_splits}-Fold Purged K-Fold Specialist")
             success = run_phase(
-                name=f"K-Fold Specialist OOF ({n_splits} Folds + Purge {gap}min)",
+                name=f"K-Fold Specialist OOF ({n_splits} Folds + Purge {p_final}min)",
                 script_path="src/cloud/base_model/treino/run_kfold_specialist.py",
                 check_exists=oof_check,
                 force_retrain=force_retrain
