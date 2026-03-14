@@ -319,7 +319,7 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
             global GLOBAL_BEST_MACRO, GLOBAL_BEST_DIR
 
             # MACRO global best
-            if f1_macro >= GLOBAL_BEST_MACRO:
+            if f1_macro > GLOBAL_BEST_MACRO and f1_macro > 0:
                 prev_macro = GLOBAL_BEST_MACRO
                 GLOBAL_BEST_MACRO = f1_macro
                 from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
@@ -332,7 +332,7 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
                             f"(prev: {prev_macro:.8f}) -> saved {model_path.name}")
 
             # DIR global best
-            if f1_dir >= GLOBAL_BEST_DIR:
+            if f1_dir > GLOBAL_BEST_DIR and f1_dir > 0:
                 prev_dir = GLOBAL_BEST_DIR
                 GLOBAL_BEST_DIR = f1_dir
                 from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
