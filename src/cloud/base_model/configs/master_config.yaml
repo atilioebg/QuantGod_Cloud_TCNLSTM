@@ -105,8 +105,8 @@ pre_processing:
     convexity_far_end: 20                                         # Limite superior dos níveis "longe" para Book Convexity
   labelling:
     # Limiares de alvo futuro (Rentabilidade para Target 0 ou 2)
-    sell_threshold: 0.003                                         # Sincronizado com modelo 10/03
-    buy_threshold: 0.003                                          # Sincronizado com modelo 10/03
+    sell_threshold: 0.0015                                        # Ajustado para estratégia sniper 14/03
+    buy_threshold: 0.002                                          # Ajustado para estratégia sniper 14/03
     # lookahead 
     horizon_minutes: 15                                           # Janela de Lookahead de 15 minutos (Data Sync)
     use_dynamic_workers: true                                    # Se true: usa os.cpu_count()-1 dinâmico; se false: usa max_workers abaixo
