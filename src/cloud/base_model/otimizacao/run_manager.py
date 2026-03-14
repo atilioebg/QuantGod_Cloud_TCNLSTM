@@ -147,7 +147,7 @@ def main():
     any_base_exists = best_base_macro.exists() or best_base_dir.exists()
 
     success = run_phase(
-        name=f"Foundation Optuna ({n_trials_base} Trials | {epochs} Epochs | ESP: {patience})",
+        name=f"Foundation Optuna ({n_trials_base} Trials | {epochs} Epochs | EARLY STOP: {patience})",
         script_path="src/cloud/base_model/otimizacao/run_foundation.py",
         check_exists=str(best_base_macro) if not any_base_exists else None, # Skip check if any exists
         force_retrain=force_retrain
