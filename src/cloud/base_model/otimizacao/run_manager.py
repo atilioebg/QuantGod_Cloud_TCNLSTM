@@ -70,17 +70,13 @@ def run_phase(name, script_path, check_exists=None, force_retrain=True):
                 line = line.rstrip()
                 if not line: continue
                 
-                # v4.9.2: Clean log style - Filter TQDM and strip redundant info
-                # 1. Skip TQDM progress bars (contain chars like 'it/s', '%|', etc)
-                if any(bar_char in line for bar_char in ['it/s', '%|', 'Batch:', 'Epoch ']) and '|' in line:
+                # v4.9.3: Back to clean format (no phase prefix, no TQDM noise)
+                # Filter TQDM progress bars
+                if any(bar_char in line for bar_char in ['it/s', '%|']) and '|' in line:
                     continue
-                    
-                import re
-                # 2. Strip child timestamp [YYYY-MM-DD HH:MM:SS,mmm - LEVEL - ]
-                clean_line = re.sub(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} - \w+ - ", "", line)
                 
-                # 3. Log with clean arrow prefix
-                logger.info(f"  ↳ [{name}] {clean_line}")
+                # Log exactly as it comes (Terminal style)
+                logger.info(line)
         
         process.wait()
         
