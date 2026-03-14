@@ -271,22 +271,22 @@ optimization:
     min_floor_alpha: 0.05                                         # Piso mínimo para evitar alpha <= 0
 
   search_space:
-    tcn_channels: [64, 128, 256, 512]                             # Filtros Dinâmicos Captadores Visuais (TCN - Redes Residuais Causais)
-    lstm_hidden: [32, 64, 128]                                    # Topologia Vetorial Oculta dos Blocos Neurais em Memória Tensa (LTSM) 
-    num_lstm_layers: [2, 3, 4]                                     # Simplificado: Menos camadas evitam colapso em dados ruidosos
-    lr: [0.00001, 0.001]                                          # Aumentado teto: permite sair do Neutro mais rápido
-    weight_decay: [0.0001, 0.01]                                  # Controle Punitivo de Regularização (Peso Descontado Extra sobre a Perda)
-    batch_size: [128, 256, 512]                                   # Lotes Simultâneos injetados Paralelamente na VRAM do Fio Tenson (Cuda GPU)
-    seq_len: [24, 48, 96, 120, 144]                               # Túnel Histórico: 24 barras a 144 barras
+    tcn_channels: [128, 256]                                      # Focado nos vencedores (128 foi rei)
+    lstm_hidden: [64, 128]                                        # Otimizando a memória tensa
+    num_lstm_layers: [2, 3]                                        # Reduzido: 2 camadas foi o melhor disparado
+    lr: [0.0001, 0.001]                                           # Piso elevado: ja vimos que LR baixo nao converge a tempo
+    weight_decay: [0.0001, 0.001]                                 # Reduzido: p/ evitar sub-ajuste (underfitting)
+    batch_size: [256, 512]                                        # Focado em estabilidade de gradiente (512 foi o melhor)
+    seq_len: [96, 144]                                            # Focado em contexto longo (144 foi o melhor)
     dropout: [0.3, 0.6]                                           # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
     epochs: 50                                                    # REDUZIDO: Modo de teste E2E
     early_stopping_patience: 6                                    # Mais tempo para o modelo estabilizar após sair do zero
     
     # --- HIPERPARÂMETROS DA FOCAL LOSS: BASE MODELO ---
-    base_loss_gamma: [1.0, 3.0]                                   # Base: Trade-off convergência suave vs minúcia
-    base_loss_smoothing: [0.01, 0.15]                             # Base: Injeção de Dúvida restrita
-    base_alpha_side: [1.5, 6.0]                                   # Base: Multiplicador para BUY (2) e SELL (0)
-    base_alpha_neutral: [0.1, 0.8]                                # Base: Multiplicador achatado para NEUTRAL (1)
+    base_loss_gamma: [1.2, 3.0]                                   # Ajustado p/ o centro dos melhores (1.5 e 2.6)
+    base_loss_smoothing: [0.08, 0.15]                             # Focado na zona de estabilidade vista
+    base_alpha_side: [4.0, 10.0]                                  # AUMENTADO: Vimos que ate 8.1 foi util p/ forcar Buy/Sell
+    base_alpha_neutral: [0.1, 0.4]                                # REDUZIDO: Neutral precisa ser bem esmagado p/ modelo nao ter medo
 
     # --- HIPERPARÂMETROS DA FOCAL LOSS: ESPECIALISTA (SNIPER) ---
     # com o kfold.enabled: true o Optuna NÃO vai rodar logo estes
