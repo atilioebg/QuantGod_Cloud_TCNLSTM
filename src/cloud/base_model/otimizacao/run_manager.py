@@ -70,13 +70,17 @@ def run_phase(name, script_path, check_exists=None, force_retrain=True):
                 line = line.rstrip()
                 if not line: continue
                 
-                # v4.9.3: Back to clean format (no phase prefix, no TQDM noise)
-                # Filter TQDM progress bars
+                # v4.9.4: Clean Extraction (Strip redundant child logging headers)
+                # 1. Filter TQDM noise
                 if any(bar_char in line for bar_char in ['it/s', '%|']) and '|' in line:
                     continue
                 
-                # Log exactly as it comes (Terminal style)
-                logger.info(line)
+                # 2. Specifically strip redundant child header: [YYYY-MM-DD HH:MM:SS,mmm - LEVEL - ]
+                import re
+                clean_line = re.sub(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} - \w+ - ", "", line)
+                
+                # 3. Log just the message (the manager's logger will add its own single header)
+                logger.info(clean_line)
         
         process.wait()
         
