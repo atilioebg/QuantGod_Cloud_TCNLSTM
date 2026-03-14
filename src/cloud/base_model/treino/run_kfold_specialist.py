@@ -382,7 +382,7 @@ def run_inference(model: nn.Module, X_norm: np.ndarray, y: np.ndarray,
                 all_probs.append(probs.cpu().numpy())
                 all_targets.append(batch_y.numpy())
 
-    return np.vstack(all_probs), np.concatenate(all_targets)
+    return np.vstack(all_probs), np.concatenate(all_targets), dataset.valid_indices
 
 
 # ── Main K-Fold Loop ──────────────────────────────────────────────────────────
@@ -545,8 +545,8 @@ def run_kfold_specialist():
         logger.info(f"[Fold {fold_k}] Model saved: {model_path.name}")
 
         # ── OOF Inference (raw logits on unseen test block) ───────────────────
-        probs, targets = run_inference(model, X_test_norm, y_test, island_test, seq_len, batch_size, DEVICE)
-        pred_classes   = np.argmax(probs, axis=1)
+        probs, targets, valid_idx = run_inference(model, X_test_norm, y_test, island_test, seq_len, batch_size, DEVICE)
+        pred_classes = np.argmax(probs, axis=1)
 
         # Fold metrics
         f1_m = f1_score(targets, pred_classes, average='macro', zero_division=0)
@@ -563,7 +563,7 @@ def run_kfold_specialist():
 
         # Save per-fold parquet (for debugging / partial resume)
         fold_df = pd.DataFrame({
-            "original_row_idx": test_idx[seq_len - 1:],
+            "original_row_idx": test_idx[valid_idx + seq_len - 1],
             "spec_prob_sell":   probs[:, 0],
             "spec_prob_neu":    probs[:, 1],
             "spec_prob_buy":    probs[:, 2],
