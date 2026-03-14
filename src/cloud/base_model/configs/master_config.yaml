@@ -128,7 +128,7 @@ pre_processing:
     n_splits: 5                                                   # Número de folds cronológicos (Blocked K-Fold). Cada fold cobre ~20% do Foundation Val.
     purge_minutes: 0                                              # Se 0: Usa automaticamente horizon_minutes do ageing/labelling.
                                                                   # Garante: max(treino_ts) + purge_min < min(teste_ts). Default = horizon_minutes = 15min.
-    specialist_epochs: 10                                         # REDUZIDO: Modo de teste E2E
+    specialist_epochs: 60                                         # REDUZIDO: Modo de teste E2E
     use_best_foundation_arch: true                                # Se true: usa best_params.json da Fundação sem re-otimizar (Symmetric Delta não é executado).
                                                                   # Poupa GPU: cada fold treina a MESMA arquitetura vencedora, variando apenas os pesos.
     oof_output_dir: "SPECIALIST"                # Diretório onde os logits de cada fold e o full_oof.parquet serão salvos.
@@ -256,8 +256,8 @@ training:
 
 optimization:
   study_name: "QUANTGOD_V000"                                     # Nome de identificação do experimento interno no banco SQLite
-  n_trials: 3                                                   # REDUZIDO: Modo de teste E2E
-  n_trials_specialist: 5                                          # REDUZIDO: Modo de teste E2E
+  n_trials: 120                                                   # REDUZIDO: Modo de teste E2E
+  n_trials_specialist: 0                                          # REDUZIDO: Modo de teste E2E
   timeout: 72000                                                  # Teto limite cronometrado na Nuvem (Ex: Parada rígida em 20 horas de máquina ~ 72000s)
   base_metric: "f1_macro"                                         # Macro F1 busca treinar a Inteligência Média global da Base com equidade
   specialized_metric: "sniper_score"                              # O Otimizador customizado Híbrido que extraíremos a fundo a Ouro de Alpha do ML
@@ -268,7 +268,7 @@ optimization:
 
   auditor:
     enabled: true                                                 # [AUTO-HPO] Se true, o Auditor fará uma busca HPO via Optuna antes do treino final.
-    n_trials: 5                                                  # Ciclos de busca para encontrar o Juiz perfeito
+    n_trials: 50                                                  # Ciclos de busca para encontrar o Juiz perfeito
     search_space:
       max_depth: [3, 8]                                           # Profundidade da árvore (4-6 costuma ser o sweet spot)
       learning_rate: [0.01, 0.1]                                  # Velocidade de aprendizado (Shrinkage)
@@ -291,7 +291,7 @@ optimization:
     batch_size: [256, 512]                                        # Focado em estabilidade de gradiente (512 foi o melhor)
     seq_len: [96, 144]                                            # Focado em contexto longo (144 foi o melhor)
     dropout: [0.3, 0.6]                                           # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
-    epochs: 5                                                    # REDUZIDO: Modo de teste E2E
+    epochs: 50                                                    # REDUZIDO: Modo de teste E2E
     early_stopping_patience: 6                                    # Mais tempo para o modelo estabilizar após sair do zero
     
     # --- HIPERPARÂMETROS DA FOCAL LOSS: BASE MODELO ---
