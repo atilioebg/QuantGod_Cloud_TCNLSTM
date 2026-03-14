@@ -240,7 +240,8 @@ def train_specialist_fold(
 
     logger.info(f"🔄 Warm-Starting from Foundation Checkpoint: {warm_start_path}")
     try:
-        state_dict = torch.load(warm_start_path, map_location='cpu')
+        # weights_only=True is safer and removes FutureWarnings in newer PyTorch versions
+        state_dict = torch.load(warm_start_path, map_location='cpu', weights_only=True)
         if 'model_state_dict' in state_dict:
             state_dict = state_dict['model_state_dict']
         
