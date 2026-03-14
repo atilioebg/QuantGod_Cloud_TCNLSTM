@@ -74,7 +74,15 @@ def main():
     
     from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
     mod_dir = resolve_local_drive(Path(get_drive_session_path("MODELOS", config)))
-    best_base_model = str(mod_dir / paths.get('best_tcn_lstm_model', 'BASE_MODEL/best_tcn_lstm.pt'))
+    
+    best_base_macro = mod_dir / paths.get('best_tcn_lstm_model', 'BASE_MODEL/best_tcn_lstm.pt')
+    best_base_dir   = mod_dir / paths.get('best_tcn_lstm_dir_model', 'BASE_MODEL/best_tcn_lstm_dir.pt')
+    
+    # Define o modelo base principal de acordo com a estratégia de seleção
+    use_dir_strategy = config.get('training', {}).get('specialization_weights', {}).get('use_best_f1_dir', True)
+    primary_base = best_base_dir if use_dir_strategy else best_base_macro
+    fallback_base = best_base_macro if use_dir_strategy else best_base_dir
+    
     best_spec_model = str(mod_dir / paths.get('best_specialized_model', 'BASE_MODEL/test.pt'))
     auditor_model   = str(mod_dir / paths.get('auditor_model', 'AUDITOR/auditor_xgboost.json'))
     
@@ -89,11 +97,18 @@ def main():
     patience = search_space.get('early_stopping_patience', 4)
     
     # ── FASE 1: Foundation Optuna ──────────────────────────────────────────────
-    # Calls the refactored run_foundation.py
+    # Recalculate paths before phase to allow mid-run changes in YAML
+    mod_dir = resolve_local_drive(Path(get_drive_session_path("MODELOS", config)))
+    best_base_macro = mod_dir / paths.get('best_tcn_lstm_model', 'BASE_MODEL/best_tcn_lstm.pt')
+    best_base_dir   = mod_dir / paths.get('best_tcn_lstm_dir_model', 'BASE_MODEL/best_tcn_lstm_dir.pt')
+    
+    # Check exists is now smart: if ANY base model exists, we can skip/continue
+    any_base_exists = best_base_macro.exists() or best_base_dir.exists()
+
     success = run_phase(
         name=f"Foundation Optuna ({n_trials_base} Trials | {epochs} Epochs | ESP: {patience})",
         script_path="src/cloud/base_model/otimizacao/run_foundation.py",
-        check_exists=best_base_model,
+        check_exists=str(best_base_macro) if not any_base_exists else None, # Skip check if any exists
         force_retrain=force_retrain
     )
     if not success and not skip_qa_on_fail: sys.exit(1)
@@ -142,28 +157,35 @@ def main():
         logger.warning("🛑 PARADA PROGRAMADA: 'run_auditor_after' esta FALSE no master_config.yaml.")
         logger.info("   ↳ Pulando Fase Auditor. As predições OOF do Especialista foram geradas, mas o Juiz nao sera treinado.")
     else:
-        # Auditor Requirements Check
+        # Recalcula caminhos: Se você mudou o threshold no YAML durante o treino do Especialista, 
+        # o Manager agora vai detectar a nova pasta automaticamente aqui.
+        from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
+        mod_dir = resolve_local_drive(Path(get_drive_session_path("MODELOS", config)))
+        
+        # Auditor Requirements Check logic
         kfold_cfg     = config.get('pre_processing', {}).get('kfold', {})
         kfold_enabled = kfold_cfg.get('enabled', False)
         oof_check     = str(mod_dir / kfold_cfg.get('oof_output_dir', 'SPECIALIST') / 'full_oof.parquet')
         
-        # Check if we have what we need
-        base_exists = Path(best_base_model).exists()
+        # No Auditor, precisamos da DNN de Base e do Sinal OOF do Especialista
+        active_base_path = primary_base if primary_base.exists() else (fallback_base if fallback_base.exists() else None)
+        base_exists = active_base_path is not None
         
         if kfold_enabled:
-            # For K-Fold, we need base model + full_oof.parquet
+            # Para K-Fold, precisamos: modelo base (qualquer um dos dois) + full_oof.parquet
             spec_signal_exists = Path(oof_check).exists()
-            req_msg = f"Requeridos: Base Model ({best_base_model}) e Specialist OOF ({oof_check})"
+            req_msg = f"Base Model (Macro ou Dir) e Specialist OOF ({oof_check})"
         else:
-            # For Legacy, we need base model + specialist model
             spec_signal_exists = Path(best_spec_model).exists()
-            req_msg = f"Requeridos: Base Model ({best_base_model}) e Specialist Model ({best_spec_model})"
+            req_msg = f"Base Model e Specialist Model"
 
         if not base_exists or not spec_signal_exists:
             logger.error(f"❌ Requisitos do Auditor não encontrados! {req_msg}")
+            logger.error(f"   ↳ Verificado Base em: {primary_base} (ou fallback)")
             if not skip_qa_on_fail: sys.exit(1)
         else:
-            logger.info(f"🔍 Requisitos do Auditor carregados OK. Engatilhando Auditor...")
+            logger.info(f"🔍 Auditor Requirements OK. Usando Base Model: {active_base_path.name}")
+
             
             # Auditor Preprocessing (Alpha Sensors)
             if not run_phase("Auditor Preprocessing (Context generation)", "src/cloud/auditor_model/auditor_preprocessing.py", force_retrain=force_retrain):
