@@ -115,6 +115,7 @@ def train_auditor():
                 **p,
                 objective='binary:logistic',
                 eval_metric='auc',
+                tree_method='hist',
                 device=_xgb_device,
                 random_state=42
             )
@@ -138,12 +139,9 @@ def train_auditor():
     scale_pos_weight = (len(y_train) - y_train.sum()) / (y_train.sum() + 1e-9)
 
     model = xgb.XGBClassifier(
-        n_estimators=xgb_params.get('n_estimators', 300),
-        max_depth=xgb_params.get('max_depth', 5),
-        learning_rate=xgb_params.get('learning_rate', 0.05),
-        subsample=xgb_params.get('subsample', 0.8),
-        colsample_bytree=xgb_params.get('colsample_bytree', 0.8),
+        **xgb_params,
         objective='binary:logistic',
+        tree_method='hist',
         eval_metric='auc',
         scale_pos_weight=scale_pos_weight,
         device=_xgb_device,

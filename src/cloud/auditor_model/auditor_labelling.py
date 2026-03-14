@@ -275,10 +275,10 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
     logger.info("🤖 Generating Foundation Model probabilities over Foundation Val...")
     probs_base, _ = generate_predictions(model_base, loader_base, DEVICE)
 
-    # SequenceDataset offsets: first valid prediction corresponds to original_row_idx = seq_len - 1
-    # i-th prediction corresponds to original_row_idx = seq_len - 1 + i
+    # SequenceDataset offsets: first valid prediction corresponds to original_row_idx = valid_indices[i] + seq_len - 1
+    # This ensures alignment even when island-aware logic drops rows in the middle of a block.
     n_preds = len(probs_base)
-    base_row_idx = np.arange(seq_len - 1, seq_len - 1 + n_preds, dtype=np.int64)
+    base_row_idx = dataset_base.valid_indices[:n_preds] + (seq_len - 1)
 
     df_base_probs = pl.DataFrame({
         "original_row_idx": base_row_idx,

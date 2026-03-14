@@ -195,15 +195,34 @@ def transfer_results(log_filename: str, run_type: str):
         # All databases
         files_to_transfer.extend(list(project_root.glob("*.db")))
         
-        # All models & scalers
-        from src.cloud.base_model.utils.path_utils import resolve_local_drive, get_drive_session_path
-        base_dir_remote = get_drive_session_path("MODELOS", config)
-        base_dir_local = resolve_local_drive(base_dir_remote)
-
-        for key in ['best_tcn_lstm_model', 'best_tcn_lstm_dir_model', 'best_specialized_model', 
-                    'scaler_foundation', 'scaler_specialized', 'auditor_model', 'scaler_auditor']:
+        kfold_active = config.get('pre_processing', {}).get('kfold', {}).get('enabled', False)
+        
+        # 1. Base Models & Foundation Scaler
+        for key in ['best_tcn_lstm_model', 'best_tcn_lstm_dir_model', 'scaler_foundation']:
             val = config['pipeline_paths'].get(key)
             if val: files_to_transfer.append(base_dir_local / val)
+            
+        # 2. Auditor Assets
+        for key in ['auditor_model', 'scaler_auditor']:
+            val = config['pipeline_paths'].get(key)
+            if val:
+                f_path = base_dir_local / val
+                if f_path.exists():
+                    files_to_transfer.append(f_path)
+        
+        # Auditor config (hardcoded in training, so we include manually)
+        auditor_cfg_path = base_dir_local / "AUDITOR/auditor_config.json"
+        if auditor_cfg_path.exists():
+            files_to_transfer.append(auditor_cfg_path)
+            
+        # 3. Optional Legacy Holdout Models (only if K-Fold is disabled)
+        if not kfold_active:
+            for key in ['best_specialized_model', 'scaler_specialized']:
+                val = config['pipeline_paths'].get(key)
+                if val:
+                    f_path = base_dir_local / val
+                    if f_path.exists():
+                        files_to_transfer.append(f_path)
         
         # ── K-Fold OOF Models \u0026 Scalers (Paper Trading Ready) ────────────────
         oof_dir = project_root / config.get('pre_processing', {}).get('kfold', {}).get('oof_output_dir', 'data/auditor/oof_predictions')

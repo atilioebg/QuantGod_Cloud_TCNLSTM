@@ -193,7 +193,7 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
         best_dir_f1   = 0.0   # Champion tracker: Best F1 Direcional (SELL+BUY)
         best_val_loss = float('inf')
         patience_counter = 0
-        patience_limit = config['optimization'].get('early_stopping_patience', 3)
+        patience_limit = config['optimization']['search_space'].get('early_stopping_patience', 6)
 
         for epoch in range(epochs):
             model.train()
@@ -342,7 +342,7 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
             
             # ── Sniper Alpha Early Stopping ──────────────────────────────────
             if patience_counter >= patience_limit:
-                logger.info(f"Trial {trial.number} stopped early due to patience ({patience_limit} epochs without improvement)")
+                logger.info(f"Trial {trial.number} stopped early due to patience limit ({patience_limit} epochs without improvement)")
                 del model, train_loader, val_loader, train_dataset, val_dataset
                 torch.cuda.empty_cache()
                 return trial_best_val
