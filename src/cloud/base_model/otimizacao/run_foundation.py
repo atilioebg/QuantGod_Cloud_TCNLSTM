@@ -463,12 +463,30 @@ def run_optimization():
     # Initialize global trackers from study history (if resuming)
     global GLOBAL_BEST_MACRO, GLOBAL_BEST_DIR
     completed = [t for t in study.trials if t.state.name == "COMPLETE"]
-    if completed:
+    
+    # Path verification: if the physical files don't exist, we must ignore DB records 
+    # to ensure the current session saves its own best models.
+    from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
+    base_dir = get_drive_session_path("MODELOS", config)
+    macro_path = resolve_local_drive(Path(base_dir) / config['pipeline_paths']['best_tcn_lstm_model'])
+    dir_path   = resolve_local_drive(Path(base_dir) / config['pipeline_paths']['best_tcn_lstm_dir_model'])
+    
+    if completed and macro_path.exists():
         GLOBAL_BEST_MACRO = study.best_value
+        logger.info(f"Resuming study. Macro Record found: {GLOBAL_BEST_MACRO:.4f}")
+    else:
+        GLOBAL_BEST_MACRO = 0.0
+        if completed: logger.info("DB has records but physical .pt is missing. Starting fresh Macro save-track.")
+
+    if completed and dir_path.exists():
         GLOBAL_BEST_DIR = max((t.user_attrs.get("best_f1_dir", 0.0) for t in completed), default=0.0)
-        logger.info(f"Resuming study. Current records: Macro={GLOBAL_BEST_MACRO:.4f}, Dir={GLOBAL_BEST_DIR:.4f}")
+        logger.info(f"Resuming study. Dir Record found: {GLOBAL_BEST_DIR:.4f}")
+    else:
+        GLOBAL_BEST_DIR = 0.0
+        if completed: logger.info("DB has records but physical _dir.pt is missing. Starting fresh Dir save-track.")
 
     metric_to_max = config['optimization']['base_metric']
+
     if foundation_cfg.get('base_use_min_f1_optimization', False) and metric_to_max == 'f1_macro':
         metric_to_max = "MIN(Sell, Neu, Buy)"
     
