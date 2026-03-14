@@ -17,6 +17,7 @@ from sklearn.preprocessing import StandardScaler
 import pickle
 import json
 import sys
+import optuna
 
 project_root = str(Path(__file__).parents[3])
 if project_root not in sys.path:
@@ -58,12 +59,16 @@ def load_data(fused_dir: str):
     return df_train, df_val
 
 def train_auditor():
-    xgb_params = load_config()
-    
-    # Adicionando consumo do master config para paths coerentes
+    # Load Main Config
     master_cfg_path = Path("src/cloud/base_model/configs/master_config.yaml")
     with open(master_cfg_path, 'r', encoding='utf-8') as f:
         master_cfg = yaml.safe_load(f)
+
+    # Auditor logic
+    opt_cfg = master_cfg.get('optimization', {}).get('auditor', {})
+    opt_enabled = opt_cfg.get('enabled', False)
+    
+    xgb_params = master_cfg['model'].get('auditor', {}).get('params', {})
     
     
     fused_dir = master_cfg['pipeline_paths'].get('fused_dataset_dir', "data/auditor/dataset_fused")
@@ -81,25 +86,56 @@ def train_auditor():
     X_val = df_val[xgb_features].to_numpy().astype(np.float32)
     y_val = df_val['meta_target'].to_numpy().astype(np.int64)
     
-    # NOVO: Fit e Transform Scaler (Exigência do Pipiline QuantGod)
+    # Fit e Transform Scaler
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train).astype(np.float32)
     X_val = scaler.transform(X_val).astype(np.float32)
-    
+
+    import torch as _torch
+    _xgb_device = 'cuda' if _torch.cuda.is_available() else 'cpu'
+
+    if opt_enabled:
+        logger.info(f"🏆 Iniciando Otimização Optuna do Auditor ({opt_cfg.get('n_trials', 10)} trials)...")
+        
+        def objective(trial):
+            space = opt_cfg.get('search_space', {})
+            
+            # Suggest params from master_config search space
+            p = {
+                'max_depth': trial.suggest_int('max_depth', space['max_depth'][0], space['max_depth'][1]),
+                'learning_rate': trial.suggest_float('learning_rate', space['learning_rate'][0], space['learning_rate'][1], log=True),
+                'n_estimators': trial.suggest_int('n_estimators', space['n_estimators'][0], space['n_estimators'][1]),
+                'subsample': trial.suggest_float('subsample', space['subsample'][0], space['subsample'][1]),
+                'colsample_bytree': trial.suggest_float('colsample_bytree', space['colsample_bytree'][0], space['colsample_bytree'][1]),
+                'reg_alpha': trial.suggest_float('reg_alpha', space['reg_alpha'][0], space['reg_alpha'][1]),
+                'reg_lambda': trial.suggest_float('reg_lambda', space['reg_lambda'][0], space['reg_lambda'][1]),
+            }
+            
+            trial_model = xgb.XGBClassifier(
+                **p,
+                objective='binary:logistic',
+                eval_metric='auc',
+                device=_xgb_device,
+                random_state=42
+            )
+            
+            trial_model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
+            
+            preds = trial_model.predict_proba(X_val)[:, 1]
+            return roc_auc_score(y_val, preds)
+
+        study = optuna.create_study(direction='maximize')
+        study.optimize(objective, n_trials=opt_cfg.get('n_trials', 10))
+        
+        logger.info(f"✅ Melhor Trial Auditor: {study.best_trial.number} (AUC: {study.best_value:.4f})")
+        xgb_params.update(study.best_params)
+        logger.info(f"🎯 Novos Parâmetros Optuna: {study.best_params}")
     logger.info(f"Tamanho Treino: {len(X_train)} | Tamanho Val: {len(X_val)}")
     logger.info(f"Ocorrência de Acertos (1) no Treino: {y_train.mean():.2%}")
     logger.info(f"Ocorrência de Acertos (1) no Val: {y_val.mean():.2%}")
     
-    # Balanceamento: Weight para a classe 1 (Acerto). Se Erros forem raros, compensa.
-    # Ex: ratio = qty_erros / qty_acertos
+    # Balanceamento: Weight para a classe 1 (Acerto)
     scale_pos_weight = (len(y_train) - y_train.sum()) / (y_train.sum() + 1e-9)
-    # Se scale_pos_weight > 1, penaliza erro no falso negativo. Se < 1, penaliza falso positivo.
-    # Queremos evitar falsos positivos do Meta_Target (achar que vai acertar e errar). 
-    # Então queremos um modelo conservador.
-    
-    # v4.9: Correct GPU detection for XGBoost (torch.cuda.is_available() is reliable)
-    import torch as _torch
-    _xgb_device = 'cuda' if _torch.cuda.is_available() else 'cpu'
 
     model = xgb.XGBClassifier(
         n_estimators=xgb_params.get('n_estimators', 300),

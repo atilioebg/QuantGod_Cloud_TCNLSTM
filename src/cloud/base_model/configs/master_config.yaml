@@ -265,6 +265,18 @@ optimization:
     dir: 0.7                                                      # A métrica Direcional (Buy e Sell ignorando Neutral) engole 70% do peso da F1
     macro: 0.3                                                    # A métrica Macro (Global F1) atua como termostato anti-sobreajuste (Overfitting) a 30%
   run_feature_importance_after: true                              # Ao fim da Base, roda e salva a Força dos 32 Alphas originais (Integridade)
+
+  auditor:
+    enabled: true                                                 # [AUTO-HPO] Se true, o Auditor fará uma busca HPO via Optuna antes do treino final.
+    n_trials: 10                                                  # Ciclos de busca para encontrar o Juiz perfeito
+    search_space:
+      max_depth: [3, 8]                                           # Profundidade da árvore (4-6 costuma ser o sweet spot)
+      learning_rate: [0.01, 0.1]                                  # Velocidade de aprendizado (Shrinkage)
+      n_estimators: [100, 1000]                                   # Quantidade de rodadas de Boosting
+      subsample: [0.6, 1.0]                                       # Fração de observações por árvore (anti-overfit)
+      colsample_bytree: [0.6, 1.0]                                # Fração de features por árvore
+      reg_alpha: [0.0, 1.0]                                       # L1 Regularization (Lasso)
+      reg_lambda: [1.0, 5.0]                                      # L2 Regularization (Ridge)
   
   dynamic_range_config:
     range_multiplier: 0.5                                         # Define os limites como [centro * 50%, centro * 150%]
