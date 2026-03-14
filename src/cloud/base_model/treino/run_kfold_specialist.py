@@ -232,31 +232,35 @@ def train_specialist_fold(
     from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
     base_dir = get_drive_session_path("MODELOS", config)
     warm_start_path = resolve_local_drive(Path(base_dir) / config['pipeline_paths'][mod_key])
+    
+    if not warm_start_path.exists():
+        logger.error(f"❌ MODELO BASE AUSENTE CERIFIQUE")
+        logger.error(f"   ↳ Caminho esperado: {warm_start_path}")
+        sys.exit(1)
+
     logger.info(f"🔄 Warm-Starting from Foundation Checkpoint: {warm_start_path}")
-    if warm_start_path.exists():
-        try:
-            state_dict = torch.load(warm_start_path, map_location='cpu')
-            if 'model_state_dict' in state_dict:
-                state_dict = state_dict['model_state_dict']
-            
-            # Check shape compatibility (especially input features)
-            incompatible = False
-            for name, param in model.state_dict().items():
-                if name in state_dict and param.shape != state_dict[name].shape:
-                    incompatible = True
-                    break
-            
-            if incompatible:
-                logger.warning(
-                    f"⚠️ [Fold {fold_k}] WARM-START ABORTED: Checkpoint features shape mismatch. "
-                    f"Expected input features: {num_features}. "
-                    f"Falling back to COLD-START (Random Initialization) for this clone."
-                )
-            else:
-                model.load_state_dict(state_dict)
-                logger.info(f"🔥 [Fold {fold_k}] WARM-START SUCCESS: Base weights initialized.")
-        except Exception as e:
-            logger.error(f"⚠️ [Fold {fold_k}] WARM-START FAILURE: {e}. Falling back to COLD-START.")
+    try:
+        state_dict = torch.load(warm_start_path, map_location='cpu')
+        if 'model_state_dict' in state_dict:
+            state_dict = state_dict['model_state_dict']
+        
+        # Check shape compatibility (especially input features)
+        incompatible = False
+        for name, param in model.state_dict().items():
+            if name in state_dict and param.shape != state_dict[name].shape:
+                incompatible = True
+                break
+        
+        if incompatible:
+            logger.error(f"❌ MODELO BASE INCOMPATIVEL CERIFIQUE")
+            logger.error(f"   ↳ Erro: Shape mismatch no checkpoint.")
+            sys.exit(1)
+        else:
+            model.load_state_dict(state_dict)
+            logger.info(f"🔥 [Fold {fold_k}] WARM-START SUCCESS: Base weights initialized.")
+    except Exception as e:
+        logger.error(f"❌ ERRO AO CARREGAR MODELO BASE: {e}")
+        sys.exit(1)
     
     model = model.to(DEVICE)
 

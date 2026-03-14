@@ -179,27 +179,32 @@ def main():
             spec_signal_exists = Path(best_spec_model).exists()
             req_msg = f"Base Model e Specialist Model"
 
-        if not base_exists or not spec_signal_exists:
-            logger.error(f"❌ Requisitos do Auditor não encontrados! {req_msg}")
-            logger.error(f"   ↳ Verificado Base em: {primary_base} (ou fallback)")
+        if not base_exists:
+            logger.error(f"❌ MODELO BASE AUSENTE CERIFIQUE")
+            logger.error(f"   ↳ Verificado em: {mod_dir}")
             if not skip_qa_on_fail: sys.exit(1)
-        else:
-            logger.info(f"🔍 Auditor Requirements OK. Usando Base Model: {active_base_path.name}")
+            
+        if not spec_signal_exists:
+            logger.error(f"❌ SINAL OOF AUSENTE CERIFIQUE")
+            logger.error(f"   ↳ Procurado em: {oof_check}")
+            if not skip_qa_on_fail: sys.exit(1)
+
+        logger.info(f"🔍 Auditor Requirements OK. Usando Base Model: {active_base_path.name}")
 
             
-            # Auditor Preprocessing (Alpha Sensors)
-            if not run_phase("Auditor Preprocessing (Context generation)", "src/cloud/auditor_model/auditor_preprocessing.py", force_retrain=force_retrain):
-                sys.exit(1)
-            
-            # Auditor Labelling (Cross-Inference)
-            if not run_phase("Auditor Labelling (Fused Logits + Sinais OOF)", "src/cloud/auditor_model/auditor_labelling.py", force_retrain=force_retrain):
-                sys.exit(1)
-            
-            if manage_gpu: free_memory()
-            
-            # Auditor XGBoost Training (Dynamic F-Beta Threshold)
-            if not run_phase("Auditor XGBoost (Dynamic Thresholding)", "src/cloud/auditor_model/train_xgboost.py", check_exists=auditor_model, force_retrain=force_retrain):
-                sys.exit(1)
+        # Auditor Preprocessing (Alpha Sensors)
+        if not run_phase("Auditor Preprocessing (Context generation)", "src/cloud/auditor_model/auditor_preprocessing.py", force_retrain=force_retrain):
+            sys.exit(1)
+        
+        # Auditor Labelling (Cross-Inference)
+        if not run_phase("Auditor Labelling (Fused Logits + Sinais OOF)", "src/cloud/auditor_model/auditor_labelling.py", force_retrain=force_retrain):
+            sys.exit(1)
+        
+        if manage_gpu: free_memory()
+        
+        # Auditor XGBoost Training (Dynamic F-Beta Threshold)
+        if not run_phase("Auditor XGBoost (Dynamic Thresholding)", "src/cloud/auditor_model/train_xgboost.py", check_exists=auditor_model, force_retrain=force_retrain):
+            sys.exit(1)
             
         if manage_gpu: free_memory()
         
