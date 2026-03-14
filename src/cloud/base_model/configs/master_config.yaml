@@ -108,7 +108,7 @@ pre_processing:
     sell_threshold: 0.0015                                        # Ajustado para estratégia sniper 14/03
     buy_threshold: 0.002                                          # Ajustado para estratégia sniper 14/03
     # lookahead 
-    horizon_minutes: 15                                           # Janela de Lookahead de 15 minutos (Data Sync)
+    horizon_minutes: 5                                            # Reduzido para 5min (Estratégia Sniper 14/03)
     use_dynamic_workers: true                                    # Se true: usa os.cpu_count()-1 dinâmico; se false: usa max_workers abaixo
     max_workers: 14                                               # Número de workers paralelos quando use_dynamic_workers=false (útil em cloud com CPUs fixas conhecidas)
   split:
@@ -126,7 +126,7 @@ pre_processing:
     enabled: true                                                 # Liga K-Fold OOF no Especialista. Se false: usa run_specialization.py legado (Holdout 80/20).
                                                                   # [NOTA]: K-Fold OOF é mandatório para gerar sinais blindados (sem vazamento) para o Auditor treinar.
     n_splits: 5                                                   # Número de folds cronológicos (Blocked K-Fold). Cada fold cobre ~20% do Foundation Val.
-    purge_minutes: 15                                             # Janela de Purga em minutos. Deve ser >= horizon_minutes para quebrar correlação serial.
+    purge_minutes: 0                                              # Se 0: Usa automaticamente horizon_minutes do ageing/labelling.
                                                                   # Garante: max(treino_ts) + purge_min < min(teste_ts). Default = horizon_minutes = 15min.
     specialist_epochs: 30                                         # REDUZIDO: Modo de teste E2E
     use_best_foundation_arch: true                                # Se true: usa best_params.json da Fundação sem re-otimizar (Symmetric Delta não é executado).
@@ -256,7 +256,7 @@ training:
 
 optimization:
   study_name: "QUANTGOD_V000"                                     # Nome de identificação do experimento interno no banco SQLite
-  n_trials: 5                                                   # REDUZIDO: Modo de teste E2E
+  n_trials: 3                                                   # REDUZIDO: Modo de teste E2E
   n_trials_specialist: 5                                          # REDUZIDO: Modo de teste E2E
   timeout: 72000                                                  # Teto limite cronometrado na Nuvem (Ex: Parada rígida em 20 horas de máquina ~ 72000s)
   base_metric: "f1_macro"                                         # Macro F1 busca treinar a Inteligência Média global da Base com equidade

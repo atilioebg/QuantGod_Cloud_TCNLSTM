@@ -394,17 +394,23 @@ def run_kfold_specialist():
     # ── 1. Load K-Fold config ─────────────────────────────────────────────────
     kfold_cfg  = config['pre_processing']['kfold']
     n_splits   = kfold_cfg.get('n_splits', 5)
-    purge_min  = kfold_cfg.get('purge_minutes', 15)
     
-    from src.cloud.base_model.utils.path_utils import get_drive_session_path
+    # ── Dinamismo Sniper: Purge automático baseado no lookahead ───────────────
+    horizon_min = config['pre_processing']['labelling'].get('horizon_minutes', 15)
+    purge_min   = kfold_cfg.get('purge_minutes', 15)
+    if purge_min <= 0:
+        purge_min = horizon_min
+        logger.info(f"🔄 Purge Dinamico ativado: usando horizon_minutes={purge_min}min")
+    
+    from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
     base_dir = get_drive_session_path("MODELOS", config)
-    oof_dir    = Path(base_dir) / kfold_cfg.get('oof_output_dir', 'SPECIALIST')
+    oof_dir  = resolve_local_drive(Path(base_dir) / kfold_cfg.get('oof_output_dir', 'SPECIALIST'))
     oof_dir.mkdir(parents=True, exist_ok=True)
 
     # purge_bars = purge_minutes / resample_freq_minutes
     resample_freq = config['pre_processing']['etl'].get('resample_freq', '1min')
     resample_min  = int(resample_freq.replace('min', '').replace('T', ''))
-    purge_bars    = max(1, purge_min // resample_min)
+    purge_bars    = int(np.ceil(purge_min / resample_min))
     logger.info(f"📐 K-Fold Setup: {n_splits} folds, purge={purge_min}min ({purge_bars} bars), resample={resample_freq}")
 
     # ── 2. Load Foundation best params ───────────────────────────────────────
