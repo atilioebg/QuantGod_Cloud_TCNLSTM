@@ -395,12 +395,13 @@ def run_kfold_specialist():
     kfold_cfg  = config['pre_processing']['kfold']
     n_splits   = kfold_cfg.get('n_splits', 5)
     
-    # ── Dinamismo Sniper: Purge automático baseado no lookahead ───────────────
+    # ── Dinamismo Sniper: Purge automático com Margem de Segurança (N+1) ──────
     horizon_min = config['pre_processing']['labelling'].get('horizon_minutes', 15)
     purge_min   = kfold_cfg.get('purge_minutes', 15)
     if purge_min <= 0:
-        purge_min = horizon_min
-        logger.info(f"🔄 Purge Dinamico ativado: usando horizon_minutes={purge_min}min")
+        # Regra de Ouro: horizon + 1 minuto de margem para evitar vazamento em bordas de milissegundos
+        purge_min = horizon_min + 1
+        logger.info(f"🔄 Purge Dinamico Sniper ativado: {horizon_min}min (horizon) + 1min (seguranca) = {purge_min}min")
     
     from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
     base_dir = get_drive_session_path("MODELOS", config)
