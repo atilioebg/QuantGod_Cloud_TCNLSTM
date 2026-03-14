@@ -520,45 +520,49 @@ def run_optimization():
     logger.info(f"Motivo da Parada: {stop_reason}")
     logger.info(f"Tempo de Execucao da Sessao: {duration/3600:.2f} Horas")
     logger.info(f"Trials Executados nesta Sessao: {trials_run}")
+    # ── Champion Param Extraction Logic (Unified) ───────────────────────────
+    def extract_full_params(trial_obj, foundation_cfg_node, labels_ref, n_feats):
+        params = trial_obj.params.copy()
+        params['num_features'] = n_feats  # Save architecture input size
+        
+        # 1. Alphas (Genetic Inheritance)
+        if any(k in params for k in ["base_alpha_sell", "base_alpha_buy"]):
+            params['base_alpha_list'] = [
+                float(params.get('base_alpha_sell', 1.0)),
+                float(params.get('base_alpha_neutral', 1.0)),
+                float(params.get('base_alpha_buy', 1.0))
+            ]
+        elif "base_alpha_side" in params:
+            params['base_alpha_list'] = [
+                float(params['base_alpha_side']),
+                float(params['base_alpha_neutral']),
+                float(params['base_alpha_side'])
+            ]
+        else:
+            # Fallback to auto-computed or manual config
+            if foundation_cfg_node.get('base_use_auto_class_weights', True):
+                params['base_alpha_list'] = compute_alpha_from_labels(labels_ref, num_classes=3, device=torch.device("cpu")).tolist()
+            else:
+                params['base_alpha_list'] = foundation_cfg_node.get('base_class_weights', [1.0, 1.0, 1.0])
+        
+        # 2. Gamma & Smoothing
+        if "base_loss_gamma" not in params:
+            params['base_loss_gamma'] = foundation_cfg_node.get('base_gamma', 2.0)
+        if "base_loss_smoothing" not in params:
+            params['base_loss_smoothing'] = foundation_cfg_node.get('base_smoothing', 0.1)
+            
+        return params
+
     logger.info("="*60)
 
     logger.info(f"🥇 [MACRO] Best trial: {study.best_trial.number} | F1 Macro: {study.best_trial.value:.8f}")
     
-    # Clean precision formatted string for logger
-    final_params = study.best_params.copy()
+    final_params = extract_full_params(study.best_trial, foundation_cfg, y_train, X_train.shape[1])
     
-    # ── Fetch active Focal Loss parameters to store in JSON ────────────────
-    # Fetch from last known trial scope / globally set values so downstream reads them
-    if any(k in final_params for k in ["base_alpha_sell", "base_alpha_buy"]):
-        # Dynamic Range mode: consolidate into list for compatibility
-        final_params['base_alpha_list'] = [
-            float(final_params.get('base_alpha_sell', 1.0)),
-            float(final_params.get('base_alpha_neutral', 1.0)),
-            float(final_params.get('base_alpha_buy', 1.0))
-        ]
-    elif "base_alpha_side" in final_params:
-        # Static Optimization mode
-        final_params['base_alpha_list'] = [
-            float(final_params['base_alpha_side']),
-            float(final_params['base_alpha_neutral']),
-            float(final_params['base_alpha_side'])
-        ]
-    elif "base_alpha_list" not in final_params:
-        if foundation_cfg.get('base_use_auto_class_weights', True):
-            final_alpha = compute_alpha_from_labels(y_train, num_classes=3, device=torch.device("cpu")).tolist()
-        else:
-            final_alpha = foundation_cfg.get('base_class_weights', [1.0, 1.0, 1.0])
-        final_params['base_alpha_list'] = final_alpha
-        
-    if "base_loss_gamma" not in final_params: 
-        final_params['base_loss_gamma'] = foundation_cfg.get('base_gamma', 2.0)
-    if "base_loss_smoothing" not in final_params: 
-        final_params['base_loss_smoothing'] = foundation_cfg.get('base_smoothing', 0.1)
-        
     formatted_best_params = {k: f"{v:.8f}" if isinstance(v, float) else v for k, v in final_params.items()}
     logger.info(f"🥇 [MACRO] Best params: {formatted_best_params}")
 
-    # ── Save MACRO champion params (trial ranked by study objective) ─────────
+    # ── Save MACRO champion params
     out_params_path = Path("src/cloud/base_model/otimizacao") / "best_params.json"
     with open(out_params_path, "w", encoding='utf-8') as f:
         json.dump(final_params, f, indent=4, ensure_ascii=False)
@@ -574,24 +578,11 @@ def run_optimization():
                  and "best_f1_dir" in t.user_attrs]
     if completed:
         best_dir_trial = max(completed, key=lambda t: t.user_attrs["best_f1_dir"])
-        best_dir_params = best_dir_trial.params.copy()
-        
-        # Inject Focal parameters into DIR params too (Genetic Inheritance)
-        # Reconstruct alpha list from DIR trial params specifically
-        a_sell = best_dir_params.get('base_alpha_sell', final_params.get('base_alpha_sell', 1.0))
-        a_neu  = best_dir_params.get('base_alpha_neutral', final_params.get('base_alpha_neutral', 1.0))
-        a_buy  = best_dir_params.get('base_alpha_buy', final_params.get('base_alpha_buy', 1.0))
-        best_dir_params['base_alpha_list'] = [float(a_sell), float(a_neu), float(a_buy)]
+        best_dir_params = extract_full_params(best_dir_trial, foundation_cfg, y_train, X_train.shape[1])
 
-        if "base_loss_gamma" not in best_dir_params: 
-            best_dir_params['base_loss_gamma'] = best_dir_trial.params.get('base_loss_gamma', final_params.get('base_loss_gamma', 2.0))
-        if "base_loss_smoothing" not in best_dir_params: 
-            best_dir_params['base_loss_smoothing'] = best_dir_trial.params.get('base_loss_smoothing', final_params.get('base_loss_smoothing', 0.1))
-
-        best_dir_val    = best_dir_trial.user_attrs["best_f1_dir"]
-        formatted_dir_params = {k: f"{v:.8f}" if isinstance(v, float) else v for k, v in best_dir_params.items()}
+        best_dir_val = best_dir_trial.user_attrs["best_f1_dir"]
         logger.info(f"🏆 [DIR]   Best trial: {best_dir_trial.number} | F1 Dir: {best_dir_val:.8f}")
-        logger.info(f"🏆 [DIR]   Best params: {formatted_dir_params}")
+        
         out_dir_path = Path("src/cloud/base_model/otimizacao") / "best_dir_params.json"
         with open(out_dir_path, "w", encoding='utf-8') as f:
             json.dump(best_dir_params, f, indent=4, ensure_ascii=False)
