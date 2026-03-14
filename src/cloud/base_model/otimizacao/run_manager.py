@@ -5,6 +5,7 @@ import yaml
 import logging
 from pathlib import Path
 import gc
+from datetime import datetime
 
 # Add project root to path
 project_root = str(Path(__file__).parents[4])
@@ -51,15 +52,44 @@ def run_phase(name, script_path, check_exists=None, force_retrain=True):
     env["QUIET_LOGGING"] = "1"
     
     try:
-        subprocess.run([sys.executable, script_path], check=True, env=env)
-        logger.info(f"✅ FASE CONCLUIDA: {name}")
-        return True
-    except subprocess.CalledProcessError as e:
-        logger.error(f"❌ FASE FALHOU: {name}. Command: {e.cmd}")
+        # v4.9: Stream subprocess output directly to the manager's logger
+        # This ensures all terminal output is also saved to the run_manager logs
+        process = subprocess.Popen(
+            [sys.executable, script_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=env,
+            bufsize=1,
+            universal_newlines=True
+        )
+        
+        # Read output in real-time
+        if process.stdout:
+            for line in process.stdout:
+                line = line.rstrip()
+                if line:
+                    logger.info(f"  [{name}] {line}")
+        
+        process.wait()
+        
+        if process.returncode == 0:
+            logger.info(f"✅ FASE CONCLUIDA: {name}")
+            return True
+        else:
+            logger.error(f"❌ FASE FALHOU: {name} (Exit Code: {process.returncode})")
+            return False
+    except Exception as e:
+        logger.error(f"❌ ERRO AO EXECUTAR FASE: {name} | {e}")
         return False
 
 def main():
     setup_logger("run_manager", "")
+    
+    # ── Session Start Marker (v4.9) ──────────────────────────────────────────
+    logger.info("=" * 60)
+    logger.info(f"🚀 INICIANDO NOVA SESSÃO DO PIPELINE: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info("=" * 60)
     
     # Load config
     master_cfg_path = Path("src/cloud/base_model/configs/master_config.yaml")

@@ -291,8 +291,18 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
             )
 
             # ── Local Champion Tracking (Within this Trial) ───────────────────
-            if current_val_loss < best_val_loss:
-                best_val_loss = current_val_loss
+            # v4.9: Patience now tracks the OPTIMIZATION METRIC (F1), not Loss.
+            # This resolves the "Patience Incongruence" and gives the model more time to stabilize.
+            # Metric value depends on master_config base_metric selection.
+            trial_improved = False
+            if base_metric_name == 'f1_macro':
+                if f1_macro > best_macro_f1:
+                    trial_improved = True
+            else:
+                if f1_dir > best_dir_f1:
+                    trial_improved = True
+            
+            if trial_improved:
                 patience_counter = 0
             else:
                 patience_counter += 1

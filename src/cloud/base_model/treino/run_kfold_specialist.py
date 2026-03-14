@@ -563,7 +563,7 @@ def run_kfold_specialist():
 
         # Save per-fold parquet (for debugging / partial resume)
         fold_df = pd.DataFrame({
-            "original_row_idx": test_idx[:len(targets)],
+            "original_row_idx": test_idx[seq_len - 1:],
             "spec_prob_sell":   probs[:, 0],
             "spec_prob_neu":    probs[:, 1],
             "spec_prob_buy":    probs[:, 2],

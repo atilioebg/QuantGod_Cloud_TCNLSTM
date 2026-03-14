@@ -139,8 +139,9 @@ async def main():
                         score = res.get('score', 0.0)
                         
                         # Pretty probability row
-                        logger.info(TC.color_text(f"│ F: [S:{f_p[0]:.0%} N:{f_p[1]:.0%} B:{f_p[2]:.0%}] | Score: {score:.4f}", audit_color))
-                        logger.info(TC.color_text(f"│ S: [S:{s_p[0]:.0%} N:{s_p[1]:.0%} B:{s_p[2]:.0%}]", audit_color))
+                        logger.info(TC.color_text(f"│ F: [S:{f_p[0]:.2%} N:{f_p[1]:.2%} B:{f_p[2]:.2%}] | ", audit_color))
+                        logger.info(TC.color_text(f"│ S: [S:{s_p[0]:.2%} N:{s_p[1]:.2%} B:{s_p[2]:.2%}]", audit_color))
+                        logger.info(TC.color_text(f"│Score: {score:.4f}", audit_color))
                         
                         logger.info(TC.color_text("├──────────────────────────────────────────────────────────┤", audit_color))
                         logger.info(TC.color_text(f"│ Realidade: BTC @ ${res['price_final']:.2f}", audit_color))
@@ -195,36 +196,40 @@ async def main():
                     sig_color = TC.GREEN if result['signal'] == "BUY" else TC.RED
                     if result['signal'] == "NEUTRAL": sig_color = TC.YELLOW
                     
-                    # --- INFERÊNCIA BOX LOG ---
-                    # Row 1: Main Inference Info
-                    info_line1 = (
-                        f"# 📊 [INFERÊNCIA] Sinal: {result['signal']} | BTC: ${current_price:.2f} | "
-                        f"Confiança: {result['auditor_score']:.4f} | "
-                        f"Equity: ${stats['equity']:.2f} ({stats['pnl_pct']:.2f}%) | "
-                        f"Pos: {stats['position']:.6f} ({stats['last_position']:.6f}) BTC #"
-                    )
-                    
-                    # Row 2: Probabilities Breakdown
-                    # Indices: 0=SELL (S), 1=NEUTRAL (N), 2=BUY (B)
+                    # --- INFERÊNCIA BOX LOG: PREMIUM LOOK ---
+                    # Row 2: Probabilities Breakdown (Integer % for cleaner look)
                     f_p = result['probs_foundation']
                     s_p = result['probs_specialist']
+                    p_f_s = f"{f_p[0]:.0%}"
+                    p_f_n = f"{f_p[1]:.0%}"
+                    p_f_b = f"{f_p[2]:.0%}"
+                    p_s_s = f"{s_p[0]:.0%}"
+                    p_s_n = f"{s_p[1]:.0%}"
+                    p_s_b = f"{s_p[2]:.0%}"
+
+                    info_line1 = (
+                        f"# 📊 [INFERÊNCIA] Sinal: {result['signal']} | BTC: ${current_price:.2f} | "
+                        f"Conf: {result['auditor_score']:.4f} | "
+                        f"Equity: ${stats['equity']:.2f} ({stats['pnl_pct']:.2f}%) #"
+                    )
+                    
                     info_line2 = (
-                        f"# FOUNDATION: [S: {f_p[0]:.0%} | N: {f_p[1]:.0%} | B: {f_p[2]:.0%}] "
-                        f"::: SPECIALIST: [S: {s_p[0]:.0%} | N: {s_p[1]:.0%} | B: {s_p[2]:.0%}] #"
+                        f"# F: [S: {p_f_s} | N: {p_f_n} | B: {p_f_b}] ::: S: [S: {p_s_s} | N: {p_s_n} | B: {p_s_b}] "
+                        f"| {now.strftime('%H:%M')} UTC #"
                     )
                     
                     # Calculate max width for perfect alignment
                     box_width = max(len(info_line1), len(info_line2))
-                    header_footer = "#" * box_width
+                    header_footer = "═" * box_width
                     
                     # Pad lines to match box_width
-                    padded_line1 = info_line1[:-1] + (" " * (box_width - len(info_line1))) + "#"
-                    padded_line2 = info_line2[:-1] + (" " * (box_width - len(info_line2))) + "#"
+                    padded_line1 = info_line1[:-1] + (" " * (box_width - len(info_line1))) + "║"
+                    padded_line2 = info_line2[:-1] + (" " * (box_width - len(info_line2))) + "║"
 
-                    logger.info(TC.color_text(header_footer, sig_color))
-                    logger.info(TC.color_text(padded_line1, sig_color))
-                    logger.info(TC.color_text(padded_line2, sig_color))
-                    logger.info(TC.color_text(header_footer, sig_color))
+                    logger.info(TC.color_text("╔" + header_footer + "╗", sig_color))
+                    logger.info(TC.color_text("║" + padded_line1[1:], sig_color))
+                    logger.info(TC.color_text("║" + padded_line2[1:], sig_color))
+                    logger.info(TC.color_text("╚" + header_footer + "╝", sig_color))
 
                     
                     # Detailed Probs log for debugging

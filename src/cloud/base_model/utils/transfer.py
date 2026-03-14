@@ -111,10 +111,26 @@ def transfer_results(log_filename: str, run_type: str):
     if run_type == "foundation":
         # ── Coleção de LOGS e REPORTS ─────────────────────────────────────────
         # Log da Otimização
+        # Log da Otimização (v4.9: Robust Search)
         log_root = config['pipeline_paths'].get('local_logs_root', 'logs')
-        log_path = project_root / log_root / "optimization" / log_filename
-        if log_path.exists():
-            files_to_transfer.append(log_path)
+        # Tries direct subfolder first, then global search across all log folders
+        log_candidates = [
+            project_root / log_root / "optimization" / log_filename,
+            project_root / log_root / "run_manager" / log_filename,
+            project_root / log_root / log_filename
+        ]
+        log_found = False
+        for cand in log_candidates:
+            if cand.exists():
+                files_to_transfer.append(cand)
+                log_found = True
+                break
+        
+        # Absolute fallback: if still not found, search recursively in logs/
+        if not log_found:
+            recursive_search = list((project_root / log_root).rglob(log_filename))
+            if recursive_search:
+                files_to_transfer.append(recursive_search[0])
             
         # Logs de ETL, Labelling, Treino e Tests
         log_root = config['pipeline_paths'].get('local_logs_root', 'logs')
@@ -175,6 +191,10 @@ def transfer_results(log_filename: str, run_type: str):
         
     elif run_type == "all":
         # ── COLECAO ABSOLUTA (PIPELINE COMPLETO V4.3) ─────────────────────────
+        from src.cloud.base_model.utils.path_utils import resolve_local_drive, get_drive_session_path
+        base_dir_remote = get_drive_session_path("MODELOS", config)
+        base_dir_local = resolve_local_drive(base_dir_remote)
+
         log_root = config['pipeline_paths'].get('local_logs_root', 'logs')
         data_root = config['pipeline_paths'].get('local_data_root', 'data/L2')
         log_patterns = [
@@ -314,10 +334,16 @@ def transfer_results(log_filename: str, run_type: str):
             for src in files_to_transfer:
                 shutil.copy2(src, staging_root / src.name)
 
-        if os.name != 'nt':
+        if os.name != 'nt' or shutil.which("rclone"):
             rclone_cfg = project_root / "rclone.conf"
             rclone_transfers = str(min(32, (os.cpu_count() or 4) * 2))
-            cmd = ["rclone", "copy", str(staging_root), remote_path, "-P", "--transfers", rclone_transfers, "--checkers", rclone_transfers]
+            
+            # Resolve rclone binary (Windows-aware)
+            rclone_bin = "rclone"
+            if os.name == "nt" and (project_root / "rclone.exe").exists():
+                rclone_bin = str(project_root / "rclone.exe")
+            
+            cmd = [rclone_bin, "copy", str(staging_root), remote_path, "-P", "--transfers", rclone_transfers, "--checkers", rclone_transfers]
             if rclone_cfg.exists():
                 cmd += ["--config", str(rclone_cfg)]
             
