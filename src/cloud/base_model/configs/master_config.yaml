@@ -256,7 +256,7 @@ training:
 
 optimization:
   study_name: "QUANTGOD_V000"                                     # Nome de identificação do experimento interno no banco SQLite
-  n_trials: 100                                                   # REDUZIDO: Modo de teste E2E
+  n_trials: 5                                                   # REDUZIDO: Modo de teste E2E
   n_trials_specialist: 5                                          # REDUZIDO: Modo de teste E2E
   timeout: 72000                                                  # Teto limite cronometrado na Nuvem (Ex: Parada rígida em 20 horas de máquina ~ 72000s)
   base_metric: "f1_macro"                                         # Macro F1 busca treinar a Inteligência Média global da Base com equidade
