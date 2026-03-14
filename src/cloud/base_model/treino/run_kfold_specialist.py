@@ -47,7 +47,7 @@ if project_root not in sys.path:
 from src.cloud.base_model.models.model import Hybrid_TCN_LSTM
 from src.cloud.base_model.treino.losses import FocalLossWithSmoothing
 from src.cloud.base_model.utils.logging_utils import setup_logger, upload_audit_to_drive
-from src.cloud.base_model.utils.path_utils import get_labelled_dir
+from src.cloud.base_model.utils.path_utils import get_labelled_dir, get_drive_session_path, resolve_local_drive
 from src.cloud.base_model.utils.experiment_utils import resolve_data_paths
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import f1_score
@@ -231,7 +231,6 @@ def train_specialist_fold(
     use_dir = spec_cfg.get('use_best_f1_dir', False)
     mod_key = 'best_tcn_lstm_dir_model' if use_dir else 'best_tcn_lstm_model'
     
-    from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
     base_dir = get_drive_session_path("MODELOS", config)
     warm_start_path = resolve_local_drive(Path(base_dir) / config['pipeline_paths'][mod_key])
     
@@ -405,7 +404,6 @@ def run_kfold_specialist():
         purge_min = horizon_min + 1
         logger.info(f"🔄 Purge Dinamico Sniper ativado: {horizon_min}min (horizon) + 1min (seguranca) = {purge_min}min")
     
-    from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
     base_dir = get_drive_session_path("MODELOS", config)
     oof_dir  = resolve_local_drive(Path(base_dir) / kfold_cfg.get('oof_output_dir', 'SPECIALIST'))
     oof_dir.mkdir(parents=True, exist_ok=True)

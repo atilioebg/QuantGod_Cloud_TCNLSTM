@@ -225,7 +225,6 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
 
     import joblib
     
-    from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
     base_dir = get_drive_session_path("MODELOS", config)
     scaler_path = resolve_local_drive(Path(base_dir) / config['pipeline_paths']['scaler_foundation'])
     logger.info(f"🔑 [Audit Fix] Scaler carregado de: {scaler_path}")
@@ -248,7 +247,6 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
         dropout=base_params['dropout'],
     ).to(DEVICE)
 
-    from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
     base_dir = get_drive_session_path("MODELOS", config)
     
     # Inteligencia Dinamica (Macro/Dir): Procura o melhor modelo disponivel
@@ -352,7 +350,6 @@ def load_and_predict(config, val_dir, context_dir, output_dir):
     island_raw  = df_val['island_id'].to_numpy()
 
     # ── Normalization ──────────────────────────────────────────────────────────
-    from src.cloud.base_model.utils.path_utils import get_drive_session_path
     base_dir = get_drive_session_path("MODELOS", config)
     scaler_foundation_path  = Path(base_dir) / config['pipeline_paths']['scaler_foundation']
     scaler_specialized_path = Path(base_dir) / config['pipeline_paths']['scaler_specialized']
@@ -401,7 +398,6 @@ def load_and_predict(config, val_dir, context_dir, output_dir):
         num_lstm_layers=spec_params['num_lstm_layers'], num_classes=3, dropout=spec_params['dropout']
     ).to(DEVICE)
 
-    from src.cloud.base_model.utils.path_utils import get_drive_session_path
     base_dir = get_drive_session_path("MODELOS", config)
     base_path = Path(base_dir) / config['pipeline_paths']['best_tcn_lstm_model']
     spec_path = Path(base_dir) / config['pipeline_paths']['best_specialized_model']
