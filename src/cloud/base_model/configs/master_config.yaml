@@ -298,12 +298,12 @@ optimization:
     min_floor_alpha: 0.05                                         # Piso mínimo para evitar alpha <= 0
 
   search_space:
-    tcn_channels: [8, 16, 32, 64, 128, 256, 512]                                      # Focado nos vencedores (128 foi rei)
+    tcn_channels: [8, 16, 32, 64, 128, 256, 512, 1024]                                # Expandido para A4500 (20GB VRAM)
     lstm_hidden: [8, 16, 32, 64, 128, 256]                                        # Otimizando a memória tensa
     num_lstm_layers: [2, 3, 4, 5, 6, 8, 10]                                        # Reduzido: 2 camadas foi o melhor disparado
     lr: [0.0001, 0.001, 0.01]                                           # Piso elevado: ja vimos que LR baixo nao converge a tempo
     weight_decay: [0.0001, 0.001, 0.01]                                 # Reduzido: p/ evitar sub-ajuste (underfitting)
-    batch_size: [32, 64, 128, 256, 512]                                        # Focado em estabilidade de gradiente (512 foi o melhor)
+    batch_size: [32, 64, 128, 256, 512, 1024, 2048]                                      # Expandido para aceleração em GPU parruda
     seq_len: [6, 12, 18, 24, 48, 96, 144]                                            # Focado em contexto longo (144 foi o melhor)
     dropout: [0.2, 0.4, 0.6, 0.8]                                           # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
     asym_gamma_sell: [0.5, 5.0]                                   # Foco no lado de venda
