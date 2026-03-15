@@ -270,9 +270,9 @@ optimization:
     n_startup_trials: 5                                           # Trials antes de começar a podar
     n_warmup_steps: 2                                             # Épocas antes de começar a podar
   
-  use_rfe: false                                                  # Se true, o Optuna escolherá quais features usar (Feature Selection)
+  use_rfe: true                                                   # Se true, o Optuna escolherá quais features usar (Feature Selection)
   
-  loss_type: "focal"                                              # Opções: "focal" ou "asymmetric" (Asymmetric pune mais sinais falsos)
+  loss_type: "asymmetric"                                         # Opções: "focal" ou "asymmetric" (Asymmetric pune mais sinais falsos)
   
   base_metric: "f1_macro"                                         # Macro F1 busca treinar a Inteligência Média global da Base com equidade
   specialized_metric: "sniper_score"                              # O Otimizador customizado Híbrido que extraíremos a fundo a Ouro de Alpha do ML
