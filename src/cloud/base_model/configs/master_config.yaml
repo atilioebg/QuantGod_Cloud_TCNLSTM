@@ -7,7 +7,7 @@ pipeline_paths:
   # ── [FONTES EXTERNAS — Google Drive / Rclone] ──────────────────
   raw_l2_source:       "drive:PROJETOS/BTC_USDT_L2_2023_2026"      # ZIPs brutos (streaming)
   drive_results_root:  "drive:PROJETOS/RESULTADOS"                 # Raiz única de todos os resultados por sessão de treino
-  session_timestamp:   "14_03_2026_v000"                           # [FIXO] Timestamp para agrupar exportações (evita gaps de segundos entre scripts)
+  session_timestamp:   "15_03_2026_v000"                           # [FIXO] Timestamp para agrupar exportações (evita gaps de segundos entre scripts)
  
   # ── [PASTAS LOCAIS — Dados L2] ──────────────────────────────────
   local_data_root:    "data/L2"                                    # Raiz de todos os dados L2
@@ -273,11 +273,11 @@ optimization:
 
   auditor:
     enabled: true                                                 # [AUTO-HPO] Se true, o Auditor fará uma busca HPO via Optuna antes do treino final.
-    n_trials: 50                                                  # Ciclos de busca para encontrar o Juiz perfeito
+    n_trials: 70                                                  # Ciclos de busca para encontrar o Juiz perfeito
     search_space:
       max_depth: [2, 3, 4, 5, 6, 8]                                           # Profundidade da árvore (4-6 costuma ser o sweet spot)
       learning_rate: [0.01, 0.1]                                  # Velocidade de aprendizado (Shrinkage)
-      n_estimators: [100, 1000]                                   # Quantidade de rodadas de Boosting
+      n_estimators: [100, 500, 1000]                                   # Quantidade de rodadas de Boosting
       subsample: [0.6, 1.0]                                       # Fração de observações por árvore (anti-overfit)
       colsample_bytree: [0.6, 1.0]                                # Fração de features por árvore
       reg_alpha: [0.0, 1.0]                                       # L1 Regularization (Lasso)
@@ -295,7 +295,7 @@ optimization:
     weight_decay: [0.0001, 0.001, 0.01]                                 # Reduzido: p/ evitar sub-ajuste (underfitting)
     batch_size: [32, 64, 128, 256, 512]                                        # Focado em estabilidade de gradiente (512 foi o melhor)
     seq_len: [6, 12, 18, 24, 48, 96, 144]                                            # Focado em contexto longo (144 foi o melhor)
-    dropout: [0.2, 0.4, 0.6]                                           # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
+    dropout: [0.2, 0.4, 0.6, 0.8]                                           # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
     epochs: 50                                                    # REDUZIDO: Modo de teste E2E
     early_stopping_patience: 6                                    # Mais tempo para o modelo estabilizar após sair do zero
     
