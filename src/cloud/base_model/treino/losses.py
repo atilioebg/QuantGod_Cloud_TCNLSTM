@@ -109,30 +109,26 @@ class FocalLossWithSmoothing(nn.Module):
 
 class AsymmetricFocalLoss(nn.Module):
     """
-    Asymmetric Focal Loss: treats signal classes (SELL/BUY) differently from NEUTRAL.
+    Asymmetric Focal Loss: treats each class (SELL, NEUTRAL, BUY) with independent focal focus.
     
-    In trading, a false signal (False Positive) is often more costly than a 
-    missed signal (False Negative). This loss allows setting a higher gamma 
-    for signal classes and shifting the probability threshold.
+    This 3-way split allows the optimizer to discover different 'difficulty' levels 
+    for each market direction.
     
     Args:
-        alpha: Per-class weights (inverse frequency).
-        gamma_neg: Focusing parameter for the Neutral class (usually lower).
-        gamma_pos: Focusing parameter for signal classes (usually higher).
+        alpha: (3,) Tensor of class weights (inverse frequency).
+        gammas: (3,) Tensor of focal focusing parameters [gamma_sell, gamma_neu, gamma_buy].
         smoothing: Label smoothing factor.
     """
     def __init__(
         self,
         alpha: torch.Tensor | None = None,
-        gamma_neg: float = 1.0,
-        gamma_pos: float = 3.0,
+        gammas: torch.Tensor | None = None,
         smoothing: float = 0.1,
         reduction: str = 'mean'
     ):
         super().__init__()
         self.alpha = alpha
-        self.gamma_neg = gamma_neg
-        self.gamma_pos = gamma_pos
+        self.gammas = gammas if gammas is not None else torch.tensor([2.0, 2.0, 2.0])
         self.smoothing = smoothing
         self.reduction = reduction
 
@@ -146,12 +142,12 @@ class AsymmetricFocalLoss(nn.Module):
         # Calculate probabilities
         pt = torch.exp(-ce_loss)
         
-        # Per-sample gamma based on target class
-        # Target classes: 0=SELL, 1=NEUTRAL, 2=BUY
-        gammas = torch.where(targets == 1, self.gamma_neg, self.gamma_pos)
+        # Map per-sample gamma based on target class indices [0, 1, 2]
+        # self.gammas must be on the same device as targets
+        batch_gammas = self.gammas.to(targets.device)[targets]
         
         # Apply asymmetric focal modulation
-        asym_focal_loss = ((1.0 - pt) ** gammas) * ce_loss
+        asym_focal_loss = ((1.0 - pt) ** batch_gammas) * ce_loss
         
         if self.reduction == 'mean':
             return asym_focal_loss.mean()

@@ -201,15 +201,18 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
         loss_type = config['optimization'].get('loss_type', 'focal')
         
         if loss_type == 'asymmetric':
-            gamma_neg = trial.suggest_float("asym_gamma_neg", 0.5, 2.0)
-            gamma_pos = trial.suggest_float("asym_gamma_pos", 2.0, 5.0)
+            gamma_sell = trial.suggest_float("asym_gamma_sell", search_space.get('asym_gamma_sell', [0.5, 5.0])[0], search_space.get('asym_gamma_sell', [0.5, 5.0])[1])
+            gamma_neu  = trial.suggest_float("asym_gamma_neu",  search_space.get('asym_gamma_neu',  [0.1, 2.0])[0], search_space.get('asym_gamma_neu',  [0.1, 2.0])[1])
+            gamma_buy  = trial.suggest_float("asym_gamma_buy",  search_space.get('asym_gamma_buy',  [0.5, 5.0])[0], search_space.get('asym_gamma_buy',  [0.5, 5.0])[1])
+            
+            gammas = torch.tensor([gamma_sell, gamma_neu, gamma_buy], dtype=torch.float32).to(DEVICE)
+            
             criterion = AsymmetricFocalLoss(
                 alpha=alpha,
-                gamma_neg=gamma_neg,
-                gamma_pos=gamma_pos,
+                gammas=gammas,
                 smoothing=smoothing
             )
-            l_str = f"ASYM (g_neg={gamma_neg:.2f}, g_pos={gamma_pos:.2f})"
+            l_str = f"ASYM (g_s={gamma_sell:.2f}, g_n={gamma_neu:.2f}, g_b={gamma_buy:.2f})"
         else:
             criterion = FocalLossWithSmoothing(
                 alpha=alpha, 
