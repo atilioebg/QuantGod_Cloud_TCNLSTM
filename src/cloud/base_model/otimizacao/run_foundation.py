@@ -109,6 +109,12 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
         # ── Datasets ───────────────────────────────────────────────────────────
         train_dataset = SequenceDataset(X_train, y_train, island_train, seq_len)
         val_dataset   = SequenceDataset(X_val, y_val, island_val, seq_len)
+
+        # ── Empty Dataset Guard: Prune trial if seq_len exceeds all islands ───
+        if len(train_dataset) == 0 or len(val_dataset) == 0:
+            logger.warning(f"Trial {trial.number} PRUNED: Sequence length {seq_len} is too long for the available data islands.")
+            raise optuna.exceptions.TrialPruned()
+
         train_loader  = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
                                    num_workers=4, pin_memory=True)
         val_loader    = DataLoader(val_dataset,   batch_size=batch_size, shuffle=False,

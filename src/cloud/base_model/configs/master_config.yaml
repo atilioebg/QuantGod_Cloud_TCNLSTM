@@ -294,7 +294,7 @@ optimization:
     lr: [0.0001, 0.001, 0.01]                                           # Piso elevado: ja vimos que LR baixo nao converge a tempo
     weight_decay: [0.0001, 0.001]                                 # Reduzido: p/ evitar sub-ajuste (underfitting)
     batch_size: [64, 128, 256, 512]                                        # Focado em estabilidade de gradiente (512 foi o melhor)
-    seq_len: [6, 12, 18, 24, 48, 96, 144, 288, 576]                                            # Focado em contexto longo (144 foi o melhor)
+    seq_len: [6, 12, 18, 24, 48, 96, 144]                                            # Focado em contexto longo (144 foi o melhor)
     dropout: [0.2, 0.4, 0.6]                                           # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
     epochs: 50                                                    # REDUZIDO: Modo de teste E2E
     early_stopping_patience: 6                                    # Mais tempo para o modelo estabilizar após sair do zero
