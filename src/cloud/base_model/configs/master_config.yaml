@@ -256,12 +256,12 @@ training:
 
 optimization:
   study_name: "QUANTGOD_V000"                                     # Nome de identificação do experimento interno no banco SQLite
-  n_trials: 120                                                   # REDUZIDO: Modo de teste E2E
+  n_trials: 140                                                   # REDUZIDO: Modo de teste E2E
   n_trials_specialist: 0                                          # REDUZIDO: Modo de teste E2E
   timeout: 72000                                                  # Teto limite cronometrado na Nuvem (Ex: Parada rígida em 20 horas de máquina ~ 72000s)
   
   sampler:
-    n_startup_trials: 60                                          # Explora aleatoriamente por mais tempo
+    n_startup_trials: 80                                          # Explora aleatoriamente por mais tempo
     multivariate: true                                            # Considera a relação entre parâmetros
   
   base_metric: "f1_macro"                                         # Macro F1 busca treinar a Inteligência Média global da Base com equidade
@@ -275,7 +275,7 @@ optimization:
     enabled: true                                                 # [AUTO-HPO] Se true, o Auditor fará uma busca HPO via Optuna antes do treino final.
     n_trials: 50                                                  # Ciclos de busca para encontrar o Juiz perfeito
     search_space:
-      max_depth: [3, 8]                                           # Profundidade da árvore (4-6 costuma ser o sweet spot)
+      max_depth: [2, 3, 4, 5, 6, 8]                                           # Profundidade da árvore (4-6 costuma ser o sweet spot)
       learning_rate: [0.01, 0.1]                                  # Velocidade de aprendizado (Shrinkage)
       n_estimators: [100, 1000]                                   # Quantidade de rodadas de Boosting
       subsample: [0.6, 1.0]                                       # Fração de observações por árvore (anti-overfit)
@@ -288,22 +288,22 @@ optimization:
     min_floor_alpha: 0.05                                         # Piso mínimo para evitar alpha <= 0
 
   search_space:
-    tcn_channels: [64, 128, 256, 512]                                      # Focado nos vencedores (128 foi rei)
-    lstm_hidden: [16, 32, 64, 128, 256]                                        # Otimizando a memória tensa
+    tcn_channels: [8, 16, 32, 64, 128, 256, 512]                                      # Focado nos vencedores (128 foi rei)
+    lstm_hidden: [8, 16, 32, 64, 128, 256]                                        # Otimizando a memória tensa
     num_lstm_layers: [2, 3, 4, 5, 6, 8, 10]                                        # Reduzido: 2 camadas foi o melhor disparado
     lr: [0.0001, 0.001, 0.01]                                           # Piso elevado: ja vimos que LR baixo nao converge a tempo
-    weight_decay: [0.0001, 0.001]                                 # Reduzido: p/ evitar sub-ajuste (underfitting)
-    batch_size: [64, 128, 256, 512]                                        # Focado em estabilidade de gradiente (512 foi o melhor)
+    weight_decay: [0.0001, 0.001, 0.01]                                 # Reduzido: p/ evitar sub-ajuste (underfitting)
+    batch_size: [32, 64, 128, 256, 512]                                        # Focado em estabilidade de gradiente (512 foi o melhor)
     seq_len: [6, 12, 18, 24, 48, 96, 144]                                            # Focado em contexto longo (144 foi o melhor)
     dropout: [0.2, 0.4, 0.6]                                           # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
     epochs: 50                                                    # REDUZIDO: Modo de teste E2E
     early_stopping_patience: 6                                    # Mais tempo para o modelo estabilizar após sair do zero
     
-    # --- HIPERPARÂMETROS DA FOCAL LOSS: BASE MODELO ---
-    base_loss_gamma: [1.2, 3.0]                                   # Ajustado p/ o centro dos melhores (1.5 e 2.6)
-    base_loss_smoothing: [0.08, 0.15]                             # Focado na zona de estabilidade vista
-    base_alpha_side: [4.0, 10.0]                                  # AUMENTADO: Vimos que ate 8.1 foi util p/ forcar Buy/Sell
-    base_alpha_neutral: [0.1, 0.4]                                # REDUZIDO: Neutral precisa ser bem esmagado p/ modelo nao ter medo
+    # --- HIPERPARAMETROS DA FOCAL LOSS: BASE MODELO ---
+    base_loss_gamma: [0.5, 5.0]                                   # Abaixo de 1.0 eh quase CrossEntropy, 5.0 eh foco extremo em erros
+    base_loss_smoothing: [0.001, 0.35]                            # ACIMA de 0.5 o modelo "esquece" o alvo. 0.35 ja eh muito ruido.
+    base_alpha_side: [1.0, 20.0]                                  # Permite dar ate 20x mais peso para Buy/Sell do que o normal
+    base_alpha_neutral: [0.001, 1.0]                              # Neutral deve ser sempre <= 1.0 para ser "esmagado" em favor dos sinais
 
     # --- HIPERPARÂMETROS DA FOCAL LOSS: ESPECIALISTA (SNIPER) ---
     # com o kfold.enabled: true o Optuna NÃO vai rodar logo estes
