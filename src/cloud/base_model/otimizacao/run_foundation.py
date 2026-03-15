@@ -22,7 +22,7 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 from src.cloud.base_model.models.model import Hybrid_TCN_LSTM
-from src.cloud.base_model.treino.losses import FocalLossWithSmoothing, compute_alpha_from_labels
+from src.cloud.base_model.treino.losses import FocalLossWithSmoothing, AsymmetricFocalLoss, compute_alpha_from_labels
 
 # Tracking variables for cross-trial real-time logging
 GLOBAL_BEST_MACRO = -1.0
@@ -104,11 +104,34 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
                                               config['optimization']['search_space']['weight_decay'][1], log=True)
         epochs          = config['optimization']['search_space']['epochs']
 
-        # Move Start Logger below Loss computation to include their values
+        # ── Automated Feature Selection (RFE via Optuna) ──────────────────────
+        use_rfe = config['optimization'].get('use_rfe', False)
+        feature_cols = config['model']['feature_names']
+        if use_rfe:
+            selected_features = []
+            for col in feature_cols:
+                if trial.suggest_bool(f"use_feat_{col}", True):
+                    selected_features.append(col)
+            
+            if not selected_features:
+                # Must select at least one feature
+                logger.warning(f"Trial {trial.number} PRUNED: No features selected by RFE.")
+                raise optuna.exceptions.TrialPruned()
+            
+            # Identify indices of selected features
+            feat_indices = [feature_cols.index(col) for col in selected_features]
+            X_train_trial = X_train[:, feat_indices]
+            X_val_trial   = X_val[:, feat_indices]
+            num_feats_trial = len(selected_features)
+            logger.info(f"Trial {trial.number} RFE: Selected {num_feats_trial}/{len(feature_cols)} features.")
+        else:
+            X_train_trial = X_train
+            X_val_trial   = X_val
+            num_feats_trial = X_train.shape[1]
 
         # ── Datasets ───────────────────────────────────────────────────────────
-        train_dataset = SequenceDataset(X_train, y_train, island_train, seq_len)
-        val_dataset   = SequenceDataset(X_val, y_val, island_val, seq_len)
+        train_dataset = SequenceDataset(X_train_trial, y_train, island_train, seq_len)
+        val_dataset   = SequenceDataset(X_val_trial, y_val, island_val, seq_len)
 
         # ── Empty Dataset Guard: Prune trial if seq_len exceeds all islands ───
         if len(train_dataset) == 0 or len(val_dataset) == 0:
@@ -122,7 +145,7 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
 
         # ── Model ──────────────────────────────────────────────────────────────
         model = Hybrid_TCN_LSTM(
-            num_features=X_train.shape[1],
+            num_features=num_feats_trial,
             seq_len=seq_len,
             tcn_channels=tcn_channels,
             lstm_hidden=lstm_hidden,
@@ -174,21 +197,35 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
         use_sniper = foundation_cfg.get('base_use_sniper_loss', False)
         sniper_weight = foundation_cfg.get('base_sniper_weight', 1.0)
 
-        # ── Trial Start Log (Moved here to include Focal parameters) ────────────
-        a_str = f"[{alpha[0]:.2f}, {alpha[1]:.2f}, {alpha[2]:.2f}]"
-        s_str = f"ON (w={sniper_weight})" if use_sniper else "OFF"
-        logger.info(f"Trial {trial.number} START | tcn={tcn_channels}, lstm={lstm_hidden}, "
-                    f"layers={num_lstm_layers}, batch={batch_size}, seq={seq_len}, "
-                    f"drop={dropout:.4f}, lr={lr:.6f}, wd={weight_decay:.4f} | "
-                    f"alpha={a_str}, gamma={gamma:.2f}, smooth={smoothing:.2f}, sniper={s_str}")
+        # 5. Loss Type Selection
+        loss_type = config['optimization'].get('loss_type', 'focal')
+        
+        if loss_type == 'asymmetric':
+            gamma_neg = trial.suggest_float("asym_gamma_neg", 0.5, 2.0)
+            gamma_pos = trial.suggest_float("asym_gamma_pos", 2.0, 5.0)
+            criterion = AsymmetricFocalLoss(
+                alpha=alpha,
+                gamma_neg=gamma_neg,
+                gamma_pos=gamma_pos,
+                smoothing=smoothing
+            )
+            l_str = f"ASYM (g_neg={gamma_neg:.2f}, g_pos={gamma_pos:.2f})"
+        else:
+            criterion = FocalLossWithSmoothing(
+                alpha=alpha, 
+                gamma=gamma, 
+                smoothing=smoothing,
+                use_sniper=use_sniper,
+                sniper_weight=sniper_weight
+            )
+            l_str = f"FOCAL (g={gamma:.2f}, sniper={'ON' if use_sniper else 'OFF'})"
 
-        criterion = FocalLossWithSmoothing(
-            alpha=alpha, 
-            gamma=gamma, 
-            smoothing=smoothing,
-            use_sniper=use_sniper,
-            sniper_weight=sniper_weight
-        )
+        # ── Trial Start Log (Updated with RFE and Loss info) ────────────
+        a_str = f"[{alpha[0]:.2f}, {alpha[1]:.2f}, {alpha[2]:.2f}]"
+        logger.info(f"Trial {trial.number} START | tcn={tcn_channels}, lstm={lstm_hidden}, "
+                    f"layers={num_lstm_layers}, batch={batch_size}, seq={seq_len} | "
+                    f"RFE={num_feats_trial if use_rfe else 'OFF'} | loss={l_str} | "
+                    f"alpha={a_str}, smooth={smoothing:.2f}")
 
         optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
@@ -471,19 +508,40 @@ def run_optimization():
     logger.info(f"Loss: FocalLossWithSmoothing | fallback_gamma={gamma_str} | fallback_smoothing={smooth_str} | SniperLoss={sniper_status}")
 
 
-    # ── Optuna study ──────────────────────────────────────────────────────────
+    # ── Optuna Sampler Selection ──────────────────────────────────────────
     sampler_cfg = config['optimization'].get('sampler', {})
+    sampler_type = sampler_cfg.get('sampler_type', 'tpe').lower()
     n_startup = sampler_cfg.get('n_startup_trials', 50)
     multivariate = sampler_cfg.get('multivariate', True)
     
-    sampler = optuna.samplers.TPESampler(n_startup_trials=n_startup, multivariate=multivariate)
+    if sampler_type == 'cmaes':
+        sampler = optuna.samplers.CMAESSampler(n_startup_trials=n_startup)
+        logger.info(f"Sampler: CMA-ES (startup={n_startup})")
+    else:
+        sampler = optuna.samplers.TPESampler(n_startup_trials=n_startup, multivariate=multivariate)
+        logger.info(f"Sampler: TPE (startup={n_startup}, multivariate={multivariate})")
+
+    # ── Optuna Pruner Selection ───────────────────────────────────────────
+    pruner_cfg = config['optimization'].get('pruner', {})
+    pruner_type = pruner_cfg.get('pruner_type', 'median').lower()
+    p_startup = pruner_cfg.get('n_startup_trials', 5)
+    p_warmup  = pruner_cfg.get('n_warmup_steps', 2)
+
+    if pruner_type == 'hyperband':
+        pruner = optuna.pruners.HyperbandPruner(min_resource=1, max_resource=config['optimization']['search_space']['epochs'], reduction_factor=3)
+        logger.info(f"Pruner: Hyperband (min_res=1, max_res={config['optimization']['search_space']['epochs']})")
+    else:
+        pruner = optuna.pruners.MedianPruner(n_startup_trials=p_startup, n_warmup_steps=p_warmup)
+        logger.info(f"Pruner: Median (startup={p_startup}, warmup={p_warmup})")
+
+    # ── Optuna study ──────────────────────────────────────────────────────────
     study = optuna.create_study(
         study_name=config['optimization']['study_name'],
         storage=config['pipeline_paths']['db_path'],
         direction="maximize",
         load_if_exists=True,
         sampler=sampler,
-        pruner=optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=2),
+        pruner=pruner,
     )
 
     # Initialize global trackers from study history (if resuming)

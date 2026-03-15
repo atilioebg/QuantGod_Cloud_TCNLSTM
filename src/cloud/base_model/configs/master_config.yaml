@@ -261,8 +261,18 @@ optimization:
   timeout: 72000                                                  # Teto limite cronometrado na Nuvem (Ex: Parada rígida em 20 horas de máquina ~ 72000s)
   
   sampler:
+    sampler_type: "tpe"                                           # Opções: "tpe" ou "cmaes" (CMA-ES é melhor p/ refinamento fino)
     n_startup_trials: 80                                          # Explora aleatoriamente por mais tempo
     multivariate: true                                            # Considera a relação entre parâmetros
+  
+  pruner:
+    pruner_type: "median"                                         # Opções: "median" ou "hyperband" (Hyperband é mais agressivo)
+    n_startup_trials: 5                                           # Trials antes de começar a podar
+    n_warmup_steps: 2                                             # Épocas antes de começar a podar
+  
+  use_rfe: false                                                  # Se true, o Optuna escolherá quais features usar (Feature Selection)
+  
+  loss_type: "focal"                                              # Opções: "focal" ou "asymmetric" (Asymmetric pune mais sinais falsos)
   
   base_metric: "f1_macro"                                         # Macro F1 busca treinar a Inteligência Média global da Base com equidade
   specialized_metric: "sniper_score"                              # O Otimizador customizado Híbrido que extraíremos a fundo a Ouro de Alpha do ML

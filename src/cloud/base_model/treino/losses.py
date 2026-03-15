@@ -107,6 +107,59 @@ class FocalLossWithSmoothing(nn.Module):
             return focal_loss
 
 
+class AsymmetricFocalLoss(nn.Module):
+    """
+    Asymmetric Focal Loss: treats signal classes (SELL/BUY) differently from NEUTRAL.
+    
+    In trading, a false signal (False Positive) is often more costly than a 
+    missed signal (False Negative). This loss allows setting a higher gamma 
+    for signal classes and shifting the probability threshold.
+    
+    Args:
+        alpha: Per-class weights (inverse frequency).
+        gamma_neg: Focusing parameter for the Neutral class (usually lower).
+        gamma_pos: Focusing parameter for signal classes (usually higher).
+        smoothing: Label smoothing factor.
+    """
+    def __init__(
+        self,
+        alpha: torch.Tensor | None = None,
+        gamma_neg: float = 1.0,
+        gamma_pos: float = 3.0,
+        smoothing: float = 0.1,
+        reduction: str = 'mean'
+    ):
+        super().__init__()
+        self.alpha = alpha
+        self.gamma_neg = gamma_neg
+        self.gamma_pos = gamma_pos
+        self.smoothing = smoothing
+        self.reduction = reduction
+
+    def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        # Cross Entropy with Label Smoothing and Class Weights
+        ce_loss = F.cross_entropy(
+            logits, targets, weight=self.alpha, 
+            label_smoothing=self.smoothing, reduction='none'
+        )
+        
+        # Calculate probabilities
+        pt = torch.exp(-ce_loss)
+        
+        # Per-sample gamma based on target class
+        # Target classes: 0=SELL, 1=NEUTRAL, 2=BUY
+        gammas = torch.where(targets == 1, self.gamma_neg, self.gamma_pos)
+        
+        # Apply asymmetric focal modulation
+        asym_focal_loss = ((1.0 - pt) ** gammas) * ce_loss
+        
+        if self.reduction == 'mean':
+            return asym_focal_loss.mean()
+        elif self.reduction == 'sum':
+            return asym_focal_loss.sum()
+        return asym_focal_loss
+
+
 def compute_alpha_from_labels(
     y: np.ndarray,
     num_classes: int = 3,
