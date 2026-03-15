@@ -466,7 +466,7 @@ def run_optimization():
 
 
     # ── Optuna study ──────────────────────────────────────────────────────────
-    sampler = optuna.samplers.TPESampler(n_startup_trials=30, multivariate=True)
+    sampler = optuna.samplers.TPESampler(n_startup_trials=50, multivariate=True)
     study = optuna.create_study(
         study_name=config['optimization']['study_name'],
         storage=config['pipeline_paths']['db_path'],
