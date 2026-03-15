@@ -110,7 +110,7 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
         if use_rfe:
             selected_features = []
             for col in feature_cols:
-                if trial.suggest_bool(f"use_feat_{col}", True):
+                if trial.suggest_categorical(f"use_feat_{col}", [True, False]):
                     selected_features.append(col)
             
             if not selected_features:
