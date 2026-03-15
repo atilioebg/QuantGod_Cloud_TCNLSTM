@@ -261,7 +261,7 @@ optimization:
   timeout: 72000                                                  # Teto limite cronometrado na Nuvem (Ex: Parada rígida em 20 horas de máquina ~ 72000s)
   
   sampler:
-    n_startup_trials: 50                                          # Explora aleatoriamente por mais tempo
+    n_startup_trials: 60                                          # Explora aleatoriamente por mais tempo
     multivariate: true                                            # Considera a relação entre parâmetros
   
   base_metric: "f1_macro"                                         # Macro F1 busca treinar a Inteligência Média global da Base com equidade
@@ -288,14 +288,14 @@ optimization:
     min_floor_alpha: 0.05                                         # Piso mínimo para evitar alpha <= 0
 
   search_space:
-    tcn_channels: [128, 256]                                      # Focado nos vencedores (128 foi rei)
-    lstm_hidden: [64, 128]                                        # Otimizando a memória tensa
-    num_lstm_layers: [2, 3]                                        # Reduzido: 2 camadas foi o melhor disparado
-    lr: [0.0001, 0.001]                                           # Piso elevado: ja vimos que LR baixo nao converge a tempo
+    tcn_channels: [64, 128, 256, 512]                                      # Focado nos vencedores (128 foi rei)
+    lstm_hidden: [16, 32, 64, 128, 256]                                        # Otimizando a memória tensa
+    num_lstm_layers: [2, 3, 4, 5, 6, 8, 10]                                        # Reduzido: 2 camadas foi o melhor disparado
+    lr: [0.0001, 0.001, 0.01]                                           # Piso elevado: ja vimos que LR baixo nao converge a tempo
     weight_decay: [0.0001, 0.001]                                 # Reduzido: p/ evitar sub-ajuste (underfitting)
-    batch_size: [256, 512]                                        # Focado em estabilidade de gradiente (512 foi o melhor)
-    seq_len: [96, 144]                                            # Focado em contexto longo (144 foi o melhor)
-    dropout: [0.3, 0.6]                                           # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
+    batch_size: [64, 128, 256, 512]                                        # Focado em estabilidade de gradiente (512 foi o melhor)
+    seq_len: [6, 12, 18, 24, 48, 96, 144, 288, 576]                                            # Focado em contexto longo (144 foi o melhor)
+    dropout: [0.2, 0.4, 0.6]                                           # Taxa de Esvaziamento Neuronal Artifical p/ Forçar Abstração Distribuída
     epochs: 50                                                    # REDUZIDO: Modo de teste E2E
     early_stopping_patience: 6                                    # Mais tempo para o modelo estabilizar após sair do zero
     
