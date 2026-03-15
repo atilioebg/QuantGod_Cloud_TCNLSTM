@@ -466,11 +466,13 @@ def run_optimization():
 
 
     # ── Optuna study ──────────────────────────────────────────────────────────
+    sampler = optuna.samplers.TPESampler(n_startup_trials=30, multivariate=True)
     study = optuna.create_study(
         study_name=config['optimization']['study_name'],
         storage=config['pipeline_paths']['db_path'],
         direction="maximize",
         load_if_exists=True,
+        sampler=sampler,
         pruner=optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=2),
     )
 
