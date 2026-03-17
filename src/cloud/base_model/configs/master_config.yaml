@@ -60,6 +60,15 @@ execution:
 pre_processing:
   etl:
     levels: 200                                                   # Profundidade em níveis coletada no L2 Orderbook (max 500 na Binance)
+    
+    # ── [NOVO] Configurações de Amostragem Event-Driven Integrada ──
+    # Não há mais seletor de tipo de barra. O motor processa os três limiares simultaneamente
+    # e cria uma nova barra sempre que QUALQUER UM dos seguintes limites for excedido.
+    dollar_threshold_usd: 100000.0                                # Limiar da Dollar Bar (Transbordo a cada US$ 100k)
+    tick_threshold: 1000                                          # Limiar da Tick Bar (Transbordo a cada 1000 trades individuais)
+    information_threshold_ofi: 50.0                               # Limiar da Information Bar (Transbordo a cada 50 de OFI abs acumulado)
+    island_gap_minutes: 5.0                                       # Gaps temporais maiores que 5 min geram nova ilha (Impedindo look-ahead bias)
+
     resample_freq: "5min"                                         # Frequência das barras para o Feature Engineering (Base da TCN)
     gap_fragment_threshold_min: 1440.0                            # 24h: Evita Hard Reset do buffer se o paper trading ficar offline por horas
     # snapshot do book 1 por segundo

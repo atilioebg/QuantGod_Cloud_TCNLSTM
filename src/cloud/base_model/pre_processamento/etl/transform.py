@@ -398,11 +398,13 @@ class L2Transformer:
             pl.col("micro_price").std().alias("volatility"),
             pl.col("spread").max().alias("max_spread"),
             pl.col("obi_l0").mean().alias("mean_obi"),
+            pl.col("micro_price").mean().alias("mean_micro_price"),
             pl.col("deep_obi_5").mean().alias("mean_deep_obi"),
             pl.col("ofi").sum().alias("ofi"),
             pl.col("micro_price_momentum").sum().alias("micro_price_momentum"),
-            pl.col("bid_slope").mean().alias("bid_slope"),
-            pl.col("ask_slope").mean().alias("ask_slope"),
+            pl.col("bid_slope").mean().alias("mean_bid_slope"),
+            pl.col("ask_slope").mean().alias("mean_ask_slope"),
+            pl.col("spread").mean().alias("mean_spread"),
             pl.col("bid_rdi").mean().alias("bid_rdi"),
             pl.col("ask_rdi").mean().alias("ask_rdi"),
             pl.col("pressure_ratio").mean().alias("pressure_ratio"),
@@ -530,10 +532,10 @@ class L2Transformer:
         ])
 
         # ── 6. Filling Strategies ─────────────────────────────────────────────
-        group_a_cols = ["open", "high", "low", "close", "max_spread", "volatility"] + ob_cols_raw
+        group_a_cols = ["open", "high", "low", "close", "mean_micro_price", "max_spread", "mean_spread", "volatility"] + ob_cols_raw
         group_a_cols = [c for c in group_a_cols if c in df.columns]
 
-        group_b_cols = ["mean_obi", "mean_deep_obi", "bid_slope", "ask_slope",
+        group_b_cols = ["mean_obi", "mean_deep_obi", "mean_bid_slope", "mean_ask_slope",
                         "bid_rdi", "ask_rdi", "pressure_ratio"]
         group_b_cols = [c for c in group_b_cols if c in df.columns]
 
@@ -705,7 +707,7 @@ class L2Transformer:
         # ── 10. Select final columns ──────────────────────────────────────────
         agg_features = [
             "body", "upper_wick", "lower_wick", "log_ret_close",
-            "volatility", "max_spread", "mean_obi", "mean_deep_obi", "log_volume",
+            "volatility", "max_spread", "mean_spread", "mean_obi", "mean_deep_obi", "log_volume",
             "ofi", f"ofi_delta_{ds_lbl}", f"ofi_delta_{dl_lbl}",
             "micro_price_momentum", f"micro_price_delta_{ds_lbl}", f"micro_price_delta_{dl_lbl}",
             "bid_rdi", f"bid_rdi_delta_{ds_lbl}", f"bid_rdi_delta_{dl_lbl}",
@@ -713,12 +715,13 @@ class L2Transformer:
             "spread_zscore_60", vpin_col,
             "kyle_lambda", "bid_deep_ratio", "ask_deep_ratio",
             "bid_convexity", "ask_convexity", "book_asymmetry_v5", "pressure_ratio",
+            "mean_bid_slope", "mean_ask_slope"
         ]
 
         # Final output: only the 30 model features + essential price/meta columns.
         # The raw OB level columns (bid_0_p, ask_0_p...) are intermediary computation
         # inputs and must NOT appear in the output parquet.
-        raw_final_cols = agg_features + ["datetime", "high", "low", "close", "island_id"]
+        raw_final_cols = agg_features + ["datetime", "high", "low", "close", "mean_micro_price", "island_id"]
         final_cols = []
         seen = set()
         for c in raw_final_cols:
@@ -831,6 +834,7 @@ class L2Transformer:
             'book_asymmetry_v5', 'spread_zscore_60', vpin_col,
             'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio',
             'bid_convexity', 'ask_convexity', 'pressure_ratio',
+            'mean_bid_slope', 'mean_ask_slope', 'mean_spread',
         ] if c in df.columns]
 
         if df.is_empty():

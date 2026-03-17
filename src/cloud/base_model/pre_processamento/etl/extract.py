@@ -43,26 +43,40 @@ class DataExtractor:
             mount_path = Path(self.path_or_remote)
             zips = sorted(list(mount_path.rglob("*.zip")))
             logger.info(f"Found {len(zips)} ZIP files locally in {self.path_or_remote}")
-            return zips
+            return [str(p) for p in zips]
         else:
             logger.info(f"Listing ZIP files from remote: {self.path_or_remote}...")
-            # Use rclone lsjson to get all zips recursively
             output = self._run_rclone(["lsjson", "-R", "--include", "*.zip", self.path_or_remote])
             files_data = json.loads(output)
-            # Filter only files (not dirs) that end with .zip
             zips = [f['Path'] for f in files_data if not f['IsDir'] and f['Path'].endswith('.zip')]
             logger.info(f"Found {len(zips)} ZIP files in remote.")
             return sorted(zips)
+
+    def list_trades_csvs(self, trades_remote: str) -> list:
+        """Lists all compressed CSV trades recursively."""
+        if not self.is_remote:
+            mount_path = Path(trades_remote)
+            csvs = sorted(list(mount_path.rglob("*.csv.gz")))
+            logger.info(f"Found {len(csvs)} CSV files locally in {trades_remote}")
+            return [str(p) for p in csvs]
+        else:
+            logger.info(f"Listing Trades CSV files from remote: {trades_remote}...")
+            output = self._run_rclone(["lsjson", "-R", "--include", "*.csv.gz", trades_remote])
+            files_data = json.loads(output)
+            csvs = [f['Path'] for f in files_data if not f['IsDir'] and f['Path'].endswith('.csv.gz')]
+            logger.info(f"Found {len(csvs)} Trades files in remote.")
+            return sorted(csvs)
 
     def cleanup_temp(self):
         """Removes all files in the temp directory to start fresh."""
         if self.temp_dir.exists():
             logger.info(f"🧹 PRE-PROCESS: Cleaning up old temp files in {self.temp_dir}")
-            for f in self.temp_dir.glob("*.zip"):
-                try:
-                    f.unlink()
-                except:
-                    pass
+            for ext in ["*.zip", "*.csv.gz"]:
+                for f in self.temp_dir.glob(ext):
+                    try:
+                        f.unlink()
+                    except:
+                        pass
 
     def stream_zip_content(self, zip_identifier: str) -> Generator[Tuple[str, any], None, None]:
         """
@@ -96,16 +110,32 @@ class DataExtractor:
                             yield name, f
                             
         except Exception as e:
-            logger.error(f"❌ ERROR: Failed to process {zip_identifier}: {e}")
+            logger.error(f"❌ ERROR: Failed to process ZIP {zip_identifier}: {e}")
         finally:
-            # THIS IS THE CRITICAL PART:
-            # We only delete if it was a downloaded file (to not delete your Google Drive data!)
             if is_remote_download and local_zip_path and local_zip_path.exists():
                 try:
                     logger.info(f"🗑️ CLEANUP: Deleting processed zip: {local_zip_path.name}")
                     local_zip_path.unlink()
                 except Exception as e:
                     logger.warning(f"⚠️ CLEANUP WARNING: Could not delete {local_zip_path}: {e}")
+
+    def download_file(self, identifier: str, remote_base: str) -> Path:
+        """Downloads a specific file (like a CSV or Parquet) from a remote directly to temp_dir."""
+        is_remote_download = ":" in remote_base and not (len(remote_base.split(":")[0]) == 1 and remote_base[1] == ":")
+        local_path = self.temp_dir / Path(identifier).name
+        
+        if is_remote_download:
+            remote_full_path = f"{remote_base}/{identifier}" if not identifier.startswith("/") else f"{remote_base}{identifier}"
+            if local_path.exists():
+                local_path.unlink()
+                
+            logger.info(f"📥 DOWNLOAD FILE: {local_path.name}")
+            self._run_rclone(["copyto", remote_full_path, str(local_path)])
+        else:
+            source_path = Path(remote_base) / identifier
+            shutil.copy2(source_path, local_path)
+            
+        return local_path
 
 if __name__ == "__main__":
     import yaml

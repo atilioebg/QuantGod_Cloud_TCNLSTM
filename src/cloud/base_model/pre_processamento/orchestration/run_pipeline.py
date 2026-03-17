@@ -2,9 +2,11 @@ import yaml
 import logging
 from pathlib import Path
 import pandas as pd
+import polars as pl
 import numpy as np
 from src.cloud.base_model.pre_processamento.etl.extract import DataExtractor
 from src.cloud.base_model.pre_processamento.etl.transform import L2Transformer
+from src.cloud.base_model.pre_processamento.etl.event_sampler import EventSampler
 from src.cloud.base_model.pre_processamento.etl.load import DataLoader
 from src.cloud.base_model.pre_processamento.etl.validate import DataValidator
 import json
@@ -142,32 +144,53 @@ def _build_quality_summary(quality_audits: list, skipped_files: list, resample_m
     }
 
 
-def process_single_zip(zip_path, config):
+def process_single_day(zip_path, csv_path, trades_remote, config):
     """
-    Worker function to process a single ZIP file in parallel.
+    Worker function to process a single day (L2 ZIP + Trades CSV) in parallel.
+    v8.0 Event-Driven: 
+      1. Extrai L2 para Polars DF
+      2. Extrai Trades para Polars DF
+      3. Merge Backward AsOf (Evita lookahead)
+      4. Constroi barras por Evento (Dollar/Tick/Info)
     """
     try:
-        # Initialize modules inside worker for process isolation
         extractor = DataExtractor(
             config['pipeline_paths']['raw_l2_source'],
             rclone_config="rclone.conf",
             temp_dir=get_temp_raw_dir(config)
         )
+        
+        etl_cfg = config['pre_processing']['etl']
         transformer = L2Transformer(
-            levels=config['pre_processing']['etl']['levels'],
-            sampling_ms=config['pre_processing']['etl']['sampling_ms'],
-            etl_cfg=config['pre_processing']['etl']
+            levels=etl_cfg['levels'],
+            sampling_ms=etl_cfg['sampling_ms'],
+            etl_cfg=etl_cfg
         )
+        
+        event_sampler = EventSampler(etl_cfg)
         loader = DataLoader(get_pre_processed_dir(config))
         validator = DataValidator()
 
+        zip_p = Path(zip_path)
+        day_identifier = zip_p.name.replace(".zip", "")
+        
+        # ── 1. Download/Parse Trades CSV ─────────────────────────────────────
+        try:
+            local_csv_path = extractor.download_file(Path(csv_path).name, trades_remote)
+            df_trades = pl.read_csv(local_csv_path)
+            if "timestamp" in df_trades.columns:
+                df_trades = df_trades.with_columns(
+                    (pl.col("timestamp") * 1000).cast(pl.Int64).alias("ts")
+                )
+            df_trades = df_trades.sort("ts")
+        except Exception as e:
+            return {"status": "error", "message": f"❌ Error loading Trades for {day_identifier}: {e}", "reason": str(e)}
+        
+        # ── 2. Download/Parse L2 ZIP ─────────────────────────────────────────
         transformer.reset_book()
-        transformer.audit_report["file_id"] = Path(zip_path).name
-        # Optimization: use a dictionary of lists instead of a list of dicts
-        # This significantly reduces memory overhead and speeds up DataFrame construction
+        transformer.audit_report["file_id"] = day_identifier
         sampled_rows = {}
         
-        # 1. Extraction (Streaming)
         for name, file_obj in extractor.stream_zip_content(zip_path):
             for line in file_obj:
                 if not line: continue
@@ -176,85 +199,99 @@ def process_single_zip(zip_path, config):
                     row = transformer.process_message(msg)
                     if row:
                         if not sampled_rows:
-                            # Initialize lists for all keys on first successful row
                             sampled_rows = {k: [] for k in row.keys()}
-                        
-                        # Append values, handle potential missing keys safely
                         for k in sampled_rows.keys():
                             sampled_rows[k].append(row.get(k, np.nan))
                 except Exception as e:
                     logger.debug(f"[pipeline] Failed to process message: {e}")
                     continue
-        
-        # 2. Transformation & Loading
-        zip_p = Path(zip_path)
-        if sampled_rows:
-            # v5.0: Pass dict-of-lists directly — apply_feature_engineering builds pl.DataFrame internally
-            if not any(sampled_rows.values()):
-                logger.warning(f"⚠️  No rows sampled in {zip_p.name}. Skipping.")
-                return {"status": "skipped", "message": f"⚠️  No data in {zip_p.name}", "reason": "No rows sampled (Threshold/Empty ZIP)"}
+                    
+        if not sampled_rows or not any(sampled_rows.values()):
+            return {"status": "skipped", "message": f"⚠️  No L2 data in {day_identifier}", "reason": "No rows sampled"}
 
-            df_final = transformer.apply_feature_engineering(sampled_rows)
-            logger.info(f"💓 Heartbeat [Pipeline Transform]: {zip_p.name} yielded {len(df_final)} final rows.")
+        df_l2 = pl.DataFrame(sampled_rows)
+        if "ts" not in df_l2.columns:
+            return {"status": "error", "message": f"❌ L2 TS corrupted for {day_identifier}", "reason": "No TS"}
             
-            # Architecture Integrity (Gold v4.6): Check if all required features are present
-            feature_list = config['model'].get('feature_names', [])
-            resample_freq = config['pre_processing']['etl'].get('resample_freq', '1min')
-            delta_short_min = config['pre_processing']['etl'].get('delta_short_min', 5)
-            health_report = validator.validate_integrity(
-                df_final,
-                name=zip_p.name,
-                feature_list=feature_list,
-                resample_freq=resample_freq,
-                delta_short_min=delta_short_min
+        df_l2 = df_l2.sort("ts").with_columns(pl.col("ts").alias("l2_ts"))
+        
+        # ── 3. Merge L2 + Trades (Atomic join_asof) ──────────────────────────
+        df_merged = df_trades.join_asof(
+            df_l2,
+            on="ts",
+            strategy="backward"
+        )
+        
+        if "price" in df_merged.columns and "size" in df_merged.columns:
+            df_merged = df_merged.with_columns(
+                (pl.col("price") * pl.col("size")).alias("usd_volume")
             )
             
-            # Protocol Island Split: Filter only valid islands
-            valid_ids = health_report.get('valid_island_ids', [])
-            if valid_ids and 'island_id' in df_final.columns:
-                import polars as _pl
-                if isinstance(df_final, _pl.DataFrame):
-                    df_final = df_final.filter(_pl.col('island_id').is_in(valid_ids))
-                else:
-                    df_final = df_final[df_final['island_id'].isin(valid_ids)].copy()
-                # Update retention count after pruning
-                transformer.audit_report["total_rows_retained"] = len(df_final)
+        if "l2_ts" in df_merged.columns:
+            df_merged = df_merged.with_columns(
+                (pl.col("ts") - pl.col("l2_ts") > 2000).fill_null(True).alias("__stale_l2__")
+            ).drop("l2_ts")
             
-            # Merge validator stats into the audit report
-            transformer.audit_report["health_stats"] = health_report
+        # ── 4. Event Sampling (Dollar/Tick/Info) ─────────────────────────────
+        df_bars = event_sampler.compute_event_bars(df_merged)
+        
+        if len(df_bars) == 0:
+            return {"status": "skipped", "message": f"⚠️  No bars generated for {day_identifier}", "reason": "Insufficient volume/ticks"}
+            
+        df_final = event_sampler.apply_feature_engineering_bars(df_bars)
+        
+        # Merge QA Audits
+        transformer.audit_report["num_islands_generated"] = event_sampler.audit_report["islands"]
+        transformer.audit_report["total_rows_retained"] = len(df_final)
+        
+        # Architecture Integrity Validation
+        feature_list = config['model'].get('feature_names', [])
+        resample_freq = etl_cfg.get('resample_freq', '5min')
+        delta_short_min = etl_cfg.get('delta_short_min', 5)
+        health_report = validator.validate_integrity(
+            df_final,
+            name=day_identifier,
+            feature_list=feature_list,
+            resample_freq=resample_freq,
+            delta_short_min=delta_short_min
+        )
+        
+        # Pruning invalid islands
+        valid_ids = health_report.get('valid_island_ids', [])
+        if valid_ids and 'island_id' in df_final.columns:
+            df_final = df_final.filter(pl.col('island_id').is_in(valid_ids))
+            transformer.audit_report["total_rows_retained"] = len(df_final)
+            
+        transformer.audit_report["health_stats"] = health_report
 
-            # Save policy: Only save if is_valid is explicitly True
-            is_valid = bool(health_report.get('is_valid', False))
-            output_name = zip_p.with_suffix(".parquet").name
-            
-            logger.info(f"AUDIT TRACE: {zip_p.name} -> is_valid={is_valid} (Islands: {health_report.get('num_islands_generated', 1)} | Retained: {len(df_final)} rows)")
-            
-            import polars as _pl
-            is_empty = df_final.is_empty() if isinstance(df_final, _pl.DataFrame) else df_final.empty
-            if is_valid and not is_empty:
-                saved = loader.save_parquet(df_final, output_name, config['pre_processing']['etl']['export_compression'])
-                if saved:
-                    logger.info(f"✅ Saved pre-processed data: {output_name}")
-            else:
-                saved = False
-                reason = "Validation Failed" if not is_valid else "No valid islands survived"
-                logger.error(f"❌ REJECTED: {zip_p.name} -> {reason}. Parquet NOT saved.")
-            
-            return {
-                "status": "success" if saved else "skipped",
-                "message": f"✅ Processed {zip_p.name}" if is_valid and not is_empty else f"❌ Rejected {zip_p.name}",
-                "audit": transformer.audit_report,
-                "is_valid": is_valid and not is_empty,
-                "reason": health_report.get('integrity_comment', "Validation Failed") if not is_valid else None
-            }
+        # Save Action
+        is_valid = bool(health_report.get('is_valid', False))
+        output_name = f"{day_identifier}.parquet"
+        
+        is_empty = df_final.is_empty()
+        if is_valid and not is_empty:
+            saved = loader.save_parquet(df_final, output_name, etl_cfg['export_compression'])
+            if saved:
+                logger.info(f"✅ Saved event-driven dataset: {output_name}")
         else:
-            return {
-                "status": "skipped", 
-                "message": f"⚠️  No data in {zip_p.name}", 
-                "reason": "No rows sampled (Threshold/Empty ZIP)",
-                "audit": transformer.audit_report
-            }
+            saved = False
+            reason = "Validation Failed" if not is_valid else "Empty output"
+            logger.error(f"❌ REJECTED: {output_name} -> {reason}")
             
+        # Cleanup temp CSV
+        try:
+            local_csv_path.unlink()
+        except:
+            pass
+            
+        return {
+            "status": "success" if saved else "skipped",
+            "message": f"✅ Processed {day_identifier}" if is_valid and not is_empty else f"❌ Rejected {day_identifier}",
+            "audit": transformer.audit_report,
+            "is_valid": is_valid and not is_empty,
+            "reason": health_report.get('integrity_comment', "Validation Failed") if not is_valid else None
+        }
+
     except Exception as e:
         zip_name = Path(zip_path).name if zip_path else "unknown"
         return {"status": "error", "message": f"❌ Error processing {zip_name}: {str(e)}", "reason": str(e)}
@@ -293,12 +330,28 @@ def run_pipeline():
         local_output.mkdir(parents=True, exist_ok=True)
     
     zip_files = extractor.list_zips()
+    trades_remote = config['pipeline_paths']['raw_trades_source']
+    csv_files = extractor.list_trades_csvs(trades_remote)
     
-    if not zip_files:
-        logger.error("No data to process.")
+    # Parear arquivos por data (YYYY-MM-DD extraído do nome)
+    import re
+    def extract_date(filename):
+        match = re.search(r'(\d{4}-\d{2}-\d{2})', filename)
+        return match.group(1) if match else None
+
+    zips_dict = {extract_date(Path(z).name): z for z in zip_files if extract_date(Path(z).name)}
+    csvs_dict = {extract_date(Path(c).name): c for c in csv_files if extract_date(Path(c).name)}
+    
+    paired_days = []
+    for date, zp in zips_dict.items():
+        if date in csvs_dict:
+            paired_days.append((zp, csvs_dict[date]))
+    
+    if not paired_days:
+        logger.error("No perfectly paired data (ZIP + CSV) found for any day.")
         return
 
-    # Dynamic CPU Detection Logic (Consistent with labelling approach)
+    # Dynamic CPU Detection Logic
     try:
         cpu_count = len(os.sched_getaffinity(0))
     except AttributeError:
@@ -316,7 +369,7 @@ def run_pipeline():
         
     logger.info(f"System detected {cpu_count} vCPUs allocated.")
     logger.info(f"ETL Worker Mode: {worker_mode} -> Using {max_workers} processes.")
-    logger.info(f"Found {len(zip_files)} ZIP files to process.")
+    logger.info(f"Found {len(paired_days)} Paired Days (L2 + Trades) to process.")
 
     # 4. Parallel Execution with ProcessPool
     skipped_files = []
@@ -325,11 +378,9 @@ def run_pipeline():
     validation_failures = []
     
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        # Create a list of future tasks
-        future_to_zip = {executor.submit(process_single_zip, zp, config): zp for zp in zip_files}
+        future_to_zip = {executor.submit(process_single_day, zp, cp, trades_remote, config): zp for zp, cp in paired_days}
         
-        # Wrap as_completed with tqdm for a beautiful progress bar
-        for future in tqdm(as_completed(future_to_zip), total=len(zip_files), desc="Parallel ETL"):
+        for future in tqdm(as_completed(future_to_zip), total=len(paired_days), desc="Parallel ETL"):
             res_obj = future.result()
             result = res_obj["message"]
             
@@ -442,13 +493,13 @@ def run_pipeline():
         logger.info(f"📊 Saved enriched data quality report to {audit_path}")
         
         # Check for 10% threshold
-        if len(skipped_files) / len(zip_files) > 0.10:
+        if len(paired_days) > 0 and len(skipped_files) / len(paired_days) > 0.10:
             logger.error(f"⚠️ DATASET SIGNIFICANTLY REDUCED: {len(skipped_files)} files skipped.")
             # Print to standard error/out vigorously in red
             print(f"\033[91m⚠️ DATASET SIGNIFICANTLY REDUCED: {len(skipped_files)} files skipped (>10%). Check docs/reports/pipeline_skip_manifest.json\033[0m")
 
     logger.info("Pipeline execution finished.")
-    logger.info(f"Total processed files: {len(zip_files) - len(skipped_files) - len(failed_files)}")
+    logger.info(f"Total processed files: {len(paired_days) - len(skipped_files) - len(failed_files)}")
     logger.info(f"CPUs used: {max_workers} / {cpu_count}")
 
     # 5c. RUN AUTOMATED DATA INTEGRITY TESTS

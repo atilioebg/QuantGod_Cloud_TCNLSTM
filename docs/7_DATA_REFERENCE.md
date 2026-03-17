@@ -7,9 +7,10 @@
 
 ### 1.1 Origem
 - **Exchange**: Bybit (BTC/USDT Perpetual Futures)
-- **Tipo de dado**: L2 Order Book — captura completa de profundidade via WebSocket
-- **Formato de armazenamento**: Arquivos ZIP mensais contendo arquivos JSON/data, armazenados no Google Drive (`drive:PROJETOS/BTC_USDT_L2_2023_2026`)
-- **Nomenclatura de pasta**: Organizado em subpastas por ano (2023, 2024, 2025, 2026)
+- **L2 Data**: **Bybit Order Book Contract** (Profundidade Completa)
+- **Trade Data**: **Bybit Public Trading History Contract** (Tick-by-tick trades)
+- **Formato L2**: Arquivos ZIP mensais contendo JSON/data (`drive:PROJETOS/BTC_USDT_L2_2023_2026`)
+- **Formato Trades**: Arquivos CSV diários/mensais
 
 ### 1.2 Estrutura de Cada Mensagem JSON Bruta
 Cada arquivo dentro do ZIP contém uma sequência de mensagens JSON, de dois tipos:
@@ -47,6 +48,27 @@ Cada arquivo dentro do ZIP contém uma sequência de mensagens JSON, de dois tip
 
 > [!IMPORTANT]
 > Um tamanho (`quantidade`) igual a `"0.000"` em uma mensagem `delta` significa **remoção** do nível de preço, não um nível com tamanho zero.
+
+---
+
+## 1.3 Dados de Execução (Trades)
+
+### Origem: Bybit Public Trading History Contract
+Os dados de trades são essenciais para a geração de **Dollar Bars** e cálculo de **VWAP**.
+
+| Coluna | Descrição |
+|:---|:---|
+| `timestamp` | Unix Timestamp (Segundos com precisão decimal) |
+| `symbol` | Par de negociação (ex: BTCUSDT) |
+| `side` | Direção do agressor (Buy/Sell) |
+| `size` | Quantidade executada (BTC) |
+| `price` | Preço de execução |
+| `tickDirection` | Direção do tick (PlusTick, MinusTick, ZeroPlusTick, ZeroMinusTick) |
+| `trdMatchID` | ID único da execução |
+| `grossValue` | Valor bruto da transação em USDT (Price * Size) |
+
+> [!NOTE]
+> O pipeline de amostragem avançada utiliza a coluna `ts` (convertida de `timestamp` para ms) para alinhar trades com o estado do Order Book.
 
 ---
 

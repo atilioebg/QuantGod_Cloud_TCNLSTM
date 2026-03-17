@@ -9,13 +9,14 @@
 
 | Atributo | Valor |
 |:---|:---|
-| **Exchange** | Bybit Futures (histórico) / Binance Futures (live) |
+| **Exchange** | Bybit Futures (Histórico) / Binance Futures (Live) |
 | **Par** | BTC/USDT Perpetual Futures |
-| **Tipo** | Level 2 Order Book — Profundidade Completa |
-| **Formato** | Arquivos `.zip` contendo mensagens JSON |
+| **Data Source (L2)** | Bybit **Order Book Contract** (Level 2) — Profundidade 200/500 |
+| **Data Source (Trades)**| Bybit **Public Trading History Contract** (Trade Data) |
+| **Formato** | Arquivos `.zip` (L2 JSON) e `.csv` (Trades) |
 | **Período** | 2023-01-01 a 2026-02-xx |
 | **Localização** | Google Drive: `drive:PROJETOS/BTC_USDT_L2_2023_2026/` |
-| **Tamanho total** | ~35.7 GB processado (`data/L2/pre_processed/`) |
+| **L2 Size (Proc)** | ~35.7 GB processado (`data/L2/pre_processed/`) |
 
 ---
 
