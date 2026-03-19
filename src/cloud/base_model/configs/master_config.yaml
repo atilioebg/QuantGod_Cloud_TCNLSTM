@@ -140,6 +140,9 @@ pre_processing:
         - kyle_lambda
         - vpin_min15
         - max_spread
+        - pressure_ratio
+        - bid_convexity
+        - ask_convexity
         - ofi
         - ofi_delta_5
         - ofi_delta_30
