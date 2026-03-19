@@ -354,6 +354,25 @@ class L2Transformer:
             logger.warning("apply_feature_engineering received an empty DataFrame")
             return df
 
+        # v6.1: Relax stale data threshold to 10 consecutive identical values
+        # This is a heuristic to detect data freezes, not a strict rule.
+        # We check for both price and volume being static.
+        price_static = (df['close'].diff() == 0).rolling(10).sum() == 10 if 'close' in df.columns else pl.Series([False]*len(df))
+        vol_static = (df['log_volume'].diff() == 0).rolling(10).sum() == 10 if 'log_volume' in df.columns else pl.Series([False]*len(df))
+        
+        # Combine conditions for stale data
+        if 'close' in df.columns and 'log_volume' in df.columns:
+            stale_indices = df.filter(price_static & vol_static).select(pl.col("ts")).to_series().to_list()
+        elif 'close' in df.columns:
+            stale_indices = df.filter(price_static).select(pl.col("ts")).to_series().to_list()
+        else:
+            stale_indices = []
+
+        if stale_indices:
+            logger.warning(f"⚠️ [STALE DATA] Detected {len(stale_indices)} rows with stale data (price and/or volume static for 10+ samples). First stale timestamp: {stale_indices[0]}")
+            # Optionally, you might want to filter these out or mark them
+            # For now, we just log a warning.
+
         if "ts" in df.columns and "datetime" not in df.columns:
             df = df.with_columns(pl.from_epoch("ts", time_unit="ms").alias("datetime"))
             

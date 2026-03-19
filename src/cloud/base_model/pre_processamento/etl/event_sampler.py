@@ -454,8 +454,8 @@ class EventSampler:
             (pl.col(f"micro_price_delta_{ds_l}") / (pl.col(f"ofi_delta_{ds_l}").abs() + 1e-4)).alias("kyle_lambda"),
             (pl.col("_sbd") / (pl.col("_sb_n") + 1e-4)).alias("bid_deep_ratio"),
             (pl.col("_sad") / (pl.col("_sa_n") + 1e-4)).alias("ask_deep_ratio"),
-            (pl.col("_sb0") / (pl.col("_sb1") + 1e-4)).clip(upper_bound=1000.0).alias("bid_convexity"),
-            (pl.col("_sa0") / (pl.col("_sa1") + 1e-4)).clip(upper_bound=1000.0).alias("ask_convexity"),
+            (pl.col("_sb0") / (pl.col("_sb1") + 1e-4)).clip(upper_bound=250.0).alias("bid_convexity"),
+            (pl.col("_sa0") / (pl.col("_sa1") + 1e-4)).clip(upper_bound=250.0).alias("ask_convexity"),
         ])
 
         helper = ["_rm_s", "_rs_s", "_ofi_roll", "_stot", "_sbd", "_sad", "_sb_n", "_sa_n", "_sb0", "_sb1", "_sa0", "_sa1"]

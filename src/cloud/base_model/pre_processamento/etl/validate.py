@@ -144,9 +144,9 @@ class DataValidator:
             logger.info("Chronological order verified.")
 
         # 4. Stale Data Check (Feed Lock Detection)
-        if len(df) > 5:
-            price_static = (df['close'].diff() == 0).rolling(5).sum() == 5 if 'close' in df.columns else False
-            vol_static = (df['log_volume'].diff() == 0).rolling(5).sum() == 5 if 'log_volume' in df.columns else False
+        if len(df) > 10:
+            price_static = (df['close'].diff() == 0).rolling(10).sum() == 10 if 'close' in df.columns else False
+            vol_static = (df['log_volume'].diff() == 0).rolling(10).sum() == 10 if 'log_volume' in df.columns else False
             stale_indices = df.index[price_static & vol_static] if 'log_volume' in df.columns else df.index[price_static] if 'close' in df.columns else pd.Index([])
             if not stale_indices.empty:
                 logger.warning(f"⚠️ STALE DATA ALERT: Possible feed lock detected in {name}")
