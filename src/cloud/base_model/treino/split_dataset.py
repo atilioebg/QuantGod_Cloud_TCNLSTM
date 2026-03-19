@@ -41,14 +41,16 @@ def execute_split(stage_name, source_files, target_base_dir, train_ratio, split_
         return [], []
 
     import polars as pl
-
     if split_by_bars:
-        # AFML SOTA: Exact bar-level split
+        # AFML SOTA: Exact bar-level split (Robust Row Counting)
         row_counts = []
         for f in source_files:
             try:
-                row_counts.append(pl.read_parquet(f, columns=[], memory_map=False).height)
-            except Exception:
+                # v9.8: Use scan for zero-copy row counting
+                count = pl.scan_parquet(f).select(pl.len()).collect().item()
+                row_counts.append(count)
+            except Exception as e:
+                logger.warning(f"Could not count rows in {f.name}: {e}")
                 row_counts.append(0)
 
         gc.collect() 
@@ -60,9 +62,16 @@ def execute_split(stage_name, source_files, target_base_dir, train_ratio, split_
         for i, count in enumerate(row_counts):
             cumul += count
             if cumul >= target_train_rows:
+                # split_idx is the index of the first file in VAL
                 split_idx = i + 1
                 break
         
+        # SAFETY GUARD: If we have multiple files but the ratio left VAL empty, 
+        # force at least one file to VAL (crucial for small test datasets)
+        if len(source_files) > 1 and split_idx >= len(source_files):
+            split_idx = len(source_files) - 1
+            logger.info(f"⚠️ [{stage_name}] Ratio would leave Val empty. Forcing last file to Val for pipeline stability.")
+
         actual_train_rows = sum(row_counts[:split_idx])
         actual_val_rows   = sum(row_counts[split_idx:])
         actual_ratio = actual_train_rows / total_rows if total_rows > 0 else 0.0
