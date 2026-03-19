@@ -183,7 +183,7 @@ def process_single_day(zip_path, csv_path, trades_remote, config):
         
         # ── 1. Download/Parse Trades CSV ─────────────────────────────────────
         try:
-            local_csv_path = extractor.download_file(Path(csv_path).name, trades_remote)
+            local_csv_path = extractor.download_file(csv_path, trades_remote)
             lf_trades = pl.scan_csv(local_csv_path)
             trades_schema = lf_trades.collect_schema().names()
             
