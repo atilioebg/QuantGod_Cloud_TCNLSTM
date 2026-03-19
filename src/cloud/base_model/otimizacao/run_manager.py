@@ -124,7 +124,6 @@ def main():
     primary_base = best_base_dir if use_dir_strategy else best_base_macro
     fallback_base = best_base_macro if use_dir_strategy else best_base_dir
     
-    best_spec_model = str(mod_dir / paths.get('best_specialized_model', 'BASE_MODEL/test.pt'))
     auditor_model   = str(mod_dir / paths.get('auditor_model', 'AUDITOR/auditor_xgboost.json'))
     
     # QA logs Directory Generation
@@ -161,38 +160,26 @@ def main():
     run_specialized = spec_cfg.get('run_specialized_after', True)
     run_auditor     = spec_cfg.get('run_auditor_after', True)
 
-    # ── FASE 2: Specialist ─────────────────────────────────────────────────────
+    # ── FASE 2: Specialist (K-Fold OOF) ───────────────────────────────────
     if not run_specialized:
         logger.warning("[STOP] PARADA PROGRAMADA: 'run_specialized_after' esta FALSE no master_config.yaml. Pulando treinamento do Especialista.")
     else:
-        # Auto-detect: K-Fold OOF (Engorda Total) vs Legado (Holdout 80/20)
-        kfold_cfg     = config.get('pre_processing', {}).get('kfold', {})
-        kfold_enabled = kfold_cfg.get('enabled', False)
-        oof_check     = str(mod_dir / kfold_cfg.get('oof_output_dir', 'SPECIALIST') / 'full_oof.parquet')
+        kfold_cfg = config.get('pre_processing', {}).get('kfold', {})
+        oof_check = str(mod_dir / kfold_cfg.get('oof_output_dir', 'SPECIALIST') / 'full_oof.parquet')
 
-        if kfold_enabled:
-            n_splits = kfold_cfg.get('n_splits', 5)
-            # Sniper Dynamic Purge Logic (Horizon + 1)
-            h_min = config.get('pre_processing', {}).get('labelling', {}).get('horizon_minutes', 15)
-            p_min = kfold_cfg.get('purge_minutes', 0)
-            p_final = (h_min + 1) if p_min <= 0 else p_min
-            
-            logger.info(f"[KFOLD] K-Fold Mode ativado (kfold.enabled=true) | Executando {n_splits}-Fold Purged K-Fold Specialist")
-            success = run_phase(
-                name=f"K-Fold Specialist OOF ({n_splits} Folds + Purge {p_final}min)",
-                script_path="src/cloud/base_model/treino/run_kfold_specialist.py",
-                check_exists=oof_check,
-                force_retrain=force_retrain
-            )
-        else:
-            n_trials_spec = opt_cfg.get('n_trials_specialist', 5)
-            logger.info("[PATH] Legado Mode (kfold.enabled=false) -> Executando Specialist Optuna (Holdout 80/20)")
-            success = run_phase(
-                name=f"Specialist Optuna ({n_trials_spec} Trials | Symmetric Delta)",
-                script_path="src/cloud/base_model/treino/run_specialization.py",
-                check_exists=best_spec_model,
-                force_retrain=force_retrain
-            )
+        n_splits = kfold_cfg.get('n_splits', 5)
+        # Sniper Dynamic Purge Logic (Horizon + 1)
+        h_min = config.get('pre_processing', {}).get('labelling', {}).get('horizon_minutes', 15)
+        p_min = kfold_cfg.get('purge_minutes', 0)
+        p_final = (h_min + 1) if p_min <= 0 else p_min
+        
+        logger.info(f"[KFOLD] Executando {n_splits}-Fold Purged K-Fold Specialist")
+        success = run_phase(
+            name=f"K-Fold Specialist OOF ({n_splits} Folds + Purge {p_final}min)",
+            script_path="src/cloud/base_model/treino/run_kfold_specialist.py",
+            check_exists=oof_check,
+            force_retrain=force_retrain
+        )
         if not success and not skip_qa_on_fail: sys.exit(1)
 
         if manage_gpu: free_memory()
@@ -208,21 +195,16 @@ def main():
         mod_dir = resolve_local_drive(Path(get_drive_session_path("MODELOS", config)))
         
         # Auditor Requirements Check logic
-        kfold_cfg     = config.get('pre_processing', {}).get('kfold', {})
-        kfold_enabled = kfold_cfg.get('enabled', False)
-        oof_check     = str(mod_dir / kfold_cfg.get('oof_output_dir', 'SPECIALIST') / 'full_oof.parquet')
+        kfold_cfg = config.get('pre_processing', {}).get('kfold', {})
+        oof_check = str(mod_dir / kfold_cfg.get('oof_output_dir', 'SPECIALIST') / 'full_oof.parquet')
         
         # No Auditor, precisamos da DNN de Base e do Sinal OOF do Especialista
         active_base_path = primary_base if primary_base.exists() else (fallback_base if fallback_base.exists() else None)
         base_exists = active_base_path is not None
         
-        if kfold_enabled:
-            # Para K-Fold, precisamos: modelo base (qualquer um dos dois) + full_oof.parquet
-            spec_signal_exists = Path(oof_check).exists()
-            req_msg = f"Base Model (Macro ou Dir) e Specialist OOF ({oof_check})"
-        else:
-            spec_signal_exists = Path(best_spec_model).exists()
-            req_msg = f"Base Model e Specialist Model"
+        # Para K-Fold, precisamos: modelo base (qualquer um dos dois) + full_oof.parquet
+        spec_signal_exists = Path(oof_check).exists()
+        req_msg = f"Base Model (Macro ou Dir) e Specialist OOF ({oof_check})"
 
         if not base_exists:
             logger.error(f"[FAIL] MODELO BASE AUSENTE CERIFIQUE")

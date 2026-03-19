@@ -18,9 +18,6 @@ pipeline_paths:
   temp_raw_dir:      "temp_raw"          # Downloads temporários. Limpo automaticamente após ETL.
   pre_processed_dir: "pre_processed"    # Saída do ETL. Parquets sem label (input do run_labelling.py).
   labelled_dir:      "labelled"         # Saída do Labelling. Contém coluna 'target'. Input do split_dataset.py.
-  specialized_dir:   "specialized"      # Saída do Split para o Especialista. Val do Base vira train do Specialist.
-
-  # ── [DADOS LOCAIS] Auditor (Meta-Labeling XGBoost) ──────────────────────
   fused_dataset_dir:   "data/auditor/dataset_fused"  # Logits (Base+Spec) + Contexto fundidos. Input do train_xgboost.py.
   auditor_context_dir: "data/auditor/context"        # Features de contexto brutas (RSI, ATR, VWAP, etc).
   auditor_oof_dir:     "SPECIALIST"                  # Onde o run_kfold_specialist.py salva o full_oof.parquet.
@@ -29,9 +26,7 @@ pipeline_paths:
   # Caminhos relativos à pasta da sessão (resolvidos por get_drive_session_path).
   best_tcn_lstm_model:     "BASE_MODEL/best_tcn_lstm.pt"      # Vencedor em F1 Macro. Selecionado pelo run_manager se use_best_f1_dir=false.
   best_tcn_lstm_dir_model: "BASE_MODEL/best_tcn_lstm_dir.pt"  # Vencedor em F1 Direcional (Buy+Sell). Preferído para o Especialista.
-  best_specialized_model:  "data/models/treino_best_model.pt" # Modelo Especialista (modo legado Holdout 80/20).
   scaler_foundation:       "BASE_MODEL/scaler_foundation.pkl" # Scaler fitado no treino Foundation. Obrigatório para inferência.
-  scaler_specialized:      "data/models/scaler_specialized.pkl"
 
   # ── [MODELOS] Auditor XGBoost ───────────────────────────────────────
   auditor_model:  "AUDITOR/auditor_xgboost.json"  # Modelo XGBoost (Juiz). Produz meta-label 0/1 (Veto/Aprovado).
@@ -160,11 +155,6 @@ pre_processing:
     sl_multiplier: 1.0    # Multiplicador de σ_ewma para o Stop Loss. 1.0 → SL assimétrico (TP maior que SL).
     vol_span: 100         # Span da EWMA de volatilidade (barras). Mesmo valor do cusum_vol_span para coerência.
 
-    # ── [THRESHOLDS LEGADOS] Referência Histórica ──────────────────────
-    # Mantídos por compatibilidade. Não usados pelo Triple Barrier.
-    sell_threshold: 0.0015  # Retorno mínimo para label SELL (0) [modo legado].
-    buy_threshold: 0.002    # Retorno mínimo para label BUY (2) [modo legado].
-
     # ── [WORKERS] Paralelismo do Labelling ────────────────────────────
     use_dynamic_workers: false # true → os.cpu_count()-1; false → usa max_workers.
     max_workers: 2            # Workers fixos para cloud (RunPod com número de CPUs conhecido).
@@ -178,10 +168,6 @@ pre_processing:
       train_ratio: 0.55  # Ajustado para 0.55 no teste local (para termos val_files com 2 fragmentos)
       val_ratio: 0.45    # 45% mais recentes
       embargo_minutes: 15 # [AFML Cap.7] Janela de silêncio após o purge gap: remove do início do val.
-    specialized:
-      train_ratio: 0.80  # 80% do val da Foundation para treino do Especialista.
-      val_ratio: 0.20    # 20% para validação OOS do Especialista (não contaminada).
-      embargo_minutes: 15 # [AFML Cap.7] Janela de silêncio após o purge gap.
     auditor:
       train_ratio: 0.80  # 80% dos OOF logits para treino do Auditor XGBoost.
       val_ratio: 0.20    # 20% para threshold calibration do Auditor.
@@ -312,21 +298,13 @@ training:
     use_best_f1_dir: true         # true → Specialist usa Foundation vencedor em F1 Direcional; false → usa F1 Macro.
 
     # ── [SNIPER WEIGHTS] Pesos do Especialista (mesma matriz da Foundation) ────
-    # [TRUE+TRUE]=Optuna | [TRUE+FALSE]=sklearn | [FALSE+FALSE]=spec_class_weights fixo.
-    spec_use_auto_class_weights: true    # sklearn 'balanced' para o Especialista.
-    spec_optimize_class_weights: false   # false = não faz HPO de pesos no Especialista.
-    spec_class_weights: [4.85, 0.38, 4.61]  # Pesos draconianos [SELL, NEU, BUY]. Neutral esmagado.
-    spec_optimize_gamma: false           # false = usa spec_gamma fixo abaixo.
-    spec_gamma: 2.0                      # Gamma agressivo. Mantido fixo para economizar trials.
-    spec_optimize_smoothing: false       # false = usa spec_smoothing fixo abaixo.
-    spec_smoothing: 0.1                  # Suavização mínima anti-overconfidence.
+    # O K-Fold Especialista herda os pesos genéticos do Foundation via best_params.json.
 
 optimization:
   # ── [OPTUNA] Configuração do Estudo HPO ───────────────────────────────────
   # O estudo persiste no SQLite (db_path). Interromper e retomar é seguro.
   study_name: "QUANTGOD_V000"     # Chave do estudo no banco SQLite. Mude ao reiniciar busca do zero.
   n_trials: 400                   # Trials para a Foundation. 400 ≈ 72h numa A4500. Reduzir para E2E.
-  n_trials_specialist: 0          # Trials para o Especialista (legado). 0 = K-Fold OOF ativo.
   timeout: 72000                  # Teto em segundos (72000s = 20h). Parada rígida na cloud.
 
   # ── [SAMPLER] Algoritmo de Busca ───────────────────────────────────────────
@@ -396,10 +374,3 @@ optimization:
     base_loss_smoothing: [0.001, 0.35] # Label Smoothing. >0.5 faz o modelo esquecer o alvo.
     base_alpha_side:     [1.0, 20.0]   # Peso para Buy/Sell. Até 20x mais que neutro.
     base_alpha_neutral:  [0.001, 1.0]  # Peso do Neutro. Sempre <= 1.0 para ser esmagado pelos sinais.
-
-    # ── [FOCAL LOSS SEARCH] Especialista (Sniper) ────────────────────────────
-    # NOTA: com kfold.enabled=true, estes parâmetros NÃO são otimizados pelo Optuna.
-    spec_loss_gamma:     [1.0, 3.0]    # Punição hiper-agressiva no Especialista.
-    spec_loss_smoothing: [0.01, 0.15]  # Quase zero smoothing: certeza máxima nos sinais.
-    spec_alpha_side:     [1.5, 6.0]    # Foco drástico nas pontas (BUY/SELL).
-    spec_alpha_neutral:  [0.1, 0.8]    # Esmagamento total do NEUTRAL no Especialista.
