@@ -339,8 +339,8 @@ def split_and_segregate():
             "Foundation": f"{base_embargo_bars} barras removidas do início do Val (autocorrelação serial — AFML Cap.7)",
             "Specialist": f"{spec_embargo_bars} barras removidas do início do Val (autocorrelação serial — AFML Cap.7)",
             "embargo_minutes_applied": {
-                "foundation": config['pre_processing']['split']['base'].get('embargo_minutes', 15),
-                "specialist": config['pre_processing']['split']['specialized'].get('embargo_minutes', 15),
+                "foundation": config['pre_processing']['labelling']['split']['base'].get('embargo_minutes', 15),
+                "specialist": config['pre_processing']['labelling']['split']['auditor'].get('embargo_minutes', 15),
             }
         }
 
