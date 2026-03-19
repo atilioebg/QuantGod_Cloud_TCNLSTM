@@ -8,9 +8,9 @@
 pipeline_paths:
 
   # ── [FONTES CLOUD TESTE] Caminhos via rclone drive:PROJETOS_TEST/ ──────────────
-  raw_l2_source:      "drive:PROJETOS_TEST/BTC_USDT_L2_2023_2026/btcusdt_L2_2025"
-  raw_trades_source:  "drive:PROJETOS_TEST/BTC_USDT_L2_TRADE_2023_2026/btcusdt_L2_trade_2025"
-  drive_results_root: "drive:PROJETOS_TEST/RESULTADOS"            # Destino de todos os uploads. Sufixo de sessão calculado por get_drive_session_path().
+  raw_l2_source:      "drive:PROJETOS/BTC_USDT_L2_2023_2026/btcusdt_L2_2025"
+  raw_trades_source:  "drive:PROJETOS/BTC_USDT_L2_TRADE_2023_2026/btcusdt_L2_trade_2025"
+  drive_results_root: "drive:PROJETOS/RESULTADOS"            # Destino de todos os uploads. Sufixo de sessão calculado por get_drive_session_path().
   session_timestamp:  "2026_03_19" #null                          # Definido dinamicamente se null.
 
   # ── [DADOS LOCAIS] Diretório Raíz `data/L2/` ───────────────────────────
