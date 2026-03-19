@@ -37,9 +37,13 @@ def label_triple_barrier(
     
     mins            = labelling_cfg.get('horizon_minutes', 15)
     use_first_touch = labelling_cfg.get('use_first_touch', True)
-    pt_mult         = labelling_cfg.get('pt_multiplier', 2.0)
-    sl_mult         = labelling_cfg.get('sl_multiplier', 1.0)
+    pt_mult         = labelling_cfg.get('pt_multiplier')
+    sl_mult         = labelling_cfg.get('sl_multiplier')
     vol_span        = labelling_cfg.get('vol_span', 100)
+    
+    # Alvos Nominais em Basis Points (bps)
+    target_bps_tp   = labelling_cfg.get('target_bps_tp')
+    target_bps_sl   = labelling_cfg.get('target_bps_sl')
     
     # Fees e Custos
     taker_fee_pct = config.get('execution', {}).get('taker_fee_pct', 0.0005) 
@@ -80,6 +84,22 @@ def label_triple_barrier(
         df = df.with_columns(
             (pl.col("_m2") - pl.col("_m1")**2).clip(lower_bound=1e-12).sqrt().alias("volatility_ewma")
         ).drop(["_m1", "_m2"])
+
+    # ── 1b. Cálculo Dinâmico de Multiplicadores via BPS (se aplicável) ───────
+    # Se pt_multiplier não for definido, buscamos atingir target_bps_tp na média.
+    avg_vol = df["volatility_ewma"].mean() or 0.0003 # Fallback 3 bps
+    
+    if pt_mult is None and target_bps_tp is not None:
+        pt_mult = (target_bps_tp / 10000.0) / avg_vol
+        logger.info(f"🎯 Dynamic PT Multiplier: {pt_mult:.4f} (Target: {target_bps_tp} bps | Avg Vol: {avg_vol*10000:.2f} bps)")
+    
+    if sl_mult is None and target_bps_sl is not None:
+        sl_mult = (target_bps_sl / 10000.0) / avg_vol
+        logger.info(f"🎯 Dynamic SL Multiplier: {sl_mult:.4f} (Target: {target_bps_sl} bps | Avg Vol: {avg_vol*10000:.2f} bps)")
+
+    # Fallback caso nada seja definido
+    pt_mult = pt_mult or 2.0
+    sl_mult = sl_mult or 1.0
 
     # ── 2. Scanning Futuro (Rolling Windows Forward) ─────────────────────────
     # Em Polars, para olhar pra frente (lookahead), usamos offset=0 e period=mins
@@ -185,11 +205,9 @@ def run_labelling():
     with open(base_config_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
 
-    sell_th = config['pre_processing']['labelling'].get('sell_threshold', 0.003)
-    buy_th  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
-    mins    = config['pre_processing']['labelling'].get('horizon_minutes', 15)
-    suffix  = f"_labelled_SELL_{sell_th:.4f}_BUY_{buy_th:.4f}_{mins}min".replace(".", "")
-    setup_logger("labelling", suffix)
+    from src.cloud.base_model.utils.logging_utils import get_labelling_suffix
+    suffix = get_labelling_suffix(config)
+    setup_logger(config.get('naming_conventions', {}).get('labelling_log_prefix', "labelling"), suffix)
 
     input_dir  = Path(get_pre_processed_dir(config))
     output_dir = Path(get_labelled_dir(config))

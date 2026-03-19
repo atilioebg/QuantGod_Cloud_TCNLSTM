@@ -88,24 +88,22 @@ def setup_optuna_logging(logger_name: str = "optuna"):
     optuna.logging.set_verbosity(optuna.logging.INFO)
     return logging.getLogger(logger_name)
 
-def get_labelling_suffix(params: dict) -> str:
+def get_labelling_suffix(config: dict) -> str:
     """
-    Generates standard suffix: _SELL_0003_BUY_0003_15min
-    Supports both 1min pipelines (lookahead in minutes) and 5min pipelines
-    (lookahead in bars). Uses 'bar_size_min' param (default=5) to convert.
+    v9.5+: Gera sufixo de log dinâmico baseado no template do master_config.yaml.
+    Alinhado com a solução Triple Barrier (PT, SL, Horizon, Span).
     """
-    s_val = int(round(abs(params.get('threshold_short', 0)) * 1000))
-    b_val = int(round(abs(params.get('threshold_long', 0)) * 1000))
-
-    bar_size_min = params.get('bar_size_min', 5)  # default: 5min bars (Sniper Pivot)
-    total_minutes = int(params.get('lookahead', 3)) * bar_size_min
-
-    if total_minutes >= 60 and total_minutes % 60 == 0:
-        time_label = f"{total_minutes // 60}h"
-    else:
-        time_label = f"{total_minutes}min"
-
-    return f"_SELL_{s_val:04d}_BUY_{b_val:04d}_{time_label}"
+    naming_cfg = config.get('naming_conventions', {})
+    lab_cfg = config['pre_processing']['labelling']
+    template = naming_cfg.get('labelling_suffix_template', "PT_{pt:.1f}_SL_{sl:.1f}_H_{h}min_S_{s}")
+    
+    suffix = template.format(
+        pt=lab_cfg.get('pt_multiplier', 2.0),
+        sl=lab_cfg.get('sl_multiplier', 1.0),
+        h=lab_cfg.get('horizon_minutes', 15),
+        s=lab_cfg.get('vol_span', 100)
+    )
+    return f"_{suffix}"
 
 
 def upload_audit_to_drive(

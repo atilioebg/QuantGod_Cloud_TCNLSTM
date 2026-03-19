@@ -33,9 +33,23 @@ pipeline_paths:
   scaler_auditor: "AUDITOR/scaler_auditor.pkl"    # Scaler das features de contexto do Auditor.
 
   # ── [INFRA] Optuna e Logs ──────────────────────────────────────────
-  db_path:            "sqlite:///optuna_tcn_lstm_v0_finetune.db" # Banco SQLite do Optuna. Persistêt entre runs (permite continuar um estudo).
+  db_path:            "sqlite:///optuna_finetune.db" # Banco SQLite do Optuna. Persistêt entre runs (permite continuar um estudo).
   local_logs_root:    "logs"         # Raíz de todos os logs. Subpastas por fase (QA/, kfold_specialist/, etc).
   local_reports_root: "docs/reports" # Relatórios de qualidade de dados (data_quality_report.json).
+  
+naming_conventions:
+  # ── [LOGS E SUFIXOS] ──────────────────────────────────────────────
+  labelling_log_prefix: "labelling"
+  # Template dinâmico para o log do labelling. Variáveis: {pt}, {sl}, {h}, {s}
+  labelling_suffix_template: "PT_{pt:.1f}_SL_{sl:.1f}_H_{h}min_S_{s}"
+
+  # ── [CHECKPOINTS] ────────────────────────────────────────────────
+  best_params_file:      "best_params.json"
+  best_dir_params_file:  "best_dir_params.json"
+  auditor_config_file:   "auditor_config.json"
+  oof_parquet_file:      "full_oof.parquet"
+  fused_parquet_file:    "fused_auditor.parquet"
+  trading_journal_file:  "trading_journal.csv"
 
 
 pipeline_control:
@@ -53,7 +67,7 @@ execution:
   # Caminho LOCAL e FIXO para a pasta MODELOS do paper trading.
   # Relativo à raiz do projeto. Ao mudar de sessão, atualize APENAS este campo.
   # Substitui a resolução dinâmica de get_drive_session_path() na inferência.
-  models_local_dir: "RESULTADOS_SELL_0003_BUY_0003_15min_lookahead_120bars_lookback_5min/10_03_2026_v000/MODELOS"
+  models_local_dir: "" # TODO: Add path to the models folder
 
   # ── [AUDITOR] Threshold de Segurança ───────────────────────────────
   # Define a confiança mínima que o Auditor deve ter para aprovar um sinal.
@@ -88,8 +102,8 @@ pre_processing:
     # O limiar h é calculado dinamicamente: h = cusum_h_factor * ewma_std(log_ret, span=cusum_vol_span)
     # Projetado para ser Numba-ready (@njit): loop sequencial em NumPy puro, zero objetos Python.
     adaptive_h: true      # [AFML Cap.3] true: h dinâmico por volatilidade EWMA | false: h estático (não recomendado).
-    cusum_h_factor: 1.5   # Multiplicador sobre σ_ewma para o limiar h. 1.0 = dispara em 1-sigma. 2.0 = mais seletivo.
-    cusum_vol_span: 100   # Span da EWMA para estimar a volatilidade base. Corresponde ao vol_span do Triple Barrier.
+    cusum_h_factor: 1.8   # Ajustado para 1.8 (mais seletivo para alvos curtos).
+    cusum_vol_span: &vol_span 144 # Janela de 1 dia em escala de 10min (estável para BTC).
 
     # ── [ISLAND SPLIT] Gestão de Continuidade Temporal ───────────────────────
     # Gap temporal acima deste valor → novo island_id (impede que a barra engula horas de silêncio).
@@ -106,7 +120,7 @@ pre_processing:
     # ── [FEATURES DERIVADAS] Janelas em Minutos Reais ─────────────────────────
     # O ETL calcula: n_barras = janela_min / resample_freq_min. Alterar resample_freq não quebra o significado econômico.
     spread_zscore_window_min: 60  # [min] Z-Score do spread: stress de liquidez e squeeze de mercado.
-    vpin_window_min: 25           # [min] VPIN Lite: toxicidade de fluxo, detecção de ordem informada.
+    vpin_window_min: *horizon     # [min] Toxicidade: sincronizado dinamicamente com o horizonte de labelling.
     delta_short_min: 5            # [min] Lookback curto: choques e gatilhos de microestrutura.
     delta_long_min: 30            # [min] Lookback longo: drift de preço e contexto de momentum.
 
@@ -142,21 +156,27 @@ pre_processing:
 
     # ── [WORKERS] Paralelismo do ETL ──────────────────────────────────────────
     export_compression: "snappy"   # Algoritmo de compressão dos Parquets. 'snappy'=rápido, 'gzip'=menor tamanho.
-    use_dynamic_workers: false      # REDUZIDO p/ teste local (evita OOM): false.
+    use_dynamic_workers: true      # REDUZIDO p/ teste local (evita OOM): false.
     max_workers: 2                 # USAR 2 workers para teste na cloud.
   labelling:
     # ── [TRIPLE BARRIER] Parâmetros do Motor Prado-IID ─────────────────────
     # run_labelling.py usa estes parâmetros para construir as 3 barreiras.
     # A barreira ativa é: TP = close + (vol_ewma * pt_multiplier) | SL = close - (vol_ewma * sl_multiplier)
     # O label é determinado por QUAL barreira o preço toca primeiro.
-    horizon_minutes: 15   # [min] Barreira Vertical (Time-Stop). Se o preço não tocar TP ou SL em 15min → label Neutro (1).
+    horizon_minutes: &horizon 15 # [min] Barreira Vertical (ANCHOR).
     use_first_touch: true # [AFML Cap.3] true: resolve ambiguidade TP/SL pelo tempo | false: desativa lógica AFML.
-    pt_multiplier: 2.0    # Multiplicador de σ_ewma para o Take Profit. 2.0 → TP = 2x volatilidade local.
-    sl_multiplier: 1.0    # Multiplicador de σ_ewma para o Stop Loss. 1.0 → SL assimétrico (TP maior que SL).
-    vol_span: 100         # Span da EWMA de volatilidade (barras). Mesmo valor do cusum_vol_span para coerência.
+    
+    # ── [ESTRATÉGIA DE ALVO EM BPS] ────────────────────────────────────
+    # Se pt_multiplier/sl_multiplier forem null, o código calcula via: multiplier = target_bps / current_vol.
+    target_bps_tp: 20     # Alvo de Lucro (Lucro Esperado: 0.20%)
+    target_bps_sl: 10     # Alvo de Stop (Stop Loss: 0.10%)
+    
+    pt_multiplier: 0.65   # Calculado p/ BTC (0.2% / 0.3% vol). Se null, usa target_bps_tp.
+    sl_multiplier: 0.33   # Calculado p/ BTC (0.1% / 0.3% vol). Se null, usa target_bps_sl.
+    vol_span: *vol_span   # Sincronizado dinamicamente com cusum_vol_span.
 
     # ── [WORKERS] Paralelismo do Labelling ────────────────────────────
-    use_dynamic_workers: false # true → os.cpu_count()-1; false → usa max_workers.
+    use_dynamic_workers: true # true → os.cpu_count()-1; false → usa max_workers.
     max_workers: 2            # Workers fixos para cloud (RunPod com número de CPUs conhecido).
     split:
       # ── [CONTROLE AFML] ──────────────────────────────────────────────
@@ -165,8 +185,8 @@ pre_processing:
       # ── [SPLIT CRONOLÓGICO] Proteção contra Look-Ahead Bias ──────────────
       # O split é SEMPRE feito em ordem cronológica (sem shuffle).
       base:
-      train_ratio: 0.55  # Ajustado para 0.55 no teste local (para termos val_files com 2 fragmentos)
-      val_ratio: 0.45    # 45% mais recentes
+      train_ratio: 0.80  # Ajustado para 0.55 no teste local (para termos val_files com 2 fragmentos)
+      val_ratio: 0.20    # 45% mais recentes
       embargo_minutes: 15 # [AFML Cap.7] Janela de silêncio após o purge gap: remove do início do val.
     auditor:
       train_ratio: 0.80  # 80% dos OOF logits para treino do Auditor XGBoost.
