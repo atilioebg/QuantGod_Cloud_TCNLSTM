@@ -177,12 +177,14 @@ def process_single_day(zip_path, csv_path, trades_remote, config):
         # ── 1. Download/Parse Trades CSV ─────────────────────────────────────
         try:
             local_csv_path = extractor.download_file(Path(csv_path).name, trades_remote)
-            df_trades = pl.read_csv(local_csv_path)
-            if "timestamp" in df_trades.columns:
-                df_trades = df_trades.with_columns(
+            lf_trades = pl.scan_csv(local_csv_path)
+            trades_schema = lf_trades.collect_schema().names()
+            
+            if "timestamp" in trades_schema:
+                lf_trades = lf_trades.with_columns(
                     (pl.col("timestamp") * 1000).cast(pl.Int64).alias("ts")
                 )
-            df_trades = df_trades.sort("ts")
+            lf_trades = lf_trades.sort("ts")
         except Exception as e:
             return {"status": "error", "message": f"❌ Error loading Trades for {day_identifier}: {e}", "reason": str(e)}
         
@@ -213,24 +215,30 @@ def process_single_day(zip_path, csv_path, trades_remote, config):
         if "ts" not in df_l2.columns:
             return {"status": "error", "message": f"❌ L2 TS corrupted for {day_identifier}", "reason": "No TS"}
             
-        df_l2 = df_l2.sort("ts").with_columns(pl.col("ts").alias("l2_ts"))
+        lf_l2 = df_l2.lazy().sort("ts").with_columns(pl.col("ts").alias("l2_ts"))
         
-        # ── 3. Merge L2 + Trades (Atomic join_asof) ──────────────────────────
-        df_merged = df_trades.join_asof(
-            df_l2,
+        # ── 3. Merge L2 + Trades (Atomic join_asof via Lazy Execution) ──────────
+        lf_merged = lf_trades.join_asof(
+            lf_l2,
             on="ts",
             strategy="backward"
-        )
+        ).with_columns([
+            pl.all().forward_fill().backward_fill() # Preenche buracos de L2/Trades e início de série
+        ])
         
-        if "price" in df_merged.columns and "size" in df_merged.columns:
-            df_merged = df_merged.with_columns(
+        merged_schema = lf_merged.collect_schema().names()
+        if "price" in merged_schema and "size" in merged_schema:
+            lf_merged = lf_merged.with_columns(
                 (pl.col("price") * pl.col("size")).alias("usd_volume")
             )
             
-        if "l2_ts" in df_merged.columns:
-            df_merged = df_merged.with_columns(
+        if "l2_ts" in merged_schema:
+            lf_merged = lf_merged.with_columns(
                 (pl.col("ts") - pl.col("l2_ts") > 2000).fill_null(True).alias("__stale_l2__")
             ).drop("l2_ts")
+            
+        # Execute the streaming graph right before Event Sampler
+        df_merged = lf_merged.collect(streaming=True)
             
         # ── 4. Event Sampling (Dollar/Tick/Info) ─────────────────────────────
         df_bars = event_sampler.compute_event_bars(df_merged)

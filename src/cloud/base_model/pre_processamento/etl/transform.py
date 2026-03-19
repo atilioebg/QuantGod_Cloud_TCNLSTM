@@ -335,14 +335,7 @@ class L2Transformer:
 
     def apply_feature_engineering(self, rows_or_df) -> pl.DataFrame:
         """
-        [v5.0 Polars] Full feature engineering pipeline.
-
-        Accepts either:
-          - A dict-of-lists (from run_pipeline.py sampled_rows)
-          - A pl.DataFrame (already built upstream)
-          - A pd.DataFrame (backward compat — converted to Polars)
-
-        Returns a pl.DataFrame with the canonical feature schema.
+        [v6.0 Event-Driven] Unified wrapper calling EventSampler.
         """
         # ── 0. Build Polars DataFrame ────────────────────────────────────────
         if isinstance(rows_or_df, dict):
@@ -350,7 +343,6 @@ class L2Transformer:
         elif isinstance(rows_or_df, pl.DataFrame):
             df = rows_or_df
         else:
-            # Pandas fallback (backward compat)
             import pandas as pd
             if isinstance(rows_or_df, pd.DataFrame):
                 df = pl.from_pandas(rows_or_df.reset_index(drop=True))
@@ -362,388 +354,37 @@ class L2Transformer:
             logger.warning("apply_feature_engineering received an empty DataFrame")
             return df
 
-        freq        = self._resample_freq
-        freq_min    = self._resample_min
-        pl_freq     = _to_polars_freq(freq)   # '5min' → '5m', '1T' → '1m'
-        ds          = self._delta_short
-        dl          = self._delta_long
-        ds_lbl      = str(self._delta_short_min)
-        dl_lbl      = str(self._delta_long_min)
-        vpin_col    = f"vpin_min{self._vpin_window_min}"
-
-        # ── 1. Parse timestamps → datetime ──────────────────────────────────
-        df = df.with_columns(
-            pl.from_epoch("ts", time_unit="ms").alias("datetime")
-        ).sort("datetime")
-
-        # ── 2. Resample (group_by_dynamic) ───────────────────────────────────
-        ob_cols_raw = [c for c in df.columns
-                       if ('bid_' in c or 'ask_' in c)
-                       and not c.endswith(('_slope', '_rdi'))]
-
-        # Build agg expressions for OB raw levels (last)
-        ob_agg = [pl.col(c).last().alias(c) for c in ob_cols_raw]
-
-        df = df.with_columns(pl.lit(1).alias("tick_count"))
-
-        resampled = df.group_by_dynamic(
-            "datetime", every=pl_freq, closed="left", label="left"
-        ).agg([
-            # OHLC from micro_price
-            pl.col("micro_price").first().alias("open"),
-            pl.col("micro_price").max().alias("high"),
-            pl.col("micro_price").min().alias("low"),
-            pl.col("micro_price").last().alias("close"),
-            # Aggregated features
-            pl.col("micro_price").std().alias("volatility"),
-            pl.col("spread").max().alias("max_spread"),
-            pl.col("obi_l0").mean().alias("mean_obi"),
-            pl.col("micro_price").mean().alias("mean_micro_price"),
-            pl.col("deep_obi_5").mean().alias("mean_deep_obi"),
-            pl.col("ofi").sum().alias("ofi"),
-            pl.col("micro_price_momentum").sum().alias("micro_price_momentum"),
-            pl.col("bid_slope").mean().alias("mean_bid_slope"),
-            pl.col("ask_slope").mean().alias("mean_ask_slope"),
-            pl.col("spread").mean().alias("mean_spread"),
-            pl.col("bid_rdi").mean().alias("bid_rdi"),
-            pl.col("ask_rdi").mean().alias("ask_rdi"),
-            pl.col("pressure_ratio").mean().alias("pressure_ratio"),
-            pl.col("tick_count").sum().alias("tick_count"),
-            *ob_agg,
-        ])
-
-        # ── 3. Reindex full day grid (regularize to exact freq slots) ─────────
-        if not getattr(self, '_streaming_mode', False):
-            try:
-                first_ts = resampled["datetime"][0]
-                hour = first_ts.hour
-                if hour >= 20:
-                    from datetime import timedelta
-                    anchor = (first_ts + timedelta(hours=4)).replace(
-                        hour=0, minute=0, second=0, microsecond=0
-                    )
-                else:
-                    anchor = first_ts.replace(hour=0, minute=0, second=0, microsecond=0)
-    
-                periods = (24 * 60) // freq_min
-                full_grid = pl.DataFrame({
-                    "datetime": pl.datetime_range(
-                        start=anchor,
-                        end=anchor + pl.duration(hours=24) - pl.duration(minutes=freq_min),
-                        interval=f"{freq_min}m",
-                        time_zone="UTC",
-                        time_unit="ms",   # match from_epoch(time_unit='ms')
-                        eager=True,
-                    ).slice(0, periods)
-                })
-    
-                # Normalize resampled to ms + UTC so join keys match
-                resampled = resampled.with_columns(
-                    pl.col("datetime").dt.cast_time_unit("ms").dt.replace_time_zone("UTC").alias("datetime")
-                )
-    
-                # Left join: every grid slot gets its row or null
-                df = full_grid.join(resampled, on="datetime", how="left")
-    
-            except Exception as e:
-                logger.warning(f"[transform] Reindex failed: {e}. Proceeding without full-day grid.")
-                df = resampled
-        else:
-            # Simple normalization for stream mode
-            df = resampled.with_columns(
-                pl.col("datetime").dt.cast_time_unit("ms").dt.replace_time_zone("UTC").alias("datetime")
-            )
-
-        # ── 4. Gap Detection ──────────────────────────────────────────────────
-        is_gap = pl.col("tick_count").is_null() | (pl.col("tick_count") == 0)
-        df = df.with_columns(is_gap.alias("__is_gap__"))
-
-        gap_series   = df["__is_gap__"].to_list()
-        tick_series  = df["tick_count"].to_list()
-        n_rows       = len(df)
-
-        # Pre-healing gap audit
-        valid_idxs = [i for i, g in enumerate(gap_series) if not g]
-        if valid_idxs:
-            diffs_min = []
-            for a, b in zip(valid_idxs, valid_idxs[1:]):
-                diffs_min.append((b - a) * freq_min)
-            max_internal = max(diffs_min) if diffs_min else 0.0
-            gap_start = valid_idxs[0] * freq_min if valid_idxs else 0.0
-            gap_end   = (n_rows - 1 - valid_idxs[-1]) * freq_min if valid_idxs else 0.0
-            self.audit_report["max_gap_before"] = max(max_internal, gap_start, gap_end)
-        else:
-            self.audit_report["max_gap_before"] = 1440.0
-
-        logger.info(f"💓 Heartbeat [Pre-Healing]: {n_rows} rows | Max Gap: {self.audit_report['max_gap_before']}m")
-
-        # ── 5. Island Split + Healing (state machine in Python) ───────────────
-        heal_threshold_min    = self._etl_cfg.get("healing", {}).get("max_gap_minutes", 5)
-        fragment_threshold_min = float(self._etl_cfg.get("gap_fragment_threshold_min", 30.0))
-
-        island_ids   = [0] * n_rows
-        current_island = 0
-        keep_mask    = [True] * n_rows   # False = unhealed gap row to drop
-        healed_any   = False
-
-        # Find contiguous gap runs
-        i = 0
-        while i < n_rows:
-            if gap_series[i]:
-                j = i
-                while j < n_rows and gap_series[j]:
-                    j += 1
-                gap_len_min = (j - i) * freq_min
-
-                if gap_len_min >= fragment_threshold_min:
-                    # Hard Reset → new island starts after gap
-                    current_island += 1
-                    for k in range(j, n_rows):
-                        island_ids[k] = current_island
-                    self.audit_report["gap_fragmentation_events"].append(str(i))
-                    logger.warning(
-                        f"🏝️ [ISLAND SPLIT] Hard Reset at idx {i} ({gap_len_min}min gap). "
-                        f"New Island: {current_island}"
-                    )
-                    # Gap rows stay but are marked unhealed → dropped later
-                    for k in range(i, j):
-                        keep_mask[k] = False
-                elif gap_len_min <= heal_threshold_min:
-                    healed_any = True
-                    self.audit_report["healed"] = True
-                    self.audit_report["healing_details"].append(
-                        f"Healed {gap_len_min}min gap at idx {i}"
-                    )
-                    # Gap rows stay (interpolation fills them below)
-                else:
-                    # Dangerous zone → keep gap rows in island but unhealed
-                    for k in range(i, j):
-                        keep_mask[k] = False
-                i = j
-            else:
-                i += 1
-
-        self.audit_report["num_islands_generated"] = current_island + 1
-
-        # Add island_id to DataFrame
-        df = df.with_columns([
-            pl.Series("island_id", island_ids, dtype=pl.Int32),
-            pl.Series("__keep__",  keep_mask,  dtype=pl.Boolean),
-        ])
-
-        # ── 6. Filling Strategies ─────────────────────────────────────────────
-        group_a_cols = ["open", "high", "low", "close", "mean_micro_price", "max_spread", "mean_spread", "volatility"] + ob_cols_raw
-        group_a_cols = [c for c in group_a_cols if c in df.columns]
-
-        group_b_cols = ["mean_obi", "mean_deep_obi", "mean_bid_slope", "mean_ask_slope",
-                        "bid_rdi", "ask_rdi", "pressure_ratio"]
-        group_b_cols = [c for c in group_b_cols if c in df.columns]
-
-        flow_cols = [c for c in ["tick_count", "ofi", "micro_price_momentum", "volatility"]
-                     if c in df.columns]
-
-        # Group A: linear interpolation (healed gaps only, limit = heal bars)
-        interp_limit = max(1, heal_threshold_min // freq_min)
-        a_interp = [pl.col(c).interpolate("linear").alias(c) for c in group_a_cols]
-        if a_interp:
-            df = df.with_columns(a_interp)
-
-        # Group B: median fill across island
-        b_median = [
-            pl.col(c).fill_null(pl.col(c).median()).alias(c)
-            for c in group_b_cols
-        ]
-        if b_median:
-            df = df.with_columns(b_median)
-
-        # Group C: zero fill
-        c_zero = [pl.col(c).fill_null(0.0).alias(c) for c in flow_cols]
-        if c_zero:
-            df = df.with_columns(c_zero)
-
-        # OHLC for unhealed gaps → flat candle (high=low=close)
-        unhealed_expr = ~pl.col("__keep__")
-        df = df.with_columns([
-            pl.when(unhealed_expr).then(pl.col("close")).otherwise(pl.col("open")).alias("open"),
-            pl.when(unhealed_expr).then(pl.col("close")).otherwise(pl.col("high")).alias("high"),
-            pl.when(unhealed_expr).then(pl.col("close")).otherwise(pl.col("low")).alias("low"),
-        ])
-
-        # ffill/bfill per island for state columns
-        state_cols = [c for c in df.columns
-                      if c not in flow_cols
-                      and c not in ["island_id", "__is_gap__", "__keep__", "datetime"]]
-        ff_exprs = [
-            pl.col(c).forward_fill().backward_fill().over("island_id").alias(c)
-            for c in state_cols if c in df.columns
-        ]
-        if ff_exprs:
-            df = df.with_columns(ff_exprs)
-
-        if healed_any:
-            self.audit_report["features_healed"] = [
-                "Group A: Linear", "Group B: Median", "Group C: Zero"
-            ]
-
-        # Drop unhealed gap rows + rows still null
-        df = df.filter(pl.col("__keep__")).drop(["__is_gap__", "__keep__"])
-
-        # Final null fill for remaining edge NaNs (first ds/dl bars)
-        df = df.with_columns([
-            pl.col(c).fill_null(0.0).alias(c) for c in df.columns
-            if df.schema[c] in (pl.Float32, pl.Float64)
-        ])
-        df = df.filter(~pl.all_horizontal(pl.col(c).is_null() for c in ["close", "open"]))
-
-        self.audit_report["total_rows_retained"] = len(df)
-        logger.info(f"💓 Heartbeat [Post-Cleanup]: {len(df)} rows")
-
-        # Post-healing gap audit
-        keep_post  = df["island_id"].to_list()
-        n_post     = len(df)
-        self.audit_report["max_gap_after"] = 0.0  # Already filtered
-
-        # ── 7. Feature Engineering Per Island (Polars expressions + .over) ───
-        df = df.with_columns([
-            np.log1p(pl.col("tick_count").cast(pl.Float64)).alias("log_volume")
-        ])
-
-        # Candle shape
-        prev_close = pl.col("close").shift(1).over("island_id")
-        df = df.with_columns([
-            (pl.col("close") / pl.col("open").map_elements(
-                lambda x: x if x != 0 else 1e-9, return_dtype=pl.Float64
-            )).log().alias("body"),
-            ((pl.col("high") - pl.max_horizontal("open", "close"))
-             / (prev_close + 1e-9)).alias("upper_wick"),
-            ((pl.min_horizontal("open", "close") - pl.col("low"))
-             / (prev_close + 1e-9)).alias("lower_wick"),
-            ((pl.col("close") / (prev_close + 1e-9)).log()).alias("log_ret_close"),
-        ])
-
-        # Multi-scale delta features (diff + pct_change)
-        df = df.with_columns([
-            pl.col("ofi").diff(ds).over("island_id").alias(f"ofi_delta_{ds_lbl}"),
-            pl.col("bid_rdi").diff(ds).over("island_id").alias(f"bid_rdi_delta_{ds_lbl}"),
-            pl.col("ask_rdi").diff(ds).over("island_id").alias(f"ask_rdi_delta_{ds_lbl}"),
-            pl.col("close").pct_change(ds).over("island_id").alias(f"micro_price_delta_{ds_lbl}"),
-            pl.col("ofi").diff(dl).over("island_id").alias(f"ofi_delta_{dl_lbl}"),
-            pl.col("bid_rdi").diff(dl).over("island_id").alias(f"bid_rdi_delta_{dl_lbl}"),
-            pl.col("ask_rdi").diff(dl).over("island_id").alias(f"ask_rdi_delta_{dl_lbl}"),
-            pl.col("close").pct_change(dl).over("island_id").alias(f"micro_price_delta_{dl_lbl}"),
-        ])
-
-        # Institutional features
-        n_asym = self._book_asym_depth
-        dbs    = self._deep_book_start
-        cn     = self._convexity_near_end
-        cf     = self._convexity_far_end
-
-        sb_n    = sum(pl.col(f"bid_{i}_s") for i in range(n_asym))
-        sa_n    = sum(pl.col(f"ask_{i}_s") for i in range(n_asym))
-        sb_deep = sum(pl.col(f"bid_{i}_s") for i in range(dbs, self.levels))
-        sa_deep = sum(pl.col(f"ask_{i}_s") for i in range(dbs, self.levels))
-        sb0     = sum(pl.col(f"bid_{i}_s") for i in range(1, cn + 1))
-        sb1     = sum(pl.col(f"bid_{i}_s") for i in range(cn + 1, cf + 1))
-        sa0     = sum(pl.col(f"ask_{i}_s") for i in range(1, cn + 1))
-        sa1     = sum(pl.col(f"ask_{i}_s") for i in range(cn + 1, cf + 1))
-
-        df = df.with_columns([
-            ((sb_n + 1e-9) / (sa_n + 1e-9)).log().alias("book_asymmetry_v5"),
-            (pl.col("max_spread").rolling_mean(self._spread_zscore_window, min_periods=1).over("island_id")).alias("_roll_mean_spread"),
-            (pl.col("max_spread").rolling_std(self._spread_zscore_window, min_periods=1).over("island_id")).alias("_roll_std_spread"),
-            (pl.col("ofi").abs().rolling_sum(self._vpin_window, min_periods=1).over("island_id")).alias("_ofi_abs_roll"),
-            (sb_n + sa_n).alias("_sb_sa_tot"),
-            (sb_deep).alias("_sb_deep"),
-            (sa_deep).alias("_sa_deep"),
-            (sb_n).alias("_sb_n"),
-            (sa_n).alias("_sa_n"),
-            (sb0 + 1e-9).alias("_sb0"),
-            (sb1 + 1e-9).alias("_sb1"),
-            (sa0 + 1e-9).alias("_sa0"),
-            (sa1 + 1e-9).alias("_sa1"),
-        ])
-
-        df = df.with_columns([
-            ((pl.col("max_spread") - pl.col("_roll_mean_spread"))
-             / (pl.col("_roll_std_spread") + 1e-9)).alias("spread_zscore_60"),
-            (pl.col("_ofi_abs_roll") / (pl.col("_sb_sa_tot") + 1e-9)).alias(vpin_col),
-            (pl.col(f"micro_price_delta_{ds_lbl}") / (pl.col(f"ofi_delta_{ds_lbl}").abs() + 1e-9)).alias("kyle_lambda"),
-            (pl.col("_sb_deep") / (pl.col("_sb_n") + 1e-9)).alias("bid_deep_ratio"),
-            (pl.col("_sa_deep") / (pl.col("_sa_n") + 1e-9)).alias("ask_deep_ratio"),
-            (pl.col("_sb0") / pl.col("_sb1")).alias("bid_convexity"),
-            (pl.col("_sa0") / pl.col("_sa1")).alias("ask_convexity"),
-        ])
-
-        # Drop helper columns
-        helper_cols = ["_roll_mean_spread", "_roll_std_spread", "_ofi_abs_roll",
-                       "_sb_sa_tot", "_sb_deep", "_sa_deep", "_sb_n", "_sa_n",
-                       "_sb0", "_sb1", "_sa0", "_sa1"]
-        df = df.drop([c for c in helper_cols if c in df.columns])
-
-        # ── 8. Apply Soft Clipping ────────────────────────────────────────────
-        df = self._apply_soft_clipping_pl(df)
-
-        # ── 9. Final cleanup: replace inf/nan with 0 ──────────────────────────
-        sniper_cols = [
-            f"ofi_delta_{ds_lbl}", f"ofi_delta_{dl_lbl}",
-            f"bid_rdi_delta_{ds_lbl}", f"bid_rdi_delta_{dl_lbl}",
-            f"ask_rdi_delta_{ds_lbl}", f"ask_rdi_delta_{dl_lbl}",
-            f"micro_price_delta_{ds_lbl}", f"micro_price_delta_{dl_lbl}",
-            "book_asymmetry_v5", "spread_zscore_60", vpin_col,
-            "kyle_lambda", "bid_deep_ratio", "ask_deep_ratio",
-            "bid_convexity", "ask_convexity",
-            "body", "upper_wick", "lower_wick", "log_ret_close",
-        ]
-        for c in sniper_cols:
-            if c in df.columns:
-                df = df.with_columns(
-                    pl.col(c).fill_nan(0.0).fill_null(0.0)
-                      .map_elements(lambda x: 0.0 if (x == float('inf') or x == float('-inf')) else x,
-                                    return_dtype=pl.Float64)
-                      .alias(c)
-                )
-
-        # ── 10. Select final columns ──────────────────────────────────────────
-        agg_features = [
-            "body", "upper_wick", "lower_wick", "log_ret_close",
-            "volatility", "max_spread", "mean_spread", "mean_obi", "mean_deep_obi", "log_volume",
-            "ofi", f"ofi_delta_{ds_lbl}", f"ofi_delta_{dl_lbl}",
-            "micro_price_momentum", f"micro_price_delta_{ds_lbl}", f"micro_price_delta_{dl_lbl}",
-            "bid_rdi", f"bid_rdi_delta_{ds_lbl}", f"bid_rdi_delta_{dl_lbl}",
-            "ask_rdi", f"ask_rdi_delta_{ds_lbl}", f"ask_rdi_delta_{dl_lbl}",
-            "spread_zscore_60", vpin_col,
-            "kyle_lambda", "bid_deep_ratio", "ask_deep_ratio",
-            "bid_convexity", "ask_convexity", "book_asymmetry_v5", "pressure_ratio",
-            "mean_bid_slope", "mean_ask_slope"
-        ]
-
-        # Final output: only the 30 model features + essential price/meta columns.
-        # The raw OB level columns (bid_0_p, ask_0_p...) are intermediary computation
-        # inputs and must NOT appear in the output parquet.
-        raw_final_cols = agg_features + ["datetime", "high", "low", "close", "mean_micro_price", "island_id"]
-        final_cols = []
-        seen = set()
-        for c in raw_final_cols:
-            if c in df.columns and c not in seen:
-                final_cols.append(c)
-                seen.add(c)
-
-        df = df.select(final_cols)
-
-        # Cast to canonical schema
+        if "ts" in df.columns and "datetime" not in df.columns:
+            df = df.with_columns(pl.from_epoch("ts", time_unit="ms").alias("datetime"))
+            
+        # Initialize EventSampler and process
+        from .event_sampler import EventSampler
+        sampler = EventSampler(self._etl_cfg)
+        
+        # 1. Compute Base Event Bars (Dollar, Tick, Info, Time)
+        df_bars = sampler.compute_event_bars(df)
+        if df_bars.is_empty():
+            return df_bars
+            
+        # 2. Derive Institutional Features & Rollings
+        df_feats = sampler.apply_feature_engineering_bars(df_bars)
+        
+        # 3. Soft Clipping (from transform.py local method)
+        df_final = self._apply_soft_clipping_pl(df_feats)
+        
+        # 4. Cast to canonical schema to avoid downstream breaks
         cast_exprs = []
-        for c in df.columns:
+        for c in df_final.columns:
             if c == "island_id":
                 cast_exprs.append(pl.col(c).cast(pl.Int32))
             elif c == "tick_count":
                 cast_exprs.append(pl.col(c).cast(pl.Int64))
-            elif df.schema[c] in (pl.Float32, pl.Float64):
+            elif df_final.schema[c] in (pl.Float32, pl.Float64):
                 cast_exprs.append(pl.col(c).cast(pl.Float32))
         if cast_exprs:
-            df = df.with_columns(cast_exprs)
-
-        return df
+            df_final = df_final.with_columns(cast_exprs)
+            
+        return df_final
 
     def _apply_soft_clipping_pl(self, df: pl.DataFrame) -> pl.DataFrame:
         """Polars implementation of Winsorization (clipping based on P99 * multiplier)."""

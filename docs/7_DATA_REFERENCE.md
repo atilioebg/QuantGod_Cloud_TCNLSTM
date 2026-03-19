@@ -118,25 +118,21 @@ self.sampling_ms = 1000  # Configurado em cloud_config.yaml → etl.sampling_int
 - O timestamp de captura é **alinhado à janela**: `(ts // 1000) * 1000`.
 - Isso produz **aprox. 1 linha por segundo** por arquivo ZIP.
 
-### 3.3 Reamostragem — 1 Minuto (Timeframe Final do Modelo)
-Após a fase de tick-sampling, o método `apply_feature_engineering()` aplica **resampling para 1 minuto**:
+### 3.3 Amostragem Avançada (AFML Event-Driven)
+O `EventSampler` abandona o resampling cronológico fixo em favor de barras IID baseadas em atividade:
 
-```python
-df.resample('1min').agg(agg_map)
-```
+| Tipo de Barra | Gatilho (Trigger) | Objetivo |
+|:---|:---|:---|
+| **Dollar Bars** | Acúmulo de $N (ex: 100k USD) | Estabilidade da variância do retorno |
+| **Tick Bars** | Acúmulo de $N$ trades (ex: 1000) | Sincronia com a velocidade do mercado |
+| **Information Bars** | Fluxo de OFI (Order Flow Imbalance) | Capturar micro-momentos de assimetria |
+| **CUSUM Bars** | Desvio direcional adaptativo ($h$) | Filtragem de ruído lateral |
 
-| Coluna Intermediária | Função de Agregação 1min |
-|:---|:---|
-| `micro_price` → OHLC | `ohlc()` → gera `open, high, low, close` |
-| `micro_price` | `std` → `volatility` (desvio padrão da micro-price no minuto) |
-| `spread` | `max` → `max_spread` (spread máximo no minuto) |
-| `obi_l0` (OBI top) | `mean` → `mean_obi` |
-| `deep_obi_5` (OBI top 5) | `mean` → `mean_deep_obi` |
-| `bid_{i}_p`, `bid_{i}_s`, `ask_{i}_p`, `ask_{i}_s` | `last` → estado do book no **fechamento** de cada minuto |
-| `tick_count` | `sum` → contador de ticks no minuto (base para `log_volume`) |
+**Lógica de Reconciliação (Overflow):**
+- Se um trade de 150k USD ocorre e o limite da Dollar Bar é 100k, a barra fecha com 100k e os 50k excedentes são levados para a abertura da próxima barra. Isso garante a **Conservação de Massa** total dos dados.
 
 > [!IMPORTANT]
-> **O timeframe efetivo de análise do modelo é 1 minuto.** Cada linha no arquivo Parquet pré-processado representa 1 candle de 1 minuto do orderbook de BTC/USDT Perpetual Futures.
+> **O timeframe agora é dinâmico.** Cada linha no Parquet representa uma "unidade de informação" (barra de evento), não necessariamente 1 minuto de relógio. Em momentos de alta volatilidade, podemos ter 10 barras por minuto; em mercados lentos, 1 barra a cada 5 minutos (heartbeat).
 
 ---
 
@@ -379,36 +375,22 @@ O scaler treinado é salvo em `data/models/scaler_finetuning.pkl`.
 
 ## 8. Rotulagem (Target Variable)
 
-### 8.1 Lógica de Rotulagem
-O target é calculado a partir do **retorno cumulativo futuro** da coluna `log_ret_close`:
+### 8.1 Labelling: Triple Barrier Method (AFML Cap. 3)
+O target não é mais um retorno fixo ponto-a-ponto, mas sim o resultado da **interação do preço com 3 barreiras dinâmicas**:
 
-```python
-future_return = rolling_sum(log_ret_close, window=lookahead).shift(-lookahead)
-```
+1.  **Horizontal Superior (TP)**: $2.0 \times \sigma_{ewma}$. Se tocada primeiro $\rightarrow$ BUY (2).
+2.  **Horizontal Inferior (SL)**: $1.0 \times \sigma_{ewma}$. Se tocada primeiro $\rightarrow$ SELL (0).
+3.  **Vertical (Time-Stop)**: Janela de $N$ minutos. Se atingida sem toque nas horizontais $\rightarrow$ NEUTRAL (1).
 
-Em seguida, thresholds assimétricos são aplicados:
-```python
-target = 2   if future_return  > threshold_long    # BUY
-target = 0   if future_return  < threshold_short   # SELL
-target = 1   # otherwise                           # NEUTRAL
-```
+**First Touch Rule:** No caso de alta volatilidade onde ambas as barreiras horizontais são atingidas na mesma janela, o label é definido pelo evento que ocorreu **temporalmente primeiro** (`use_first_touch: true`).
 
-### 8.2 Parâmetros de Rotulagem (Configuração Atual)
-| Parâmetro | Valor | Descrição |
-|:---|:---|:---|
-| `lookahead` | 60 candles | Janela de 60 minutos (1 hora) à frente |
-| `threshold_long` | `+0.008` (~+0.8%) | Retorno mínimo para sinal de COMPRA |
-| `threshold_short` | `-0.004` (~-0.4%) | Retorno máximo para sinal de VENDA |
-
-> [!IMPORTANT]
-> Os thresholds são **assimétricos por design** — compras exigem retorno esperado 2x maior que vendas. Isso reflete a assimetria de risco/retorno do mercado de futuros de BTC.
-
-### 8.3 Classes do Target
-| Valor | Classe | Condição |
-|:---|:---|:---|
-| `0` | **SELL** | `future_return < -0.4%` em 60 min |
-| `1` | **NEUTRAL** | `-0.4% <= future_return <= +0.8%` em 60 min |
-| `2` | **BUY** | `future_return > +0.8%` em 60 min |
+### 8.2 Parâmetros Dinâmicos (Master Config)
+| Parâmetro | Descrição |
+|:---|:---|
+| `horizon_minutes` | Janela de lookahead (ex: 15min) |
+| `pt_multiplier` | Coeficiente de Take Profit em relação à volatilidade |
+| `sl_multiplier` | Coeficiente de Stop Loss (geralmente 1:2 ou 1:1) |
+| `adaptive_h` | Se `true`, o filtro CUSUM adapta-se à volatilidade local |
 
 ---
 
@@ -434,21 +416,18 @@ target = 1   # otherwise                           # NEUTRAL
 
 ---
 
-## 10. Pipeline Completo — Resumo do Fluxo
+## 10. Pipeline Completo — Resumo do Fluxo (AFML v9.5)
 
 ```mermaid
 graph TD
-    A["Bybit WebSocket L2\n(JSON ticks - ms)"] --> B["process_message()\nReconstrução do Orderbook\nsnapshot + deltas"]
-    B --> C["Sampling 1s\n(1 linha por segundo)"]
-    C --> D["capture_state()\nHard Cut OB200\nbid_i_p, bid_i_s, ask_i_p, ask_i_s\nspread, obi_l0, deep_obi_5, micro_price"]
-    D --> E["apply_feature_engineering()\nResample 1min\nOHLC, agg features"]
-    E --> F["32 Features Derivadas\n+ close + 800 colunas OB"]
-    F --> G["Parquet Pré-Processado\n833 colunas, index datetime 1min"]
-    G --> H["Labelling\nfuture_return 60min\nSELL=0, NEUTRAL=1, BUY=2"]
-    H --> I["Parquet Rotulado\n833 colunas + target"]
-    I --> J["Training\nStandardScaler nas 32 features\nSeq 720 candles (12h)\nInput shape: B × 720 × 32"]
-    J --> K["Base Model (Hybrid_TCN_LSTM)\nTCN stack + LSTM + MLP Head\nOutput: {logits:(B,3), probs:(B,3)}"]
-    K --> L["Auditor (XGBoost)\n14 meta-features\nOutput: calibrated class + conf"]
+    A["Bybit Raw Ticks\n(L2 + Trades)"] --> B["EventSampler\nDollar/Tick/CUSUM Bars"]
+    B --> C["L2 Transformer\nMicro-Price & Features"]
+    C --> D["Parquet Pré-Processado\nEvent-Driven Rows"]
+    D --> E["Triple Barrier Labelling\nFirst Touch Logic"]
+    E --> F["Split & Segregation\nBar-level Split"]
+    F --> G["Purge & Embargo\nData Independence (Cap. 7)"]
+    G --> H["StandardScaler (Training Set)\nX_train, y_train"]
+    H --> I["TCN-LSTM Base Model\n12h History (720 bars)"]
 ```
 
 ---
@@ -457,11 +436,10 @@ graph TD
 
 Para uma segunda IA que deve receber os **mesmos dados como input**, as seguintes garantias devem ser satisfeitas:
 
-1. **Mesma fonte de dados**: Bybit L2 Order Book, BTC/USDT Perpetual Futures
-2. **Mesma lógica de reconstrução**: snapshot inicial seguido de aplicação incremental de deltas (remoção quando `size==0`)
-3. **Mesmo Hard Cut**: Top 200 bids (desc) e top 200 asks (asc)
-4. **Mesmo timeframe**: Sampling 1s → Resample 1min
-5. **Mesmas 32 features**: calculadas conforme seções 5.1 a 5.6, na mesma ordem
-6. **Mesma normalização**: StandardScaler fit no conjunto de treino, aplicado em treino e validação
-7. **Mesmo `seq_len`**: 720 candles (12 horas de histórico)
-8. **Mesmo scaler**: Deve usar o `scaler_finetuning.pkl` salvo durante o treino do modelo original para garantir mesma distribuição em inferência em produção
+1. **Mesma fonte de dados**: Bybit L2 Order Book, BTC/USDT Perpetual Futures.
+2. **Amostragem por Eventos**: Deve utilizar **Dollar Bars** ou **Tick Bars** conforme o `sampling_mode` do config.
+3. **Mesmo Hard Cut**: Top 200 bids (desc) e top 200 asks (asc).
+4. **Mesmas 32 features**: calculadas sobre as barras de eventos, na mesma ordem (ver seção 7.1).
+5. **Mesma normalização**: StandardScaler fit no conjunto de treino, aplicado em treino e validação.
+6. **Mesmo `seq_len`**: 720 barras (o que pode representar tempo variável, mas 720 observações).
+7. **Mesmo scaler**: Deve usar o `scaler_finetuning.pkl` salvo durante o treino do modelo original para garantir mesma distribuição em inferência.

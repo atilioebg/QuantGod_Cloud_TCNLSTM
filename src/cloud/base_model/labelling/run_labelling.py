@@ -25,29 +25,31 @@ def label_triple_barrier(
     config: dict,
 ) -> pl.DataFrame:
     """
-    [v8.0 Triple Barrier Method - Event Driven]
+    [v8.2 Triple Barrier Method - High Fidelity Event Driven]
     
-    Substitui a lógica de Shift (Point-to-Point) que é incompatível com barras não-lineares.
-    
-    Implementação:
-    1. Horizontal Barriers: Profit Taking (Buy/Sell Threshold) e Stop Loss
-    2. Vertical Barrier: Time-Stop fixado em `horizon_minutes`
-    3. Custo Operacional: Aplica Taker Fees + Slippage estimate para evitar lucro de "papel"
+    Implementação estrutural de Marcos López de Prado:
+    1. Volatilidade EWMA Dinâmica como base de escala.
+    2. Barreiras Horizontais (Take Profit / Stop Loss) via rolling peak/trough.
+    3. Barreira Vertical (Time-Stop) corrigida via ts real do config.
+    4. Causalidade estrita e tratamento de 'crossed/stale' books.
     """
     labelling_cfg = config['pre_processing']['labelling']
-    sell_th = labelling_cfg.get('sell_threshold', 0.003)
-    buy_th  = labelling_cfg.get('buy_threshold', 0.003)
-    mins    = labelling_cfg.get('horizon_minutes', 15)
     
-    # Fees de microestrutura (Taker fee medio Binance/Bybit ~0.04% a 0.05%)
+    mins            = labelling_cfg.get('horizon_minutes', 15)
+    use_first_touch = labelling_cfg.get('use_first_touch', True)
+    pt_mult         = labelling_cfg.get('pt_multiplier', 2.0)
+    sl_mult         = labelling_cfg.get('sl_multiplier', 1.0)
+    vol_span        = labelling_cfg.get('vol_span', 100)
+    
+    # Fees e Custos
     taker_fee_pct = config.get('execution', {}).get('taker_fee_pct', 0.0005) 
     
-    logger.info(f"Parametros Triple Barrier:")
-    logger.info(f" - Vertical Barrier (Time-Stop): {mins} minutos")
-    logger.info(f" - Profit Target Buy: +{buy_th*100}% | Sell: -{sell_th*100}%")
-    logger.info(f" - Custo fixo embutido (Taker/Slippage): {taker_fee_pct*100}%")
-
-    logger.info(f"Lendo {len(all_files)} arquivos em memória (Streaming via LazyFrame seria o proximo passo)...")
+    logger.info("Configurando Motor de Labelling Prado-IID:")
+    logger.info(f" - Janela Vertical: {mins} min (Cronológica)")
+    logger.info(f" - Multiplicadores Vol: PT={pt_mult}x | SL={sl_mult}x")
+    logger.info(f" - Span Volatilidade (EWMA): {vol_span} bars")
+    
+    logger.info(f"Processando {len(all_files)} fragmentos...")
     dfs = []
     for pf in tqdm(all_files, desc="Lendo parquets"):
         df_i = pl.read_parquet(pf)
@@ -55,87 +57,121 @@ def label_triple_barrier(
         dfs.append(df_i)
 
     df = pl.concat(dfs, how="diagonal_relaxed")
-    if "datetime" in df.columns and "ts" not in df.columns:
-        df = df.with_columns(pl.col("datetime").dt.timestamp("ms").alias("ts"))
-
     df = df.sort("ts")
-    n_total = len(df)
-    island_col = "island_id" if "island_id" in df.columns else None
-    logger.info(f"Dataset concatenado: {n_total:,} barras | island={island_col}")
-
-    # Lógica Simplificada O(N*W) segura em polars: 
-    # Para Dollar Bars puras, o numero de rows em 15m pode variar.
-    # Como não podemos usar shift(N), usamos um group_by_dynamic sobre as rows futuras, 
-    # ou uma rolling list de timestamps. A abordagem estrita "Join asof" é mais eficaz 
-    # pro Time-Stop (Vertical Barrier): 
-    # Qual o close/high/low exato no momento tempo T + horizon_minutes?
     
-    # ── 1. Vertical Barrier (Time Stop) ───────────────────────────────────────
-    horizon_ms = int(mins * 60 * 1000)
-    
-    # Criamos a coluna com o timestamp futuro alvo
-    df = df.with_columns((pl.col("ts") + horizon_ms).alias("vertical_barrier_ts"))
-    
-    # Buscamos a primeira barra imediatamente ANTES do vertical barrier (fechamento de tempo)
-    df_vertical = df.select(["ts", "close", "island_id"]).rename({
-        "ts": "v_ts",
-        "close": "v_close",
-        "island_id": "v_island_id"
-    })
-    
-    # Backward join: pego o preco que existe no exato momento da barreira de tempo
-    df = df.join_asof(
-        df_vertical,
-        left_on="vertical_barrier_ts",
-        right_on="v_ts",
-        strategy="backward"
-    )
-    
-    # Se a ilha mudou entre a execucao e o time-stop (ocorreu gap > limiar), 
-    # a operacao eh nula (Island Boundary Violated).
-    invalid_island = pl.lit(False)
-    if island_col:
-        invalid_island = (pl.col("v_island_id").is_null()) | (pl.col("v_island_id") != pl.col(island_col))
-
-    # ── 2. Triple Barrier Assessment (Point-to-Point conservador na Barreira Vertical) 
-    # Nota: Em HFT ideal, calculariamos `max_high` e `min_low` num rolling window entre ts e v_ts.
-    # Mas para TCN de direcao (Trend/Sniper), a resolucao do PnL no FIM da janela exclui falsos
-    # rompimentos com pullback (wicks) protegendo a rede de prever ruido como alvo efetivo.
-    
-    # PnL no Time-Stop descontando Taker Fees dupla (entrada + saida)
-    total_fee = (taker_fee_pct * 2)
-    
-    # Ratio direcional bruto
-    df = df.with_columns(
-        (pl.col("v_close") / pl.col("close")).alias("ratio_future")
-    )
-    
-    # Retornos Reais (subtraindo as fees da casa e slippage estipulados)
-    # Se a flag __stale_l2__ existir (livro de ordens fantasma/parado enquanto trades correm),
-    # o sinal direcional é TERMINANTEMENTE censurado para NEUTRAL.
-    stale_condition = pl.col("__stale_l2__") if "__stale_l2__" in df.columns else pl.lit(False)
-
+    # ── 1. Cálculo da Volatilidade Diária EWMA ──────────────────────────────
+    # Usamos o log retorno do close para normalizar a escala
     df = df.with_columns([
-        pl.when(invalid_island)
-            .then(None)
-        .when(stale_condition)
-            .then(pl.lit(1, dtype=pl.Int8))   # NEUTRAL (Ignora o setup por ser baseado em livro fantasma)
-        .when(buy_return_real >= buy_th)
-            .then(pl.lit(2, dtype=pl.Int8))   # BUY Hits Profit Target at Time-Stop
-        .when(sell_return_real >= sell_th)
-            .then(pl.lit(0, dtype=pl.Int8))   # SELL Hits Profit Target at Time-Stop
-        .otherwise(pl.lit(1, dtype=pl.Int8))  # NEUTRAL (Fails to pierce barrier w/ profit padding)
-        .alias("target")
+        pl.col("close").log().diff().alias("__log_ret__"),
+        pl.arange(0, pl.len()).alias("__id__") # Unique ID to prevent join explosion
     ])
+    
+    # Volatilidade adaptativa (EWMA Std) - calculada com fallback caso versao polars seja antiga
+    try:
+        df = df.with_columns(
+            pl.col("__log_ret__").ewm_std(span=vol_span).over("island_id").alias("volatility_ewma")
+        )
+    except:
+        # Fallback manual: Var(X) = E[X^2] - (E[X])^2
+        df = df.with_columns([
+            pl.col("__log_ret__").ewm_mean(span=vol_span).over("island_id").alias("_m1"),
+            (pl.col("__log_ret__")**2).ewm_mean(span=vol_span).over("island_id").alias("_m2")
+        ])
+        df = df.with_columns(
+            (pl.col("_m2") - pl.col("_m1")**2).clip(lower_bound=1e-12).sqrt().alias("volatility_ewma")
+        ).drop(["_m1", "_m2"])
 
-    df_final = (
-        df.drop_nulls(subset=["target"])
-          .drop(["vertical_barrier_ts", "v_ts", "v_close", "v_island_id", "ratio_future"])
+    # ── 2. Scanning Futuro (Rolling Windows Forward) ─────────────────────────
+    # Em Polars, para olhar pra frente (lookahead), usamos offset=0 e period=mins
+    # Para garantir o uso de strings de duração ("15m"), convertemos ts para Datetime
+    df = df.with_columns(
+        pl.from_epoch(pl.col("ts"), time_unit="ms").alias("_dt")
     )
+    
+    # Executamos a rolagem frontal para capturar picos e vales do "futuro"
+    # A janela é [T, T + horizon]
+    df_roll = df.rolling(
+        index_column="_dt", 
+        period=f"{mins}m", 
+        offset="0s",
+        group_by="island_id", 
+        closed="both"
+    ).agg([
+        pl.col("__id__").last().alias("__id__"), # Keep the ID of the current row
+        pl.col("high").max().alias("fwd_max_high"),
+        pl.col("low").min().alias("fwd_min_low"),
+        pl.col("close").last().alias("fwd_close_at_stop"),
+        pl.col("high").arg_max().alias("fwd_tp_idx"),  # Índice relativo do toque do TP na janela
+        pl.col("low").arg_min().alias("fwd_sl_idx"),   # Índice relativo do toque do SL na janela
+    ])
+    
+    # Re-acoplamos os resultados via join no timestamp original
+    df = df.join(df_roll, on=["__id__", "island_id"], how="left").drop(["_dt", "__id__"])
+    df = df.sort("ts")
+    
+    # ── 3. Definição das Barreiras Reais ─────────────────────────────────────
+    # Usamos o modelo log-normal: Preço_Futuro = Preço_T * exp(vol * multiplicador)
+    df = df.with_columns([
+        (pl.col("close") * (pl.col("volatility_ewma") * pt_mult).exp()).alias("barrier_up"),
+        (pl.col("close") * (-pl.col("volatility_ewma") * sl_mult).exp()).alias("barrier_dn")
+    ])
+    
+    # ── 4. Lógica de Decisão (Triple Barrier) ─────────────────────────────────
+    stale_condition = pl.col("__stale_l2__") if "__stale_l2__" in df.columns else pl.lit(False)
+    hits_tp = pl.col("fwd_max_high") >= pl.col("barrier_up")
+    hits_sl = pl.col("fwd_min_low")  <= pl.col("barrier_dn")
+    
+    if use_first_touch:
+        # [v9.0 AFML-Aligned] Quando ambas as barreiras são atingidas na janela,
+        # a barreira tocada PRIMEIRO (menor índice relativo) determina o label.
+        tp_first = pl.col("fwd_tp_idx")  <= pl.col("fwd_sl_idx")
+        
+        df = df.with_columns([
+            pl.when(stale_condition)
+                .then(pl.lit(1, dtype=pl.Int8))
+            .when(hits_tp & hits_sl & tp_first)
+                .then(pl.lit(2, dtype=pl.Int8))           # TP tocou primeiro → BUY
+            .when(hits_tp & hits_sl & ~tp_first)
+                .then(pl.lit(0, dtype=pl.Int8))           # SL tocou primeiro → SELL
+            .when(hits_tp)
+                .then(pl.lit(2, dtype=pl.Int8))           # BUY
+            .when(hits_sl)
+                .then(pl.lit(0, dtype=pl.Int8))           # SELL
+            .otherwise(pl.lit(1, dtype=pl.Int8))          # Time-Stop → NEUTRAL
+            .alias("target")
+        ])
+    else:
+        # [v1.0 Legado] Ambos atingidos na mesma janela? → Neutro (Conflito)
+        df = df.with_columns([
+            pl.when(stale_condition)
+                .then(pl.lit(1, dtype=pl.Int8))
+            .when(hits_tp & hits_sl)
+                .then(pl.lit(1, dtype=pl.Int8))           # Ambiguidade → NEUTRAL
+            .when(hits_tp)
+                .then(pl.lit(2, dtype=pl.Int8))           # BUY
+            .when(hits_sl)
+                .then(pl.lit(0, dtype=pl.Int8))           # SELL
+            .otherwise(pl.lit(1, dtype=pl.Int8))          # Time-Stop → NEUTRAL
+            .alias("target")
+        ])
+
+    # Cleanup meta cols (incluindo índices de toque First Touch)
+    df_final = df.drop([c for c in [
+        "__log_ret__", "volatility_ewma",
+        "fwd_max_high", "fwd_min_low", "fwd_close_at_stop",
+        "barrier_up", "barrier_dn", "fwd_tp_idx", "fwd_sl_idx"
+    ] if c in df.columns])
+
+    
+    # Drop de linhas finais onde não temos janela de lookahead completa
+    # (Evita bias de fim de arquivo onde high/low rolling sao parciais)
+    max_ts = df_final["ts"].max()
+    horizon_ms = int(mins * 60 * 1000)
+    df_final = df_final.filter(pl.col("ts") <= (max_ts - horizon_ms))
 
     n_kept = len(df_final)
-    n_dropped = n_total - n_kept
-    logger.info(f"Triple Barrier Labeling: {n_kept:,} válidos | {n_dropped:,} descartados (borda final de matriz ou quebra de fluxo)")
+    n_total = len(df)
+    logger.info(f"Triple Barrier Labeling: {n_kept:,} amostras geradas | {n_total - n_kept:,} bordas podadas.")
 
     return df_final
 
@@ -207,13 +243,25 @@ def run_labelling():
 
         logger.info(f"🚀 Starting automated export to Drive: {remote_dest}...")
 
-        # QA Tests
-        logger.info("🧪 Running Automated Health QA (pytest)...")
+        # Calculate workers for pytest (v8.3 Corrected Rule Alignment)
+        try:
+            cpu_count = os.cpu_count() or 1
+            lab_cfg = config.get('pre_processing', {}).get('labelling', {})
+            if lab_cfg.get('use_dynamic_workers', False):
+                # RULE: Total CPUs - 1 when dynamic is active
+                pytest_workers = max(1, cpu_count - 1)
+            else:
+                # RULE: Fixed value from master_config (currently 7)
+                pytest_workers = lab_cfg.get('max_workers', 7)
+        except Exception:
+            pytest_workers = 1
+
+        logger.info(f"🧪 Running Automated Health QA (pytest) with {pytest_workers} workers...")
         qa_log_path = output_dir / "labelling_health_QA.log"
         try:
             with open(qa_log_path, 'w', encoding='utf-8') as qa_file:
                 subprocess.run(
-                    ["pytest", "tests/labelling/test_labelling_output.py", "-v"],
+                    [sys.executable, "-m", "pytest", "tests/labelling/test_labelling_output.py", "-v", "-n", str(pytest_workers)],
                     stdout=qa_file,
                     stderr=subprocess.STDOUT,
                     env=dict(os.environ,

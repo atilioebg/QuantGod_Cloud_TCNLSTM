@@ -5,162 +5,352 @@ from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CUSUM Symmetric Filter — De Prado (Advances in Financial Machine Learning)
+# ─────────────────────────────────────────────────────────────────────────────
+# Desenhado para ser Numba-ready (@njit compatible):
+#   - Opera exclusivamente sobre np.ndarray (sem listas, dicts ou objetos Python)
+#   - Loop sequencial simples (path-dependent por natureza, não paralelizável)
+#   - Para ativar Numba no futuro: adicionar '@numba.njit' na linha anterior à def
+#
+# Upgrade para Numba (uma linha de mudança):
+#   1. pip install numba
+#   2. from numba import njit
+#   3. @njit  ←── adicionar aqui
+#      def _cusum_loop(...):
+# ─────────────────────────────────────────────────────────────────────────────
+def _cusum_loop(prices: np.ndarray, h_arr: np.ndarray) -> np.ndarray:
+    """
+    Filtro CUSUM Simétrico Adaptativo — De Prado (AFML, Cap. 17 + Cap. 3).
+
+    [v9.0 AFML-Aligned] h_arr é um array de limiares adaptativos por tick,
+    calculado via EWMA rolante da volatilidade (não mais estático).
+    Isso garante que o filtro se adapta a mudanças de regime (alta/baixa vol).
+
+    Upgrade para Numba (uma linha de mudança):
+      1. pip install numba
+      2. from numba import njit
+      3. @njit  ←── adicionar aqui
+         def _cusum_loop(...):
+
+    Args:
+        prices: Array de log-retornos (np.float64). Shape: (N,)
+        h_arr:  Array de limiares adaptativos por tick. Shape: (N,)
+
+    Returns:
+        event_flags: Array booleano Shape (N,). True nos índices de disparo.
+    """
+    n = len(prices)
+    event_flags = np.zeros(n, dtype=np.bool_)
+    s_pos = 0.0
+    s_neg = 0.0
+
+    for i in range(1, n):
+        diff = prices[i] - prices[i - 1]
+        s_pos = max(0.0, s_pos + diff)
+        s_neg = min(0.0, s_neg + diff)
+        h_i = h_arr[i]
+
+        if s_pos >= h_i:
+            s_pos = 0.0
+            event_flags[i] = True
+        elif s_neg <= -h_i:
+            s_neg = 0.0
+            event_flags[i] = True
+
+    return event_flags
+
+
 class EventSampler:
     """
-    Motor de amostragem avançada para barras baseadas em eventos (Dollar, Tick, Information).
-    Implementa as regras de CoT (Anti-Leakage, Tick de Transbordo, Temporal Island Continuity).
+    Motor de amostragem avançada para barras baseadas em eventos.
+    Suporta três modos configuráveis via master_config.yaml (sampling_mode):
+      'trigger' — Trigger Bars (Dollar/Tick/Information/Time). Padrão IID.
+      'cusum'   — Somente Filtro CUSUM Simétrico de De Prado.
+      'both'    — CUSUM define janelas de interesse; Trigger constrói barras IID dentro delas.
     """
 
     def __init__(self, etl_cfg: dict):
         self._etl_cfg = etl_cfg
-        
-        self.dollar_threshold = float(etl_cfg.get("dollar_threshold_usd", 100000.0))
-        self.tick_threshold = int(etl_cfg.get("tick_threshold", 1000))
-        self.info_threshold = float(etl_cfg.get("information_threshold_ofi", 50.0))
-        self.island_gap_min = float(etl_cfg.get("island_gap_minutes", 5.0))
-        
+
+        # ── [AMOSTRAGEM] Modo e Limiares ──
+        self.sampling_mode        = str(etl_cfg.get("sampling_mode", "trigger"))
+        self.dollar_threshold     = float(etl_cfg.get("dollar_threshold_usd", 100000.0))
+        self.tick_threshold       = int(etl_cfg.get("tick_threshold", 1000))
+        self.info_threshold       = float(etl_cfg.get("information_threshold_ofi", 50.0))
+        self.island_gap_min       = float(etl_cfg.get("island_gap_minutes", 5.0))
+
+        # ── [CUSUM] Parâmetros ──
+        self.adaptive_h           = bool(etl_cfg.get("adaptive_h", True))
+        self.cusum_h_factor       = float(etl_cfg.get("cusum_h_factor", 1.5))
+        self.cusum_vol_span       = int(etl_cfg.get("cusum_vol_span", 100))
+
+        # ── [RESAMPLE] Frequência e Features ──
+        resample_freq = str(etl_cfg.get("resample_freq", "5min"))
+        freq_min = int(resample_freq.replace('min', '').replace('m', '').replace('T', ''))
+        self.time_threshold_ms = freq_min * 60 * 1000
+
         legacy_resample_min = int(max(1, etl_cfg.get("resample_min", 1)))
         short_min = int(etl_cfg.get("delta_short_min", 5))
-        long_min = int(etl_cfg.get("delta_long_min", 30))
-        
-        self.ds = max(1, short_min // legacy_resample_min)
-        self.dl = max(1, long_min // legacy_resample_min)
+        long_min  = int(etl_cfg.get("delta_long_min", 30))
+
+        self.ds     = max(1, short_min // legacy_resample_min)
+        self.dl     = max(1, long_min  // legacy_resample_min)
         self.ds_lbl = str(short_min)
         self.dl_lbl = str(long_min)
-        
-        self.vpin_window_min = int(etl_cfg.get("vpin_window_min", 25))
-        self.vpin_bars = max(1, self.vpin_window_min // legacy_resample_min)
-        self.vpin_lbl = f"vpin_min{self.vpin_window_min}"
 
+        self.vpin_window_min      = int(etl_cfg.get("vpin_window_min", 25))
+        self.vpin_bars            = max(1, self.vpin_window_min // legacy_resample_min)
+        self.vpin_lbl             = f"vpin_min{self.vpin_window_min}"
         self.spread_zscore_window = max(1, int(etl_cfg.get("spread_zscore_window_min", 60)) // legacy_resample_min)
-        self.levels = int(etl_cfg.get("levels", 200))
-        
-        self.book_asym_depth = int(etl_cfg.get("book_asymmetry_depth", 5))
-        self.deep_book_start = int(etl_cfg.get("deep_book_start", 50))
-        self.cn = int(etl_cfg.get("convexity_near_end", 10))
-        self.cf = int(etl_cfg.get("convexity_far_end", 20))
-        
+        self.levels               = int(etl_cfg.get("levels", 200))
+        self.book_asym_depth      = int(etl_cfg.get("book_asymmetry_depth", 5))
+        self.deep_book_start      = int(etl_cfg.get("deep_book_start", 50))
+        self.cn                   = int(etl_cfg.get("convexity_near_end", 10))
+        self.cf                   = int(etl_cfg.get("convexity_far_end", 20))
+
+        # ── [AUDITORIA] Relatório de Execução ──
         self.audit_report = {
             "type": "integrated",
+            "sampling_mode": self.sampling_mode,
             "generated_bars": 0,
             "islands": 0,
             "total_usd_volume": 0.0,
-            "total_raw_volume": 0.0
+            "total_raw_volume": 0.0,
+            "cusum_events_fired": 0,
+            "cusum_rejection_rate": 0.0,
         }
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Método Público Principal
+    # ─────────────────────────────────────────────────────────────────────────
 
     def compute_event_bars(self, df: pl.DataFrame) -> pl.DataFrame:
         """
-        Gera as barras agrupando os dados de trade e orderbook com base na regra de limiar.
-        Implementa a regra "Tick de Transbordo" e Isolamento de Ilhas.
-        Gera uma barra integrada sempre que QUALQUER UM dos limiares (Dollar, Tick, OFI) 
-        for rompido.
+        Gera barras IID a partir do DataFrame de ticks (L2 + Trades merged).
+        Bifurca o processamento baseado em self.sampling_mode.
         """
-        logger.info(f"Initiating INTEGRATED sampler (Dollar={self.dollar_threshold}, Tick={self.tick_threshold}, Info={self.info_threshold})")
-        df = df.sort("ts")
+        logger.info(f"EventSampler iniciado. Modo: '{self.sampling_mode}' | "
+                    f"Dollar={self.dollar_threshold} | Tick={self.tick_threshold} | "
+                    f"Info={self.info_threshold} | Time={self.time_threshold_ms}ms")
 
-        # ── 1. Temporal Island Continuty ──────────────────────────────
+        df = df.sort("ts")
+        df = self._apply_island_split(df)
+
+        if "usd_volume" not in df.columns:
+            df = df.with_columns(pl.lit(0.0).alias("usd_volume"))
+
+        self.audit_report["total_raw_volume"] = float(df["usd_volume"].sum())
+
+        if self.sampling_mode == "trigger":
+            return self._run_trigger_bars(df)
+
+        elif self.sampling_mode == "cusum":
+            cusum_mask = self._compute_cusum_mask(df)
+            self.audit_report["cusum_events_fired"] = int(cusum_mask.sum())
+            total = len(cusum_mask)
+            self.audit_report["cusum_rejection_rate"] = round(
+                1.0 - (self.audit_report["cusum_events_fired"] / total) if total > 0 else 0.0, 4)
+            logger.info(f"CUSUM: {self.audit_report['cusum_events_fired']} eventos disparados "
+                        f"({self.audit_report['cusum_rejection_rate']*100:.1f}% de ticks filtrados)")
+            # Em modo cusum puro, cada evento CUSUM define uma barra unitária
+            df = df.with_columns(cusum_mask.alias("__cusum_event__"))
+            df = df.with_columns(pl.col("__cusum_event__").cum_sum().over("island_id").alias("bar_id"))
+            return self._aggregate_bars(df)
+
+        elif self.sampling_mode == "both":
+            cusum_mask = self._compute_cusum_mask(df)
+            self.audit_report["cusum_events_fired"] = int(cusum_mask.sum())
+            total = len(cusum_mask)
+            self.audit_report["cusum_rejection_rate"] = round(
+                1.0 - (self.audit_report["cusum_events_fired"] / total) if total > 0 else 0.0, 4)
+            logger.info(f"CUSUM (both): {self.audit_report['cusum_events_fired']} eventos. "
+                        f"Trigger IID será aplicado dentro de cada janela CUSUM.")
+            # CUSUM cria um regime_id que isola blocos de atividade direcional
+            df = df.with_columns(cusum_mask.alias("__cusum_event__"))
+            df = df.with_columns(
+                pl.col("__cusum_event__").cum_sum().over("island_id").alias("cusum_regime_id")
+            )
+            return self._run_trigger_bars(df, extra_group_key="cusum_regime_id")
+
+        else:
+            logger.warning(f"sampling_mode '{self.sampling_mode}' desconhecido. Usando 'trigger'.")
+            return self._run_trigger_bars(df)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Métodos Privados
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _apply_island_split(self, df: pl.DataFrame) -> pl.DataFrame:
+        """Quebra séries temporais em ilhas quando gaps excedem island_gap_minutes."""
         gap_ms = int(self.island_gap_min * 60 * 1000)
         df = df.with_columns(
             (pl.col("ts").diff() > gap_ms).fill_null(False).alias("is_new_island")
         )
-        df = df.with_columns(pl.col("is_new_island").cum_sum().alias("island_id"))
-        
-        # Guarda raw volume para integridade
-        if "usd_volume" in df.columns:
-            self.audit_report["total_raw_volume"] = df["usd_volume"].sum()
+        return df.with_columns(pl.col("is_new_island").cum_sum().alias("island_id"))
 
-        # ── 2. Gatilhos de Amostragem ─────────────────────
-        # Tick: 1.0 per execution
+    def _compute_cusum_mask(self, df: pl.DataFrame) -> pl.Series:
+        """
+        Aplica _cusum_loop sobre os retornos logarítmicos do DataFrame.
+        Retorna uma pl.Series booleana com True nos ticks de eventos CUSUM.
+
+        [v9.0 AFML-Aligned] O limiar h é agora ADAPTATIVO:
+          h[i] = cusum_h_factor * ewma_std_rolling(log_ret)[i]
+        onde a EWMA é calculada tick-a-tick ao longo de TODA a série,
+        não apenas no warmup inicial. Isso permite que o filtro se adapte
+        a mudanças de regime de volatilidade (De Prado, AFML Cap. 3).
+        """
+        # Obter log-retornos calculados estritamente DENTRO de cada ilha
+        # Isso evita que um pulo de preço durante um gap gere um evento CUSUM falso.
+        price_col = "close" if "close" in df.columns else ("micro_price" if "micro_price" in df.columns else "price")
+
+        if price_col in df.columns:
+            log_ret = (
+                df.select(
+                    pl.col(price_col).log().diff().over("island_id").fill_null(0.0)
+                ).to_series().to_numpy()
+            )
+        else:
+            logger.warning("CUSUM: nenhuma coluna de preço encontrada. Retornando máscara vazia.")
+            return pl.Series([False] * len(df))
+
+        # Substituir NaN por 0 (ticks sem retorno válido)
+        log_ret = np.nan_to_num(log_ret, nan=0.0)
+        n = len(log_ret)
+
+        # ── [AFML v9.0] Cálculo de h[i] (Adaptativo ou Estático) ──────────────
+        alpha = 2.0 / (self.cusum_vol_span + 1.0)
+        ewma_mean = 0.0
+        running_var = 0.0
+        h_arr = np.zeros(n, dtype=np.float64)
+
+        if self.adaptive_h:
+            # h[i] evolui com a volatilidade local tick-a-tick
+            for i in range(n):
+                val = log_ret[i]
+                ewma_mean  = alpha * val + (1.0 - alpha) * ewma_mean
+                running_var = alpha * (val - ewma_mean) ** 2 + (1.0 - alpha) * running_var
+                h_arr[i]   = self.cusum_h_factor * np.sqrt(max(running_var, 1e-16))
+        else:
+            # h é estático: calculamos a volatilidade inicial (warmup) e fixamos
+            warmup = min(n, self.cusum_vol_span)
+            initial_vol = np.std(log_ret[:warmup]) if warmup > 1 else 0.0001
+            h_fixed = self.cusum_h_factor * initial_vol
+            h_arr[:] = h_fixed
+            logger.info(f"CUSUM: Modo Estático ativado. h fixado em {h_fixed:.6f}")
+
+        logger.debug(
+            f"CUSUM Adaptativo: h_min={h_arr.min():.6f} | h_max={h_arr.max():.6f} | "
+            f"h_mean={h_arr.mean():.6f} (factor={self.cusum_h_factor})"
+        )
+
+        # Chamar o loop puro NumPy com array de limiares adaptativos (Numba-ready)
+        flags = _cusum_loop(log_ret, h_arr)
+        return pl.Series(flags)
+
+    def _run_trigger_bars(self, df: pl.DataFrame, extra_group_key: str = None) -> pl.DataFrame:
+        """
+        Gera barras por acúmulo de limiares (Dollar/Tick/Information/Time).
+        Suporta uma chave de grupo extra (cusum_regime_id no modo 'both').
+        """
+        # ── Gatilho: Tick unit ──
         df = df.with_columns(pl.lit(1.0).alias("__tick_unit__"))
-        
-        # Info (OFI): absolute OFI
+
+        # ── Gatilho: OFI ──
         if "ofi" not in df.columns:
-            df = df.with_columns(pl.lit(0.0).alias("ofi")) 
+            df = df.with_columns(pl.lit(0.0).alias("ofi"))
         df = df.with_columns(pl.col("ofi").abs().alias("abs_ofi"))
-        
-        # ── 3. Indexacao Atômica (Transbordo Triplo CoT v8.0) ──────────────────
-        # Computa os IDs parciais de cada tipo de barra
-        df = df.with_columns([
-            (pl.col("usd_volume").cum_sum().shift(1).fill_null(0.0).over("island_id") // self.dollar_threshold).cast(pl.Int32).alias("dollar_id"),
-            (pl.col("__tick_unit__").cum_sum().shift(1).fill_null(0.0).over("island_id") // self.tick_threshold).cast(pl.Int32).alias("tick_id"),
-            (pl.col("abs_ofi").cum_sum().shift(1).fill_null(0.0).over("island_id") // self.info_threshold).cast(pl.Int32).alias("info_id")
-        ])
-        
-        # Nova barra é formada se HOUVER QUALQUER rompimento de ID em relacao à row anterior
-        # Isso significa que a barra atual agrupa todos os eventos ocorridos ANTES de QUALQUER 
-        # um dos triggers exceder o threshold. (Union of events).
-        df = df.with_columns([
-            (pl.col("dollar_id") != pl.col("dollar_id").shift(1).over("island_id")).alias("_d_brk"),
-            (pl.col("tick_id") != pl.col("tick_id").shift(1).over("island_id")).alias("_t_brk"),
-            (pl.col("info_id") != pl.col("info_id").shift(1).over("island_id")).alias("_i_brk")
-        ])
-        
-        df = df.with_columns([
-            (pl.col("_d_brk") | pl.col("_t_brk") | pl.col("_i_brk")).fill_null(False).alias("is_new_bar")
-        ])
-        
-        # Cumsum para obter um único bar_id unificado, mantendo a integridade multi-disparo temporal
-        df = df.with_columns(pl.col("is_new_bar").cum_sum().over("island_id").alias("bar_id"))
 
-        # Cleanup das var auxiliares
-        df = df.drop(["__tick_unit__", "abs_ofi", "dollar_id", "tick_id", "info_id", "_d_brk", "_t_brk", "_i_brk", "is_new_bar"])
+        # ── IDs parciais por tipo de bar (via integer division do acúmulo) ──
+        group_key = "island_id"
+        df = df.with_columns([
+            (pl.col("usd_volume").cum_sum().shift(1).fill_null(0.0).over(group_key) // self.dollar_threshold).cast(pl.Int32).alias("dollar_id"),
+            (pl.col("__tick_unit__").cum_sum().shift(1).fill_null(0.0).over(group_key) // self.tick_threshold).cast(pl.Int32).alias("tick_id"),
+            (pl.col("abs_ofi").cum_sum().shift(1).fill_null(0.0).over(group_key) // self.info_threshold).cast(pl.Int32).alias("info_id"),
+            (pl.col("ts") // self.time_threshold_ms).cast(pl.Int64).alias("time_id"),
+        ])
 
-        # ── 4. Agregacao do Motor de Barras ───────────────────────────
+        df = df.with_columns([
+            (pl.col("dollar_id") != pl.col("dollar_id").shift(1).over(group_key)).alias("_d_brk"),
+            (pl.col("tick_id")   != pl.col("tick_id").shift(1).over(group_key)).alias("_t_brk"),
+            (pl.col("info_id")   != pl.col("info_id").shift(1).over(group_key)).alias("_i_brk"),
+            (pl.col("time_id")   != pl.col("time_id").shift(1).over(group_key)).alias("_time_brk"),
+        ])
+
+        df = df.with_columns(
+            (pl.col("_d_brk") | pl.col("_t_brk") | pl.col("_i_brk") | pl.col("_time_brk"))
+            .fill_null(False).alias("is_new_bar")
+        )
+        df = df.with_columns(pl.col("is_new_bar").cum_sum().over(group_key).alias("bar_id"))
+
+        df = df.drop([c for c in ["__tick_unit__", "abs_ofi", "dollar_id", "tick_id",
+                                   "info_id", "time_id", "_d_brk", "_t_brk", "_i_brk",
+                                   "_time_brk", "is_new_bar"] if c in df.columns])
+
+        return self._aggregate_bars(df, extra_group_key=extra_group_key)
+
+    def _aggregate_bars(self, df: pl.DataFrame, extra_group_key: str = None) -> pl.DataFrame:
+        """
+        Agrega ticks em barras OHLC + features L2. Usa [island_id, bar_id] como chave.
+        Se extra_group_key fornecido (ex: cusum_regime_id), inclui na chave de grupo.
+        """
         ob_cols_raw = [c for c in df.columns if ('bid_' in c or 'ask_' in c) and not c.endswith(('_slope', '_rdi'))]
         ob_agg = [pl.col(c).last().alias(c) for c in ob_cols_raw]
 
         aggs = [
-            pl.col("ts").last().alias("ts"),          # Anti-Leakage: ms de fechamento da barra
+            pl.col("ts").last().alias("ts"),
             pl.col("usd_volume").sum().alias("bar_usd_volume") if "usd_volume" in df.columns else pl.lit(0.0).alias("bar_usd_volume"),
             pl.col("size").sum().alias("bar_btc_volume") if "size" in df.columns else pl.lit(0.0).alias("bar_btc_volume"),
             pl.len().alias("tick_count"),
         ]
 
-        # OHLC e Preco Ponderado (se existirem trades p/ formar vela)
         if "price" in df.columns and "size" in df.columns:
             aggs.extend([
                 pl.col("price").first().alias("open"),
                 pl.col("price").max().alias("high"),
                 pl.col("price").min().alias("low"),
                 pl.col("price").last().alias("close"),
-                ((pl.col("price") * pl.col("size")).sum() / (pl.col("size").sum() + 1e-9)).alias("vwap")
+                ((pl.col("price") * pl.col("size")).sum() / (pl.col("size").sum() + 1e-9)).alias("vwap"),
             ])
         elif "micro_price" in df.columns:
-            # Fallback seguro caso não haja data de trades no formato
             aggs.extend([
                 pl.col("micro_price").first().alias("open"),
                 pl.col("micro_price").max().alias("high"),
                 pl.col("micro_price").min().alias("low"),
                 pl.col("micro_price").last().alias("close"),
-                pl.col("micro_price").mean().alias("vwap")
+                pl.col("micro_price").mean().alias("vwap"),
             ])
 
-        # L2 Aggregations legadas q precisam transpor pro modelo final
         l2_aggs = []
-        if "spread" in df.columns: l2_aggs.extend([pl.col("spread").max().alias("max_spread"), pl.col("spread").mean().alias("mean_spread")])
-        if "micro_price" in df.columns: l2_aggs.append(pl.col("micro_price").std().alias("volatility"))
-        if "obi_l0" in df.columns: l2_aggs.append(pl.col("obi_l0").mean().alias("mean_obi"))
-        if "deep_obi_5" in df.columns: l2_aggs.append(pl.col("deep_obi_5").mean().alias("mean_deep_obi"))
-        if "ofi" in df.columns: l2_aggs.append(pl.col("ofi").sum().alias("ofi"))
+        if "spread"              in df.columns: l2_aggs.extend([pl.col("spread").max().alias("max_spread"), pl.col("spread").mean().alias("mean_spread")])
+        if "micro_price"         in df.columns: l2_aggs.append(pl.col("micro_price").std().alias("volatility"))
+        if "obi_l0"              in df.columns: l2_aggs.append(pl.col("obi_l0").mean().alias("mean_obi"))
+        if "deep_obi_5"          in df.columns: l2_aggs.append(pl.col("deep_obi_5").mean().alias("mean_deep_obi"))
+        if "ofi"                 in df.columns: l2_aggs.append(pl.col("ofi").sum().alias("ofi"))
         if "micro_price_momentum" in df.columns: l2_aggs.append(pl.col("micro_price_momentum").sum().alias("micro_price_momentum"))
-        if "bid_slope" in df.columns: l2_aggs.append(pl.col("bid_slope").mean().alias("mean_bid_slope"))
-        if "mean_ask_slope" in df.columns: l2_aggs.append(pl.col("ask_slope").mean().alias("mean_ask_slope"))
-        if "bid_rdi" in df.columns: l2_aggs.append(pl.col("bid_rdi").mean().alias("bid_rdi"))
-        if "ask_rdi" in df.columns: l2_aggs.append(pl.col("ask_rdi").mean().alias("ask_rdi"))
-        if "pressure_ratio" in df.columns: l2_aggs.append(pl.col("pressure_ratio").mean().alias("pressure_ratio"))
-        if "__stale_l2__" in df.columns: l2_aggs.append(pl.col("__stale_l2__").max().alias("__stale_l2__"))
+        if "bid_slope"           in df.columns: l2_aggs.append(pl.col("bid_slope").mean().alias("mean_bid_slope"))
+        if "mean_ask_slope"      in df.columns: l2_aggs.append(pl.col("ask_slope").mean().alias("mean_ask_slope"))
+        if "bid_rdi"             in df.columns: l2_aggs.append(pl.col("bid_rdi").mean().alias("bid_rdi"))
+        if "ask_rdi"             in df.columns: l2_aggs.append(pl.col("ask_rdi").mean().alias("ask_rdi"))
+        if "pressure_ratio"      in df.columns: l2_aggs.append(pl.col("pressure_ratio").mean().alias("pressure_ratio"))
+        if "__stale_l2__"        in df.columns: l2_aggs.append(pl.col("__stale_l2__").max().alias("__stale_l2__"))
 
         aggs.extend(l2_aggs)
         aggs.extend(ob_agg)
 
-        resampled = df.group_by(["island_id", "bar_id"], maintain_order=True).agg(aggs)
+        group_keys = ["island_id", "bar_id"]
+        if extra_group_key and extra_group_key in df.columns:
+            group_keys.insert(1, extra_group_key)
 
-        self.audit_report["generated_bars"] = len(resampled)
-        self.audit_report["islands"] = resampled["island_id"].n_unique()
+        resampled = df.group_by(group_keys, maintain_order=True).agg(aggs)
+
+        self.audit_report["generated_bars"]   = len(resampled)
+        self.audit_report["islands"]          = resampled["island_id"].n_unique()
         if "bar_usd_volume" in resampled.columns:
-            self.audit_report["total_usd_volume"] = resampled["bar_usd_volume"].sum()
-            
-        logger.info(f"Sampler applied. Bars: {len(resampled)} | Islands: {self.audit_report['islands']}")
+            self.audit_report["total_usd_volume"] = float(resampled["bar_usd_volume"].sum())
+
+        logger.info(f"Barras geradas: {len(resampled)} | Ilhas: {self.audit_report['islands']}")
         return resampled
 
     def apply_feature_engineering_bars(self, df: pl.DataFrame) -> pl.DataFrame:
@@ -278,6 +468,9 @@ class EventSampler:
         for c in means:
             if c in df.columns:
                 df = df.with_columns(pl.col(c).fill_nan(0.0).fill_null(0.0).alias(c))
+
+        # Final catch-all for any remaining NaNs across all columns (Price, Features, Raw)
+        df = df.fill_nan(0.0).fill_null(0.0)
 
         return df
 

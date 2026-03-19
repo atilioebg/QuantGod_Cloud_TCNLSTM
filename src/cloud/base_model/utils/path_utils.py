@@ -47,19 +47,32 @@ def _get_session_timestamp() -> str:
 def get_drive_suffix(config: dict) -> str:
     """
     Builds the run-specific suffix appended to the Drive session root folder.
-    Format: _SELL_{s}_BUY_{b}_{t}min_lookahead_{freq}
+    Format: _PT_{pt}_SL_{sl}_lookahead_{horizon}min_DT_{dollar}_TT_{tick}_IT_{ofi}_VT_{vol_span}_CUSUM_{h_factor}
     """
-    sell = config['pre_processing']['labelling'].get('sell_threshold', 0.003)
-    buy  = config['pre_processing']['labelling'].get('buy_threshold', 0.003)
-    t = config['pre_processing']['labelling'].get('horizon_minutes', 15)
+    lab_cfg = config['pre_processing']['labelling']
+    etl_cfg = config['pre_processing']['etl']
     
-    freq = config['pre_processing']['etl'].get('resample_freq', "1min")
+    pt   = lab_cfg.get('pt_multiplier', 2.0)
+    sl   = lab_cfg.get('sl_multiplier', 1.0)
+    hor  = lab_cfg.get('horizon_minutes', 15)
     
-    # Remove dots from thresholds as requested
-    sell_str = str(sell).replace(".", "")
-    buy_str  = str(buy).replace(".", "")
+    dt   = etl_cfg.get('dollar_threshold_usd', 100000.0)
+    tt   = etl_cfg.get('tick_threshold', 1000)
+    it   = etl_cfg.get('information_threshold_ofi', 50.0)
+    vt   = etl_cfg.get('cusum_vol_span', 100)
+    h_f  = etl_cfg.get('cusum_h_factor', 1.5)
     
-    return f"_SELL_{sell_str}_BUY_{buy_str}_{t}min_lookahead_{freq}_bar"
+    # Remove dots as requested: pt, sl, dt, it, h_f
+    def clean_dot(val):
+        return str(val).replace(".", "")
+    
+    pt_s   = clean_dot(pt)
+    sl_s   = clean_dot(sl)
+    dt_s   = clean_dot(dt)
+    it_s   = clean_dot(it)
+    hf_s   = clean_dot(h_f)
+    
+    return f"_PT_{pt_s}_SL_{sl_s}_lookahead_{hor}min_DT_{dt_s}_TT_{tt}_IT_{it_s}_VT_{vt}_CUSUM_{hf_s}"
 
 
 def get_drive_session_root(config: dict) -> str:
