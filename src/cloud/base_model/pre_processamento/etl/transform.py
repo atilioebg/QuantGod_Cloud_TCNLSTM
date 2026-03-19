@@ -466,7 +466,7 @@ class L2Transformer:
 
         original_cols = [c for c in [
             'body', 'upper_wick', 'lower_wick',
-            'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi',
+            'volatility', 'mean_obi', 'mean_deep_obi',
             'log_volume', 'log_ret_close',
         ] if c in df.columns]
 
@@ -478,7 +478,7 @@ class L2Transformer:
             'book_asymmetry_v5', 'spread_zscore_60', vpin_col,
             'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio',
             'bid_convexity', 'ask_convexity', 'pressure_ratio',
-            'mean_bid_slope', 'mean_ask_slope', 'mean_spread',
+            'mean_bid_slope', 'mean_ask_slope', 'mean_spread', 'max_spread',
         ] if c in df.columns]
 
         if df.is_empty():

@@ -134,11 +134,11 @@ pre_processing:
     # Winsorização suave aplicada APÓS o feature engineering, ANTES de salvar o Parquet.
     clipping:
       enabled: true                        # Ativa Soft-Clipping. Desativar pode explodir gradientes em news spikes.
-      p99_multiplier: 10                   # Teto = P99 * 10. Valores acima são podados para este teto.
+      p99_multiplier: 15                   # Aumentado para 15x para ser menos agressivo na poda de volatilidade real.
       noise_floor: 0.0000001               # P99 abaixo deste piso → usa fallback de 100x mediana (evita poda de features de escala micro).
       target_columns:                      # Colunas afetadas. Não incluir OHLC ou features normalizadas.
         - kyle_lambda
-        - vpin_min25
+        - vpin_min15
         - max_spread
         - ofi
         - ofi_delta_5
@@ -256,7 +256,7 @@ model:
     - ask_rdi_delta_5                                             # Choque de Profundidade Ask: 5min
     - ask_rdi_delta_30                                            # Contexto de Profundidade Ask: 30min
     - spread_zscore_60                                            # Spread Relativo: spread_zscore_window_min=60min
-    - vpin_min25                                                  # Toxicidade de Volume: vpin_window_min=25min
+    - vpin_min15                                                  # Toxicidade de Volume: vpin_window_min (Sincronizado)
     - kyle_lambda                                                 # Kyle's Lambda (Price resistance to flow)
     - bid_deep_ratio                                              # Liquidez Profunda Bid
     - ask_deep_ratio                                              # Liquidez Profunda Ask

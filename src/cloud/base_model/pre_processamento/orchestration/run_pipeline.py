@@ -245,7 +245,7 @@ def process_single_day(zip_path, csv_path, trades_remote, config):
             ).drop("l2_ts")
             
         # Execute the streaming graph right before Event Sampler
-        df_merged = lf_merged.collect(streaming=True)
+        df_merged = lf_merged.collect(engine="streaming")
             
         # ── 4. Event Sampling (Dollar/Tick/Info) ─────────────────────────────
         df_bars = event_sampler.compute_event_bars(df_merged)
