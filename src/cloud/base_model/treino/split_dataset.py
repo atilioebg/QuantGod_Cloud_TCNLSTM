@@ -41,75 +41,94 @@ def execute_split(stage_name, source_files, target_base_dir, train_ratio, split_
         return [], []
 
     import polars as pl
+    # Configuração de diretórios
+    train_dir = target_base_dir / "train"
+    val_dir   = target_base_dir / "val"
+    for d in [train_dir, val_dir]:
+        if d.exists():
+            try: shutil.rmtree(d)
+            except Exception: pass
+        d.mkdir(parents=True, exist_ok=True)
+
     if split_by_bars:
         # AFML SOTA: Exact bar-level split (Robust Row Counting)
         row_counts = []
         for f in source_files:
             try:
-                # v9.8: Use scan for zero-copy row counting
                 count = pl.scan_parquet(f).select(pl.len()).collect().item()
                 row_counts.append(count)
-            except Exception as e:
-                logger.warning(f"Could not count rows in {f.name}: {e}")
+            except Exception:
                 row_counts.append(0)
 
-        gc.collect() 
         total_rows = sum(row_counts)
         target_train_rows = int(train_ratio * total_rows)
 
         cumul = 0
-        split_idx = len(source_files)
-        for i, count in enumerate(row_counts):
-            cumul += count
-            if cumul >= target_train_rows:
-                # split_idx is the index of the first file in VAL
-                split_idx = i + 1
-                break
-        
-        # SAFETY GUARD: If we have multiple files but the ratio left VAL empty, 
-        # force at least one file to VAL (crucial for small test datasets)
-        if len(source_files) > 1 and split_idx >= len(source_files):
-            split_idx = len(source_files) - 1
-            logger.info(f"⚠️ [{stage_name}] Ratio would leave Val empty. Forcing last file to Val for pipeline stability.")
+        split_idx = -1
+        rows_to_take_from_split_file = 0
 
-        actual_train_rows = sum(row_counts[:split_idx])
-        actual_val_rows   = sum(row_counts[split_idx:])
+        for i, count in enumerate(row_counts):
+            if cumul + count >= target_train_rows:
+                split_idx = i
+                rows_to_take_from_split_file = target_train_rows - cumul
+                break
+            cumul += count
+
+        # Caso ratio=100% ou erro
+        if split_idx == -1: split_idx = len(source_files) - 1
+
+        # ── DISTRIBUIÇÃO FÍSICA ──────────────────────────────────────────────
+        # 1. Arquivos totalmente para TREINO
+        for i in range(split_idx):
+            f = source_files[i]
+            shutil.copy2(f, train_dir / f.name)
+
+        # 2. Arquivo de FRONTEIRA (Dividido)
+        f_mid = source_files[split_idx]
+        count_mid = row_counts[split_idx]
+        
+        if rows_to_take_from_split_file > 0 and rows_to_take_from_split_file < count_mid:
+            # FISICAMENTE DIVIDIR O ARQUIVO
+            df_mid = pl.read_parquet(f_mid, memory_map=False)
+            df_train = df_mid.slice(0, rows_to_take_from_split_file)
+            df_val = df_mid.slice(rows_to_take_from_split_file)
+            
+            df_train.write_parquet(train_dir / f"{f_mid.stem}_partA.parquet")
+            df_val.write_parquet(val_dir / f"{f_mid.stem}_partB.parquet")
+            logger.info(f"✂️ [{stage_name}] Split boundary file: {f_mid.name} -> {rows_to_take_from_split_file} bars to Train / Rest to Val")
+        elif rows_to_take_from_split_file >= count_mid:
+            shutil.copy2(f_mid, train_dir / f_mid.name)
+        else:
+            shutil.copy2(f_mid, val_dir / f_mid.name)
+
+        # 3. Arquivos totalmente para VALIDAÇÃO
+        for i in range(split_idx + 1, len(source_files)):
+            f = source_files[i]
+            shutil.copy2(f, val_dir / f.name)
+
+        actual_train_rows = target_train_rows
+        actual_val_rows   = total_rows - target_train_rows
         actual_ratio = actual_train_rows / total_rows if total_rows > 0 else 0.0
-        msg = f"[{stage_name}] Bar-level Split: {total_rows:,} barras → {actual_train_rows:,} Train ({actual_ratio*100:.1f}%)"
+        msg = f"[{stage_name}] True Bar-level Split: {total_rows:,} barras → {actual_train_rows:,} Train ({actual_ratio*100:.1f}%)"
     else:
         # Legacy: File-level split
         total_files = len(source_files)
         split_idx = int(train_ratio * total_files)
+        train_files = source_files[:split_idx]
+        val_files   = source_files[split_idx:]
+        
+        for f in train_files: shutil.copy2(f, train_dir / f.name)
+        for f in val_files:   shutil.copy2(f, val_dir / f.name)
+        
         msg = f"[{stage_name}] File-level Split (Legacy): {total_files} arquivos → {split_idx} Train"
 
-    train_files = source_files[:split_idx]
-    val_files   = source_files[split_idx:]
-
-    train_dir = target_base_dir / "train"
-    val_dir   = target_base_dir / "val"
-
-    for d in [train_dir, val_dir]:
-        if d.exists():
-            try:
-                shutil.rmtree(d)
-            except Exception as e:
-                logger.warning(f"Could not fully delete {d} (likely file lock): {e}")
-        d.mkdir(parents=True, exist_ok=True)
-
-    logger.info(f"{msg} | {len(train_files)} arquivos / {len(val_files)} arquivos")
-
-    # SHUFFLE=FALSE — garantia cronológica absoluta de OOF
-    for f in train_files:
-        dest = train_dir / f.name
-        shutil.copy2(f, dest)  # [v9.2] Sempre cópia no Windows (evita lock compartilhado de links)
-
-    for f in val_files:
-        dest = val_dir / f.name
-        shutil.copy2(f, dest)
-
+    logger.info(f"{msg} | Result: {len(list(train_dir.glob('*.parquet')))} train files / {len(list(val_dir.glob('*.parquet')))} val files")
+    
     time.sleep(0.5) 
     gc.collect()
-    return train_files, val_files
+    
+    # Retornar listas de caminhos relativos para os diretórios criados (conforme contrato do script)
+    return sorted(list(train_dir.glob("*.parquet"))), sorted(list(val_dir.glob("*.parquet")))
 
 def enforce_purge_gap(train_dir, config, stage_name):
     """
