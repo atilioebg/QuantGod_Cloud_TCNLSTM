@@ -64,14 +64,29 @@ python -m src.cloud.base_model.labelling.run_labelling
 ```
 
 - **Input:** `data/L2/pre_processed/`
-- **Output:** `data/L2/labelled_*/` definido em `labelling_config.yaml` (`output_dir`)
-- **Config:** `src/cloud/base_model/labelling/labelling_config.yaml`
-- **Duração:** ~30 minutos (paralelo com 6 workers)
+- **Output:** `data/L2/labelled_*/` definido em `master_config.yaml`
+- **SOTA Ref:** Implementa **First Touch Rule** (AFML Cap. 3). Em casos de toques simultâneos em TP e SL, a ordem cronológica define o label.
+- **Duração:** ~30 minutos (paralelo com 6+ workers)
 
 **Validar:**
 ```bash
-pytest tests/test_labelling_output.py -v
+pytest tests/labelling/test_labelling_output.py -v
 ```
+
+---
+
+### Passo 2.5 — Split & Segregation (Strict OOF)
+
+```bash
+python -m src.cloud.base_model.treino.split_dataset
+```
+
+- **Input:** Dataset labelled
+- **Operação:** 
+  - **Bar-level Split**: Divisão exata por número de observações (barras), garantindo `train_ratio` independente de barras/dia.
+  - **Purge Gap**: Remove bars do fim do treino (evita lookahead leakage).
+  - **Embargo Period**: Remove bars do início da validação (elimina autocorrelação serial - AFML Cap. 7).
+- **Output:** Pastas `train/` e `val/` dentro do diretório labelled + `split_summary.json`.
 
 ---
 
