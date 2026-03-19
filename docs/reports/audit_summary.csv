@@ -1,0 +1,3 @@
+file_name,status,num_islands,rows_retained,alert_type,max_gap_before,max_gap_after,clipping_density,features_healed,healing_details,integrity_comment
+2025-08-21_BTCUSDT_ob200.data,VALID,1,256949,HIGH_TAIL_VOL,0.00,0.00,0.0000%,,,Passed
+2025-08-20_BTCUSDT_ob500.data,VALID,1,327860,HIGH_TAIL_VOL,0.00,0.00,0.0000%,,,Passed

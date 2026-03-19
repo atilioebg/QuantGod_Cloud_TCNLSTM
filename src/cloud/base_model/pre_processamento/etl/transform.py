@@ -369,6 +369,9 @@ class L2Transformer:
         # 2. Derive Institutional Features & Rollings
         df_feats = sampler.apply_feature_engineering_bars(df_bars)
         
+        # Sincronizar relatório de auditoria do sampler para o transformer
+        self.audit_report.update(sampler.audit_report)
+        
         # 3. Soft Clipping (from transform.py local method)
         df_final = self._apply_soft_clipping_pl(df_feats)
         

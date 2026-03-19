@@ -1,6 +1,15 @@
+import os
+import sys
+from pathlib import Path
+
+# Add project root to path
+# orchestration (0) -> pre_processamento (1) -> base_model (2) -> cloud (3) -> src (4) -> root (5)
+project_root = str(Path(__file__).parents[5])
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
 import yaml
 import logging
-from pathlib import Path
 import pandas as pd
 import polars as pl
 import numpy as np
@@ -11,8 +20,6 @@ from src.cloud.base_model.pre_processamento.etl.load import DataLoader
 from src.cloud.base_model.pre_processamento.etl.validate import DataValidator
 import json
 from tqdm import tqdm
-import sys
-import os
 import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
 

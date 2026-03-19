@@ -1,0 +1,301 @@
+{
+    "timestamp": "2026-03-19T14:43:04.048268",
+    "pipeline_config": {
+        "resample_freq": "5min",
+        "levels": 200,
+        "clipping_enabled": true,
+        "p99_multiplier": 10,
+        "lookback_minutes": 300,
+        "flow_depth": 5
+    },
+    "summary": {
+        "total_files_processed": 2,
+        "total_files_clean": 2,
+        "total_files_with_clip": 0,
+        "total_files_with_gap": 0,
+        "total_files_healed": 0,
+        "total_files_hard_reset": 0,
+        "total_files_multi_island": 0,
+        "total_files_invalid": 0,
+        "total_files_skipped": 0,
+        "gap_distribution_minutes": {},
+        "clipping_stats": {
+            "total_cells_clipped": 0,
+            "top_clipped_features": []
+        },
+        "island_stats": {
+            "total_islands_generated": 2,
+            "total_islands_survived": 2,
+            "total_islands_abandoned": 0
+        },
+        "row_stats": {
+            "total_rows_retained": 584809,
+            "avg_rows_per_file": 292404.5,
+            "min_rows_in_file": 256949,
+            "max_rows_in_file": 327860
+        }
+    },
+    "clipping_enabled": true,
+    "validation_failures_count": 0,
+    "validation_failures": [],
+    "reports": [
+        {
+            "file_id": "2025-08-21_BTCUSDT_ob200.data",
+            "clipping_events": {},
+            "outlier_density": 0.0,
+            "temporal_gaps": [],
+            "max_gap_before": 0.0,
+            "max_gap_after": 0.0,
+            "healed": false,
+            "healing_details": [],
+            "features_healed": [],
+            "num_islands_generated": 1,
+            "total_rows_retained": 256949,
+            "gap_fragmentation_events": [],
+            "health_stats": {
+                "is_valid": true,
+                "nan_count": 0,
+                "inf_count": 0,
+                "dead_features": [],
+                "dead_features_lineage": {},
+                "high_tail_count": 5646,
+                "high_tails_detail": {
+                    "bar_usd_volume": {
+                        "count": 138,
+                        "lineage": "[RAW_DATA]"
+                    },
+                    "bar_btc_volume": {
+                        "count": 141,
+                        "lineage": "[RAW_DATA]"
+                    },
+                    "max_spread": {
+                        "count": 644,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "volatility": {
+                        "count": 564,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "micro_price_momentum": {
+                        "count": 196,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "bid_rdi": {
+                        "count": 153,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "ask_rdi": {
+                        "count": 331,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "pressure_ratio": {
+                        "count": 114,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "body": {
+                        "count": 117,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "upper_wick": {
+                        "count": 218,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "lower_wick": {
+                        "count": 268,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "log_ret_close": {
+                        "count": 94,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "bid_rdi_delta_5": {
+                        "count": 140,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "ask_rdi_delta_5": {
+                        "count": 182,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "micro_price_delta_5": {
+                        "count": 13,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "bid_rdi_delta_30": {
+                        "count": 268,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "ask_rdi_delta_30": {
+                        "count": 370,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "spread_zscore_60": {
+                        "count": 407,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "kyle_lambda": {
+                        "count": 349,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "bid_deep_ratio": {
+                        "count": 227,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "ask_deep_ratio": {
+                        "count": 150,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "bid_convexity": {
+                        "count": 314,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "ask_convexity": {
+                        "count": 248,
+                        "lineage": "[DNN_INPUT]"
+                    }
+                },
+                "stale_data_detected": true,
+                "max_gap_minutes": 0.8454499999999999,
+                "shape_integrity": true,
+                "lineage_summary": {
+                    "[DNN_INPUT]": 30,
+                    "[XGB_ONLY]": 0,
+                    "[RAW_DATA]": 14
+                },
+                "num_islands_generated": 1,
+                "total_rows_retained": 256949,
+                "valid_island_ids": [
+                    0.0
+                ]
+            }
+        },
+        {
+            "file_id": "2025-08-20_BTCUSDT_ob500.data",
+            "clipping_events": {},
+            "outlier_density": 0.0,
+            "temporal_gaps": [],
+            "max_gap_before": 0.0,
+            "max_gap_after": 0.0,
+            "healed": false,
+            "healing_details": [],
+            "features_healed": [],
+            "num_islands_generated": 1,
+            "total_rows_retained": 327860,
+            "gap_fragmentation_events": [],
+            "health_stats": {
+                "is_valid": true,
+                "nan_count": 0,
+                "inf_count": 0,
+                "dead_features": [],
+                "dead_features_lineage": {},
+                "high_tail_count": 5649,
+                "high_tails_detail": {
+                    "bar_usd_volume": {
+                        "count": 209,
+                        "lineage": "[RAW_DATA]"
+                    },
+                    "bar_btc_volume": {
+                        "count": 210,
+                        "lineage": "[RAW_DATA]"
+                    },
+                    "max_spread": {
+                        "count": 648,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "volatility": {
+                        "count": 716,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "micro_price_momentum": {
+                        "count": 188,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "bid_rdi": {
+                        "count": 84,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "ask_rdi": {
+                        "count": 84,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "pressure_ratio": {
+                        "count": 125,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "body": {
+                        "count": 121,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "upper_wick": {
+                        "count": 167,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "lower_wick": {
+                        "count": 87,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "log_ret_close": {
+                        "count": 145,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "bid_rdi_delta_5": {
+                        "count": 112,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "ask_rdi_delta_5": {
+                        "count": 144,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "micro_price_delta_5": {
+                        "count": 37,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "bid_rdi_delta_30": {
+                        "count": 100,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "ask_rdi_delta_30": {
+                        "count": 126,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "spread_zscore_60": {
+                        "count": 514,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "kyle_lambda": {
+                        "count": 102,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "bid_deep_ratio": {
+                        "count": 434,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "ask_deep_ratio": {
+                        "count": 414,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "bid_convexity": {
+                        "count": 620,
+                        "lineage": "[DNN_INPUT]"
+                    },
+                    "ask_convexity": {
+                        "count": 262,
+                        "lineage": "[DNN_INPUT]"
+                    }
+                },
+                "stale_data_detected": true,
+                "max_gap_minutes": 0.8466333333333333,
+                "shape_integrity": true,
+                "lineage_summary": {
+                    "[DNN_INPUT]": 30,
+                    "[XGB_ONLY]": 0,
+                    "[RAW_DATA]": 14
+                },
+                "num_islands_generated": 1,
+                "total_rows_retained": 327860,
+                "valid_island_ids": [
+                    0.0
+                ]
+            }
+        }
+    ]
+}

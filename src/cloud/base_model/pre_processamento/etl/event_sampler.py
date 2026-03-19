@@ -120,6 +120,9 @@ class EventSampler:
             "total_raw_volume": 0.0,
             "cusum_events_fired": 0,
             "cusum_rejection_rate": 0.0,
+            "max_gap_before": 0.0,
+            "max_gap_after": 0.0,
+            "healed": False
         }
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -184,10 +187,21 @@ class EventSampler:
 
     def _apply_island_split(self, df: pl.DataFrame) -> pl.DataFrame:
         """Quebra séries temporais em ilhas quando gaps excedem island_gap_minutes."""
+        if df.is_empty(): return df
+
+        # Calcular gap máximo antes do processamento (para auditoria)
+        diffs_ms = df["ts"].diff().fill_null(0)
+        self.audit_report["max_gap_before"] = round(float(diffs_ms.max() / 1000 / 60), 2)
+
         gap_ms = int(self.island_gap_min * 60 * 1000)
         df = df.with_columns(
             (pl.col("ts").diff() > gap_ms).fill_null(False).alias("is_new_island")
         )
+        # Em barras event-driven, não "curamos" o tempo, apenas isolamos regimes.
+        # Portanto max_gap_after será igual a max_gap_before na série bruta, 
+        # mas as Ilhas garantem que os indicadores (EWMA, OFI) não "vazem" entre os gaps.
+        self.audit_report["max_gap_after"] = self.audit_report["max_gap_before"]
+        
         return df.with_columns(pl.col("is_new_island").cum_sum().alias("island_id"))
 
     def _compute_cusum_mask(self, df: pl.DataFrame) -> pl.Series:
@@ -435,13 +449,13 @@ class EventSampler:
 
         vpin_col = self.vpin_lbl
         df = df.with_columns([
-            ((pl.col("max_spread") - pl.col("_rm_s")) / (pl.col("_rs_s") + 1e-9)).alias("spread_zscore_60"),
-            (pl.col("_ofi_roll") / (pl.col("_stot") + 1e-9)).alias(vpin_col),
-            (pl.col(f"micro_price_delta_{ds_l}") / (pl.col(f"ofi_delta_{ds_l}").abs() + 1e-9)).alias("kyle_lambda"),
-            (pl.col("_sbd") / (pl.col("_sb_n") + 1e-9)).alias("bid_deep_ratio"),
-            (pl.col("_sad") / (pl.col("_sa_n") + 1e-9)).alias("ask_deep_ratio"),
-            (pl.col("_sb0") / pl.col("_sb1")).alias("bid_convexity"),
-            (pl.col("_sa0") / pl.col("_sa1")).alias("ask_convexity"),
+            ((pl.col("max_spread") - pl.col("_rm_s")) / (pl.col("_rs_s") + 1e-7)).alias("spread_zscore_60"),
+            (pl.col("_ofi_roll") / (pl.col("_stot") + 1e-4)).clip(upper_bound=100.0).alias(vpin_col),
+            (pl.col(f"micro_price_delta_{ds_l}") / (pl.col(f"ofi_delta_{ds_l}").abs() + 1e-4)).alias("kyle_lambda"),
+            (pl.col("_sbd") / (pl.col("_sb_n") + 1e-4)).alias("bid_deep_ratio"),
+            (pl.col("_sad") / (pl.col("_sa_n") + 1e-4)).alias("ask_deep_ratio"),
+            (pl.col("_sb0") / (pl.col("_sb1") + 1e-4)).clip(upper_bound=1000.0).alias("bid_convexity"),
+            (pl.col("_sa0") / (pl.col("_sa1") + 1e-4)).clip(upper_bound=1000.0).alias("ask_convexity"),
         ])
 
         helper = ["_rm_s", "_rs_s", "_ofi_roll", "_stot", "_sbd", "_sad", "_sb_n", "_sa_n", "_sb0", "_sb1", "_sa0", "_sa1"]
@@ -471,6 +485,14 @@ class EventSampler:
 
         # Final catch-all for any remaining NaNs across all columns (Price, Features, Raw)
         df = df.fill_nan(0.0).fill_null(0.0)
+
+        # ── [GOLD MEMORY OPTIMIZATION] ──────────────────────────────────────────
+        # Drop all raw book level columns (bid_0_p, ask_0_s, etc) to save RAM.
+        # These are only needed for the derivations above.
+        raw_book_cols = [c for c in df.columns if ('bid_' in c or 'ask_' in c) and ('_p' in c or '_s' in c) and not c.endswith(('_delta_5', '_delta_30', '_deep_ratio', '_convexity'))]
+        if raw_book_cols:
+            logger.info(f"💾 Memory Optimization: Dropping {len(raw_book_cols)} raw book columns.")
+            df = df.drop(raw_book_cols)
 
         return df
 
