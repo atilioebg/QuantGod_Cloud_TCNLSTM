@@ -211,8 +211,17 @@ def train_specialist_fold(
     if len(train_ds) == 0 or len(val_ds) == 0:
         raise ValueError(f"Fold {fold_k}: dataset too small after purge (train={len(train_ds)}, val={len(val_ds)})")
 
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,  pin_memory=True, num_workers=4)
-    val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False, pin_memory=True, num_workers=4)
+    # Dynamic CPU Detection (v9.6 Robust)
+    try:
+        cpu_count = len(os.sched_getaffinity(0))
+    except (AttributeError, ImportError, NotImplementedError):
+        cpu_count = os.cpu_count() or 1
+    
+    # DataLoader workers: safe balance (max 4 or cpu_count/4)
+    dl_workers = min(8, max(1, cpu_count // 4))
+
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,  pin_memory=True, num_workers=dl_workers)
+    val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False, pin_memory=True, num_workers=dl_workers)
 
     # Model (fresh clone, same architecture as Foundation winner)
     model = Hybrid_TCN_LSTM(
@@ -610,13 +619,18 @@ def run_kfold_specialist():
 
     # -- 6. Integrated Security QA ---------------------------------------------
     logger.info("Running Automated Specialist Security QA (pytest)...")
+    # Dynamic parallelism for Security QA
     try:
-        import subprocess
-        import os
-        qa_log_path = oof_dir / "kfold_security_QA.log"
+        cpu_count = len(os.sched_getaffinity(0))
+    except (AttributeError, ImportError, NotImplementedError):
+        cpu_count = os.cpu_count() or 1
+    pytest_workers = max(1, cpu_count - 1)
+
+    qa_log_path = oof_dir / "kfold_security_QA.log"
+    try:
         with open(qa_log_path, 'w', encoding='utf-8') as qa_file:
             subprocess.run(
-                ["pytest", "tests/kfold/test_kfold_security.py", "-v"],
+                ["pytest", "tests/kfold/test_kfold_security.py", "-v", "-n", str(pytest_workers)],
                 stdout=qa_file,
                 stderr=subprocess.STDOUT,
                 env=os.environ.copy(),
@@ -624,7 +638,7 @@ def run_kfold_specialist():
             )
         logger.info("[OK] Specialist QA Report saved to " + str(qa_log_path))
     except Exception as e:
-        logger.info("[OK] Specialist QA Report saved to " + str(report_path))
+        logger.error(f"[FAIL] Specialist QA failed: {e}")
     logger.info("[END] K-Fold Specialist finished. Auditor fusion ready.")
 
 

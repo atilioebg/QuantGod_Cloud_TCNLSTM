@@ -261,13 +261,18 @@ def run_labelling():
 
         logger.info(f"🚀 Starting automated export to Drive: {remote_dest}...")
 
-        # Calculate workers for pytest (v8.3 Corrected Rule Alignment)
+        # Calculate workers for pytest (v9.6 Robust Affinity Detection)
         try:
-            cpu_count = os.cpu_count() or 1
+            try:
+                # os.sched_getaffinity(0) detects real vCPUs assigned to the process (respects VM/cgroups)
+                cpu_count = len(os.sched_getaffinity(0))
+            except (AttributeError, ImportError, NotImplementedError):
+                cpu_count = os.cpu_count() or 1
+                
             lab_cfg = config.get('pre_processing', {}).get('labelling', {})
             if lab_cfg.get('use_dynamic_workers', False):
-                # RULE: Total CPUs - 1, capped at 31 to avoid overhead in high-core count machines (EPYC)
-                pytest_workers = min(31, max(1, cpu_count - 1))
+                # RULE: Available vCPUs - 1
+                pytest_workers = max(1, cpu_count - 1)
             else:
                 # RULE: Fixed value from master_config (currently 7)
                 pytest_workers = lab_cfg.get('max_workers', 7)
