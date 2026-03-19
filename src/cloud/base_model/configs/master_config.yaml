@@ -159,8 +159,8 @@ pre_processing:
 
     # ── [WORKERS] Paralelismo do ETL ──────────────────────────────────────────
     export_compression: "snappy"   # Algoritmo de compressão dos Parquets. 'snappy'=rápido, 'gzip'=menor tamanho.
-    use_dynamic_workers: false     # DESATIVADO para evitar OOM em execuções longas (365 dias).
-    max_workers: 10                # SEGURO: Inicie com 10-12 workers e monitore a RAM.
+    use_dynamic_workers: true      # [TRUE] Ativa paralelismo dinâmico (vCPUs - 1).
+    max_workers: 10                # SEGURO: Usado apenas se use_dynamic_workers for false.
   labelling:
     # ── [TRIPLE BARRIER] Parâmetros do Motor Prado-IID ─────────────────────
     # run_labelling.py usa estes parâmetros para construir as 3 barreiras.
