@@ -171,7 +171,12 @@ class DataValidator:
                 logger.warning(f"⚠️ CROSS-SCALE INCONSISTENCY: {delta_col} extreme spike detected (max={delta_max:.1f}, std={delta_std:.1f}, ratio={delta_max/delta_std:.0f}x)")
 
         # 6. Distribution Sanity
-        # identify VPIN columns dynamically
+        ratio_features = [
+            'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio',
+            'bid_convexity', 'ask_convexity', 'book_asymmetry_v5', 'max_spread', 'ofi',
+            'pressure_ratio', 'body', 'upper_wick', 'lower_wick'
+        ]
+        # identify VPIN columns dynamically (e.g. vpin_min15, vpin_min25)
         vpin_cols = [c for c in df.columns if c.startswith('vpin_min')]
         active_features = [f for f in ratio_features if f in df.columns] + vpin_cols
         for feat in set(active_features):
