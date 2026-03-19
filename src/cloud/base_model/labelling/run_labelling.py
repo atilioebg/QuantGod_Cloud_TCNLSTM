@@ -266,8 +266,8 @@ def run_labelling():
             cpu_count = os.cpu_count() or 1
             lab_cfg = config.get('pre_processing', {}).get('labelling', {})
             if lab_cfg.get('use_dynamic_workers', False):
-                # RULE: Total CPUs - 1 when dynamic is active
-                pytest_workers = max(1, cpu_count - 1)
+                # RULE: Total CPUs - 1, capped at 31 to avoid overhead in high-core count machines (EPYC)
+                pytest_workers = min(31, max(1, cpu_count - 1))
             else:
                 # RULE: Fixed value from master_config (currently 7)
                 pytest_workers = lab_cfg.get('max_workers', 7)

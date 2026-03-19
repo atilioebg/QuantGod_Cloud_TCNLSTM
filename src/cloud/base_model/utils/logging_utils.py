@@ -95,7 +95,7 @@ def get_labelling_suffix(config: dict) -> str:
     """
     naming_cfg = config.get('naming_conventions', {})
     lab_cfg = config['pre_processing']['labelling']
-    template = naming_cfg.get('labelling_suffix_template', "PT_{pt:.1f}_SL_{sl:.1f}_H_{h}min_S_{s}")
+    template = naming_cfg.get('labelling_suffix_template', "PT_{pt:.2f}_SL_{sl:.2f}_H_{h}min_S_{s}")
     
     suffix = template.format(
         pt=lab_cfg.get('pt_multiplier', 2.0),
