@@ -188,12 +188,12 @@ pre_processing:
       # ── [SPLIT CRONOLÓGICO] Proteção contra Look-Ahead Bias ──────────────
       # O split é SEMPRE feito em ordem cronológica (sem shuffle).
       base:
-      train_ratio: 0.80  # Ajustado para 0.55 no teste local (para termos val_files com 2 fragmentos)
-      val_ratio: 0.20    # 45% mais recentes
-      embargo_minutes: 15 # [AFML Cap.7] Janela de silêncio após o purge gap: remove do início do val.
-    auditor:
-      train_ratio: 0.80  # 80% dos OOF logits para treino do Auditor XGBoost.
-      val_ratio: 0.20    # 20% para threshold calibration do Auditor.
+        train_ratio: 0.80  # Ajustado para 0.55 no teste local (para termos val_files com 2 fragmentos)
+        val_ratio: 0.20    # 45% mais recentes
+      auditor:
+        train_ratio: 0.80  # 80% dos OOF logits para treino do Auditor XGBoost.
+        val_ratio: 0.20    # 20% para threshold calibration do Auditor.
+      embargo_minutes: 15  # [AFML Cap.7] Janela de silêncio após o purge gap: remove do início do val.
 
   kfold:
     # ── [K-FOLD OOF] Especialista Sem Vazamento ────────────────────────

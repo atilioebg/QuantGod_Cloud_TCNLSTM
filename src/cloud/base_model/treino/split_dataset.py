@@ -174,7 +174,9 @@ def enforce_embargo(val_dir, config, stage_name):
 
     # Embargo pode ser configurado por stage; fallback para horizon_minutes
     stage_key = stage_name.lower()  # 'foundation' or 'specialist'
-    split_cfg  = config['pre_processing']['split'].get(stage_key, config['pre_processing']['split'].get('base', {}))
+    # v9.7: Corrected nested config path
+    root_split = config['pre_processing']['labelling']['split']
+    split_cfg  = root_split.get(stage_key, root_split.get('base', {}))
     embargo_min = split_cfg.get('embargo_minutes', config['pre_processing']['labelling'].get('horizon_minutes', 15))
     embargo_bars = max(1, embargo_min // resample_min)
 
@@ -226,12 +228,12 @@ def split_and_segregate():
     # Label used for naming the split_summary file
     base_labelled_name = source_dir.name  # e.g. "labelled_SELL_00030_BUY_00030_5min_..."
 
-    # Proporções e Toggles
-    split_cfg_root = config['pre_processing']['split']
+    # Proporções e Toggles (v9.7 Corrected YAML path)
+    split_cfg_root = config['pre_processing']['labelling']['split']
     split_by_bars  = split_cfg_root.get('split_by_bars', True)
     
     base_train_pct = split_cfg_root['base'].get('train_ratio', 0.70)
-    spec_train_pct = split_cfg_root['specialized'].get('train_ratio', 0.80)
+    spec_train_pct = split_cfg_root['auditor'].get('train_ratio', 0.80)
     
     # Destinos
     base_split_dir = source_dir
