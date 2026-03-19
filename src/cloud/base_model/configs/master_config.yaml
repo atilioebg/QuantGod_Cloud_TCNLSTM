@@ -120,7 +120,7 @@ pre_processing:
     # ── [FEATURES DERIVADAS] Janelas em Minutos Reais ─────────────────────────
     # O ETL calcula: n_barras = janela_min / resample_freq_min. Alterar resample_freq não quebra o significado econômico.
     spread_zscore_window_min: 60  # [min] Z-Score do spread: stress de liquidez e squeeze de mercado.
-    vpin_window_min: *horizon     # [min] Toxicidade: sincronizado dinamicamente com o horizonte de labelling.
+    vpin_window_min: &horizon 15     # [min] Toxicidade: JANELA ANCORA.
     delta_short_min: 5            # [min] Lookback curto: choques e gatilhos de microestrutura.
     delta_long_min: 30            # [min] Lookback longo: drift de preço e contexto de momentum.
 
@@ -163,7 +163,7 @@ pre_processing:
     # run_labelling.py usa estes parâmetros para construir as 3 barreiras.
     # A barreira ativa é: TP = close + (vol_ewma * pt_multiplier) | SL = close - (vol_ewma * sl_multiplier)
     # O label é determinado por QUAL barreira o preço toca primeiro.
-    horizon_minutes: &horizon 15 # [min] Barreira Vertical (ANCHOR).
+    horizon_minutes: *horizon # [min] Barreira Vertical (Sincronizado).
     use_first_touch: true # [AFML Cap.3] true: resolve ambiguidade TP/SL pelo tempo | false: desativa lógica AFML.
     
     # ── [ESTRATÉGIA DE ALVO EM BPS] ────────────────────────────────────
