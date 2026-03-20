@@ -247,6 +247,13 @@ def process_single_day(zip_path, csv_path, trades_remote, config):
         # Execute the streaming graph right before Event Sampler
         df_merged = lf_merged.collect(engine="streaming")
             
+        # ── 3.1. Aggressive Disk Cleanup (Trades CSV) ─────────────────────
+        try:
+            if local_csv_path.exists():
+                local_csv_path.unlink()
+                logger.debug(f"[cleanup] Deleted trades CSV: {local_csv_path.name}")
+        except: pass
+
         # ── 4. Event Sampling (Dollar/Tick/Info) ─────────────────────────────
         df_bars = event_sampler.compute_event_bars(df_merged)
         
@@ -310,6 +317,9 @@ def process_single_day(zip_path, csv_path, trades_remote, config):
     except Exception as e:
         zip_name = Path(zip_path).name if zip_path else "unknown"
         return {"status": "error", "message": f"❌ Error processing {zip_name}: {str(e)}", "reason": str(e)}
+    finally:
+        # Final GC sweep for this worker before it picks up a new task
+        gc.collect()
 
 def run_pipeline():
     # 1. Load Config
