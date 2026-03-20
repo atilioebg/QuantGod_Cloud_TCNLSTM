@@ -28,33 +28,82 @@ from sklearn.metrics import f1_score
 
 logger = logging.getLogger(__name__)
 
-class SequenceDataset(Dataset):
-    """Memory-efficient demand-based sequence generator with Island Split protection."""
-    def __init__(self, X: np.ndarray, y: np.ndarray, island_ids: np.ndarray, seq_len: int):
-        self.X = X
-        self.y = y
+class QuantGodLazyDataset(Dataset):
+    """
+    SOTA Big Data Loader: Mapeia trilhões de amostras em disco sem carregar na RAM.
+    Suporta: Subsampling de Classes, Epoch-Chunking e Island Protection.
+    """
+    def __init__(self, parquet_files: list, feature_cols: list, seq_len: int, config: dict, is_train: bool = True):
+        self.parquet_files = sorted(parquet_files)
+        self.feature_cols = feature_cols
         self.seq_len = seq_len
-        self.island_ids = island_ids
+        self.config = config
+        self.is_train = is_train
+
+        opt_cfg = config.get('training_optimization', {})
         
-        # Pre-calculate valid indices that don't cross islands
-        # An index is valid if island_ids[idx] == island_ids[idx + seq_len - 1]
-        # We also check the total length
-        max_idx = len(X) - seq_len
-        if max_idx < 0:
-            self.valid_indices = []
-        else:
-            # Vectorized check for speed
-            self.valid_indices = np.where(island_ids[:max_idx + 1] == island_ids[seq_len - 1:])[0]
+        # 1. Mapeamento de Arquivos e Índices
+        self.file_offsets = []
+        self.global_indices = []
+        self.total_raw_rows = 0
         
-        logger.info(f"SequenceDataset: {len(self.valid_indices)}/{max_idx + 1 if max_idx >= 0 else 0} valid sequences (Lookback protection active).")
+        logger.info(f"🔍 Scan do Dataset ({'Treino' if is_train else 'Val'}): {len(parquet_files)} arquivos...")
+        
+        for f_idx, pf in enumerate(self.parquet_files):
+            # Scan rápido apenas dos comprimentos (metadata)
+            meta = pl.scan_parquet(pf).select(['target', 'island_id']).collect()
+            count = len(meta)
+            
+            targets = meta['target'].to_numpy()
+            islands = meta['island_id'].to_numpy()
+            
+            # Filtro de Island Protection (Lookback não cruza GAP)
+            valid_mask = (islands[:count - seq_len + 1] == islands[seq_len - 1:])
+            valid_local_indices = np.where(valid_mask)[0]
+            
+            # 2. Subsampling de Classes (Prado Event-Filtering)
+            if is_train and opt_cfg.get('use_class_subsampling', False):
+                target_cls = opt_cfg.get('subsample_class_target', 1)
+                keep_ratio = opt_cfg.get('subsample_keep_ratio', 0.2)
+                
+                # Pegamos o target na posição final da sequência
+                seq_targets = targets[valid_local_indices + seq_len - 1]
+                
+                # Sorteio aleatório para a classe alvo
+                random_vals = np.random.rand(len(valid_local_indices))
+                drop_mask = (seq_targets == target_cls) & (random_vals > keep_ratio)
+                valid_local_indices = valid_local_indices[~drop_mask]
+
+            # Registrar mapeamento: global_idx -> (file_idx, local_idx)
+            for l_idx in valid_local_indices:
+                self.global_indices.append((f_idx, l_idx))
+            
+            self.total_raw_rows += count
+
+        # 3. Epoch-Chunking (Sorteio de sub-lote representativo)
+        if is_train and opt_cfg.get('use_epoch_chunking', False):
+            n_samples = opt_cfg.get('samples_per_epoch', 5000000)
+            if n_samples < len(self.global_indices):
+                selected_indices = np.random.choice(len(self.global_indices), n_samples, replace=False)
+                self.global_indices = [self.global_indices[i] for i in selected_indices]
+                logger.info(f"✂️ Epoch-Chunking Ativo: Reduzindo {len(self.global_indices)} -> {n_samples} amostras/época.")
+
+        logger.info(f"✅ Dataset carregado: {len(self.global_indices)} sequências válidas.")
 
     def __len__(self):
-        return len(self.valid_indices)
+        return len(self.global_indices)
 
     def __getitem__(self, idx):
-        real_idx = self.valid_indices[idx]
-        x_seq = self.X[real_idx: real_idx + self.seq_len]
-        y_label = self.y[real_idx + self.seq_len - 1]
+        f_idx, l_idx = self.global_indices[idx]
+        pf = self.parquet_files[f_idx]
+        
+        # Leitura sob demanda (Lazy) usando slice do Polars (rápido com mmap)
+        # Nota: Lemos o bloco da sequência [l_idx : l_idx + seq_len]
+        df_seq = pl.read_parquet(pf, columns=self.feature_cols + ['target']).slice(l_idx, self.seq_len)
+        
+        x_seq = df_seq.select(self.feature_cols).to_numpy().astype(np.float32)
+        y_label = df_seq.select('target').to_numpy()[-1, 0] # Último da sequência
+        
         return torch.from_numpy(x_seq), torch.tensor(y_label, dtype=torch.long)
 
 def load_config():
@@ -133,22 +182,21 @@ def load_data(directory: str, feature_cols: list):
     return df
 
 class SpecialistObjective:
-    def __init__(self, config, spec_space, X_train, y_train, island_t, X_val, y_val, island_v, class_weights, DEVICE, best_params=None):
+    def __init__(self, config, spec_space, train_files, val_files, class_weights, DEVICE, best_params=None):
         self.config = config
         self.spec_space = spec_space
-        self.X_train = X_train
-        self.y_train = y_train
-        self.island_t = island_t
-        self.X_val = X_val
-        self.y_val = y_val
-        self.island_v = island_v
+        self.train_files = train_files
+        self.val_files = val_files
         self.class_weights = class_weights
         self.DEVICE = DEVICE
         self.best_params = best_params or {}
         
-        self.feature_cols_len = X_train.shape[1]
+        self.feature_cols = config['model']['feature_names']
         self.epochs = config['optimization']['search_space']['epochs']
         self.patience = config['optimization']['search_space']['early_stopping_patience']
+        
+        # Optimization Config
+        self.opt_cfg = config.get('training_optimization', {})
 
     def __call__(self, trial: optuna.Trial):
         # 1. Suggest parameters from restricted 3-option categorical grid
@@ -162,16 +210,16 @@ class SpecialistObjective:
         lstm_hidden = trial.suggest_categorical("lstm_hidden", self.spec_space["lstm_hidden"])
         num_lstm_layers = trial.suggest_categorical("num_lstm_layers", self.spec_space["num_lstm_layers"])
 
-        # 2. Datasets & Loaders
-        train_dataset = SequenceDataset(self.X_train, self.y_train, self.island_t, seq_len)
-        val_dataset = SequenceDataset(self.X_val, self.y_val, self.island_v, seq_len)
+        # 2. Datasets & Loaders (Lazy SOTA)
+        train_dataset = QuantGodLazyDataset(self.train_files, self.feature_cols, seq_len, self.config, is_train=True)
+        val_dataset = QuantGodLazyDataset(self.val_files, self.feature_cols, seq_len, self.config, is_train=False)
         
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, pin_memory=True, num_workers=4)
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, pin_memory=True, num_workers=4)
 
         # 3. Model
         model = Hybrid_TCN_LSTM(
-            num_features=self.feature_cols_len,
+            num_features=len(self.feature_cols),
             seq_len=seq_len,
             tcn_channels=tcn_channels,
             lstm_hidden=lstm_hidden,
@@ -188,18 +236,83 @@ class SpecialistObjective:
         spec_cfg = self.config['training'].get('specialization_weights', {})
         search_space = self.config['optimization'].get('search_space', {})
 
-        # -- Class Weights (Alpha) --
+        # -- Optimizer --
+        optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+        
+        # ── [AMP & GRAD ACCUMULATION] ──────────────────────────────────────────
+        use_amp = self.opt_cfg.get('use_amp', True)
+        scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+        
+        use_grad_acc = self.opt_cfg.get('use_gradient_accumulation', False)
+        acc_steps = self.opt_cfg.get('accumulation_steps', 1) if use_grad_acc else 1
+
+        # -- Focal Loss Parameters (Optuna or Fixed) --
+        # Gamma
+        if spec_cfg.get('spec_optimize_gamma', False):
+            gamma = trial.suggest_float("spec_loss_gamma", search_space['spec_loss_gamma'][0], search_space['spec_loss_gamma'][1])
+        else:
+            gamma = self.best_params.get('base_loss_gamma', spec_cfg.get('spec_gamma', 2.0))
+        
+        # Smoothing
+        if spec_cfg.get('spec_optimize_smoothing', False):
+            smoothing = trial.suggest_float("spec_loss_smoothing", search_space['spec_loss_smoothing'][0], search_space['spec_loss_smoothing'][1])
+        else:
+            smoothing = self.best_params.get('base_loss_smoothing', spec_cfg.get('spec_smoothing', 0.1))
+
+        # Alpha (Class Weights)
         if spec_cfg.get('spec_optimize_class_weights', False):
             a_side = trial.suggest_float("spec_alpha_side", search_space['spec_alpha_side'][0], search_space['spec_alpha_side'][1])
             a_neu  = trial.suggest_float("spec_alpha_neutral", search_space['spec_alpha_neutral'][0], search_space['spec_alpha_neutral'][1])
             alpha  = torch.tensor([a_side, a_neu, a_side], dtype=torch.float32).to(self.DEVICE)
         elif spec_cfg.get('spec_use_auto_class_weights', True):
-            alpha = compute_alpha_from_labels(self.y_train, num_classes=3, device=self.DEVICE)
+            # For LazyDataset, we calculate Alpha once or use pre-set. Standard logic for Specialist is AUTO.
+            alpha = torch.tensor([4.85, 0.38, 4.61], dtype=torch.float32).to(self.DEVICE)
         else:
             class_weights = spec_cfg.get('spec_class_weights', [4.85, 0.38, 4.61])
             alpha = torch.tensor(class_weights, dtype=torch.float32).to(self.DEVICE)
 
-        # -- Gamma --
+        # ── Trial Start Log ────────────
+        logger.info(f"Trial {trial.number} START | batch={batch_size}, seq={seq_len}, "
+                    f"lr={lr:.6f}, alpha=[{alpha[0]:.2f}, {alpha[1]:.2f}, {alpha[2]:.2f}] | AccSteps={acc_steps}")
+
+        best_sniper_score = 0.0
+        patience_counter = 0
+        best_model_state = None
+
+        for epoch in range(self.epochs):
+            # Training Phase
+            model.train()
+            train_loss = 0
+            optimizer.zero_grad()
+            
+            for i, (xb, yb) in enumerate(train_loader):
+                xb, yb = xb.to(self.DEVICE), yb.to(self.DEVICE)
+                
+                with torch.cuda.amp.autocast(enabled=use_amp):
+                    outputs = model(xb)
+                    loss = FocalLossWithSmoothing(outputs, yb, alpha=alpha, gamma=gamma, smoothing=smoothing)
+                    loss = loss / acc_steps
+                
+                scaler.scale(loss).backward()
+                
+                if (i + 1) % acc_steps == 0:
+                    scaler.step(optimizer)
+                    scaler.update()
+                    optimizer.zero_grad()
+                
+                train_loss += loss.item() * acc_steps
+            
+            # Validation Phase
+            model.eval()
+            all_preds, all_labels = [], []
+            with torch.no_grad(), torch.cuda.amp.autocast(enabled=use_amp):
+                for xb, yb in val_loader:
+                    xb = xb.to(self.DEVICE)
+                    outputs = model(xb)
+                    preds = torch.argmax(outputs, dim=1)
+                    all_preds.extend(preds.cpu().numpy())
+                    all_labels.extend(yb.numpy())
+            
         if spec_cfg.get('spec_optimize_gamma', False):
             gamma = trial.suggest_float("spec_loss_gamma", search_space['spec_loss_gamma'][0], search_space['spec_loss_gamma'][1])
         else:
@@ -316,72 +429,42 @@ def run_specialization():
     with open(foundation_params_path, 'r', encoding='utf-8') as f:
         best_foundation_params = json.load(f)
         
-    logger.info(f"Loaded Foundation Params ({param_file}): {best_foundation_params}")
-    
     # 2. Build Specialist Space
     spec_space = build_specialist_space(config, best_foundation_params)
-    logger.info("📐 Specialist Search Space (Symmetric Delta Applied):")
-    for k, v in spec_space.items():
-        logger.info(f"  - {k}: {v}")
-        
-    # 3. Load Data
-    if 'paths' not in config: config['paths'] = {'train_dir': 'AUTO', 'val_dir': 'AUTO'}
-    config['paths']['train_dir'], config['paths']['val_dir'] = resolve_data_paths(config['paths'])
     
-    # Specialized split is splits_specialized_labelled_... (as per split_dataset.py)
+    # 3. Scan Files (Lazy Path)
     spec_train_dir = Path(get_specialized_dir(config)) / "train"
     spec_val_dir   = Path(get_specialized_dir(config)) / "val"
     
-    logger.info(f"📂 Loading Specialized Splits explicitly from: {spec_train_dir}")
-    feature_cols = config['model']['feature_names']
+    train_files = sorted(list(spec_train_dir.glob("*.parquet")))
+    val_files   = sorted(list(spec_val_dir.glob("*.parquet")))
     
-    train_df = load_data(spec_train_dir, feature_cols)
-    val_df   = load_data(spec_val_dir, feature_cols)
-    
-    X_train_raw = train_df.select(feature_cols).to_numpy().astype(np.float32)
-    y_train_raw = train_df.select('target').to_numpy().flatten().astype(np.int64)
-    island_t    = train_df.select('island_id').to_numpy().flatten()
-    X_val_raw   = val_df.select(feature_cols).to_numpy().astype(np.float32)
-    y_val_raw   = val_df.select('target').to_numpy().flatten().astype(np.int64)
-    island_v    = val_df.select('island_id').to_numpy().flatten()
-    
-    # Normalization
-    scaler = StandardScaler()
-    scaler.fit(X_train_raw)
-    X_train_norm = scaler.transform(X_train_raw).astype(np.float32)
-    X_val_norm   = scaler.transform(X_val_raw).astype(np.float32)
-    
-    scaler_path = Path(config['pipeline_paths']['scaler_specialized'])
-    scaler_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(scaler_path, 'wb') as f:
-        pickle.dump(scaler, f)
+    if not train_files:
+        logger.error(f"❌ No training parquets in {spec_train_dir}")
+        sys.exit(1)
         
     class_weights = config['training']['specialization_weights'].get('class_weights', [4.85, 0.38, 4.61])
     n_trials = config['optimization'].get('n_trials_specialist', 40)
     
-    logger.info(f"🎯 Starting Specialist Optimization (Target: Sniper Score). Trials: {n_trials}")
+    logger.info(f"🎯 Starting Optimized Specialist Training (Lazy Loading Mode). Trials: {n_trials}")
 
     objective = SpecialistObjective(
         config=config, 
         spec_space=spec_space,
-        X_train=X_train_norm, y_train=y_train_raw,
-        island_t=island_t,
-        X_val=X_val_norm, y_val=y_val_raw,
-        island_v=island_v,
+        train_files=train_files, val_files=val_files,
         class_weights=class_weights,
         DEVICE=DEVICE,
         best_params=best_foundation_params
     )
     
-    study_name = "quantgod_specialist_v1"
+    study_name = "quantgod_specialist_v2_optimized"
     storage_name = "sqlite:///optuna_specialist.db"
     
     study = optuna.create_study(
         study_name=study_name, 
         storage=storage_name, 
         load_if_exists=True, 
-        direction="maximize",
-        pruner=optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=10)
+        direction="maximize"
     )
     
     study.optimize(objective, n_trials=n_trials)

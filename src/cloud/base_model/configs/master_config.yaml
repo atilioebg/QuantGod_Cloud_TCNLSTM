@@ -164,6 +164,8 @@ pre_processing:
     end_year: 2025             # Ano final para processamento.
     export_compression: "snappy" # Algoritmo de compressão dos parquets.
     
+    # CPU usada no ETL AMD EPYC 9654 96-Core Processor
+    # 32 vCPUs - 256 GB RAM
     scale_guard:
       enabled: true
       thresholds:              # Fator de escala por ano (1.0 = 100% de max_workers)
@@ -218,6 +220,23 @@ pre_processing:
     specialist_epochs: 60  # Épocas por fold. Reduzido para modo E2E; aumentar para produção (120-200).
     use_best_foundation_arch: true  # true → reutiliza best_params.json (sem re-otimizar Optuna por fold). Economiza GPU.
     oof_output_dir: "SPECIALIST"    # Pasta onde full_oof.parquet é salvo. Lida por auditor_labelling.py.
+
+  # ── [TRAINING OPTIMIZATION] Alta Performance & Big Data ───────────────────
+  training_optimization:
+    use_amp: true                # Ativa FP16 (RTX Tensor Cores). Reduz VRAM e acelera treino.
+    
+    # Gradient Accumulation (Batches virtuais gigantes com VRAM pequena)
+    use_gradient_accumulation: true
+    accumulation_steps: 4        # Multiplica o batch_size efetivo. Ex: 512 * 4 = 2048.
+    
+    # Epoch-Chunking (Treino por fatias representativas)
+    use_epoch_chunking: true
+    samples_per_epoch: 10000000   # 10 Milhões de amostras por época (feedback rápido).
+    
+    # Non-Event Subsampling (Equilíbrio de Classes)
+    use_class_subsampling: true
+    subsample_class_target: 1    # Classe Neutra (Protocolo Prado).
+    subsample_keep_ratio: 0.2    # Mantém apenas 20% das barras neutras.
 
 model:
   # ── [TCN-LSTM] Configuração do Modelo Base ──────────────────────────
