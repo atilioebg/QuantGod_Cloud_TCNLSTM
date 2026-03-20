@@ -32,7 +32,16 @@ ZIP (Bybit L2) + CSV.GZ (Trades)
   │
   ├─ load.py: Serialização em Parquet (Snappy) em `data/L2/pre_processed/`
   │
+  │
   └─ validate.py: Auditoria de integridade (Island Split, Gap Detection)
+
+---
+
+## 🛡️ Resiliência e Escala: Scale Guard
+O processamento de anos recentes (2025-2026) apresenta densidade de dados até 3x superior a 2023. Para evitar falhas de Out-of-Memory (OOM) em sistemas com 256GB de RAM:
+- **Redutor Dinâmico**: O pipeline aplica um multiplicador (`scale_guard.thresholds`) sobre o total de CPU.
+- **Memória por Worker**: Estimados **43GB/worker** para 2026.
+- **Garbage Collection**: Forçado a cada 5 arquivos para liberar heaps do Polars/NumPy.
 ```
 
 ---
@@ -131,7 +140,7 @@ def _cusum_loop(prices: np.ndarray, h_arr: np.ndarray) -> np.ndarray:
     ...
 ```
 
-> **Nenhuma outra refatoração é necessária.** A função foi projetada com esse upgrade em mente: usa somente `np.ndarray`, índices inteiros e operações escalares. Sem `append`, dicts ou objetos Python no loop.
+> **Upgrade Crítico (2026)**: O pipeline agora suporta **Distributed Processing** via `island_id`. Se a memória estourar, o Scale Guard reduz automaticamente o paralelismo, priorizando a estabilidade sobre a velocidade bruta.
 
 ---
 

@@ -41,6 +41,14 @@ O sistema não usa thresholds fixos (ex: 0.5%). Em vez disso, ele "escuta" o cor
 
 ---
 
+## 📈 Specialist Training (K-Fold OOF)
+Para evitar que o modelo aprenda apenas o "barulho" de curtos períodos, o sistema agora utiliza:
+1.  **K-Fold Specialist**: O dataset de 345M é dividido cronologicamente em K-folds.
+2.  **OOF Meta-Features**: O modelo gera predições "Out-of-Fold" (sem leakage) que servem de entrada para o Auditor XGBoost.
+3.  **Sniper Score Optimization**: A métrica de sucesso foca 70% na acurácia direcional (Buy/Sell) e 30% na global (F1-Macro).
+
+---
+
 ## ⚖️ First Touch Rule (SOTA AFML)
 
 Se dentro da janela de 15 minutos o preço for tão volátil que atinja **tanto o Take Profit quanto o Stop Loss**, o motor utiliza a regra do **Primeiro Toque** (`use_first_touch: true`):
@@ -73,7 +81,7 @@ pytest tests/labelling/test_labelling_output.py -v
 
 **Sinais de Alerta:**
 *   Se o percentual de BUY/SELL cair abaixo de 2%: Multiplicadores muito altos ou mercado muito lateral.
-*   Explosão de amostras Neutras: Janela vertical muito curta ou volatilidade subestimada.
+*   Explosão de amostras Neutras: Janela vertical muito curta ou volatilidade subestimada. Use o **Subsampling Probabilístico** (`subsample_keep_ratio: 0.2`) para reduzir o peso estatístico do ruído sem perder a cronologia.
 
 ---
 

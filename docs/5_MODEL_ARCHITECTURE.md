@@ -18,41 +18,15 @@ The ensemble design corrects all three issues.
 
 ---
 
-## 2. Architecture Overview
-
-```
-Raw Bybit L2 Data (Snapshot + Deltas at ~100ms)
-        ↓
-ETL Pipeline (transform.py)
-  └─ 1s sampling → 1min resample → 9 stationary features
-        ↓
-Labelling (run_labelling.py)
-  └─ Lookahead 60min | Short: -0.4% | Long: +0.8%
-        ↓
-┌───────────────────────────────────────────────┐
-│              BASE MODEL (TCN+LSTM)            │
-│  Input: (B, 720, 9)                          │
-│  ┌─ TCN Stack (dilations=[1,2,4,8])          │
-│  │  CausalConv1D → BatchNorm → GELU          │
-│  │  + Residual connections, SpatialDropout   │
-│  └─ LSTM (hidden=256, layers=2)              │
-│     → last hidden state h_n[-1]              │
-│  └─ MLP Head (256→128→3)                     │
-│  Output: {logits: (B,3), probs: (B,3)}       │
-└───────────────────────────────────────────────┘
-        ↓ probs (B,3) + last_step_features (B,9)
-┌───────────────────────────────────────────────┐
-│            AUDITOR MODEL (XGBoost)            │
-│  Input: 14 meta-features per candle           │
-│  ┌─ prob_sell, prob_neutral, prob_buy        │
-│  ├─ entropy (uncertainty)                    │
-│  ├─ body, upper_wick, lower_wick,            │
-│  │  log_ret_close, volatility,               │
-│  │  mean_obi, mean_deep_obi                  │
-│  ├─ rsi_14                                   │
-│  └─ ema_9_dist, ema_50_dist                  │
-│  Output: calibrated probability + class       │
-└───────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    A[Tick/Dollar Data] --> B[ETL Pipeline]
+    B --> C[Labelling AFML\nTriplet Barrier]
+    C --> D[1. FOUNDATION\nBase Training]
+    D --> E[2. SPECIALIST\nK-Fold + Big Data Training]
+    E --> F[OOF Meta-Features]
+    F --> G[3. AUDITOR\nXGBoost Calibration]
+    G --> H[Live Inference]
 ```
 
 ---
@@ -80,7 +54,15 @@ Zero future leakage is enforced by left-padding only:
 ```
 padding = dilation × (kernel_size − 1)
 ```
-The output's right side (size = padding) is trimmed after convolution. This ensures `output[t]` depends only on `input[t-k]` for `k ≥ 0`. No masking needed.
+The output's right side (size = padding) is trimmed after convolution. This ensures `output[t]` depends only on `input[t-k]` for `k ≥ 0`.
+
+### 3.4 Big Data Optimization Engine
+Para suportar **345M de amostras** em 20GB de VRAM:
+- **QuantGodLazyDataset**: Mapeamento de memória de Parquets. Sem carregamento de RAM.
+- **AMP (Automatic Mixed Precision)**: Treino em FP16 via `torch.cuda.amp`.
+- **Gradient Accumulation**: Divisão do batch real em sub-batches para estabilidade gradiente.
+- **Epoch-Chunking**: Treino por fatias representativas (ex: 10M amostras/época).
+- **Subsampling Probabilístico**: Redução aleatória da densidade da classe Neutra (Classe 1).
 
 ### 3.3 Why TCN + LSTM (not pure Transformer)
 
@@ -113,7 +95,7 @@ training:
   seq_len: 720                         # 12h lookback (1min bars) or 3h (5min bars)
   gradient_clip_norm: 1.0              # LSTM stability
 ```
-Both `run_training.py` and `run_optuna.py` load from this file. **Never hardcode class_weights** elsewhere, rely on `use_auto_class_weights: true` to compute them natively from the parquet definitions.
+Both `run_training.py` and `run_optuna.py` load from this file. **Nunca utilize pesos fixos estáticos**; o sistema agora calcula `auto_class_weights` baseados na distribuição real do Big Data para garantir o equilíbrio do Sniper Score.
 
 ### 4.2 Key Design Decisions
 

@@ -13,6 +13,7 @@ Este documento serve como um mapa central para localizar e entender a finalidade
 | **Information Bar** | Barra que fecha baseada no desequilíbrio do fluxo (OFI/VPIN). Segue a lógica de amostragem de eventos raros. |
 | **IID Bars** | Barras Independents and Identically Distributed. Garantem que a variância estatística dos dados seja constante. |
 | **Reconciliação de Transbordo** | Técnica para levar o excedente de volume/ticks de uma barra para a próxima, garantindo conservação de massa. |
+| **Scale Guard** | Lógica de resiliência que adapta o número de workers baseando-se na densidade de dados do ano (ex: 2026) para evitar OOM. |
 
 ---
 
@@ -21,6 +22,8 @@ Este documento serve como um mapa central para localizar e entender a finalidade
 | Arquivo/Pasta | Descrição |
 |:---|:---|
 | `base_model.pt` | **Modelo Fundação (TCN+LSTM)**: Treinado em barras IID para capturar dependências temporais longas. |
+| **Specialist Model** | Modelo refinado via K-Fold e Big Data focado em maximizar o Sniper Score. |
+| **Lazy Loading** | Carregamento sob demanda de Parquets via `QuantGodLazyDataset` para suportar 345M amostras. |
 | `xgb_auditor.json` | **Auditor XGBoost**: Modelo que valida a confiança das predições do modelo base. |
 | `scaler_finetuning.pkl` | Normalizador central (StandardScaler) das 32 features snipers. |
 
@@ -32,6 +35,7 @@ Este documento serve como um mapa central para localizar e entender a finalidade
 |:---|:---|
 | **Triple Barrier** | Método que usa barreiras de Take Profit, Stop Loss e Tempo para rotular o futuro do preço. |
 | **EWMA Volatility** | Volatilidade adaptativa usada para definir a largura das barreiras de TP/SL. |
+| **Sniper Score** | Métrica híbrida (70% direcional + 30% macro) usada para otimizar o Especialista. |
 | **Ambiguity Filter** | Filtro que marca como Neutro (1) amostras onde o preço atingiu tanto o TP quanto o SL na mesma janela. |
 
 ---

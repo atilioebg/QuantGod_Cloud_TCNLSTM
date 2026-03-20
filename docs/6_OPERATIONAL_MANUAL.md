@@ -18,22 +18,16 @@ Antes de qualquer execução:
 ## 🗺️ Mapa do Pipeline
 
 ```mermaid
-flowchart LR
+flowchart TD
     A[ZIPs GDrive] --> B[ETL\nrun_pipeline.py]
     B --> C[pre_processed_L2/\n831 cols Parquet]
     C --> D[Labelling\nrun_labelling.py]
     D --> E[labelled_*/\n+target col]
-    E --> F[Optuna\nrun_optuna.py]
-    F --> G[training_config.yaml\nbest hyperparams]
-    E --> H[Training\nrun_training.py]
-    G --> H
-    H --> I[models/\n.pt checkpoint\n+ scaler.pkl]
-    I --> J[XGBoost\ntrain_xgboost.py]
-    E --> J
-    I --> J
-    J --> K[models/\n.json XGB\n+ OOF metrics]
-    K --> L[Live Inference\nbinance_adapter.py]
-    I --> L
+    E --> F[K-Fold Specialist\nrun_kfold_specialist.py]
+    F --> G[OOF Logits\n(No Leakage)]
+    G --> H[Auditor HPO\nrun_auditor_labelling.py]
+    H --> I[Auditor Model\nxgb_auditor.json]
+    I --> J[Live Inference\nbinance_adapter.py]
 ```
 
 ---
@@ -50,10 +44,17 @@ python -m src.cloud.base_model.pre_processamento.orchestration.run_pipeline
 - **Output:** `data/L2/pre_processed_L2/YYYY-MM-DD_*.parquet` (831 colunas: 30 Features + 800 Raw L2 + Price)
 - **Duração:** ~2–4 horas para o dataset completo (2023–2026) em 14 vCPUs
 
-**Validar:**
-```bash
-pytest tests/test_cloud_etl_output.py tests/test_preprocessed_quality.py -v
-```
+---
+
+### 🛡️ Scale Guard (Resiliência de RAM)
+O pipeline adapta automaticamente o paralelismo baseando-se no ano do dado:
+- **2023**: 0.5x workers (Carga leve).
+- **2024**: 0.25x workers (Média densidade).
+- **2025/2026**: 0.1875x workers (Densidade extrema).
+
+**Cálculo de RAM (AMD EPYC 256GB):**
+- Cada worker em 2026 consome **~43GB de RAM**.
+- Manter `max_workers: 32` no config, o script reduzirá para **6** em 2026.
 
 ---
 
@@ -123,18 +124,13 @@ python -m src.cloud.base_model.treino.run_training
 
 ---
 
-### Passo 5 — Treino do Auditor XGBoost
-
-```bash
-python -m src.cloud.auditor_model.train_xgboost
-```
-
-- **Input:** Dataset labelled + checkpoint do base model
-- **Output:** `data/models/xgb_auditor.json` + métricas OOF/test
-- **Config:** `src/cloud/auditor_model/configs/auditor_config.yaml`
-- **Duração:** ~30–60 minutos (5 folds OOF)
-
-**Protocolo:** Gera predições Out-of-Fold do base model (sem leakage) e treina XGBoost sobre 14 meta-features.
+### 🏎️ Treino Big Data (345M Amostras)
+A otimização de treino em larga escala utiliza:
+- **Lazy Loading**: `QuantGodLazyDataset` mapeia o disco sem estourar a RAM.
+- **AMP (FP16)**: Reduz VRAM e acelera o treino em GPUs RTX A4500+.
+- **Gradient Accumulation**: Permite batches "virtuais" gigantes (ex: 1024) com VRAM pequena.
+- **Epoch-Chunking**: Treino por fatias (ex: 10M amostras/época) para feedback rápido.
+- **Subsampling**: Redução da Classe Neutra para focar em sinais Buy/Sell.
 
 ---
 
