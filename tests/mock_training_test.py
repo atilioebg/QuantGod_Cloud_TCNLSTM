@@ -101,7 +101,7 @@ def test_mock_pipeline():
     spec_space = {
         'batch_size': [16, 64], 'seq_len': [10, 20], 'lr': [1e-3], 
         'weight_decay': [1e-4], 'dropout': [0.1],
-        'tcn_channels': [[16, 16]], 'lstm_hidden': [32], 'num_lstm_layers': [1],
+        'tcn_channels': [16, 32], 'lstm_hidden': [32], 'num_lstm_layers': [1],
         'spec_loss_gamma': [2.0], 'spec_loss_smoothing': [0.1]
     }
     

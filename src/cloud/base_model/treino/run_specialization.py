@@ -271,6 +271,9 @@ class SpecialistObjective:
             class_weights = spec_cfg.get('spec_class_weights', [4.85, 0.38, 4.61])
             alpha = torch.tensor(class_weights, dtype=torch.float32).to(self.DEVICE)
 
+        # ── [CRITERION] Focal Loss With Smoothing ────────────
+        criterion = FocalLossWithSmoothing(alpha=alpha, gamma=gamma, smoothing=smoothing).to(self.DEVICE)
+
         # ── Trial Start Log ────────────
         logger.info(f"Trial {trial.number} START | batch={batch_size}, seq={seq_len}, "
                     f"lr={lr:.6f}, alpha=[{alpha[0]:.2f}, {alpha[1]:.2f}, {alpha[2]:.2f}] | AccSteps={acc_steps}")
@@ -289,8 +292,8 @@ class SpecialistObjective:
                 xb, yb = xb.to(self.DEVICE), yb.to(self.DEVICE)
                 
                 with torch.cuda.amp.autocast(enabled=use_amp):
-                    outputs = model(xb)
-                    loss = FocalLossWithSmoothing(outputs, yb, alpha=alpha, gamma=gamma, smoothing=smoothing)
+                    outputs = model(xb) # Retorna {"logits", "probs"}
+                    loss = criterion(outputs["logits"], yb)
                     loss = loss / acc_steps
                 
                 scaler.scale(loss).backward()
@@ -309,7 +312,7 @@ class SpecialistObjective:
                 for xb, yb in val_loader:
                     xb = xb.to(self.DEVICE)
                     outputs = model(xb)
-                    preds = torch.argmax(outputs, dim=1)
+                    preds = torch.argmax(outputs["logits"], dim=1)
                     all_preds.extend(preds.cpu().numpy())
                     all_labels.extend(yb.numpy())
             
