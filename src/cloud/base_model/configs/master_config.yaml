@@ -162,6 +162,7 @@ pre_processing:
     # O redutor (multiplier) é aplicado sobre o max_workers definido abaixo.
     start_year: 2023           # Ano inicial para processamento.
     end_year: 2023             # Ano final para processamento.
+    export_compression: "snappy" # Algoritmo de compressão dos parquets.
     
     scale_guard:
       enabled: true
