@@ -51,11 +51,11 @@ O pipeline adapta automaticamente o paralelismo baseando-se no ano do dado:
 - **2023**: 0.5x workers (Carga leve).
 - **2024**: 0.25x workers (Média densidade).
 - **2025**: 0.1875x workers (Alta densidade).
-- **2026**: 0.125x workers (Densidade extrema).
+- **2026**: 0.09375x workers (Densidade extrema).
 
 **Cálculo de RAM (AMD EPYC 256GB):**
-- Cada worker em 2026 consome **~60GB de RAM** (estimado conservador).
-- Manter `max_workers: 32` no config, o script reduzirá para **4** em 2026.
+- Cada worker em 2026 consome **~80GB de RAM** (estimado ultra-conservador).
+- Manter `max_workers: 32` no config, o script reduzirá para **3** em 2026.
 
 ---
 
