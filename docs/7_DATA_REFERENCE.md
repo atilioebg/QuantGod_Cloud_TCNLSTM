@@ -339,17 +339,16 @@ feature_cols = [
     # Core OHLC + OBI (9)
     'body', 'upper_wick', 'lower_wick', 'log_ret_close', 
     'volatility', 'max_spread', 'mean_obi', 'mean_deep_obi', 'log_volume',
-    # Multi-Scale Triggers (11)
-    'ofi', 'ofi_delta_5', 'ofi_delta_1',
-    'micro_price_momentum', 'micro_price_delta_5', 'micro_price_delta_1',
-    'bid_rdi', 'bid_rdi_delta_5', 'bid_rdi_delta_1',
-    'ask_rdi', 'ask_rdi_delta_5', 'ask_rdi_delta_1',
-    # Institutional & Deep-Book (12)
-    'bid_slope', 'ask_slope', 'book_asymmetry_v5', 
-    'spread_zscore_60', 'vpin_lite_5', 
+    # Multi-Scale Triggers (12)
+    'ofi', 'ofi_delta_5', 'ofi_delta_30',
+    'micro_price_momentum', 'micro_price_delta_5', 'micro_price_delta_30',
+    'bid_rdi', 'bid_rdi_delta_5', 'bid_rdi_delta_30',
+    'ask_rdi', 'ask_rdi_delta_5', 'ask_rdi_delta_30',
+    # Institutional & Deep-Book (11)
+    'book_asymmetry_v5', 'spread_zscore_60', 'vpin_min25', 
     'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 
-    'bid_convexity', 'ask_convexity',
-    'pressure_ratio'
+    'bid_convexity', 'ask_convexity', 'pressure_ratio',
+    'book_skew_bid', 'book_skew_ask'
 ]
 ```
 

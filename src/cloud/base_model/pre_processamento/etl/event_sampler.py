@@ -444,8 +444,33 @@ class EventSampler:
             (sb_deep).alias("_sbd"), (sa_deep).alias("_sad"),
             (sb_n).alias("_sb_n"), (sa_n).alias("_sa_n"),
             (sb0 + 1e-9).alias("_sb0"), (sb1 + 1e-9).alias("_sb1"),
-            (sa0 + 1e-9).alias("_sa0"), (sa1 + 1e-9).alias("_sa1")
+            (sa0 + 1e-9).alias("_sa0"), (sa1 + 1e-9).alias("_sa1"),
         ])
+
+        # ── [BOOK SKEWNESS] Pearson Moment (L200 Depth) ──
+        # Calculate moments for Bids and Asks across all 200 levels
+        bid_cols = [pl.col(f"bid_{i}_s") for i in range(self.levels) if f"bid_{i}_s" in df.columns]
+        ask_cols = [pl.col(f"ask_{i}_s") for i in range(self.levels) if f"ask_{i}_s" in df.columns]
+        
+        if bid_cols and ask_cols:
+            b_mean = pl.mean_horizontal(bid_cols)
+            a_mean = pl.mean_horizontal(ask_cols)
+            
+            b_m2 = pl.mean_horizontal([(c - b_mean)**2 for c in bid_cols])
+            b_m3 = pl.mean_horizontal([(c - b_mean)**3 for c in bid_cols])
+            
+            a_m2 = pl.mean_horizontal([(c - a_mean)**2 for c in ask_cols])
+            a_m3 = pl.mean_horizontal([(c - a_mean)**3 for c in ask_cols])
+            
+            df = df.with_columns([
+                (b_m3 / (b_m2.pow(1.5) + 1e-9)).alias("book_skew_bid"),
+                (a_m3 / (a_m2.pow(1.5) + 1e-9)).alias("book_skew_ask"),
+            ])
+        else:
+            df = df.with_columns([
+                pl.lit(0.0).alias("book_skew_bid"),
+                pl.lit(0.0).alias("book_skew_ask"),
+            ])
 
         vpin_col = self.vpin_lbl
         df = df.with_columns([
@@ -466,7 +491,8 @@ class EventSampler:
             f"ofi_delta_{ds_l}", f"ofi_delta_{dl_l}", f"bid_rdi_delta_{ds_l}", f"bid_rdi_delta_{dl_l}",
             f"ask_rdi_delta_{ds_l}", f"ask_rdi_delta_{dl_l}", f"micro_price_delta_{ds_l}", f"micro_price_delta_{dl_l}",
             "book_asymmetry_v5", "spread_zscore_60", vpin_col, "kyle_lambda", "bid_deep_ratio", "ask_deep_ratio",
-            "bid_convexity", "ask_convexity", "body", "upper_wick", "lower_wick", "log_ret_close", "vwap"
+            "bid_convexity", "ask_convexity", "body", "upper_wick", "lower_wick", "log_ret_close", "vwap",
+            "book_skew_bid", "book_skew_ask"
         ]
         
         for c in sniper_cols:
@@ -489,7 +515,9 @@ class EventSampler:
         # ── [GOLD MEMORY OPTIMIZATION] ──────────────────────────────────────────
         # Drop all raw book level columns (bid_0_p, ask_0_s, etc) to save RAM.
         # These are only needed for the derivations above.
-        raw_book_cols = [c for c in df.columns if ('bid_' in c or 'ask_' in c) and ('_p' in c or '_s' in c) and not c.endswith(('_delta_5', '_delta_30', '_deep_ratio', '_convexity'))]
+        # We protect the derivations and snippets ending in _skew, _ratio, _convexity, etc.
+        raw_book_cols = [c for c in df.columns if ('bid_' in c or 'ask_' in c) and ('_p' in c or '_s' in c) 
+                         and not c.endswith(('_delta_5', '_delta_30', '_deep_ratio', '_convexity', '_skew_bid', '_skew_ask'))]
         if raw_book_cols:
             logger.info(f"💾 Memory Optimization: Dropping {len(raw_book_cols)} raw book columns.")
             df = df.drop(raw_book_cols)
