@@ -344,11 +344,11 @@ feature_cols = [
     'micro_price_momentum', 'micro_price_delta_5', 'micro_price_delta_30',
     'bid_rdi', 'bid_rdi_delta_5', 'bid_rdi_delta_30',
     'ask_rdi', 'ask_rdi_delta_5', 'ask_rdi_delta_30',
-    # Institutional & Deep-Book (11)
+    # Institutional & Deep-Book (9)
     'book_asymmetry_v5', 'spread_zscore_60', 'vpin_min25', 
     'kyle_lambda', 'bid_deep_ratio', 'ask_deep_ratio', 
-    'bid_convexity', 'ask_convexity', 'pressure_ratio',
-    'book_skew_bid', 'book_skew_ask'
+    'bid_convexity', 'ask_convexity', 'pressure_ratio'
+    # Note: book_skew_bid/ask are available in Parquet but NOT used directly by Base Model
 ]
 ```
 

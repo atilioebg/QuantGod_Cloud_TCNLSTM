@@ -242,7 +242,7 @@ model:
   # ── [TCN-LSTM] Configuração do Modelo Base ──────────────────────────
   # ATENÇÃO: num_features DEVE bater com o len(feature_names) abaixo.
   # Se adicionar ou remover features, atualize os dois campos.
-  num_features: 32  # Dimensão do vetor de entrada. 9 Aggregated + 23 Dynamic (Sniper).
+  num_features: 30  # Dimensão do vetor de entrada. 9 Aggregated + 21 Dynamic (Sniper).
   num_classes: 3    # Saída do modelo: 3 classes → SELL(0), NEUTRAL(1), BUY(2).
 
   # ── [AUDITOR XGBOOST] Configuração do Juiz ─────────────────────────
@@ -299,8 +299,6 @@ model:
     - ask_convexity                                               # Convexidade do Livro Ask
     - book_asymmetry_v5                                           # Assimetria Logarítmica de Profundidade
     - pressure_ratio                                              # Aceleração de Desequilíbrio (OBI Velocity)
-    - book_skew_bid                                               # [NEW] Assimetria de Fisher-Pearson (Bids L200)
-    - book_skew_ask                                               # [NEW] Assimetria de Fisher-Pearson (Asks L200)
   auditor_features:
     - base_prob_sell                                              # Logits convertidos Base Model (Sell)
     - base_prob_neu                                               # Logits convertidos Base Model (Neutral)

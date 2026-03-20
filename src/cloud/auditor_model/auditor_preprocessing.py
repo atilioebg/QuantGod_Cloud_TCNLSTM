@@ -188,20 +188,25 @@ def calculate_context_features(df_pd: pd.DataFrame, resample_min: int = 1) -> pd
     df_pd['mfi_14'] = 100 - (100 / (1 + mfi_ratio))
 
     # 11. Book Skewness (Assimetria L200 bidirecional)
-    # Procurar por max níveis de bid e ask para derivar a cauda
-    bid_cols = [col for col in df_pd.columns if col.startswith('bid_') and col.endswith('_s')]
-    ask_cols = [col for col in df_pd.columns if col.startswith('ask_') and col.endswith('_s')]
-    
-    if bid_cols:
-        # df_pd[bid_cols].skew(axis=1) is Fisher-Pearson coefficient of skewness for each row
-        df_pd['book_skew_bid'] = df_pd[bid_cols].skew(axis=1)
+    # v8.2: Usar skewness calculada no ETL para economizar memória (800 colunas já dropadas)
+    if 'book_skew_bid' in df_pd.columns:
+        logger.info("  ↳ Auditor Sensor: Using pre-calculated Book Skew from ETL.")
     else:
-        df_pd['book_skew_bid'] = 0.0
+        # Fallback: tentar calcular se as colunas brutas ainda existirem
+        bid_cols = [col for col in df_pd.columns if col.startswith('bid_') and col.endswith('_s')]
+        if bid_cols:
+            df_pd['book_skew_bid'] = df_pd[bid_cols].skew(axis=1)
+        else:
+            df_pd['book_skew_bid'] = 0.0
         
-    if ask_cols:
-        df_pd['book_skew_ask'] = df_pd[ask_cols].skew(axis=1)
+    if 'book_skew_ask' in df_pd.columns:
+        pass # Já presente
     else:
-        df_pd['book_skew_ask'] = 0.0
+        ask_cols = [col for col in df_pd.columns if col.startswith('ask_') and col.endswith('_s')]
+        if ask_cols:
+            df_pd['book_skew_ask'] = df_pd[ask_cols].skew(axis=1)
+        else:
+            df_pd['book_skew_ask'] = 0.0
 
     # Preencher NaNs com fill forward e bfill (para o início da série)
     cols_to_fill = [
