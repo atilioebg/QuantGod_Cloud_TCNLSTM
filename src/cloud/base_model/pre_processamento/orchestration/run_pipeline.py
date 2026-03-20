@@ -161,6 +161,14 @@ def process_single_day(zip_path, csv_path, trades_remote, config):
       4. Constroi barras por Evento (Dollar/Tick/Info)
     """
     try:
+        import psutil
+        import os
+        process = psutil.Process(os.getpid())
+        mem_init = process.memory_info().rss / 1024 / 1024
+    except:
+        mem_init = 0
+        
+    try:
         extractor = DataExtractor(
             config['pipeline_paths']['raw_l2_source'],
             rclone_config="rclone.conf",
@@ -257,10 +265,14 @@ def process_single_day(zip_path, csv_path, trades_remote, config):
         # ── 4. Event Sampling (Dollar/Tick/Info) ─────────────────────────────
         df_bars = event_sampler.compute_event_bars(df_merged)
         
+        # Free raw merged DF immediately
+        del df_merged
+        
         if len(df_bars) == 0:
             return {"status": "skipped", "message": f"⚠️  No bars generated for {day_identifier}", "reason": "Insufficient volume/ticks"}
             
         df_final = event_sampler.apply_feature_engineering_bars(df_bars)
+        del df_bars
         
         # Merge QA Audits
         transformer.audit_report["num_islands_generated"] = event_sampler.audit_report["islands"]
@@ -318,6 +330,14 @@ def process_single_day(zip_path, csv_path, trades_remote, config):
         zip_name = Path(zip_path).name if zip_path else "unknown"
         return {"status": "error", "message": f"❌ Error processing {zip_name}: {str(e)}", "reason": str(e)}
     finally:
+        try:
+            import psutil
+            import os
+            process = psutil.Process(os.getpid())
+            mem_final = process.memory_info().rss / 1024 / 1024
+            logger.info(f"📊 [Memory] {day_identifier}: {mem_init:.1f}MB -> {mem_final:.1f}MB")
+        except: pass
+        
         # Final GC sweep for this worker before it picks up a new task
         gc.collect()
 

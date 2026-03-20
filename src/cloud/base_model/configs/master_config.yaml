@@ -93,16 +93,16 @@ pre_processing:
     # ── [AMOSTRAGEM] Limiares dos Trigger Bars ────────────────────────────────
     # Lidos em todos os modos ('trigger', 'both'). Cada limiar define um gatilho independente:
     # uma nova barra é aberta quando QUALQUER UM deles é ultrapassado (União de eventos).
-    dollar_threshold_usd: 100000.0  # Dollar Bar: nova barra a cada US$ 100k transacionados. Aumentar → barras mais espaçadas.
-    tick_threshold: 1000            # Tick Bar: nova barra a cada 1000 trades. Mercados líquidos geram ~5k ticks/min.
-    information_threshold_ofi: 50.0 # Information Bar: nova barra a cada 50 unidades de |OFI| acumulado. Proxy de fluxo informado.
+    dollar_threshold_usd: 500000.0  # Dollar Bar: Aumentado para 500k para 2023 (evita explosão de barras).
+    tick_threshold: 5000            # Tick Bar: Aumentado para 5k trades.
+    information_threshold_ofi: 100.0 # Information Bar: Aumentado para 100 unidades.
 
     # ── [AMOSTRAGEM] Parâmetros do Filtro CUSUM ──────────────────────────────
     # Lidos quando sampling_mode != 'trigger'. Implementação: _cusum_loop() em event_sampler.py.
     # O limiar h é calculado dinamicamente: h = cusum_h_factor * ewma_std(log_ret, span=cusum_vol_span)
     # Projetado para ser Numba-ready (@njit): loop sequencial em NumPy puro, zero objetos Python.
     adaptive_h: true      # [AFML Cap.3] true: h dinâmico por volatilidade EWMA | false: h estático (não recomendado).
-    cusum_h_factor: 1.8   # Ajustado para 1.8 (mais seletivo para alvos curtos).
+    cusum_h_factor: 2.2   # Ajustado para 2.2 (mais seletivo para 2023).
     cusum_vol_span: &vol_span 144 # Janela de 1 dia em escala de 10min (estável para BTC).
 
     # ── [ISLAND SPLIT] Gestão de Continuidade Temporal ───────────────────────
@@ -159,8 +159,8 @@ pre_processing:
 
     # ── [WORKERS] Paralelismo do ETL ──────────────────────────────────────────
     export_compression: "snappy"   # Algoritmo de compressão dos Parquets. 'snappy'=rápido, 'gzip'=menor tamanho.
-    use_dynamic_workers: false # [HIGH-PERF SAFE MODE] 28 workers (limpeza agressiva ativa).
-    max_workers: 28            # Aproveita 256GB de RAM e 28/32 núcleos.
+    use_dynamic_workers: false # [2023 STABLE MODE] 16 workers (equilíbrio I/O e RAM).
+    max_workers: 16            # Limite seguro para evitar ENOMEM em 365 dias.
   labelling:
     # ── [TRIPLE BARRIER] Parâmetros do Motor Prado-IID ─────────────────────
     # run_labelling.py usa estes parâmetros para construir as 3 barreiras.
@@ -180,7 +180,7 @@ pre_processing:
 
     # ── [WORKERS] Paralelismo do Labelling ────────────────────────────
     use_dynamic_workers: false 
-    max_workers: 28             
+    max_workers: 16             
     split:
       # ── [CONTROLE AFML] ──────────────────────────────────────────────
       split_by_bars: true   # [AFML Cap.7] true: split exato por n_observações | false: split por n_arquivos (antigo).
