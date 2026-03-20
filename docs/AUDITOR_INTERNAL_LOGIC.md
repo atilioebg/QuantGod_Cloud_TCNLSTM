@@ -32,26 +32,26 @@ Se o Auditor disser "Atire" (Aprovado), ele *precisa* estar o mais correto poss�
 ## 3. Fluxo de Dados (Data Flow Diagram)
 
 ```mermaid
-graph TD
-    A[OrderBook Nível 2 / Micro Price] --> B[Pre-Processing ETL]
-    B --> C[Labelling Direcional Buy/Neu/Sell]
-    C --> D[Nested Splits Engine]
+flowchart TD
+    A["OrderBook Nível 2 / Micro Price"] --> B["Pre-Processing ETL"]
+    B --> C["Labelling Direcional Buy/Neu/Sell"]
+    C --> D["Nested Splits Engine"]
     
-    D --> E[Splits Base]
-    E --> F(Foundation Model: TCN-LSTM)
+    D --> E["Splits Base"]
+    E --> F("Foundation Model: TCN-LSTM")
     
-    D --> G[Splits Specialized Train]
-    F -.Pesos Iniciais.-> H
-    G --> H(Specialist Model: Sniper fine-tuned)
+    D --> G["Splits Specialized Train"]
+    F -. "Pesos Iniciais" .-> H
+    G --> H("Specialist Model: Sniper fine-tuned")
     
-    D --> I[Splits Specialized Val - Strict OOF]
+    D --> I["Splits Specialized Val - Strict OOF"]
     I --> J{Auditor Labeller}
     
-    F -.Logits OOF.-> J
-    H -.Logits OOF.-> J
+    F -. "Logits OOF" .-> J
+    H -. "Logits OOF" .-> J
     
-    J --> K[Dataset Fundido: 20 Features / Alvo Meta: 1 ou 0]
-    K --> L[XGBoost Auditor]
+    J --> K["Dataset Fundido: 20 Features / Alvo Meta: 1 ou 0"]
+    K --> L["XGBoost Auditor"]
     L --> M((Juiz de Combate Financeiro))
 ```
 

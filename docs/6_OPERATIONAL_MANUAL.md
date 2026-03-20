@@ -19,15 +19,15 @@ Antes de qualquer execução:
 
 ```mermaid
 flowchart TD
-    A[ZIPs GDrive] --> B[ETL\nrun_pipeline.py]
-    B --> C[pre_processed_L2/\n831 cols Parquet]
-    C --> D[Labelling\nrun_labelling.py]
-    D --> E[labelled_*/\n+target col]
-    E --> F[K-Fold Specialist\nrun_kfold_specialist.py]
-    F --> G[OOF Logits\n(No Leakage)]
-    G --> H[Auditor HPO\nrun_auditor_labelling.py]
-    H --> I[Auditor Model\nxgb_auditor.json]
-    I --> J[Live Inference\nbinance_adapter.py]
+    A["ZIPs GDrive"] --> B["ETL\nrun_pipeline.py"]
+    B --> C["pre_processed_L2\n831 cols Parquet"]
+    C --> D["Labelling\nrun_labelling.py"]
+    D --> E["labelled_*\n+target col"]
+    E --> F["K-Fold Specialist\nrun_specialization.py"]
+    F --> G["OOF Logits\n(No Leakage)"]
+    G --> H["Auditor HPO\nrun_auditor_labelling.py"]
+    H --> I["Auditor Model\nxgb_auditor.json"]
+    I --> J["Live Inference\nbinance_adapter.py"]
 ```
 
 ---

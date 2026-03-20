@@ -419,7 +419,7 @@ O target não é mais um retorno fixo ponto-a-ponto, mas sim o resultado da **in
 ## 10. Pipeline Completo — Resumo do Fluxo (AFML v9.5)
 
 ```mermaid
-graph TD
+flowchart TD
     A["Bybit Raw Ticks\n(L2 + Trades)"] --> B["EventSampler\nDollar/Tick/CUSUM Bars"]
     B --> C["L2 Transformer\nMicro-Price & Features"]
     C --> D["Parquet Pré-Processado\nEvent-Driven Rows"]

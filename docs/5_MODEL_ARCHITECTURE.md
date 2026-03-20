@@ -20,13 +20,13 @@ The ensemble design corrects all three issues.
 
 ```mermaid
 flowchart TD
-    A[Tick/Dollar Data] --> B[ETL Pipeline]
-    B --> C[Labelling AFML\nTriplet Barrier]
-    C --> D[1. FOUNDATION\nBase Training]
-    D --> E[2. SPECIALIST\nK-Fold + Big Data Training]
-    E --> F[OOF Meta-Features]
-    F --> G[3. AUDITOR\nXGBoost Calibration]
-    G --> H[Live Inference]
+    A["Tick/Dollar Data"] --> B["ETL Pipeline"]
+    B --> C["Labelling AFML\nTriplet Barrier"]
+    C --> D["1. FOUNDATION\nBase Training"]
+    D --> E["2. SPECIALIST\nK-Fold + Big Data Training"]
+    E --> F["OOF Meta-Features"]
+    F --> G["3. AUDITOR\nXGBoost Calibration"]
+    G --> H["Live Inference"]
 ```
 
 ---
