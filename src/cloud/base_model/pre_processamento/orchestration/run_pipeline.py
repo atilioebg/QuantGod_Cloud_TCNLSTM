@@ -594,10 +594,17 @@ def run_pipeline():
 
         logger.info(f"🚀 Starting automated export to Drive: {remote_dest}...")
 
-        # Calculate concurrent transfers based on CPU count (cap at 32 for drive API limits)
-        rclone_transfers = str(min(32, cpu_count * 2))
+        # Optimized transfers for Google Drive (cap at 8 to avoid API throttling / 403)
+        rclone_transfers = "8" 
 
-        cmd = ["rclone", "copy", str(local_src), remote_dest, "-P", "--transfers", rclone_transfers, "--checkers", rclone_transfers]
+        cmd = [
+            "rclone", "copy", str(local_src), remote_dest, "-P", 
+            "--transfers", rclone_transfers, 
+            "--checkers", rclone_transfers,
+            "--drive-chunk-size", "128M",
+            "--buffer-size", "64M",
+            "--drive-upload-cutoff", "128M"
+        ]
         if rclone_cfg.exists():
             cmd += ["--config", str(rclone_cfg)]
 
