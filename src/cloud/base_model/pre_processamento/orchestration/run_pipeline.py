@@ -378,11 +378,15 @@ def run_pipeline():
     trades_remote = config['pipeline_paths']['raw_trades_source']
     csv_files = extractor.list_trades_csvs(trades_remote)
     
-    # Parear arquivos por data (YYYY-MM-DD extraído do nome)
+    # 3. Parear arquivos por data (YYYY-MM-DD extraído do nome)
     import re
     def extract_date(filename):
         match = re.search(r'(\d{4}-\d{2}-\d{2})', filename)
         return match.group(1) if match else None
+
+    etl_cfg = config['pre_processing']['etl']
+    start_year = etl_cfg.get('start_year', 2023)
+    end_year = etl_cfg.get('end_year', 2026)
 
     zips_dict = {extract_date(Path(z).name): z for z in zip_files if extract_date(Path(z).name)}
     csvs_dict = {extract_date(Path(c).name): c for c in csv_files if extract_date(Path(c).name)}
@@ -390,10 +394,12 @@ def run_pipeline():
     paired_days = []
     for date, zp in zips_dict.items():
         if date in csvs_dict:
-            paired_days.append((zp, csvs_dict[date]))
+            year_match = date.split('-')[0]
+            if year_match and start_year <= int(year_match) <= end_year:
+                paired_days.append((zp, csvs_dict[date]))
     
     if not paired_days:
-        logger.error("No perfectly paired data (ZIP + CSV) found for any day.")
+        logger.error(f"No perfectly paired data (ZIP + CSV) found for the period {start_year}-{end_year}.")
         return
 
     # Dynamic CPU Detection Logic
@@ -402,7 +408,6 @@ def run_pipeline():
     except AttributeError:
         cpu_count = os.cpu_count() or 1
         
-    etl_cfg = config['pre_processing']['etl']
     use_dynamic = etl_cfg.get('use_dynamic_workers', False)
     
     if use_dynamic:
@@ -412,7 +417,21 @@ def run_pipeline():
         max_workers = etl_cfg.get('max_workers', 4)
         worker_mode = "Manual (Static)"
         
+    # Scale Guard: Adaptive reduction based on configurable thresholds
+    scale_cfg = etl_cfg.get('scale_guard', {})
+    if isinstance(scale_cfg, dict) and scale_cfg.get('enabled', False):
+        thresholds = scale_cfg.get('thresholds', {})
+        # Get multiplier for start_year, default to 1.0 if not found
+        multiplier = thresholds.get(start_year, thresholds.get(str(start_year), 1.0))
+        
+        if multiplier < 1.0:
+            original_workers = max_workers
+            max_workers = max(1, int(max_workers * multiplier))
+            worker_mode += f" + ScaleGuard ({multiplier}x for {start_year})"
+            logger.info(f"Scale Guard active: {original_workers} -> {max_workers} workers (Factor: {multiplier})")
+
     logger.info(f"System detected {cpu_count} vCPUs allocated.")
+    logger.info(f"ETL Scope: {start_year} to {end_year}")
     logger.info(f"ETL Worker Mode: {worker_mode} -> Using {max_workers} processes.")
     logger.info(f"Found {len(paired_days)} Paired Days (L2 + Trades) to process.")
 

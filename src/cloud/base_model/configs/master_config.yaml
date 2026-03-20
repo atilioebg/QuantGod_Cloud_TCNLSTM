@@ -157,10 +157,22 @@ pre_processing:
     audit:
       generate_report: true        # Gera docs/reports/data_quality_report.json com métricas de clipping, ilhas e gaps.
 
-    # ── [WORKERS] Paralelismo do ETL ──────────────────────────────────────────
-    export_compression: "snappy"   # Algoritmo de compressão dos Parquets. 'snappy'=rápido, 'gzip'=menor tamanho.
-    use_dynamic_workers: false # [2023 STABLE MODE] 16 workers (equilíbrio I/O e RAM).
-    max_workers: 16            # Limite seguro para evitar ENOMEM em 365 dias.
+    # ── [SCALE GUARD] Resiliência Multi-Ano (2023-2026) ───────────────────────
+    # Arquivos de 2024/2025 são muito mais densos (>700MB) que os de 2023.
+    # O redutor (multiplier) é aplicado sobre o max_workers definido abaixo.
+    start_year: 2023           # Ano inicial para processamento.
+    end_year: 2023             # Ano final para processamento.
+    
+    scale_guard:
+      enabled: true
+      thresholds:              # Fator de escala por ano (1.0 = 100% de max_workers)
+        2023: 0.625            # 32 -> 20 workers
+        2024: 0.5              # 32 -> 16 workers
+        2025: 0.375            # 32 -> 12 workers
+        2026: 0.25             # 32 -> 8 workers
+
+    use_dynamic_workers: false 
+    max_workers: 32            # Base de workers para o cálculo do redutor.
   labelling:
     # ── [TRIPLE BARRIER] Parâmetros do Motor Prado-IID ─────────────────────
     # run_labelling.py usa estes parâmetros para construir as 3 barreiras.
