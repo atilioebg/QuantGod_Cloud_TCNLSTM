@@ -169,7 +169,7 @@ pre_processing:
       thresholds:              # Fator de escala por ano (1.0 = 100% de max_workers)
         2023: 0.5              # 32 -> 16 workers
         2024: 0.25             # 32 -> 8 workers
-        2025: 0.25             # 32 -> 8 workers
+        2025: 0.1875           # 32 -> 6 workers
         2026: 0.25             # 32 -> 8 workers
 
     use_dynamic_workers: false 
