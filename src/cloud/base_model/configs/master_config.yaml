@@ -159,8 +159,8 @@ pre_processing:
 
     # ── [WORKERS] Paralelismo do ETL ──────────────────────────────────────────
     export_compression: "snappy"   # Algoritmo de compressão dos Parquets. 'snappy'=rápido, 'gzip'=menor tamanho.
-    use_dynamic_workers: false      # [TRUE] Ativa paralelismo dinâmico (vCPUs - 1).
-    max_workers: 20                # SEGURO: Usado apenas se use_dynamic_workers for false.
+    use_dynamic_workers: false # [SAFE MODE] Recomendado 8 para evitar OOM em 2023.
+    max_workers: 8             # Limite conservador de RAM.
   labelling:
     # ── [TRIPLE BARRIER] Parâmetros do Motor Prado-IID ─────────────────────
     # run_labelling.py usa estes parâmetros para construir as 3 barreiras.
@@ -179,8 +179,8 @@ pre_processing:
     vol_span: *vol_span   # Sincronizado dinamicamente com cusum_vol_span.
 
     # ── [WORKERS] Paralelismo do Labelling ────────────────────────────
-    use_dynamic_workers: false # true → os.cpu_count()-1; false → usa max_workers.
-    max_workers: 20            # Workers fixos para cloud (RunPod com número de CPUs conhecido).
+    use_dynamic_workers: false # [SAFE MODE] Reduzido para 8.
+    max_workers: 8             # Garante estabilidade de RAM no Labelling.
     split:
       # ── [CONTROLE AFML] ──────────────────────────────────────────────
       split_by_bars: true   # [AFML Cap.7] true: split exato por n_observações | false: split por n_arquivos (antigo).
