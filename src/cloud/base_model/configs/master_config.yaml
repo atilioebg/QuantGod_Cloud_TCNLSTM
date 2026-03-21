@@ -172,7 +172,7 @@ pre_processing:
         2023: 0.5              # 32 -> 16 workers
         2024: 0.25             # 32 -> 8 workers
         2025: 0.1875           # 32 -> 6 workers
-        2026: 0.25             # 32 -> 8 workers
+        2026: 0.1875           # 32 -> 6 workers
 
     use_dynamic_workers: false 
     max_workers: 32            # Base de workers para o cálculo do redutor.
