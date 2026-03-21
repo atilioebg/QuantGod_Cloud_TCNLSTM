@@ -564,9 +564,16 @@ def run_pipeline():
             # Print to standard error/out vigorously in red
             print(f"\033[91m⚠️ DATASET SIGNIFICANTLY REDUCED: {len(skipped_files)} files skipped (>10%). Check docs/reports/pipeline_skip_manifest.json\033[0m")
 
+    import psutil
+    vm = psutil.virtual_memory()
+    total_mem_gb = vm.total / (1024 ** 3)
+    used_mem_gb = vm.used / (1024 ** 3)
+    free_mem_gb = vm.available / (1024 ** 3)
+
     logger.info("Pipeline execution finished.")
     logger.info(f"Total processed files: {len(paired_days) - len(skipped_files) - len(failed_files)}")
     logger.info(f"CPUs used: {max_workers} / {cpu_count}")
+    logger.info(f"📊 SYSTEM RAM: Used {used_mem_gb:.2f} GB / {total_mem_gb:.2f} GB ({vm.percent}%) | Free: {free_mem_gb:.2f} GB")
 
     # 5c. RUN AUTOMATED DATA INTEGRITY TESTS
     try:
