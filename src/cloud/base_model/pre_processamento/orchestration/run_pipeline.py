@@ -162,11 +162,11 @@ def process_single_day(zip_path, csv_path, trades_remote, config):
       3. Merge Backward AsOf (Evita lookahead)
       4. Constroi barras por Evento (Dollar/Tick/Info)
     """
+    import gc
+    import psutil
+    peak_vm_used = 0
     try:
-        import psutil
-        import os
-        process = psutil.Process(os.getpid())
-        mem_init = process.memory_info().rss / 1024 / 1024
+        mem_init = psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024
     except:
         mem_init = 0
         
@@ -258,8 +258,8 @@ def process_single_day(zip_path, csv_path, trades_remote, config):
         df_merged = lf_merged.collect(engine="streaming")
         
         # v8.3: Monitor Peak RAM after raw load (800+ columns in memory)
-        import psutil
         vm_peak = psutil.virtual_memory()
+        peak_vm_used = max(peak_vm_used, vm_peak.used)
         logger.info(f"📊 [Peak Load] {day_identifier}: Raw data in RAM | SYSTEM RAM: {vm_peak.used / (1024**3):.2f} GB ({vm_peak.percent}%)")
 
         # ── 3.1. Aggressive Disk Cleanup (Trades CSV) ─────────────────────
@@ -334,12 +334,18 @@ def process_single_day(zip_path, csv_path, trades_remote, config):
             "message": f"✅ Processed {day_identifier}" if is_valid and not is_empty else f"❌ Rejected {day_identifier}",
             "audit": transformer.audit_report,
             "is_valid": is_valid and not is_empty,
-            "reason": health_report.get('integrity_comment', "Validation Failed") if not is_valid else None
+            "reason": health_report.get('integrity_comment', "Validation Failed") if not is_valid else None,
+            "peak_ram_gb": peak_vm_used / (1024**3)
         }
 
     except Exception as e:
         zip_name = Path(zip_path).name if zip_path else "unknown"
-        return {"status": "error", "message": f"❌ Error processing {zip_name}: {str(e)}", "reason": str(e)}
+        return {
+            "status": "error", 
+            "message": f"❌ Error processing {zip_name}: {str(e)}", 
+            "reason": str(e),
+            "peak_ram_gb": peak_vm_used / (1024**3)
+        }
     finally:
         try:
             import psutil
@@ -451,6 +457,7 @@ def run_pipeline():
     failed_files = []
     quality_audits = []
     validation_failures = []
+    global_max_ram_gb = 0
     
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_zip = {executor.submit(process_single_day, zp, cp, trades_remote, config): zp for zp, cp in paired_days}
@@ -459,6 +466,10 @@ def run_pipeline():
             res_obj = future.result()
             result = res_obj["message"]
             
+            # Update global peak
+            if res_obj.get("peak_ram_gb"):
+                global_max_ram_gb = max(global_max_ram_gb, res_obj["peak_ram_gb"])
+
             if res_obj.get("audit"):
                 quality_audits.append(res_obj["audit"])
 
@@ -582,7 +593,8 @@ def run_pipeline():
     logger.info("Pipeline execution finished.")
     logger.info(f"Total processed files: {len(paired_days) - len(skipped_files) - len(failed_files)}")
     logger.info(f"CPUs used: {max_workers} / {cpu_count}")
-    logger.info(f"📊 SYSTEM RAM: Used {used_mem_gb:.2f} GB / {total_mem_gb:.2f} GB ({vm.percent}%) | Free: {free_mem_gb:.2f} GB")
+    logger.info(f"📊 SYSTEM RAM (Current): Used {used_mem_gb:.2f} GB / {total_mem_gb:.2f} GB ({vm.percent}%) | Free: {free_mem_gb:.2f} GB")
+    logger.info(f"🚀 O MAXIMO DE MEMORIA RAM USADO FOI DE {global_max_ram_gb:.2f} GB")
 
     # 5c. RUN AUTOMATED DATA INTEGRITY TESTS
     try:
