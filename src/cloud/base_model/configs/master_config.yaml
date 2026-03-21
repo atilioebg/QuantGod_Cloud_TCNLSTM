@@ -160,8 +160,8 @@ pre_processing:
     # ── [SCALE GUARD] Resiliência Multi-Ano (2023-2026) ───────────────────────
     # Arquivos de 2024/2025 são muito mais densos (>700MB) que os de 2023.
     # O redutor (multiplier) é aplicado sobre o max_workers definido abaixo.
-    start_year: 2025           # Ano inicial para processamento.
-    end_year: 2025             # Ano final para processamento.
+    start_year: 2026           # Ano inicial para processamento.
+    end_year: 2026             # Ano final para processamento.
     export_compression: "snappy" # Algoritmo de compressão dos parquets.
     
     # CPU usada no ETL AMD EPYC 9654 96-Core Processor
@@ -172,7 +172,7 @@ pre_processing:
         2023: 0.5              # 32 -> 16 workers
         2024: 0.25             # 32 -> 8 workers
         2025: 0.1875           # 32 -> 6 workers
-        2026: 0.09375          # 32 -> 3 workers
+        2026: 0.0625           # 32 -> 2 workers
 
     use_dynamic_workers: false 
     max_workers: 32            # Base de workers para o cálculo do redutor.
