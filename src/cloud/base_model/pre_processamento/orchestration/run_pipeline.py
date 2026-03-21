@@ -256,7 +256,12 @@ def process_single_day(zip_path, csv_path, trades_remote, config):
             
         # Execute the streaming graph right before Event Sampler
         df_merged = lf_merged.collect(engine="streaming")
-            
+        
+        # v8.3: Monitor Peak RAM after raw load (800+ columns in memory)
+        import psutil
+        vm_peak = psutil.virtual_memory()
+        logger.info(f"📊 [Peak Load] {day_identifier}: Raw data in RAM | SYSTEM RAM: {vm_peak.used / (1024**3):.2f} GB ({vm_peak.percent}%)")
+
         # ── 3.1. Aggressive Disk Cleanup (Trades CSV) ─────────────────────
         try:
             if local_csv_path.exists():
@@ -275,6 +280,10 @@ def process_single_day(zip_path, csv_path, trades_remote, config):
             
         df_final = event_sampler.apply_feature_engineering_bars(df_bars)
         del df_bars
+        
+        # v8.3: Monitor RAM after Feature Engineering (800 columns dropped)
+        vm_recov = psutil.virtual_memory()
+        logger.info(f"📊 [Drop Success] {day_identifier}: Columns discarded | SYSTEM RAM: {vm_recov.used / (1024**3):.2f} GB ({vm_recov.percent}%)")
         
         # Merge QA Audits
         transformer.audit_report["num_islands_generated"] = event_sampler.audit_report["islands"]
