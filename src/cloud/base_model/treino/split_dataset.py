@@ -241,6 +241,26 @@ def split_and_segregate():
     # Resolvendo os diretórios baseados no config centralizado
     source_dir = Path(get_labelled_dir(config))
 
+    # ── [v9.5] Auto-Sync From Drive (Process all 4 years together) ──────────
+    try:
+        from src.cloud.base_model.utils.path_utils import get_drive_session_path
+        remote_src = get_drive_session_path("LABELLED", config)
+        rclone_cfg = Path("rclone.conf")
+        rclone_bin = "rclone"
+        import subprocess
+        if os.name == 'nt' and Path("rclone.exe").exists():
+            rclone_bin = str(Path("rclone.exe").absolute())
+        
+        logger.info(f"🔄 Syncing full Labelled history (2023-2026) from Drive: {remote_src}...")
+        sync_cmd = [rclone_bin, "sync", remote_src, str(source_dir.absolute()), "-P", "--transfers", "32"]
+        if rclone_cfg.exists():
+            sync_cmd += ["--config", str(rclone_cfg)]
+        
+        subprocess.run(sync_cmd, check=True)
+        logger.info("✅ Labelled local directory is now up to date with Drive.")
+    except Exception as e:
+        logger.warning(f"⚠️ Auto-sync failed (using local files only): {e}")
+
     if not source_dir.exists():
         logger.error(f"❌ Source labelled (Master Dataset) directory not found: {source_dir}")
         return
