@@ -23,10 +23,7 @@ class DataLoader:
             logger.warning(f"DataFrame is None. Skipping save for {filename}")
             return False
 
-        import psutil
-        import os
-        process = psutil.Process(os.getpid())
-        mem_gb = process.memory_info().rss / (1024 ** 3)
+        output_path = self.output_dir / filename
 
         try:
             if isinstance(df, pl.DataFrame):
