@@ -23,7 +23,10 @@ class DataLoader:
             logger.warning(f"DataFrame is None. Skipping save for {filename}")
             return False
 
-        output_path = self.output_dir / filename
+        import psutil
+        import os
+        process = psutil.Process(os.getpid())
+        mem_gb = process.memory_info().rss / (1024 ** 3)
 
         try:
             if isinstance(df, pl.DataFrame):
@@ -31,7 +34,7 @@ class DataLoader:
                     logger.warning(f"DataFrame is empty. Skipping save for {filename}")
                     return False
                 df.write_parquet(output_path, compression=compression)
-                logger.info(f"Successfully saved {len(df)} rows to {output_path}")
+                logger.info(f"Successfully saved {len(df)} rows to {output_path} | RAM: {mem_gb:.2f} GB")
                 return True
             else:
                 # Pandas fallback
@@ -40,7 +43,7 @@ class DataLoader:
                     return False
                 df = _enforce_pandas_schema(df)
                 df.to_parquet(output_path, compression=compression, index=True)
-                logger.info(f"Successfully saved {len(df)} rows to {output_path}")
+                logger.info(f"Successfully saved {len(df)} rows to {output_path} | RAM: {mem_gb:.2f} GB")
                 return True
         except Exception as e:
             logger.error(f"Error saving parquet {output_path}: {e}")
