@@ -160,8 +160,8 @@ pre_processing:
     # ── [SCALE GUARD] Resiliência Multi-Ano (2023-2026) ───────────────────────
     # Arquivos de 2024/2025 são muito mais densos (>700MB) que os de 2023.
     # O redutor (multiplier) é aplicado sobre o max_workers definido abaixo.
-    start_year: 2023           # Ano inicial para processamento.
-    end_year: 2023             # Ano final para processamento.
+    start_year: 2024           # Ano inicial para processamento.
+    end_year: 2024             # Ano final para processamento.
     export_compression: "snappy" # Algoritmo de compressão dos parquets.
     
     # CPU usada no ETL AMD EPYC 9654 96-Core Processor
