@@ -11,7 +11,7 @@ pipeline_paths:
   raw_l2_source:      "drive:PROJETOS/BTC_USDT_L2_2023_2026"
   raw_trades_source:  "drive:PROJETOS/BTC_USDT_L2_TRADE_2023_2026"
   drive_results_root: "drive:PROJETOS/RESULTADOS"            # Destino de todos os uploads. Sufixo de sessão calculado por get_drive_session_path().
-  session_timestamp:  "2026_03_19" #null                          # Definido dinamicamente se null.
+  session_timestamp:  "2026_03_21" #null                          # Definido dinamicamente se null.
 
   # ── [DADOS LOCAIS] Diretório Raíz `data/L2/` ───────────────────────────
   local_data_root:   "data/L2"          # Raíz de todos os estágios de dados. Subpastas derivadas daqui.
