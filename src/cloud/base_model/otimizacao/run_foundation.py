@@ -1,5 +1,6 @@
 
 import optuna
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -200,15 +201,12 @@ def objective(trial, config, feature_cols, auto_alphas=None):
         for epoch in range(epochs):
             model.train()
             train_loss = 0.0
-            from tqdm import tqdm
-            # In non-TTY environments (RunPod logs), reduce tqdm volume
-            is_tty = sys.stdout.isatty()
             pbar = tqdm(
                 train_loader, 
-                desc=f"Trial {trial.number} | Epoch {epoch+1}", 
+                desc=f"T{trial.number} E{epoch+1} [TREINO]", 
                 leave=False,
-                mininterval=10.0 if not is_tty else 0.1,  # 10s updates in logs
-                maxinterval=100.0 if not is_tty else 10.0
+                mininterval=0.5, # Atualiza mais rápido p/ ver progresso na Cloud
+                disable=False
             )
             for b_idx, (batch_X, batch_y) in enumerate(pbar):
                 batch_X, batch_y = batch_X.to(DEVICE), batch_y.to(DEVICE)
@@ -230,15 +228,23 @@ def objective(trial, config, feature_cols, auto_alphas=None):
             model.eval()
             all_preds, all_targets = [], []
             val_loss = 0.0
+            val_pbar = tqdm(
+                val_loader, 
+                desc=f"T{trial.number} E{epoch+1} [VAL]", 
+                leave=False,
+                mininterval=0.5,
+                disable=False
+            )
             with torch.no_grad():
                 with torch.amp.autocast('cuda'):
-                    for batch_X, batch_y in val_loader:
+                    for batch_X, batch_y in val_pbar:
                         batch_X, batch_y = batch_X.to(DEVICE), batch_y.to(DEVICE)
                         out = model(batch_X)
                         val_loss += criterion(out["logits"], batch_y).item()
                         preds = torch.argmax(out["logits"], dim=1)
                         all_preds.extend(preds.cpu().numpy())
                         all_targets.extend(batch_y.cpu().numpy())
+            val_pbar.close()
 
             # Calculation of metrics
             f1_macro = f1_score(all_targets, all_preds, average='macro', zero_division=0)
