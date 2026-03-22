@@ -90,10 +90,45 @@ class QuantGodLazyDataset(Dataset):
                 self.local_idx_map = self.local_idx_map[sample_indices]
                 logger.info(f"✂️ Double-Chunking ({label_for}): Expondo fatias de {n_samples:,} amostras aleatórias.")
 
-        logger.info(f"✅ RAM-Safe Streaming Dataset: {len(self.file_idx_map):,} sequências indexadas.")
+        # ── [v10.30] PRE-LOADING (The RAM Accelerator) ─────────────────────
+        # Se o dataset for pequeno o suficiente, carregamos tudo no ram uma única vez.
+        self.pre_loaded_X = None
+        self.pre_loaded_y = None
+        
+        # Threshold de segurança: 100k samples (~600MB RAM)
+        n_final = len(self.file_idx_map)
+        if n_final > 0 and n_final <= 100000:
+            logger.info(f"🚀 Pre-loading {n_final:,} samples into RAM (Lightning Mode)...")
+            X_data = np.zeros((n_final, self.seq_len, len(self.feature_cols)), dtype=np.float32)
+            y_data = np.zeros(n_final, dtype=np.int64)
+            
+            # Agrupamos por arquivo para otimizar leitura do disco
+            from collections import defaultdict
+            file_to_indices = defaultdict(list)
+            for i in range(n_final):
+                file_to_indices[self.file_idx_map[i]].append(i)
+            
+            for f_idx, s_indices in file_to_indices.items():
+                pf = self.parquet_files[f_idx]
+                # Lemos apenas as colunas necessárias do arquivo inteiro (se couber)
+                # ou lemos os offsets. Para simplicidade e robustez, lemos os offsets.
+                df_all = pl.read_parquet(pf, columns=self.feature_cols + ['target'])
+                for i in s_indices:
+                    l_idx = int(self.local_idx_map[i])
+                    X_data[i] = df_all.slice(l_idx, self.seq_len).select(self.feature_cols).to_numpy()
+                    y_data[i] = df_all['target'][l_idx + self.seq_len - 1]
+            
+            self.pre_loaded_X = torch.from_numpy(X_data)
+            self.pre_loaded_y = torch.from_numpy(y_data)
+            logger.info(f"✅ RAM-Safe Streaming Dataset: {n_final:,} sequences indexed and PRE-LOADED.")
+        else:
+            logger.info(f"✅ RAM-Safe Streaming Dataset: {n_final:,} sequences indexed (Lazy Mode).")
 
     def __len__(self): return len(self.file_idx_map)
     def __getitem__(self, idx):
+        if self.pre_loaded_X is not None:
+            return self.pre_loaded_X[idx], self.pre_loaded_y[idx]
+            
         f_idx = self.file_idx_map[idx]; l_idx = int(self.local_idx_map[idx])
         df_slice = pl.read_parquet(self.parquet_files[f_idx], columns=self.feature_cols + ['target'], n_rows=self.seq_len, row_index_offset=l_idx)
         X = df_slice.select(self.feature_cols).to_numpy().astype(np.float32)

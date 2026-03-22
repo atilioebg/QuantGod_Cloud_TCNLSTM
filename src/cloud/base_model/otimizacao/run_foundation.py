@@ -95,9 +95,9 @@ def objective(trial, config, feature_cols, auto_alphas=None):
             raise optuna.exceptions.TrialPruned()
 
         train_loader  = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
-                                   num_workers=4, pin_memory=True)
+                                   num_workers=0, pin_memory=True)
         val_loader    = DataLoader(val_dataset,   batch_size=batch_size, shuffle=False,
-                                   num_workers=4, pin_memory=True)
+                                   num_workers=0, pin_memory=True)
 
         # ── Model ──────────────────────────────────────────────────────────────
         model = Hybrid_TCN_LSTM(
@@ -221,6 +221,9 @@ def objective(trial, config, feature_cols, auto_alphas=None):
                 amp_scaler.update()
                 train_loss += loss.item()
                 pbar.set_postfix({'loss': f"{loss.item():.4f}"})
+                # v10.31: Bypassing run_manager TQDM filter with explicit periodic logs
+                if (b_idx + 1) % 50 == 0:
+                    logger.info(f"  ↳ Batches: {b_idx+1}/{len(train_loader)} | Current Loss: {loss.item():.4f}")
             pbar.close()
             scheduler.step()
 
