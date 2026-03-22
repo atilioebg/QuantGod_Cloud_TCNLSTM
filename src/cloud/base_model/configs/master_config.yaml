@@ -231,7 +231,7 @@ pre_processing:
     
     # Epoch-Chunking (Varredura Global Rápida no Optuna)
     use_epoch_chunking: true
-    samples_per_epoch: 50000      # [OFICIAL] Aumentado p/ 50k p/ aproveitar RAM da A4500.
+    samples_per_epoch: 10000      # [TESTE-FLUXO] Mínimo para validar o pipeline.
     samples_per_val_epoch: 5000   # Validação ultra-rápida (5k amostras) para o teste final.
     
     # Non-Event Subsampling (Equilíbrio de Classes)
@@ -360,7 +360,7 @@ optimization:
   # ── [OPTUNA] Configuração do Estudo HPO ───────────────────────────────────
   # O estudo persiste no SQLite (db_path). Interromper e retomar é seguro.
   study_name: "QUANTGOD_EXPLORER_V001" # Nome da fase explorer. Mude se quiser resetar.
-  n_trials: 50                    # Treino Oficial: 50 trials p/ cobertura robusta.
+  n_trials: 1                     # [TESTE-FLUXO] Termina busca para pular para Specialist.
   timeout: 172800                 # Teto de 48h.
 
   # ── [SAMPLER] Algoritmo de Busca ───────────────────────────────────────────
@@ -390,7 +390,7 @@ optimization:
   # ── [AUDITOR HPO] Busca Hiperparâmetros do Juiz XGBoost ──────────────────
   auditor:
     enabled: true    # true → HPO do Auditor via Optuna antes do treino final (70 trials, ~15min).
-    n_trials: 5     # Aumentado para 5 para o HPO do Auditor.
+    n_trials: 1     # [TESTE-FLUXO] Apenas 1 trial para o Auditor.
     search_space:
       max_depth: [2, 3]      # Profundidade das árvores. Sweet spot: 4-6.
       learning_rate: [0.01, 0.1]          # Shrinkage. Float range [min, max].
