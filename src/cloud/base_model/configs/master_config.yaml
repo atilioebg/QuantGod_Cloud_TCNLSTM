@@ -359,8 +359,8 @@ training:
 optimization:
   # ── [OPTUNA] Configuração do Estudo HPO ───────────────────────────────────
   # O estudo persiste no SQLite (db_path). Interromper e retomar é seguro.
-  study_name: "QUANTGOD_EXPLORER_V001" # Nome da fase explorer. Mude se quiser resetar.
-  n_trials: 1                     # [TESTE-FLUXO] Termina busca para pular para Specialist.
+  study_name: "QUANTGOD_RECON_V001" # Nome para teste limpo de 2 trials.
+  n_trials: 2                     # [TESTE-EXATO] 2 Trials como solicitado.
   timeout: 172800                 # Teto de 48h.
 
   # ── [SAMPLER] Algoritmo de Busca ───────────────────────────────────────────
@@ -419,8 +419,8 @@ optimization:
     asym_gamma_neu:  [0.1, 2.0]
     asym_gamma_buy:  [0.5, 5.0]
 
-    epochs: 100                   # 100 Épocas (Feedback rápido com 10k samples).
-    early_stopping_patience: 10   # Mais paciência para permitir convergência com poucas amostras.
+    epochs: 3                    # [TESTE-EXATO] 3 épocas como solicitado.
+    early_stopping_patience: 10   # Inútil com 3 épocas, mas deixamos p/ segurança.
 
     # ── [FOCAL LOSS SEARCH] Foundation (Base Model) ─────────────────────────
     base_loss_gamma:     [0.5, 5.0]    # Gamma. <1.0 ≈ CrossEntropy. 5.0 = foco extremo em erros difíceis.
