@@ -229,9 +229,9 @@ pre_processing:
     use_gradient_accumulation: true
     accumulation_steps: 4        # Multiplica o batch_size efetivo. Ex: 512 * 4 = 2048.
     
-    # Epoch-Chunking (Treino por fatias representativas)
+    # Epoch-Chunking (Varredura Global Rápida no Optuna)
     use_epoch_chunking: true
-    samples_per_epoch: 10000000   # 10 Milhões de amostras por época (feedback rápido).
+    samples_per_epoch: 10000      # FASE 1: 10k amostras (rápido). FASE 2: Aumentar para 10M.
     
     # Non-Event Subsampling (Equilíbrio de Classes)
     use_class_subsampling: true
@@ -358,9 +358,9 @@ training:
 optimization:
   # ── [OPTUNA] Configuração do Estudo HPO ───────────────────────────────────
   # O estudo persiste no SQLite (db_path). Interromper e retomar é seguro.
-  study_name: "QUANTGOD_FLOW_TEST" # Chave do estudo no banco SQLite. Mude ao reiniciar busca do zero.
-  n_trials: 1                     # MODO TESTE MICRO: Apenas 1 tentativa para validar o fluxo.
-  timeout: 72000                  # Teto em segundos (72000s = 20h). Parada rígida na cloud.
+  study_name: "QUANTGOD_EXPLORER_V001" # Nome da fase explorer. Mude se quiser resetar.
+  n_trials: 400                   # SOTA HPO: 400 trials para varredura global.
+  timeout: 172800                 # Teto de 48h.
 
   # ── [SAMPLER] Algoritmo de Busca ───────────────────────────────────────────
   sampler:
@@ -405,22 +405,21 @@ optimization:
     min_floor_alpha: 0.05   # Piso mínimo para alpha (evita busca em alpha <= 0, que é inválido).
 
   # ── [SEARCH SPACE] Hiperparâmetros da TCN-LSTM ────────────────────────────
-  # Listas discretas → Optuna usa categorical. [min, max] → float/int uniforme.
   search_space:
-    tcn_channels:    [64]         # MODO TESTE MICRO: Arquitetura leve.
-    lstm_hidden:     [32]         # MODO TESTE MICRO: Hidden size reduzido.
-    num_lstm_layers: [2]          # MODO TESTE MICRO: Camadas fixas.
-    lr:              [0.0001, 0.001, 0.01]                    # Learning rate. LR baixo não converge a tempo.
-    weight_decay:    [0.0001, 0.001, 0.01]                    # Regularização L2. Reduzido para evitar underfitting.
-    batch_size:      [512]        # MODO TESTE MICRO: Batch size seguro.
-    seq_len:         [48]         # MODO TESTE MICRO: Janela curta.
-    dropout:         [0.2, 0.4, 0.6, 0.8]                    # Dropout. Alto = força abstração distribuída.
-    asym_gamma_sell: [0.5, 5.0]  # Gamma Asymmetric Loss para o lado de venda.
-    asym_gamma_neu:  [0.1, 2.0]  # Gamma para o neutro. Baixo = ignora ruídos fáceis.
-    asym_gamma_buy:  [0.5, 5.0]  # Gamma para o lado de compra.
+    tcn_channels:    [32, 64, 128, 256, 512]                # Otimizado p/ A4500 (20GB). Evita OOM e lentidão.
+    lstm_hidden:     [16, 32, 64, 128, 256]                 # Escalável.
+    num_lstm_layers: [2, 3, 4]                              # Sweet spot para TCN-LSTM.
+    lr:              [0.0001, 0.001, 0.01]                   # Gridding LR.
+    weight_decay:    [0.0001, 0.01]                         # Regularização.
+    batch_size:      [128, 256, 512, 1024]                  # Aproveita o paralelismo da A4500.
+    seq_len:         [48, 96, 144]                          # Janelas de lookback importantes.
+    dropout:         [0.2, 0.5, 0.8]                        # Estabilidade.
+    asym_gamma_sell: [0.5, 5.0]
+    asym_gamma_neu:  [0.1, 2.0]
+    asym_gamma_buy:  [0.5, 5.0]
 
-    epochs: 1                    # MODO TESTE MICRO: Apenas 1 época.
-    early_stopping_patience: 6    # Paciência: 6 épocas sem melhora antes de abortar o trial.
+    epochs: 100                   # 100 Épocas (Feedback rápido com 10k samples).
+    early_stopping_patience: 10   # Mais paciência para permitir convergência com poucas amostras.
 
     # ── [FOCAL LOSS SEARCH] Foundation (Base Model) ─────────────────────────
     base_loss_gamma:     [0.5, 5.0]    # Gamma. <1.0 ≈ CrossEntropy. 5.0 = foco extremo em erros difíceis.

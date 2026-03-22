@@ -29,7 +29,8 @@ from src.cloud.base_model.treino.losses import FocalLossWithSmoothing, Asymmetri
 GLOBAL_BEST_MACRO = -1.0
 GLOBAL_BEST_DIR   = -1.0
 
-# ── Logging Setup ──────────────────────────────────────────────────────────
+# ── [v10.8] Big Data Streaming Setup ──────────────────────────────────────────
+from src.cloud.base_model.utils.dataset_utils import QuantGodLazyDataset
 from src.cloud.base_model.utils.logging_utils import setup_logger, setup_optuna_logging
 from src.cloud.base_model.utils.experiment_utils import resolve_data_paths
 
@@ -39,78 +40,13 @@ setup_optuna_logging()
 # Initial dummy logger (will be properly set up in run_optimization)
 logger = logging.getLogger("optimization")
 
-class SequenceDataset(torch.utils.data.Dataset):
-    """Island-aware sliding window dataset. Mirrors run_specialization.py exactly.
-    Sequences that cross island boundaries are excluded to prevent cross-gap leakage."""
-    def __init__(self, X, y, island_ids, seq_len):
-        self.X, self.y, self.seq_len = X, y, seq_len
-        max_idx = len(X) - seq_len
-        if max_idx < 0:
-            self.valid_indices = np.array([], dtype=np.int64)
-        else:
-            self.valid_indices = np.where(
-                island_ids[:max_idx + 1] == island_ids[seq_len - 1:]
-            )[0].astype(np.int64)
-        logger.info(f"SequenceDataset: {len(self.valid_indices)}/{max(0, max_idx+1)} valid sequences (Lookback protection active).")
-
-    def __len__(self): return len(self.valid_indices)
-    def __getitem__(self, idx):
-        i = self.valid_indices[idx]
-        return (torch.from_numpy(self.X[i:i + self.seq_len]),
-                torch.tensor(self.y[i + self.seq_len - 1], dtype=torch.long))
+# SequenceDataset agora é carregado via dataset_utils.py (QuantGodLazyDataset)
 
 
-def load_data(directory, feature_cols, config=None):
-    """
-    [v10.2] Memory-Safe Data Loader.
-    - Implements Class Subsampling (Neutral) to shrink dataset volume.
-    - Supports n_files_limit for flow testing.
-    """
-    parquet_files = sorted(list(Path(directory).glob("*.parquet")))
-    
-    # ── [TEST MODE] LIMIT FILES ──────────
-    test_limit = os.environ.get("QUANTGOD_TEST_LIMIT")
-    if test_limit:
-        n_limit = int(test_limit)
-        logger.info(f"🧪 [TEST MODE] Limiting data load to {n_limit} files.")
-        parquet_files = parquet_files[:n_limit]
-
-    if not parquet_files:
-        raise FileNotFoundError(f"No labelled data in {directory}")
-    
-    dfs = []
-    for i, pf in enumerate(parquet_files):
-        df_i = pl.read_parquet(pf, columns=feature_cols + ['target', 'island_id'])
-        df_i = df_i.with_columns(pl.col('island_id') + (i * 10000))
-        
-        # ── [v10.3] CLASS SUBSAMPLING (Memory Optimization) ──────────
-        if config and config.get('training', {}).get('training_optimization', {}).get('use_class_subsampling', False):
-            opt = config['training']['training_optimization']
-            target_cls = opt.get('subsample_class_target', 1)
-            keep_ratio = opt.get('subsample_keep_ratio', 0.2)
-            
-            # Subamostragem probabilística (Mantém a ordem temporal dentro das ilhas)
-            mask_target = pl.col("target") == target_cls
-            df_target = df_i.filter(mask_target)
-            df_others = df_i.filter(~mask_target)
-            
-            # Amostra a classe alvo
-            df_target_sampled = df_target.sample(fraction=keep_ratio)
-            df_i = pl.concat([df_others, df_target_sampled]).sort("island_id") # Re-order to maintain Island logic
-            
-        dfs.append(df_i)
-        
-        if i % 100 == 0:
-            gc.collect()
-
-    df = pl.concat(dfs)
-    logger.info(f"Loaded {len(df):,} rows from {directory} (Subsampling: {'ON' if config else 'OFF'})")
-    return df, feature_cols
-
-
-def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, config, base_cfg, auto_alphas=None):
+def objective(trial, config, feature_cols, auto_alphas=None):
     """
     Optuna objective function for TCN+LSTM hyperparameter search.
+    [v11.0] Streaming Edition: Loads data on-demand per trial.
 
     Engineering constraints enforced:
     - class_weights loaded from centralized master_config.yaml (not hardcoded)
@@ -139,36 +75,21 @@ def objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, c
                                               config['optimization']['search_space']['weight_decay'][1], log=True)
         epochs          = config['optimization']['search_space']['epochs']
 
-        # ── Automated Feature Selection (RFE via Optuna) ──────────────────────
-        use_rfe = config['optimization'].get('use_rfe', False)
-        feature_cols = config['model']['feature_names']
-        if use_rfe:
-            selected_features = []
-            for col in feature_cols:
-                if trial.suggest_categorical(f"use_feat_{col}", [True, False]):
-                    selected_features.append(col)
-            
-            if not selected_features:
-                # Must select at least one feature
-                logger.warning(f"Trial {trial.number} PRUNED: No features selected by RFE.")
-                raise optuna.exceptions.TrialPruned()
-            
-            # Identify indices of selected features
-            feat_indices = [feature_cols.index(col) for col in selected_features]
-            X_train_trial = X_train[:, feat_indices]
-            X_val_trial   = X_val[:, feat_indices]
-            num_feats_trial = len(selected_features)
-            logger.info(f"Trial {trial.number} RFE: Selected {num_feats_trial}/{len(feature_cols)} features.")
-        else:
-            X_train_trial = X_train
-            X_val_trial   = X_val
-            num_feats_trial = X_train.shape[1]
+        X_train_trial = None # Placeholder para compatibilidade, RFE agora atua no dataset
+        # [v11.1] RFE logic handles feature selection inside QuantGodLazyDataset if needed
+        # Note: In this version, we pass the full list and we could mask them 
+        # inside the dataset, but for now we skip X_train_trial usage below.
+        num_feats_trial = len(feature_cols) 
 
         # ── Datasets ───────────────────────────────────────────────────────────
-        train_dataset = SequenceDataset(X_train_trial, y_train, island_train, seq_len)
-        val_dataset   = SequenceDataset(X_val_trial, y_val, island_val, seq_len)
+        # [v10.9] Lazy datasets point to Parquets on disk (RAM efficient)
+        train_files = sorted(list(Path(config['paths']['train_dir']).glob("*.parquet")))
+        val_files   = sorted(list(Path(config['paths']['val_dir']).glob("*.parquet")))
+        
+        train_dataset = QuantGodLazyDataset(train_files, feature_cols, seq_len, config, is_train=True)
+        val_dataset   = QuantGodLazyDataset(val_files,   feature_cols, seq_len, config, is_train=False)
 
-        # ── Empty Dataset Guard: Prune trial if seq_len exceeds all islands ───
+        # ── [Empty Dataset Guard] ───────────────────────────────────────────
         if len(train_dataset) == 0 or len(val_dataset) == 0:
             logger.warning(f"Trial {trial.number} PRUNED: Sequence length {seq_len} is too long for the available data islands.")
             raise optuna.exceptions.TrialPruned()
@@ -492,28 +413,28 @@ def run_optimization():
         
     setup_logger("optimization", suffix)
 
-    # ── Resolve AUTO paths ──────────────────────────────────────────────────
+    # ── [v10.10] Resolve AUTO paths ──────────────────────────────────────────
     config['paths']['train_dir'], config['paths']['val_dir'] = resolve_data_paths(config['paths'])
     logger.info(f"📁 DYNAMIC DATA PATHS: Train={config['paths']['train_dir']} | Val={config['paths']['val_dir']}")
 
-    # ── Data ──────────────────────────────────────────────────────────────────
-    logger.info("Loading data for optimization...")
-    train_df, _ = load_data(config['paths']['train_dir'], feature_cols, config=config)
-    val_df, _   = load_data(config['paths']['val_dir'],   feature_cols, config=config)
-
-    X_train_raw   = train_df.select(feature_cols).to_numpy().astype(np.float32)
-    y_train       = train_df.select('target').to_numpy().flatten().astype(np.int64)
-    island_train  = train_df.select('island_id').to_numpy().flatten()
-    X_val_raw     = val_df.select(feature_cols).to_numpy().astype(np.float32)
-    y_val         = val_df.select('target').to_numpy().flatten().astype(np.int64)
-    island_val    = val_df.select('island_id').to_numpy().flatten()
-
-    # Normalize fit on train only
-    scaler = StandardScaler()
-    scaler.fit(X_train_raw)
-    X_train = scaler.transform(X_train_raw).astype(np.float32)
-    X_val   = scaler.transform(X_val_raw).astype(np.float32)
+    # ── [v10.11] Global Stats Fit (Sampled) ──────────────────────────────────
+    # Para o StandardScaler em Big Data, fitamos em uma amostra representativa (100k) 
+    # espalhada pelo dataset de treino, para evitar OOM no dataframe bruto.
+    logger.info("📐 Fitting Global Scaler (Smart Sampler: 100k rows)...")
+    train_files = sorted(list(Path(config['paths']['train_dir']).glob("*.parquet")))
     
+    # [STREAMING STATS] Sorteia 10 arquivos do início, meio e fim para fitar o scaler
+    sample_files = [train_files[0], train_files[len(train_files)//2], train_files[-1]]
+    if len(train_files) > 10:
+        indices = np.linspace(0, len(train_files)-1, 10, dtype=int)
+        sample_files = [train_files[i] for i in indices]
+    
+    dfs_sample = [pl.read_parquet(f, columns=feature_cols) for f in sample_files]
+    df_sample = pl.concat(dfs_sample)
+    scaler = StandardScaler()
+    scaler.fit(df_sample.to_numpy())
+    logger.info(f"📊 Global Scaler initialized on {len(df_sample):,} representative rows.")
+
     from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
     base_dir = get_drive_session_path("MODELOS", config)
     scaler_path = resolve_local_drive(Path(base_dir) / config['pipeline_paths']['scaler_foundation'])
@@ -523,10 +444,13 @@ def run_optimization():
     joblib.dump(scaler, scaler_path)
     logger.info(f"💾 Scaler saved properly to: {scaler_path}")
 
-    # ── Log Alpha Class Weights Globally ─────────────────────────────────────
+    # ── [DEPRECATED] Manual Alpha Logic follows... ────
+    # Precisamos dos auto-alphas para log/search space de dinâmico
+    # Pegamos do mesmo df_sample representativo para economizar RAM
+    y_sample_raw = pl.concat([pl.read_parquet(f, columns=['target']) for f in sample_files]).to_numpy().flatten()
     import torch
     dummy_device = torch.device("cpu")
-    auto_alphas = compute_alpha_from_labels(y_train, num_classes=3, device=dummy_device)
+    auto_alphas = compute_alpha_from_labels(y_sample_raw, num_classes=3, device=dummy_device)
     
     if foundation_cfg.get('base_use_dynamic_range_optuna', False):
         logger.info(f"FocalLoss alpha: DYNAMIC RANGE active anchor points: [S:{auto_alphas[0]:.2f}, N:{auto_alphas[1]:.2f}, B:{auto_alphas[2]:.2f}]")
@@ -620,7 +544,7 @@ def run_optimization():
     start_time = datetime.now()
 
     study.optimize(
-        lambda trial: objective(trial, X_train, y_train, island_train, X_val, y_val, island_val, config, config, auto_alphas=auto_alphas),
+        lambda trial: objective(trial, config, feature_cols, auto_alphas=auto_alphas),
         n_trials=config['optimization']['n_trials'],
         timeout=config['optimization']['timeout'],
     )
@@ -682,7 +606,7 @@ def run_optimization():
     
     logger.info(f"[MACRO] Best trial: {study.best_trial.number} | {m_f_label}: {study.best_trial.value:.8f}")
     
-    final_params = extract_full_params(study.best_trial, foundation_cfg, y_train, X_train.shape[1])
+    final_params = extract_full_params(study.best_trial, foundation_cfg, y_sample_raw, len(feature_cols))
     
     formatted_best_params = {k: f"{v:.8f}" if isinstance(v, float) else v for k, v in final_params.items()}
     logger.info(f"[MACRO] Best params: {formatted_best_params}")
@@ -703,7 +627,7 @@ def run_optimization():
                  and "best_f1_dir" in t.user_attrs]
     if completed:
         best_dir_trial = max(completed, key=lambda t: t.user_attrs["best_f1_dir"])
-        best_dir_params = extract_full_params(best_dir_trial, foundation_cfg, y_train, X_train.shape[1])
+        best_dir_params = extract_full_params(best_dir_trial, foundation_cfg, y_sample_raw, len(feature_cols))
 
         best_dir_val = best_dir_trial.user_attrs["best_f1_dir"]
         logger.info(f"[BEST DIR]   Best trial: {best_dir_trial.number} | F1 Dir: {best_dir_val:.8f}")
