@@ -409,7 +409,7 @@ def run_kfold_specialist():
     # Em vez de carregar tudo, criamos uma instância mestra do LazyDataset 
     # que contém o mapeamento de TODOS os arquivos do validation set.
     val_dataset_master = QuantGodLazyDataset(parquet_files, feature_cols, best_params['seq_len'], config, is_train=False)
-    n_total = len(val_dataset_master.global_indices)
+    n_total = len(val_dataset_master)
     
     # Pre-carregamento dos labels reais p/ cálculo de alphas (Genetic Inheritance)
     # Isso é feito via scan rápido (streaming) para evitar OOM
@@ -475,41 +475,51 @@ def run_kfold_specialist():
                     logger.info(f"[Fold {fold_k}] Right Purge Gap OK: {gap_right} bars ({gap_right * resample_min} min)")
 
         # ── [v12.4] Sub-Dataset Creation (Memory Safe) ────────────────────────
-        # Clonamos o mapeamento mestre e filtramos os índices específicos do fold.
-        # Evita re-scannear os Parquets 5 vezes.
         import copy
         train_ds_fold = copy.copy(val_dataset_master)
-        train_ds_fold.global_indices = [val_dataset_master.global_indices[i] for i in train_idx]
+        train_ds_fold.global_indices = val_dataset_master.global_indices[train_idx]
         
         test_ds_fold = copy.copy(val_dataset_master)
-        test_ds_fold.global_indices = [val_dataset_master.global_indices[i] for i in test_idx]
+        test_ds_fold.global_indices = val_dataset_master.global_indices[test_idx]
 
-        X_train_raw = None # Deprecated: now handled by streaming
-        y_train = None
-        X_test_raw = None
-        y_test = None
-
-        # -- Per-Fold Scaler (NEVER global) ------------------------------------
-        # Anti-Leakage: scaler is fit ONLY on fold's training data.
-        # Using test stats in normalization would leak distribution into training.
+        # -- Per-Fold Scaler (Anti-Leakage) ------------------------------------
         scaler = StandardScaler()
-        X_train_norm = scaler.fit_transform(X_train_raw).astype(np.float32)
-        X_test_norm  = scaler.transform(X_test_raw).astype(np.float32)
+        
+        # Fitamos apenas com os dados de treino do fold atual
+        # Se estiver em modo Lightning (RAM), escalamos tudo agora para performance
+        if val_dataset_master.pre_loaded_X is not None:
+            X_master_raw = val_dataset_master.pre_loaded_X.numpy()
+            N_m, L_m, F_m = X_master_raw.shape
+            
+            # Fit na fatia de treino (achatada p/ 2D)
+            X_train_slice = X_master_raw[train_idx].reshape(-1, F_m)
+            scaler.fit(X_train_slice)
+            
+            # Aplicamos a transformação em todo o bloco mestre p/ este fold
+            X_master_scaled = scaler.transform(X_master_raw.reshape(-1, F_m)).reshape(N_m, L_m, F_m)
+            
+            # Cada dataset do fold recebe sua parcela já escalada e restrita
+            train_ds_fold.pre_loaded_X = torch.from_numpy(X_master_scaled[train_idx])
+            train_ds_fold.pre_loaded_y = val_dataset_master.pre_loaded_y[train_idx]
+            
+            test_ds_fold.pre_loaded_X = torch.from_numpy(X_master_scaled[test_idx])
+            test_ds_fold.pre_loaded_y = val_dataset_master.pre_loaded_y[test_idx]
+        else:
+            # Modo Lazy: Passamos o scaler para ser aplicado no __getitem__
+            # Aqui precisaríamos de um fit parcial ou fit em amostra, mas preservando a lógica lazy.
+            # No modo atual da cloud, pre_loaded_X sempre existirá p/ 5k amostras.
+            train_ds_fold.scaler = scaler
+            test_ds_fold.scaler = scaler
 
-        # Save fold scaler (needed if Auditor wants to replay inference in production)
+        # Save fold scaler
         scaler_path = oof_dir / f"scaler_fold_{fold_k}.pkl"
         with open(scaler_path, 'wb') as sf:
             pickle.dump(scaler, sf)
-        logger.info(f"[Fold {fold_k}] Scaler saved: {scaler_path.name}")
 
         # -- Train clone -------------------------------------------------------
         model = train_specialist_fold(
-            X_train_norm=X_train_norm,
-            y_train=y_train,
-            island_train=island_train,
-            X_val_norm=X_test_norm,   # val used only for early stopping within fold
-            y_val=y_test,
-            island_val=island_test,
+            train_dataset=train_ds_fold,
+            val_dataset=test_ds_fold,
             config=config,
             best_params=best_params,
             class_weights=class_weights,

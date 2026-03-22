@@ -125,15 +125,22 @@ class QuantGodLazyDataset(Dataset):
             self.pre_loaded_X = torch.from_numpy(X_data)
             self.pre_loaded_y = torch.from_numpy(y_data)
             logger.info(f"✅ RAM-Safe Streaming Dataset: {n_final:,} sequences indexed and PRE-LOADED.")
-        else:
-            logger.info(f"✅ RAM-Safe Streaming Dataset: {n_final:,} sequences indexed (Lazy Mode).")
+        # ── [v10.35] K-FOLD COMPATIBILITY ──────────────────────────────────
+        # Adicionamos global_indices para permitir que scripts de K-Fold (Phase 2) 
+        # façam o subset do dataset sem precisar de re-escaneamento.
+        self.global_indices = np.arange(len(self.file_idx_map))
 
-    def __len__(self): return len(self.file_idx_map)
+        logger.info(f"✅ RAM-Safe Streaming Dataset: {n_final:,} sequences indexed (Mode: {'Lightning' if self.pre_loaded_X is not None else 'Lazy'}).")
+
+    def __len__(self): return len(self.global_indices)
     def __getitem__(self, idx):
+        # Route through global_indices for K-Fold subsetting
+        g_idx = self.global_indices[idx]
+        
         if self.pre_loaded_X is not None:
-            return self.pre_loaded_X[idx], self.pre_loaded_y[idx]
+            return self.pre_loaded_X[g_idx], self.pre_loaded_y[g_idx]
             
-        f_idx = self.file_idx_map[idx]; l_idx = int(self.local_idx_map[idx])
+        f_idx = self.file_idx_map[g_idx]; l_idx = int(self.local_idx_map[g_idx])
         df_slice = pl.read_parquet(self.parquet_files[f_idx], columns=self.feature_cols + ['target'], n_rows=self.seq_len, row_index_offset=l_idx).fill_nan(0).fill_null(0)
         X = df_slice.select(self.feature_cols).to_numpy()
         if self.scaler:
