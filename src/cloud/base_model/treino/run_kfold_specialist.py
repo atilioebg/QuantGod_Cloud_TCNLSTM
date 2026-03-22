@@ -511,12 +511,14 @@ def run_kfold_specialist():
             # Aplicamos a transformação em todo o bloco mestre p/ este fold
             X_master_scaled = scaler.transform(X_master_raw.reshape(-1, F_m)).reshape(N_m, L_m, F_m)
             
-            # Cada dataset do fold recebe sua parcela já escalada e restrita
-            train_ds_fold.pre_loaded_X = torch.from_numpy(X_master_scaled[train_idx])
-            train_ds_fold.pre_loaded_y = val_dataset_master.pre_loaded_y[train_idx]
+            # Cada dataset do fold recebe o bloco mestre já escalado.
+            # O mapeamento via global_indices filtrará as fatias corretas no __getitem__.
+            scaled_X_tensor = torch.from_numpy(X_master_scaled)
+            train_ds_fold.pre_loaded_X = scaled_X_tensor
+            train_ds_fold.pre_loaded_y = val_dataset_master.pre_loaded_y
             
-            test_ds_fold.pre_loaded_X = torch.from_numpy(X_master_scaled[test_idx])
-            test_ds_fold.pre_loaded_y = val_dataset_master.pre_loaded_y[test_idx]
+            test_ds_fold.pre_loaded_X = scaled_X_tensor
+            test_ds_fold.pre_loaded_y = val_dataset_master.pre_loaded_y
         else:
             # Modo Lazy: Passamos o scaler para ser aplicado no __getitem__
             # Aqui precisaríamos de um fit parcial ou fit em amostra, mas preservando a lógica lazy.
