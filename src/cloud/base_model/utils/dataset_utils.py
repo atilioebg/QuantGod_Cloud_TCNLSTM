@@ -11,9 +11,9 @@ logger = logging.getLogger(__name__)
 
 class QuantGodLazyDataset(Dataset):
     """
-    SOTA Big Data Streaming Loader (v10.5).
-    Mapeia todos os Parquets (1,151 arquivos) no disco.
-    Permite: Subsampling de Classes, Epoch-Chunking (Fatia Representativa) e Island Protection.
+    SOTA Big Data Streaming Loader (v10.8 Sniper-RAM Edition).
+    Mapeia todos os Parquets (1,151 arquivos) no disco usando NumPy Structured Arrays.
+    Economia: Reduz o consumo do índice de 22GB para ~2.6GB para 447M de linhas.
     """
     def __init__(self, parquet_files: list, feature_cols: list, seq_len: int, config: dict, is_train: bool = True):
         self.parquet_files = sorted(parquet_files)
@@ -24,13 +24,13 @@ class QuantGodLazyDataset(Dataset):
 
         opt_cfg = config.get('training_optimization', {})
         if not opt_cfg:
-            # Fallback if config structure is different
             opt_cfg = config.get('training', {}).get('training_optimization', {})
 
-        self.global_indices = []
-        self.total_raw_rows = 0
+        # ── [v10.9] Memory-Safe Phase 1: Scan & Collect Indices in Chunks ──────────
+        all_file_indices = []
+        all_local_indices = []
         
-        logger.info(f"🔍 Streaming Scan do Dataset ({'Treino' if is_train else 'Val'}): {len(parquet_files)} arquivos...")
+        logger.info(f"🔍 RAM-Safe Streaming Scan ({'Treino' if is_train else 'Val'}): {len(parquet_files)} arquivos...")
         
         for f_idx, pf in enumerate(self.parquet_files):
             # Scan rápido apenas dos comprimentos (metadata)
@@ -44,7 +44,7 @@ class QuantGodLazyDataset(Dataset):
             valid_mask = (islands[:count - seq_len + 1] == islands[seq_len - 1:])
             valid_local_indices = np.where(valid_mask)[0]
             
-            # ── [v10.6] CLASS SUBSAMPLING (Memory Optimization) ──────────
+            # ── [v10.10] CLASS SUBSAMPLING (Memory Optimization) ──────────
             if is_train and opt_cfg.get('use_class_subsampling', False):
                 target_cls = opt_cfg.get('subsample_class_target', 1)
                 keep_ratio = opt_cfg.get('subsample_keep_ratio', 0.2)
@@ -57,35 +57,54 @@ class QuantGodLazyDataset(Dataset):
                 drop_mask = (seq_targets == target_cls) & (random_vals > keep_ratio)
                 valid_local_indices = valid_local_indices[~drop_mask]
 
-            # Registrar mapeamento: global_idx -> (file_idx, local_idx)
-            for l_idx in valid_local_indices:
-                self.global_indices.append((f_idx, l_idx))
+            # Registrar em pedaços NumPy para evitar overhead de listas Python
+            if len(valid_local_indices) > 0:
+                all_file_indices.append(np.full(len(valid_local_indices), f_idx, dtype=np.uint16))
+                all_local_indices.append(valid_local_indices.astype(np.uint32))
             
-            self.total_raw_rows += count
+            if f_idx % 200 == 0:
+                gc.collect()
 
-        # ── [v10.7] EPOCH-CHUNKING (Global Sample Sweep) ──────────
+        # ── [v10.11] Phase 2: NumPy Concatenation (Shared Memory Friendly) ──────────
+        if not all_file_indices:
+             self.file_idx_map = np.array([], dtype=np.uint16)
+             self.local_idx_map = np.array([], dtype=np.uint32)
+        else:
+             self.file_idx_map = np.concatenate(all_file_indices)
+             self.local_idx_map = np.concatenate(all_local_indices)
+
+        # Limpeza agressiva de RAM intermediária
+        del all_file_indices
+        del all_local_indices
+        gc.collect()
+
+        # ── [v10.12] EPOCH-CHUNKING (Global Sample Sweep) ──────────
         if is_train and opt_cfg.get('use_epoch_chunking', False):
             n_samples = opt_cfg.get('samples_per_epoch', 5000000)
-            if n_samples < len(self.global_indices):
-                selected_indices = np.random.choice(len(self.global_indices), n_samples, replace=False)
-                self.global_indices = [self.global_indices[i] for i in selected_indices]
-                logger.info(f"✂️ Epoch-Chunking Ativo: Reduzindo {len(self.global_indices)} -> {n_samples} amostras/época.")
+            n_current = len(self.file_idx_map)
+            if n_samples < n_current:
+                # Sorteia os índices ordinais
+                sample_indices = np.random.choice(n_current, n_samples, replace=False)
+                self.file_idx_map = self.file_idx_map[sample_indices]
+                self.local_idx_map = self.local_idx_map[sample_indices]
+                logger.info(f"✂️ Epoch-Chunking Ativo: Expondo {n_samples:,} amostras aleatórias/época.")
 
-        logger.info(f"✅ Streaming Dataset carregado: {len(self.global_indices):,} sequências válidas.")
+        logger.info(f"✅ RAM-Safe Streaming Dataset: {len(self.file_idx_map):,} sequências indexadas.")
 
     def __len__(self):
-        return len(self.global_indices)
+        return len(self.file_idx_map)
 
     def __getitem__(self, idx):
-        f_idx, l_idx = self.global_indices[idx]
+        f_idx = self.file_idx_map[idx]
+        l_idx = self.local_idx_map[idx]
         pf = self.parquet_files[f_idx]
         
-        # Leitura sob demanda (Lazy) usando slice do Polars (mmap-fast)
+        # Leitura sob demanda (Lazy) usando mmap-fast slice
         df_slice = pl.read_parquet(
             pf, 
             columns=self.feature_cols + ['target'],
             n_rows=self.seq_len,
-            row_index_offset=l_idx
+            row_index_offset=int(l_idx)
         )
         
         X = df_slice.select(self.feature_cols).to_numpy().astype(np.float32)
