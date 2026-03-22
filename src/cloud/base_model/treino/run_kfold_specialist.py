@@ -386,9 +386,9 @@ def run_kfold_specialist():
         best_params = json.load(f)
     logger.info(f"Loaded Foundation Arch ({param_file}): seq_len={best_params['seq_len']}, tcn={best_params['tcn_channels']}, lstm={best_params['lstm_hidden']}×{best_params['num_lstm_layers']}")
 
-    # Source: {labelled_dir}/val — the 30% hold-out from Foundation
+    # ── [v12.5] REQUIREMENT CHECK (Fail Fast) ────────────────────────────────
+    # Fonte: {labelled_dir}/val — o set de validação da Foundation
     foundation_val_dir = Path(get_labelled_dir(config)) / "val"
-
     if not foundation_val_dir.exists():
         logger.error(f"❌ Foundation Val not found: {foundation_val_dir}. Run split_dataset.py first.")
         sys.exit(1)
@@ -405,6 +405,19 @@ def run_kfold_specialist():
 
     logger.info(f"📂 Foundation Val: {len(parquet_files)} files in {foundation_val_dir}")
 
+    spec_cfg = config['training'].get('specialization_weights', {})
+    use_dir = spec_cfg.get('use_best_f1_dir', False)
+    mod_key = 'best_tcn_lstm_dir_model' if use_dir else 'best_tcn_lstm_model'
+    
+    base_dir_path = get_drive_session_path("MODELOS", config)
+    warm_start_path = resolve_local_drive(Path(base_dir_path) / config['pipeline_paths'][mod_key])
+    
+    if not warm_start_path.exists():
+        logger.error(f"❌ MODELO BASE AUSENTE: O Especialista precisa de um checkpoint da Foundation para o Warm-Start.")
+        logger.error(f"   ↳ Certifique-se de que a fase Foundation Optuna gerou o arquivo: {warm_start_path.name}")
+        logger.error(f"   ↳ Se o Trial da Foundation foi abortado (Cérebro Morto), tente aumentar n_trials ou ajustar os pesos.")
+        sys.exit(1)
+
     # ── [v12.3] Big Data Map ─────────
     # Em vez de carregar tudo, criamos uma instância mestra do LazyDataset 
     # que contém o mapeamento de TODOS os arquivos do validation set.
@@ -412,23 +425,23 @@ def run_kfold_specialist():
     n_total = len(val_dataset_master)
     
     # Pre-carregamento dos labels reais p/ cálculo de alphas (Genetic Inheritance)
-    # Isso é feito via scan rápido (streaming) para evitar OOM
+    # [v12.6] Optimização Polars: Scan de múltiplos arquivos ultra-rápido
     logger.info("📐 Pre-scanning labels for class balance stats...")
-    y_raw = []
-    for f in parquet_files:
-        y_raw.extend(pl.read_parquet(f, columns=['target']).to_numpy().flatten())
-    y_raw = np.array(y_raw, dtype=np.int64)
+    y_raw = pl.scan_parquet(parquet_files).select('target').collect()['target'].to_numpy()
     
     logger.info(f"📊 Foundation Val: {n_total:,} rows (Mapped) | Labels: {len(y_raw):,}")
 
     # Label balance warning
-    neutral_pct = np.sum(y_raw == 1) / n_total
+    n_labels = len(y_raw)
+    neutral_pct = (np.sum(y_raw == 1) / n_labels) if n_labels > 0 else 0
     if neutral_pct > 0.95:
         logger.warning(
             f"⚠️  NEUTRAL = {neutral_pct:.1%} — extremamente desbalanceado! "
             f"Considere aumentar os thresholds (sell/buy) no master_config.yaml. "
             f"O Especialista terá poucos sinais de volatilidade para aprender."
         )
+    else:
+        logger.info(f"📊 Class Distribution: Neutral={neutral_pct:.1%}, Directional={1-neutral_pct:.1%}")
 
     # Sniper Inheritance: Herdar alphas genéticos do best_params se disponíveis
     class_weights = best_params.get('base_alpha_list') 
