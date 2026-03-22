@@ -223,20 +223,34 @@ def process_and_save_context(input_dir, output_dir):
         logger.error("Nenhum dado válido encontrado.")
         return
 
-    # v10.7: Uso de vertical concat explícito
+    # v10.8: Uso de vertical concat explícito
     lf_full = pl.concat(lfs, how="vertical")
     
-    # 2. Calcular indicadores em modo LAZY
-    logger.info("Calculando indicators Alpha Sensors em modo Lazy...")
-    lf_enriched = calculate_context_features_polars(lf_full, resample_min=resample_min)
-
-    # 3. Realizar o cálculo (Collect)
-    logger.info(f"Executando plano de cálculo (Collect + STREAMING) para {len(parquet_files)} arquivos...")
+    # 2. Simplificação do Plano Lógico: Collect intermediário
+    # v10.8: Concatenar 200+ arquivos Lazy cria um plano profundo demais. 
+    # Como 4.3M de linhas cabem em <5GB de RAM, coletamos aqui para "limpar" o grafo.
+    logger.info("Simplificando plano: Coletando dados normalizados em memória...")
     try:
-        # v10.7: STREAMING=True é a chave para o Polars não engasgar em planos complexos
-        df_result = lf_enriched.collect(streaming=True)
+        # Coleta apenas as colunas necessárias para o cálculo
+        df_base = lf_full.collect(streaming=True)
+        # Limpa cache do Polars
+        import gc
+        gc.collect()
     except Exception as e:
-        logger.error(f"❌ Falha crítica no Colect/Streaming: {e}")
+        logger.error(f"❌ Falha ao unificar arquivos: {e}")
+        raise
+
+    # 3. Calcular indicadores em modo LAZY (pós-unificação)
+    logger.info("Calculando indicators Alpha Sensors sobre o dataset completo...")
+    # Convertemos de volta para Lazy apenas para usar as expressões de indicadores (que agora terão plano raso)
+    lf_enriched = calculate_context_features_polars(df_base.lazy(), resample_min=resample_min)
+
+    # 4. Cálculo Final
+    try:
+        logger.info("Executando cálculo final dos indicadores...")
+        df_result = lf_enriched.collect() 
+    except Exception as e:
+        logger.error(f"❌ Falha no cálculo final: {e}")
         raise
     
     # 4. Salvar cada fragmento de volta
