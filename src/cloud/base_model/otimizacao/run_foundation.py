@@ -75,10 +75,9 @@ def objective(trial, config, feature_cols, auto_alphas=None):
                                               config['optimization']['search_space']['weight_decay'][1], log=True)
         epochs          = config['optimization']['search_space']['epochs']
 
+        # ── Automated Feature Selection (RFE via Optuna) ──────────────────────
+        use_rfe = config['optimization'].get('use_rfe', False)
         X_train_trial = None # Placeholder para compatibilidade, RFE agora atua no dataset
-        # [v11.1] RFE logic handles feature selection inside QuantGodLazyDataset if needed
-        # Note: In this version, we pass the full list and we could mask them 
-        # inside the dataset, but for now we skip X_train_trial usage below.
         num_feats_trial = len(feature_cols) 
 
         # ── Datasets ───────────────────────────────────────────────────────────
