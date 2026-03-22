@@ -85,4 +85,6 @@ pytest tests/labelling/test_labelling_output.py -v
 
 ---
 
+Consulte [`4_STRICT_TEMPORAL_SPLIT.md`](4_STRICT_TEMPORAL_SPLIT.md) para detalhes sobre a blindagem contra Data Leakage no Split.
+
 Consulte [`7_DATA_REFERENCE.md`](7_DATA_REFERENCE.md) para detalhes sobre as features de entrada.
