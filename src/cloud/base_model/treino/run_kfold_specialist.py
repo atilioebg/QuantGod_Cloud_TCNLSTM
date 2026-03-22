@@ -566,9 +566,8 @@ def run_kfold_specialist():
 
         # Para compatibilidade com salvamento legados: valid_idx simulado
         # Em modo streaming, o original_row_idx é calculado via metadados das sequências.
-        # Para o teste E2E, usaremos apenas IDs ordinais.
         fold_df = pd.DataFrame({
-            "original_row_idx": test_idx[seq_len - 1:], # Simplificação Sniper v12
+            "original_row_idx": valid_meta,
             "spec_prob_sell":   probs[:, 0],
             "spec_prob_neu":    probs[:, 1],
             "spec_prob_buy":    probs[:, 2],
