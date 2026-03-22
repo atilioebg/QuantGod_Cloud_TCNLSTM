@@ -360,7 +360,7 @@ optimization:
   # ── [OPTUNA] Configuração do Estudo HPO ───────────────────────────────────
   # O estudo persiste no SQLite (db_path). Interromper e retomar é seguro.
   study_name: "QUANTGOD_EXPLORER_V001" # Nome da fase explorer. Mude se quiser resetar.
-  n_trials: 1                     # MODO TESTE MICRO: Apenas 1 tentativa para validar o fluxo.
+  n_trials: 10                    # Aumentado para 10 para maior estabilidade na busca.
   timeout: 172800                 # Teto de 48h.
 
   # ── [SAMPLER] Algoritmo de Busca ───────────────────────────────────────────
@@ -390,7 +390,7 @@ optimization:
   # ── [AUDITOR HPO] Busca Hiperparâmetros do Juiz XGBoost ──────────────────
   auditor:
     enabled: true    # true → HPO do Auditor via Optuna antes do treino final (70 trials, ~15min).
-    n_trials: 2     # 70 trials cobre bem o espaço do XGBoost.
+    n_trials: 5     # Aumentado para 5 para o HPO do Auditor.
     search_space:
       max_depth: [2, 3]      # Profundidade das árvores. Sweet spot: 4-6.
       learning_rate: [0.01, 0.1]          # Shrinkage. Float range [min, max].
