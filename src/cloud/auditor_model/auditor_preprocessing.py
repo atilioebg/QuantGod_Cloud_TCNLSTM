@@ -201,39 +201,42 @@ def process_and_save_context(input_dir, output_dir):
     lfs = []
     for pf in parquet_files:
         try:
+            # v10.7: Scan filtrando colunas imediatamente para reduzir o plano
             lf_i = pl.scan_parquet(pf)
             
-            # Garante que todas as colunas necessárias existam (mesmo que nulas)
-            # e que tenham o mesmo tipo (Float64) para evitar erro no concat
+            # Garante schema limpo e uniforme
             exprs = []
+            available = lf_i.columns
             for c in needed_cols:
-                if c in lf_i.columns:
+                if c in available:
                     exprs.append(pl.col(c).cast(pl.Float64))
                 else:
                     exprs.append(pl.lit(None).cast(pl.Float64).alias(c))
             
+            # Adiciona filename e executa a seleção
             lf_i = lf_i.select(exprs).with_columns(pl.lit(pf.name).alias("_filename"))
             lfs.append(lf_i)
         except Exception as e:
-            logger.warning(f"Ignorando arquivo corrompido {pf.name}: {e}")
+            logger.warning(f"Erro ao escanear {pf.name}: {e}")
 
     if not lfs:
-        logger.error("Nenhum LazyFrame válido para processar.")
+        logger.error("Nenhum dado válido encontrado.")
         return
 
-    lf_full = pl.concat(lfs)
+    # v10.7: Uso de vertical concat explícito
+    lf_full = pl.concat(lfs, how="vertical")
     
     # 2. Calcular indicadores em modo LAZY
     logger.info("Calculando indicators Alpha Sensors em modo Lazy...")
     lf_enriched = calculate_context_features_polars(lf_full, resample_min=resample_min)
 
     # 3. Realizar o cálculo (Collect)
-    logger.info(f"Executando plano de cálculo (Collect) para {len(parquet_files)} arquivos...")
+    logger.info(f"Executando plano de cálculo (Collect + STREAMING) para {len(parquet_files)} arquivos...")
     try:
-        df_result = lf_enriched.collect()
+        # v10.7: STREAMING=True é a chave para o Polars não engasgar em planos complexos
+        df_result = lf_enriched.collect(streaming=True)
     except Exception as e:
-        logger.error(f"❌ Falha crítica no processamento Polars: {e}")
-        # Tipicamente schema mismatch que escapou ou arquivo corrompido
+        logger.error(f"❌ Falha crítica no Colect/Streaming: {e}")
         raise
     
     # 4. Salvar cada fragmento de volta
