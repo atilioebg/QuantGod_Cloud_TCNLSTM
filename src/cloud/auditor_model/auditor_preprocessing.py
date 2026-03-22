@@ -63,8 +63,8 @@ def calculate_context_features_polars(lf: pl.LazyFrame, resample_min: int = 1) -
     ])
 
     lf = lf.with_columns([
-        pl.col("delta").where(pl.col("delta") > 0).fill_null(0).alias("gain"),
-        pl.col("delta").where(pl.col("delta") < 0).fill_null(0).abs().alias("loss"),
+        pl.when(pl.col("delta") > 0).then(pl.col("delta")).otherwise(0.0).alias("gain"),
+        pl.when(pl.col("delta") < 0).then(pl.col("delta").abs()).otherwise(0.0).alias("loss"),
         pl.when(pl.col("ema_8") > pl.col("ema_21")).then(1).otherwise(-1).alias("ema_trend"),
         ((pl.col("ema_8") - pl.col("ema_21")) / pl.col("ema_21")).alias("ema_cross_dist"),
         (pl.col("bb_mean") + 2 * pl.col("bb_std")).alias("bb_upper"),
