@@ -16,6 +16,7 @@ from pathlib import Path
 import sys
 import subprocess
 import os
+import gc
 
 project_root = str(Path(__file__).parents[4])
 if project_root not in sys.path:
