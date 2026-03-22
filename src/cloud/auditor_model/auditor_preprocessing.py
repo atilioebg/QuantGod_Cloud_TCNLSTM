@@ -197,26 +197,44 @@ def process_and_save_context(input_dir, output_dir):
         'log_volume', 'book_skew_bid', 'book_skew_ask', 'target'
     ]
     
-    # 1. Escanear todos os arquivos em um único plano de execução
+    # 1. Escanear todos os arquivos e UNIFICAR SCHEMA
     lfs = []
-    file_metadata = []
     for pf in parquet_files:
-        available_cols = pl.scan_parquet(pf).columns
-        cols_to_load = [c for c in needed_cols if c in available_cols]
-        lf_i = pl.scan_parquet(pf).select(cols_to_load)
-        # Adiciona flag de arquivo para desmembrar depois sem perder ordem
-        lf_i = lf_i.with_columns(pl.lit(pf.name).alias("_filename"))
-        lfs.append(lf_i)
-    
+        try:
+            lf_i = pl.scan_parquet(pf)
+            
+            # Garante que todas as colunas necessárias existam (mesmo que nulas)
+            # e que tenham o mesmo tipo (Float64) para evitar erro no concat
+            exprs = []
+            for c in needed_cols:
+                if c in lf_i.columns:
+                    exprs.append(pl.col(c).cast(pl.Float64))
+                else:
+                    exprs.append(pl.lit(None).cast(pl.Float64).alias(c))
+            
+            lf_i = lf_i.select(exprs).with_columns(pl.lit(pf.name).alias("_filename"))
+            lfs.append(lf_i)
+        except Exception as e:
+            logger.warning(f"Ignorando arquivo corrompido {pf.name}: {e}")
+
+    if not lfs:
+        logger.error("Nenhum LazyFrame válido para processar.")
+        return
+
     lf_full = pl.concat(lfs)
     
     # 2. Calcular indicadores em modo LAZY
     logger.info("Calculando indicators Alpha Sensors em modo Lazy...")
     lf_enriched = calculate_context_features_polars(lf_full, resample_min=resample_min)
 
-    # 3. Realizar o cálculo (Collect) - Aqui é onde a RAM sobe, mas apenas o necessário
-    logger.info("Executando plano de cálculo (Collect)...")
-    df_result = lf_enriched.collect()
+    # 3. Realizar o cálculo (Collect)
+    logger.info(f"Executando plano de cálculo (Collect) para {len(parquet_files)} arquivos...")
+    try:
+        df_result = lf_enriched.collect()
+    except Exception as e:
+        logger.error(f"❌ Falha crítica no processamento Polars: {e}")
+        # Tipicamente schema mismatch que escapou ou arquivo corrompido
+        raise
     
     # 4. Salvar cada fragmento de volta
     logger.info(f"Desmembrando e salvando em {output_dir}...")
