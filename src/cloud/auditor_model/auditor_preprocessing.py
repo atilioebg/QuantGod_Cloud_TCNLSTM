@@ -193,8 +193,8 @@ def process_and_save_context(input_dir, output_dir):
 
     # v10.5: Uso de LazyFrame para economia radical de RAM
     needed_cols = [
-        'close', 'micro_price', 'bid_0_p', 'ask_0_p', 'volatility', 
-        'log_volume', 'book_skew_bid', 'book_skew_ask', 'target'
+        'close', 'high', 'low', 'micro_price', 'bid_0_p', 'ask_0_p', 
+        'volatility', 'log_volume', 'book_skew_bid', 'book_skew_ask', 'target'
     ]
     
     # 1. Escanear todos os arquivos e UNIFICAR SCHEMA
