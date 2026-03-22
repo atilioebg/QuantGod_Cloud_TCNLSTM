@@ -358,23 +358,21 @@ training:
 optimization:
   # ── [OPTUNA] Configuração do Estudo HPO ───────────────────────────────────
   # O estudo persiste no SQLite (db_path). Interromper e retomar é seguro.
-  study_name: "QUANTGOD_V000"     # Chave do estudo no banco SQLite. Mude ao reiniciar busca do zero.
-  n_trials: 400                   # Trials para a Foundation. 400 ≈ 72h numa A4500. Reduzir para E2E.
+  study_name: "QUANTGOD_FLOW_TEST" # Chave do estudo no banco SQLite. Mude ao reiniciar busca do zero.
+  n_trials: 1                     # MODO TESTE MICRO: Apenas 1 tentativa para validar o fluxo.
   timeout: 72000                  # Teto em segundos (72000s = 20h). Parada rígida na cloud.
 
   # ── [SAMPLER] Algoritmo de Busca ───────────────────────────────────────────
-  # TPE = default bayesiano. CMA-ES superior para refinar espaços contínuos (fase final).
   sampler:
-    sampler_type: "tpe"       # 'tpe' = Tree-Parzen Estimator. 'cmaes' = busca por covariância.
-    n_startup_trials: 300     # Trials de exploração aleatória antes de ativar o TPE bayesiano.
-    multivariate: true        # true = TPE considera correlações entre parâmetros (mais inteligente).
+    sampler_type: "tpe"
+    n_startup_trials: 1          # Ativa TPE imediatamente após o trial 1.
+    multivariate: true
 
   # ── [PRUNER] Corte Antecipado de Trials Ruins ─────────────────────────────
-  # Hyperband aloca mais recursos para trials promissores (melhor que Median para GPU).
   pruner:
-    pruner_type: "hyperband"  # 'hyperband' = corte agressivo, ideal para GPU. 'median' = mais suave.
-    n_startup_trials: 5       # Trials antes de iniciar poda (coleta baseline de desempenho).
-    n_warmup_steps: 2         # Épocas de aquecimento antes de avaliar se o trial será podado.
+    pruner_type: "median"        # Median é mais estável para o teste rápido.
+    n_startup_trials: 1
+    n_warmup_steps: 0
 
   # ── [FEATURE SELECTION] RFE via Optuna ────────────────────────────────────
   use_rfe: true  # true → Optuna escolhe quais features usar (RFE). false → usa todas as feature_names.
@@ -409,19 +407,19 @@ optimization:
   # ── [SEARCH SPACE] Hiperparâmetros da TCN-LSTM ────────────────────────────
   # Listas discretas → Optuna usa categorical. [min, max] → float/int uniforme.
   search_space:
-    tcn_channels:    [8, 16, 32, 64, 128, 256, 512, 1024]   # Filtros da TCN. Expandido para A4500 (20GB VRAM).
-    lstm_hidden:     [8, 16, 32, 64, 128, 256]               # Hidden size do LSTM. Otimiza uso de memória.
-    num_lstm_layers: [2, 3, 4, 5, 6, 8, 10]                  # Camadas LSTM. 2 foi o melhor historicamente.
+    tcn_channels:    [64]         # MODO TESTE MICRO: Arquitetura leve.
+    lstm_hidden:     [32]         # MODO TESTE MICRO: Hidden size reduzido.
+    num_lstm_layers: [2]          # MODO TESTE MICRO: Camadas fixas.
     lr:              [0.0001, 0.001, 0.01]                    # Learning rate. LR baixo não converge a tempo.
     weight_decay:    [0.0001, 0.001, 0.01]                    # Regularização L2. Reduzido para evitar underfitting.
-    batch_size:      [32, 64, 128, 256, 512, 1024, 2048]     # Batch size. Grande = mais estável em GPU.
-    seq_len:         [6, 12, 18, 24, 48, 96, 144]             # Contexto de barras passadas. 144 foi o melhor.
+    batch_size:      [512]        # MODO TESTE MICRO: Batch size seguro.
+    seq_len:         [48]         # MODO TESTE MICRO: Janela curta.
     dropout:         [0.2, 0.4, 0.6, 0.8]                    # Dropout. Alto = força abstração distribuída.
     asym_gamma_sell: [0.5, 5.0]  # Gamma Asymmetric Loss para o lado de venda.
     asym_gamma_neu:  [0.1, 2.0]  # Gamma para o neutro. Baixo = ignora ruídos fáceis.
     asym_gamma_buy:  [0.5, 5.0]  # Gamma para o lado de compra.
 
-    epochs: 50                    # Épocas por trial. Reduzido para E2E; aumentar para produção (100+).
+    epochs: 1                    # MODO TESTE MICRO: Apenas 1 época.
     early_stopping_patience: 6    # Paciência: 6 épocas sem melhora antes de abortar o trial.
 
     # ── [FOCAL LOSS SEARCH] Foundation (Base Model) ─────────────────────────

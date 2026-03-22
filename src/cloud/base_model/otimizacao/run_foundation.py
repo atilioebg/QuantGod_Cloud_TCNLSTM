@@ -59,17 +59,51 @@ class SequenceDataset(torch.utils.data.Dataset):
                 torch.tensor(self.y[i + self.seq_len - 1], dtype=torch.long))
 
 
-def load_data(directory, feature_cols):
+def load_data(directory, feature_cols, config=None):
+    """
+    [v10.2] Memory-Safe Data Loader.
+    - Implements Class Subsampling (Neutral) to shrink dataset volume.
+    - Supports n_files_limit for flow testing.
+    """
     parquet_files = sorted(list(Path(directory).glob("*.parquet")))
+    
+    # ── [TEST MODE] LIMIT FILES ──────────
+    test_limit = os.environ.get("QUANTGOD_TEST_LIMIT")
+    if test_limit:
+        n_limit = int(test_limit)
+        logger.info(f"🧪 [TEST MODE] Limiting data load to {n_limit} files.")
+        parquet_files = parquet_files[:n_limit]
+
     if not parquet_files:
         raise FileNotFoundError(f"No labelled data in {directory}")
+    
     dfs = []
     for i, pf in enumerate(parquet_files):
         df_i = pl.read_parquet(pf, columns=feature_cols + ['target', 'island_id'])
         df_i = df_i.with_columns(pl.col('island_id') + (i * 10000))
+        
+        # ── [v10.3] CLASS SUBSAMPLING (Memory Optimization) ──────────
+        if config and config.get('training', {}).get('training_optimization', {}).get('use_class_subsampling', False):
+            opt = config['training']['training_optimization']
+            target_cls = opt.get('subsample_class_target', 1)
+            keep_ratio = opt.get('subsample_keep_ratio', 0.2)
+            
+            # Subamostragem probabilística (Mantém a ordem temporal dentro das ilhas)
+            mask_target = pl.col("target") == target_cls
+            df_target = df_i.filter(mask_target)
+            df_others = df_i.filter(~mask_target)
+            
+            # Amostra a classe alvo
+            df_target_sampled = df_target.sample(fraction=keep_ratio)
+            df_i = pl.concat([df_others, df_target_sampled]).sort("island_id") # Re-order to maintain Island logic
+            
         dfs.append(df_i)
+        
+        if i % 100 == 0:
+            gc.collect()
+
     df = pl.concat(dfs)
-    logger.info(f"Loaded {len(df):,} rows from {directory}")
+    logger.info(f"Loaded {len(df):,} rows from {directory} (Subsampling: {'ON' if config else 'OFF'})")
     return df, feature_cols
 
 
@@ -463,8 +497,8 @@ def run_optimization():
 
     # ── Data ──────────────────────────────────────────────────────────────────
     logger.info("Loading data for optimization...")
-    train_df, _ = load_data(config['paths']['train_dir'], feature_cols)
-    val_df, _   = load_data(config['paths']['val_dir'],   feature_cols)
+    train_df, _ = load_data(config['paths']['train_dir'], feature_cols, config=config)
+    val_df, _   = load_data(config['paths']['val_dir'],   feature_cols, config=config)
 
     X_train_raw   = train_df.select(feature_cols).to_numpy().astype(np.float32)
     y_train       = train_df.select('target').to_numpy().flatten().astype(np.int64)
