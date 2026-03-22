@@ -138,40 +138,43 @@ def enforce_purge_gap(train_dir, config, stage_name):
     import polars as pl
     from src.cloud.base_model.pre_processamento.etl.transform import _parse_resample_minutes
 
+    from datetime import timedelta
+
     train_files = sorted(list(Path(train_dir).glob("*.parquet")))
     if not train_files:
         return 0
 
     last_file = train_files[-1]
-    # v9.1: memory_map=False é fundamental para re-escrever o arquivo no mesmo path (Windows)
     df = pl.read_parquet(last_file, memory_map=False)
 
-    horizon_min = config['pre_processing']['labelling'].get('horizon_minutes', 15)
-    resample_freq = config['pre_processing']['etl'].get('resample_freq', '1min')
-    resample_min = _parse_resample_minutes(resample_freq)
-
-    purge_bars = max(1, horizon_min // resample_min)
-
-    if len(df) > purge_bars:
+    if "datetime" not in df.columns:
+        logger.warning(f"⚠️ Column 'datetime' not found in {last_file.name}. Falling back to bar-count purge.")
+        resample_freq = config['pre_processing']['etl'].get('resample_freq', '5min')
+        from src.cloud.base_model.pre_processamento.etl.transform import _parse_resample_minutes
+        resample_min = _parse_resample_minutes(resample_freq)
+        horizon_min = config['pre_processing']['labelling'].get('horizon_minutes', 15)
+        purge_bars = max(1, horizon_min // resample_min)
         df_purged = df.slice(0, len(df) - purge_bars)
-        gc.collect()
-        
-        # [v9.2] Retry loop para lidar com locks do Windows (User Mapped Files)
+    else:
+        # AFML SOTA: Temporal Purge
+        horizon_min = config['pre_processing']['labelling'].get('horizon_minutes', 15)
+        cutoff_ts = df["datetime"].max() - timedelta(minutes=horizon_min)
+        df_purged = df.filter(pl.col("datetime") <= cutoff_ts)
+        purge_bars = len(df) - len(df_purged)
+
+    if len(df_purged) > 0:
         for attempt in range(5):
             try:
                 df_purged.write_parquet(last_file)
-                logger.info(f"🛡️ [{stage_name}] PURGE GAP APLICADO: {purge_bars} barras ({horizon_min} min) removidas de {last_file.name}")
+                logger.info(f"🛡️ [{stage_name}] TEMPORAL PURGE: Removed {purge_bars} bars to keep {horizon_min}m gap before validation.")
                 return purge_bars
             except Exception as e:
                 if "1224" in str(e) and attempt < 4:
-                    logger.warning(f"⚠️ [{stage_name}] File locked (1224). Retrying in 1s... ({attempt+1}/5)")
-                    time.sleep(1.0)
-                    gc.collect()
-                else:
-                    raise e
+                    time.sleep(1.0); gc.collect()
+                else: raise e
         return purge_bars
     else:
-        logger.warning(f"⚠️ [{stage_name}] O último arquivo {last_file.name} tem menos barras que o purge_gap ({len(df)} < {purge_bars}). Ele será deletado.")
+        logger.warning(f"⚠️ [{stage_name}] {last_file.name} fully purged. Deleting.")
         last_file.unlink()
         return len(df)
 
@@ -188,47 +191,46 @@ def enforce_embargo(val_dir, config, stage_name):
     import polars as pl
     from src.cloud.base_model.pre_processamento.etl.transform import _parse_resample_minutes
 
+    from datetime import timedelta
+
     val_files = sorted(list(Path(val_dir).glob("*.parquet")))
     if not val_files:
-        logger.warning(f"🏖️ [{stage_name}] Skipping embargo: no files in {val_dir}")
         return 0
 
     first_file = val_files[0]
-    # v9.1: memory_map=False evita erro 1224 ao truncar o arquivo inicial
     df = pl.read_parquet(first_file, memory_map=False)
 
-    resample_freq  = config['pre_processing']['etl'].get('resample_freq', '1min')
-    resample_min   = _parse_resample_minutes(resample_freq)
-
-    # Embargo pode ser configurado por stage; fallback para horizon_minutes
-    stage_key = stage_name.lower()  # 'foundation' or 'specialist'
-    # v9.7: Corrected nested config path
+    stage_key = stage_name.lower()
     root_split = config['pre_processing']['labelling']['split']
     split_cfg  = root_split.get(stage_key, root_split.get('base', {}))
     embargo_min = split_cfg.get('embargo_minutes', config['pre_processing']['labelling'].get('horizon_minutes', 15))
-    embargo_bars = max(1, embargo_min // resample_min)
 
-    if len(df) > embargo_bars:
+    if "datetime" not in df.columns:
+        resample_freq = config['pre_processing']['etl'].get('resample_freq', '5min')
+        from src.cloud.base_model.pre_processamento.etl.transform import _parse_resample_minutes
+        resample_min = _parse_resample_minutes(resample_freq)
+        embargo_bars = max(1, embargo_min // resample_min)
         df_embargoed = df.slice(embargo_bars)
-        gc.collect()
-        
-        # [v9.2] Retry loop para lidar com locks do Windows
+    else:
+        # AFML SOTA: Temporal Embargo
+        cutoff_ts = df["datetime"].min() + timedelta(minutes=embargo_min)
+        df_embargoed = df.filter(pl.col("datetime") >= cutoff_ts)
+        embargo_bars = len(df) - len(df_embargoed)
+
+    if len(df_embargoed) > 0:
         for attempt in range(5):
             try:
                 df_embargoed.write_parquet(first_file)
-                logger.info(f"🚫 [{stage_name}] EMBARGO APLICADO: {embargo_bars} barras ({embargo_min} min) removidas de {first_file.name}")
+                logger.info(f"🚫 [{stage_name}] TEMPORAL EMBARGO: Removed {embargo_bars} bars to add {embargo_min}m safety after boundary.")
                 return embargo_bars
             except Exception as e:
                 if "1224" in str(e) and attempt < 4:
-                    logger.warning(f"⚠️ [{stage_name}] File locked (1224). Retrying in 1s... ({attempt+1}/5)")
-                    time.sleep(1.0)
-                    gc.collect()
-                else:
-                    raise e
+                    time.sleep(1.0); gc.collect()
+                else: raise e
         return embargo_bars
     else:
-        logger.warning(f"⚠️ [{stage_name}] O primeiro arquivo de val {first_file.name} tem menos barras que o embargo ({len(df)} < {embargo_bars}). Skipping.")
-        return 0
+        logger.warning(f"⚠️ [{stage_name}] {first_file.name} fully embargoed. Skipping write.")
+        return len(df)
 
 def split_and_segregate():
     # Setup logger
