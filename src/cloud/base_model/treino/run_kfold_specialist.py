@@ -448,6 +448,14 @@ def run_kfold_specialist():
 
     feature_cols = config['model']['feature_names']
     parquet_files = sorted(list(foundation_val_dir.glob("*.parquet")))
+    
+    # ── [TEST MODE] LIMIT FILES ──────────
+    test_limit = os.environ.get("QUANTGOD_TEST_LIMIT")
+    if test_limit:
+        n_limit = int(test_limit)
+        logger.info(f"🧪 [TEST MODE] Limiting Specialist data load to {n_limit} files.")
+        parquet_files = parquet_files[:n_limit]
+
     logger.info(f"📂 Foundation Val: {len(parquet_files)} files in {foundation_val_dir}")
 
     dfs = []
