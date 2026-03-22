@@ -86,8 +86,17 @@ def objective(trial, config, feature_cols, auto_alphas=None):
         train_files = sorted(list(Path(config['paths']['train_dir']).glob("*.parquet")))
         val_files   = sorted(list(Path(config['paths']['val_dir']).glob("*.parquet")))
         
-        train_dataset = QuantGodLazyDataset(train_files, feature_cols, seq_len, config, is_train=True)
-        val_dataset   = QuantGodLazyDataset(val_files,   feature_cols, seq_len, config, is_train=False)
+        # v10.33: Carga do Scaler p/ evitar Nans (estabilidade numérica)
+        from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
+        import joblib
+        mod_dir = resolve_local_drive(Path(get_drive_session_path("MODELOS", config)))
+        scaler_path = mod_dir / config['pipeline_paths']['scaler_foundation']
+        scaler = joblib.load(scaler_path) if scaler_path.exists() else None
+        if not scaler:
+            logger.warning(f"⚠️ Scaler not found at {scaler_path}. Training on raw features (dangerous!).")
+        
+        train_dataset = QuantGodLazyDataset(train_files, feature_cols, seq_len, config, is_train=True,  scaler=scaler)
+        val_dataset   = QuantGodLazyDataset(val_files,   feature_cols, seq_len, config, is_train=False, scaler=scaler)
 
         # ── [Empty Dataset Guard] ───────────────────────────────────────────
         if len(train_dataset) == 0 or len(val_dataset) == 0:
@@ -438,7 +447,7 @@ def run_optimization():
         sample_files = [train_files[i] for i in indices]
     
     dfs_sample = [pl.read_parquet(f, columns=feature_cols) for f in sample_files]
-    df_sample = pl.concat(dfs_sample)
+    df_sample = pl.concat(dfs_sample).fill_nan(0).fill_null(0)
     scaler = StandardScaler()
     scaler.fit(df_sample.to_numpy())
     logger.info(f"📊 Global Scaler initialized on {len(df_sample):,} representative rows.")

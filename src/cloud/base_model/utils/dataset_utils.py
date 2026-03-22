@@ -15,12 +15,13 @@ class QuantGodLazyDataset(Dataset):
     Suporta fatiamento aleatório tanto para Treino (samples_per_epoch) 
     quanto para Validação (samples_per_val_epoch).
     """
-    def __init__(self, parquet_files: list, feature_cols: list, seq_len: int, config: dict, is_train: bool = True):
+    def __init__(self, parquet_files: list, feature_cols: list, seq_len: int, config: dict, is_train: bool = True, scaler = None):
         self.parquet_files = sorted(parquet_files)
         self.feature_cols = feature_cols
         self.seq_len = seq_len
         self.config = config
         self.is_train = is_train
+        self.scaler = scaler
 
         # ── SMART-SNIFF: Procura a config no labirinto do YAML ──────────
         opt_cfg = config.get('training_optimization', {})
@@ -110,12 +111,15 @@ class QuantGodLazyDataset(Dataset):
             
             for f_idx, s_indices in file_to_indices.items():
                 pf = self.parquet_files[f_idx]
-                # Lemos apenas as colunas necessárias do arquivo inteiro (se couber)
-                # ou lemos os offsets. Para simplicidade e robustez, lemos os offsets.
-                df_all = pl.read_parquet(pf, columns=self.feature_cols + ['target'])
+                df_all = pl.read_parquet(pf, columns=self.feature_cols + ['target']).fill_nan(0).fill_null(0)
+                # v10.32: Multi-row optimization for pre-loading directly to NumPy
+                raw_X_np = df_all.select(self.feature_cols).to_numpy()
+                if self.scaler:
+                    raw_X_np = self.scaler.transform(raw_X_np).astype(np.float32)
+                
                 for i in s_indices:
                     l_idx = int(self.local_idx_map[i])
-                    X_data[i] = df_all.slice(l_idx, self.seq_len).select(self.feature_cols).to_numpy()
+                    X_data[i] = raw_X_np[l_idx : l_idx + self.seq_len]
                     y_data[i] = df_all['target'][l_idx + self.seq_len - 1]
             
             self.pre_loaded_X = torch.from_numpy(X_data)
@@ -130,7 +134,9 @@ class QuantGodLazyDataset(Dataset):
             return self.pre_loaded_X[idx], self.pre_loaded_y[idx]
             
         f_idx = self.file_idx_map[idx]; l_idx = int(self.local_idx_map[idx])
-        df_slice = pl.read_parquet(self.parquet_files[f_idx], columns=self.feature_cols + ['target'], n_rows=self.seq_len, row_index_offset=l_idx)
-        X = df_slice.select(self.feature_cols).to_numpy().astype(np.float32)
+        df_slice = pl.read_parquet(self.parquet_files[f_idx], columns=self.feature_cols + ['target'], n_rows=self.seq_len, row_index_offset=l_idx).fill_nan(0).fill_null(0)
+        X = df_slice.select(self.feature_cols).to_numpy()
+        if self.scaler:
+            X = self.scaler.transform(X).astype(np.float32)
         y = df_slice.select('target')[self.seq_len - 1, 0]
         return torch.from_numpy(X), torch.tensor(y, dtype=torch.long)
