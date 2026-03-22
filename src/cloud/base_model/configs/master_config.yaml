@@ -231,7 +231,7 @@ pre_processing:
     
     # Epoch-Chunking (Varredura Global Rápida no Optuna)
     use_epoch_chunking: true
-    samples_per_epoch: 10000      # FASE 1: 10k amostras (rápido). FASE 2: Aumentar para 10M.
+    samples_per_epoch: 50000      # [OFICIAL] Aumentado p/ 50k p/ aproveitar RAM da A4500.
     samples_per_val_epoch: 5000   # Validação ultra-rápida (5k amostras) para o teste final.
     
     # Non-Event Subsampling (Equilíbrio de Classes)
@@ -360,7 +360,7 @@ optimization:
   # ── [OPTUNA] Configuração do Estudo HPO ───────────────────────────────────
   # O estudo persiste no SQLite (db_path). Interromper e retomar é seguro.
   study_name: "QUANTGOD_EXPLORER_V001" # Nome da fase explorer. Mude se quiser resetar.
-  n_trials: 1                     # MODO TESTE RÁPIDO: Apenas 1 para testar Specialist.
+  n_trials: 50                    # Treino Oficial: 50 trials p/ cobertura robusta.
   timeout: 172800                 # Teto de 48h.
 
   # ── [SAMPLER] Algoritmo de Busca ───────────────────────────────────────────
@@ -407,13 +407,13 @@ optimization:
 
   # ── [SEARCH SPACE] Hiperparâmetros da TCN-LSTM ────────────────────────────
   search_space:
-    tcn_channels:    [32, 64]                # Otimizado p/ A4500 (20GB). Evita OOM e lentidão.
-    lstm_hidden:     [16, 32]                 # Escalável.
-    num_lstm_layers: [2, 3]                              # Sweet spot para TCN-LSTM.
-    lr:              [0.0001, 0.01]                   # Gridding LR.
+    tcn_channels:    [64, 256]               # Aproveita 20GB VRAM da A4500.
+    lstm_hidden:     [32, 128]               # Maior capacidade de memória temporal.
+    num_lstm_layers: [2, 4]                              # Profundidade sniper.
+    lr:              [0.0001, 0.005]                  # LR ajustada p/ batch maior.
     weight_decay:    [0.0001, 0.01]                         # Regularização.
-    batch_size:      [128, 256]                  # Aproveita o paralelismo da A4500.
-    seq_len:         [48, 96]                          # Janelas de lookback importantes.
+    batch_size:      [512, 1024]                 # Paralelismo massivo na GPU.
+    seq_len:         [96, 192]                         # Contexto longo do Order Book.
     dropout:         [0.2, 0.5]                        # Estabilidade.
     asym_gamma_sell: [0.5, 5.0]
     asym_gamma_neu:  [0.1, 2.0]
