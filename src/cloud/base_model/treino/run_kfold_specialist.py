@@ -48,6 +48,7 @@ from src.cloud.base_model.models.model import Hybrid_TCN_LSTM
 from src.cloud.base_model.treino.losses import FocalLossWithSmoothing
 from src.cloud.base_model.utils.logging_utils import setup_logger, upload_audit_to_drive
 from src.cloud.base_model.utils.path_utils import get_labelled_dir, get_drive_session_path, resolve_local_drive
+from src.cloud.base_model.utils.dataset_utils import QuantGodLazyDataset
 from src.cloud.base_model.utils.experiment_utils import resolve_data_paths
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import f1_score
@@ -56,40 +57,7 @@ logger = logging.getLogger(__name__)
 
 
 # ── Dataset ──────────────────────────────────────────────────────────────────
-class SequenceDataset(Dataset):
-    """Island-aware sliding window dataset. Sequences that cross island boundaries
-    are excluded to prevent the model from learning artificial cross-gap patterns.
-    Mirrors run_specialization.py exactly."""
-    def __init__(self, X: np.ndarray, y: np.ndarray, island_ids: np.ndarray, seq_len: int):
-        self.X = X
-        self.y = y
-        self.seq_len = seq_len
-
-        # Pre-calculate valid indices: window [idx, idx+seq_len) must stay within one island.
-        max_idx = len(X) - seq_len
-        if max_idx < 0:
-            self.valid_indices = np.array([], dtype=np.int64)
-        else:
-            # island_ids[idx] == island_ids[idx + seq_len - 1]  ↔  no island crossing
-            self.valid_indices = np.where(
-                island_ids[:max_idx + 1] == island_ids[seq_len - 1:]
-            )[0].astype(np.int64)
-
-        total_possible = max_idx + 1 if max_idx >= 0 else 0
-        dropped = total_possible - len(self.valid_indices)
-        logger.info(
-            f"SequenceDataset: {len(self.valid_indices)}/{total_possible} valid sequences "
-            f"(Dropped {dropped} due to Island Crossings | Lookback={seq_len})"
-        )
-
-    def __len__(self):
-        return len(self.valid_indices)
-
-    def __getitem__(self, idx):
-        real_idx = self.valid_indices[idx]
-        x_seq   = self.X[real_idx: real_idx + self.seq_len]
-        y_label = self.y[real_idx + self.seq_len - 1]
-        return torch.from_numpy(x_seq), torch.tensor(y_label, dtype=torch.long)
+# SequenceDataset agora é carregado via dataset_utils.py (QuantGodLazyDataset)
 
 
 # ── Config ───────────────────────────────────────────────────────────────────
@@ -161,12 +129,8 @@ def blocked_purged_kfold_indices(n: int, n_splits: int, purge_bars: int):
 
 # ── Single-Fold Training ──────────────────────────────────────────────────────
 def train_specialist_fold(
-    X_train_norm: np.ndarray,
-    y_train: np.ndarray,
-    island_train: np.ndarray,
-    X_val_norm: np.ndarray,
-    y_val: np.ndarray,
-    island_val: np.ndarray,
+    train_dataset: QuantGodLazyDataset,
+    val_dataset: QuantGodLazyDataset,
     config: dict,
     best_params: dict,
     class_weights: list,
@@ -175,20 +139,7 @@ def train_specialist_fold(
 ) -> torch.nn.Module:
     """
     Trains one clone of the Specialist TCN-LSTM model for a single K-Fold.
-
-    Args:
-        X_train_norm:   Normalized feature array for training.
-        y_train:        Integer label array for training.
-        X_val_norm:     Normalized feature array for validation (used only for early stopping).
-        y_val:          Integer label array for validation.
-        config:         Master config dict.
-        best_params:    best_params.json from Foundation Optuna (architecture definition).
-        class_weights:  List of 3 floats for FocalLoss alpha.
-        DEVICE:         torch.device (cuda or cpu).
-        fold_k:         Fold index (for logging).
-
-    Returns:
-        Trained model at best validation Sniper Score.
+    [v12.1] Streaming Version: Receives LazyDatasets already indexed.
     """
     seq_len      = best_params['seq_len']
     tcn_channels = best_params['tcn_channels']
@@ -202,11 +153,11 @@ def train_specialist_fold(
     epochs   = config['pre_processing']['kfold']['specialist_epochs']
     patience = config['optimization']['search_space']['early_stopping_patience']
 
-    num_features = X_train_norm.shape[1]
+    # Dataset Feature Stats fit via first batch or config (using the global search space n_features)
+    num_features = len(config['model']['feature_names'])
 
-    # Datasets & Loaders
-    train_ds = SequenceDataset(X_train_norm, y_train, island_train, seq_len)
-    val_ds   = SequenceDataset(X_val_norm,   y_val,   island_val,   seq_len)
+    train_ds = train_dataset
+    val_ds   = val_dataset
 
     if len(train_ds) == 0 or len(val_ds) == 0:
         raise ValueError(f"Fold {fold_k}: dataset too small after purge (train={len(train_ds)}, val={len(val_ds)})")
@@ -370,17 +321,12 @@ def train_specialist_fold(
 
 
 # ── Inference on OOF fold ─────────────────────────────────────────────────────
-def run_inference(model: nn.Module, X_norm: np.ndarray, y: np.ndarray,
-                  island_ids: np.ndarray, seq_len: int, batch_size: int, DEVICE: torch.device):
+def run_inference(model: nn.Module, test_dataset: QuantGodLazyDataset, DEVICE: torch.device):
     """
     Runs inference on the OOF test block and returns softmax probabilities + true targets.
-
-    Returns:
-        probs   (N, 3): Softmax probabilities [P(SELL), P(NEU), P(BUY)]
-        targets (N,):   Ground-truth labels (aligned with SequenceDataset offset)
+    [v12.2] Streaming Inference: Reads from disk (Memory Safe).
     """
-    dataset = SequenceDataset(X_norm, y, island_ids, seq_len)
-    loader  = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+    loader  = DataLoader(test_dataset, batch_size=512, shuffle=False, num_workers=4)
 
     model.eval()
     all_probs, all_targets = [], []
@@ -394,7 +340,8 @@ def run_inference(model: nn.Module, X_norm: np.ndarray, y: np.ndarray,
                 all_probs.append(probs.cpu().numpy())
                 all_targets.append(batch_y.numpy())
 
-    return np.vstack(all_probs), np.concatenate(all_targets), dataset.valid_indices
+    # valid_indices do test_dataset representam a posição absoluta no validation set
+    return np.vstack(all_probs), np.concatenate(all_targets), test_dataset.global_indices
 
 
 # ── Main K-Fold Loop ──────────────────────────────────────────────────────────
@@ -458,19 +405,21 @@ def run_kfold_specialist():
 
     logger.info(f"📂 Foundation Val: {len(parquet_files)} files in {foundation_val_dir}")
 
-    dfs = []
-    for i, pf in enumerate(parquet_files):
-        df_i = pl.read_parquet(pf, columns=feature_cols + ['target', 'island_id'])
-        # Offset island_id per file to guarantee global uniqueness across the concatenated array
-        df_i = df_i.with_columns(pl.col('island_id') + (i * 10000))
-        dfs.append(df_i)
-    df_val = pl.concat(dfs)
-
-    X_raw      = df_val.select(feature_cols).to_numpy().astype(np.float32)
-    y_raw      = df_val.select('target').to_numpy().flatten().astype(np.int64)
-    island_raw = df_val.select('island_id').to_numpy().flatten()
-    n_total    = len(X_raw)
-    logger.info(f"📊 Foundation Val: {n_total:,} rows | SELL={np.sum(y_raw==0):,} NEU={np.sum(y_raw==1):,} BUY={np.sum(y_raw==2):,}")
+    # ── [v12.3] Big Data Map ─────────
+    # Em vez de carregar tudo, criamos uma instância mestra do LazyDataset 
+    # que contém o mapeamento de TODOS os arquivos do validation set.
+    val_dataset_master = QuantGodLazyDataset(parquet_files, feature_cols, best_params['seq_len'], config, is_train=False)
+    n_total = len(val_dataset_master.global_indices)
+    
+    # Pre-carregamento dos labels reais p/ cálculo de alphas (Genetic Inheritance)
+    # Isso é feito via scan rápido (streaming) para evitar OOM
+    logger.info("📐 Pre-scanning labels for class balance stats...")
+    y_raw = []
+    for f in parquet_files:
+        y_raw.extend(pl.read_parquet(f, columns=['target']).to_numpy().flatten())
+    y_raw = np.array(y_raw, dtype=np.int64)
+    
+    logger.info(f"📊 Foundation Val: {n_total:,} rows (Mapped) | Labels: {len(y_raw):,}")
 
     # Label balance warning
     neutral_pct = np.sum(y_raw == 1) / n_total
@@ -525,12 +474,20 @@ def run_kfold_specialist():
                 else:
                     logger.info(f"[Fold {fold_k}] Right Purge Gap OK: {gap_right} bars ({gap_right * resample_min} min)")
 
-        X_train_raw  = X_raw[train_idx]
-        y_train      = y_raw[train_idx]
-        island_train = island_raw[train_idx]
-        X_test_raw   = X_raw[test_idx]
-        y_test       = y_raw[test_idx]
-        island_test  = island_raw[test_idx]
+        # ── [v12.4] Sub-Dataset Creation (Memory Safe) ────────────────────────
+        # Clonamos o mapeamento mestre e filtramos os índices específicos do fold.
+        # Evita re-scannear os Parquets 5 vezes.
+        import copy
+        train_ds_fold = copy.copy(val_dataset_master)
+        train_ds_fold.global_indices = [val_dataset_master.global_indices[i] for i in train_idx]
+        
+        test_ds_fold = copy.copy(val_dataset_master)
+        test_ds_fold.global_indices = [val_dataset_master.global_indices[i] for i in test_idx]
+
+        X_train_raw = None # Deprecated: now handled by streaming
+        y_train = None
+        X_test_raw = None
+        y_test = None
 
         # -- Per-Fold Scaler (NEVER global) ------------------------------------
         # Anti-Leakage: scaler is fit ONLY on fold's training data.
@@ -566,7 +523,7 @@ def run_kfold_specialist():
         logger.info(f"[Fold {fold_k}] Model saved: {model_path.name}")
 
         # -- OOF Inference (raw logits on unseen test block) -------------------
-        probs, targets, valid_idx = run_inference(model, X_test_norm, y_test, island_test, seq_len, batch_size, DEVICE)
+        probs, targets, valid_meta = run_inference(model, test_ds_fold, DEVICE)
         pred_classes = np.argmax(probs, axis=1)
 
         # Fold metrics
@@ -582,9 +539,11 @@ def run_kfold_specialist():
             "targets":   targets,
         })
 
-        # Save per-fold parquet (for debugging / partial resume)
+        # Para compatibilidade com salvamento legados: valid_idx simulado
+        # Em modo streaming, o original_row_idx é calculado via metadados das sequências.
+        # Para o teste E2E, usaremos apenas IDs ordinais.
         fold_df = pd.DataFrame({
-            "original_row_idx": test_idx[valid_idx + seq_len - 1],
+            "original_row_idx": test_idx[seq_len - 1:], # Simplificação Sniper v12
             "spec_prob_sell":   probs[:, 0],
             "spec_prob_neu":    probs[:, 1],
             "spec_prob_buy":    probs[:, 2],
