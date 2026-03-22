@@ -21,202 +21,158 @@ def load_config():
         config = yaml.safe_load(f)
     return config
 
-def calculate_context_features(df_pd: pd.DataFrame, resample_min: int = 1) -> pd.DataFrame:
+def calculate_context_features_polars(lf: pl.LazyFrame, resample_min: int = 1) -> pl.LazyFrame:
     """
-    Calcula indicadores de contexto e regime de mercado.
-    Entrada: DataFrame pandas (indexado pelo tempo, ou ordenado).
-    Espera-se ter as colunas 'close', 'high' (se não tiver, usar proxies do tensor ou micro_price),
-    e 'log_volume'. Aqui usaremos a premissa de que os parquets brutos já possuem close, bid_0_p, etc.
-
-    Args:
-        df_pd:        Input DataFrame.
-        resample_min: Bar duration in real minutes (e.g. 5 for 5min bars). Used to compute all
-                      rolling windows dynamically so that economic meaning is preserved regardless
-                      of temporal resolution. Defaults to 1 (1min bars, legacy behaviour).
+    Refatoração v10.5: Puro Polars Lazy. RAM-Efficient.
+    Calcula indicadores Alpha Sensors sem sair do Polars.
     """
-    # v4.9: Dynamic window sizes — all windows expressed in BARS, not hardcoded minutes
-    bars_per_hour = max(1, 60  // resample_min)   # e.g. 12 bars @ 5min, 60 bars @ 1min
-    bars_per_day  = max(1, 1440 // resample_min)  # e.g. 288 bars @ 5min, 1440 bars @ 1min
-    bars_4h       = max(1, 240  // resample_min)  # Fallback for short DataFrames
+    bars_per_hour = max(1, 60  // resample_min)
+    bars_per_day  = max(1, 1440 // resample_min)
 
-    if 'close' not in df_pd.columns:
-        if 'micro_price' in df_pd.columns:
-            df_pd['close'] = df_pd['micro_price']
-        elif 'bid_0_p' in df_pd.columns and 'ask_0_p' in df_pd.columns:
-            df_pd['close'] = (df_pd['bid_0_p'] + df_pd['ask_0_p']) / 2.0
-        else:
-            raise ValueError("Não há preço base ('close', 'micro_price' ou 'bid_0_p') para calcular indicadores no DataFrame.")
+    # 1. Base Price Logic
+    # Se 'close' não existe, tenta micro_price ou bid/ask
+    lf = lf.with_columns([
+        pl.when(pl.col("close").is_null())
+          .then(pl.coalesce(["micro_price", (pl.col("bid_0_p") + pl.col("ask_0_p")) / 2.0]))
+          .otherwise(pl.col("close"))
+          .alias("close")
+    ])
 
-    # High/Low pseudo-rebuy logic (se não disponíveis, simulamos a volatilidade)
-    # Como os dados de input têm 'volatility' (std do micro_price), podemos aproximar High e Low
-    if 'volatility' in df_pd.columns:
-        df_pd['high'] = df_pd['close'] + df_pd['volatility']
-        df_pd['low'] = df_pd['close'] - df_pd['volatility']
-    else:
-        df_pd['high'] = df_pd['close'] * 1.001
-        df_pd['low'] = df_pd['close'] * 0.999
+    # Pseudo-High/Low if missing
+    lf = lf.with_columns([
+        pl.when(pl.col("high").is_null())
+          .then(pl.col("close") + pl.coalesce(["volatility", pl.col("close") * 0.001]))
+          .otherwise(pl.col("high")).alias("high"),
+        pl.when(pl.col("low").is_null())
+          .then(pl.col("close") - pl.coalesce(["volatility", pl.col("close") * 0.001]))
+          .otherwise(pl.col("low")).alias("low")
+    ])
 
-    c = df_pd['close']
-    h = df_pd['high']
-    l = df_pd['low']
-
-    # 1. EMA 8 e EMA 21 (Trend)
-    df_pd['ema_8'] = c.ewm(span=8, adjust=False).mean()
-    df_pd['ema_21'] = c.ewm(span=21, adjust=False).mean()
-    df_pd['ema_trend'] = np.where(df_pd['ema_8'] > df_pd['ema_21'], 1, -1)
-    df_pd['ema_cross_dist'] = (df_pd['ema_8'] - df_pd['ema_21']) / df_pd['ema_21']
-
-    # 2. Bollinger Bands (20, std=2)
-    rolling_mean = c.rolling(window=20).mean()
-    rolling_std = c.rolling(window=20).std()
-    df_pd['bb_upper'] = rolling_mean + (rolling_std * 2)
-    df_pd['bb_lower'] = rolling_mean - (rolling_std * 2)
-    # Posição do preço (%B)
-    bb_range = df_pd['bb_upper'] - df_pd['bb_lower']
-    df_pd['bb_pct'] = np.where(bb_range > 0, (c - df_pd['bb_lower']) / bb_range, 0.5)
-
-    # 3. RSI (14)
-    delta = c.diff()
-    gain = delta.clip(lower=0)
-    loss = -1 * delta.clip(upper=0)
-    avg_gain = gain.rolling(window=14, min_periods=1).mean()
-    avg_loss = loss.rolling(window=14, min_periods=1).mean()
-    rs = avg_gain / (avg_loss + 1e-9)
-    df_pd['rsi_14'] = 100 - (100 / (1 + rs))
-
-    # 4. Estocástico (14)
-    lowest_low = l.rolling(window=14).min()
-    highest_high = h.rolling(window=14).max()
-    stoch_range = highest_high - lowest_low
-    df_pd['stoch_14'] = np.where(stoch_range > 0, 100 * ((c - lowest_low) / stoch_range), 50.0)
-
-    # 5. ATR (14)
-    tr1 = h - l
-    tr2 = (h - c.shift(1)).abs()
-    tr3 = (l - c.shift(1)).abs()
-    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-    df_pd['atr_14'] = tr.rolling(window=14).mean()
-    df_pd['atr_norm'] = df_pd['atr_14'] / c
-
-    # 6. Volatilidade Histórica de 1h (bars_per_hour períodos)
-    log_ret = np.log(c / c.shift(1))
-    df_pd['vol_1h'] = log_ret.rolling(window=bars_per_hour).std() * np.sqrt(bars_per_hour)
-
-    # v4.9: np.expm1 is numerically more accurate than np.exp()-1 near zero
-    if 'log_volume' in df_pd.columns:
-        v = np.expm1(df_pd['log_volume'])  # inverse of log1p(tick_count)
-    else:
-        v = pd.Series(1.0, index=df_pd.index) # fallback
-
-    # Vol Z-Score (rolling bars_per_hour for intra-session normalization)
-    vol_mean = v.rolling(window=bars_per_hour).mean()
-    vol_std  = v.rolling(window=bars_per_hour).std()
-    df_pd['vol_zscore_1h'] = np.where(vol_std > 0, (v - vol_mean) / vol_std, 0.0)
-
-    # v4.9.1: Dynamic Growing Window for Delta Vol (requested by user)
-    # Instead of a hard fallback of 4h, we use the MAX available history up to 288 bars.
-    actual_bars = len(df_pd)
-    if actual_bars < bars_per_day:
-        # Progress logging with visual prominence
-        from src.cloud.base_model.utils.color_utils import TerminalColors as TC
-        progress_pct = (actual_bars / bars_per_day) * 100
-        msg = f"# Auditor 24h Sensor: {actual_bars}/{bars_per_day} bars ({progress_pct:.1f}% filled)"
+    # 2. Indicators using Polars Expressions
+    lf = lf.with_columns([
+        # Trend
+        pl.col("close").ewm_mean(span=8, adjust=False).alias("ema_8"),
+        pl.col("close").ewm_mean(span=21, adjust=False).alias("ema_21"),
         
-        logger.info("######################################################")
-        logger.info(TC.color_text(msg, TC.CYAN))
-        logger.info("######################################################")
+        # Bollinger
+        pl.col("close").rolling_mean(window_size=20).alias("bb_mean"),
+        pl.col("close").rolling_std(window_size=20).alias("bb_std"),
         
-        # Use whatever we have (min 1 bar to avoid division by zero)
-        dynamic_window = max(2, actual_bars - 1) 
-        vol_sum = v.rolling(window=dynamic_window, min_periods=1).sum()
-        df_pd['delta_vol_24h'] = vol_sum.pct_change(fill_method=None)
+        # RSI components
+        (pl.col("close") - pl.col("close").shift(1)).alias("delta")
+    ])
+
+    lf = lf.with_columns([
+        pl.col("delta").where(pl.col("delta") > 0).fill_null(0).alias("gain"),
+        pl.col("delta").where(pl.col("delta") < 0).fill_null(0).abs().alias("loss"),
+        pl.when(pl.col("ema_8") > pl.col("ema_21")).then(1).otherwise(-1).alias("ema_trend"),
+        ((pl.col("ema_8") - pl.col("ema_21")) / pl.col("ema_21")).alias("ema_cross_dist"),
+        (pl.col("bb_mean") + 2 * pl.col("bb_std")).alias("bb_upper"),
+        (pl.col("bb_mean") - 2 * pl.col("bb_std")).alias("bb_lower"),
+    ])
+
+    lf = lf.with_columns([
+        (100 - (100 / (1 + (pl.col("gain").rolling_mean(14) / (pl.col("loss").rolling_mean(14) + 1e-9))))).alias("rsi_14"),
+        (100 * (pl.col("close") - pl.col("low").rolling_min(14)) / (pl.col("high").rolling_max(14) - pl.col("low").rolling_min(14) + 1e-9)).alias("stoch_14"),
+        # True Range
+        pl.max_horizontal([
+            pl.col("high") - pl.col("low"),
+            (pl.col("high") - pl.col("close").shift(1)).abs(),
+            (pl.col("low") - pl.col("close").shift(1)).abs()
+        ]).alias("tr")
+    ])
+
+    lf = lf.with_columns([
+        pl.col("tr").rolling_mean(14).alias("atr_14"),
+        (pl.col("close").log() - pl.col("close").shift(1).log()).alias("log_ret"),
+        pl.when((pl.col("bb_upper") - pl.col("bb_lower")) > 0)
+          .then((pl.col("close") - pl.col("bb_lower")) / (pl.col("bb_upper") - pl.col("bb_lower")))
+          .otherwise(0.5).alias("bb_pct")
+    ])
+
+    lf = lf.with_columns([
+        (pl.col("atr_14") / pl.col("close")).alias("atr_norm"),
+        (pl.col("log_ret").rolling_std(bars_per_hour) * np.sqrt(bars_per_hour)).alias("vol_1h")
+    ])
+
+    # Volume Indicators
+    if "log_volume" in lf.columns:
+        lf = lf.with_columns(pl.col("log_volume").exp().alias("v"))
     else:
-        # Full 24h window
-        vol_day_sum = v.rolling(window=bars_per_day).sum()
-        df_pd['delta_vol_24h'] = vol_day_sum.pct_change(fill_method=None)
+        lf = lf.with_columns(pl.lit(1.0).alias("v"))
 
-    # ── Refatoração v4.2: Alpha Sensors ──────────────────────────────────────
-    
-    # 8. ADX (Average Directional Index - 14)
-    # Wilder's Smoothing: aprox via ewm(alpha=1/14)
-    up_move = h - h.shift(1)
-    down_move = l.shift(1) - l
-    
-    pos_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
-    neg_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
-    
-    pos_dm_ser = pd.Series(pos_dm, index=df_pd.index)
-    neg_dm_ser = pd.Series(neg_dm, index=df_pd.index)
-    
-    smoothed_pos_dm = pos_dm_ser.ewm(alpha=1/14, adjust=False).mean()
-    smoothed_neg_dm = neg_dm_ser.ewm(alpha=1/14, adjust=False).mean()
-    smoothed_tr = df_pd['atr_14'] # Já temos o ATR(14) mapeado
-    
-    # +DI e -DI
-    plus_di = 100 * (smoothed_pos_dm / (smoothed_tr + 1e-9))
-    minus_di = 100 * (smoothed_neg_dm / (smoothed_tr + 1e-9))
-    
-    # DX
-    dx = 100 * (abs(plus_di - minus_di) / (plus_di + minus_di + 1e-9))
-    df_pd['adx_14'] = dx.ewm(alpha=1/14, adjust=False).mean()
+    lf = lf.with_columns([
+        pl.col("v").rolling_mean(bars_per_hour).alias("v_mean"),
+        pl.col("v").rolling_std(bars_per_hour).alias("v_std"),
+        pl.col("v").rolling_sum(bars_per_day).alias("v_sum_day")
+    ])
 
-    # 9. VWAP Z-Score (1440 Janela Móvel / 24h)
-    typical_price = (h + l + c) / 3.0
-    vp = typical_price * v
-    
-    # Dynamic window size falling back if len < bars_per_day
-    window_vwap = min(bars_per_day, len(df_pd)) if len(df_pd) > 0 else 1
-    
-    vwap_rolling = vp.rolling(window=window_vwap, min_periods=1).sum() / (v.rolling(window=window_vwap, min_periods=1).sum() + 1e-9)
-    vwap_std = typical_price.rolling(window=window_vwap, min_periods=1).std()
-    
-    df_pd['vwap_zscore'] = np.where(vwap_std > 0, (c - vwap_rolling) / vwap_std, 0.0)
+    lf = lf.with_columns([
+        pl.when(pl.col("v_std") > 0).then((pl.col("v") - pl.col("v_mean")) / pl.col("v_std")).otherwise(0.0).alias("vol_zscore_1h"),
+        (pl.col("v_sum_day") / pl.col("v_sum_day").shift(1) - 1).alias("delta_vol_24h")
+    ])
 
-    # 10. MFI (Money Flow Index - 14)
-    raw_money_flow = typical_price * v
-    
-    pos_flow = np.where(typical_price > typical_price.shift(1), raw_money_flow, 0.0)
-    neg_flow = np.where(typical_price < typical_price.shift(1), raw_money_flow, 0.0)
-    
-    pos_flow_ser = pd.Series(pos_flow, index=df_pd.index)
-    neg_flow_ser = pd.Series(neg_flow, index=df_pd.index)
-    
-    pos_flow_14 = pos_flow_ser.rolling(window=14, min_periods=1).sum()
-    neg_flow_14 = neg_flow_ser.rolling(window=14, min_periods=1).sum()
-    
-    mfi_ratio = pos_flow_14 / (neg_flow_14 + 1e-9)
-    df_pd['mfi_14'] = 100 - (100 / (1 + mfi_ratio))
+    # ADX Logic (Wilder's Smoothing via ewm_mean alpha=1/14)
+    lf = lf.with_columns([
+        (pl.col("high") - pl.col("high").shift(1)).alias("up_m"),
+        (pl.col("low").shift(1) - pl.col("low")).alias("dn_m")
+    ])
+    lf = lf.with_columns([
+        pl.when((pl.col("up_m") > pl.col("dn_m")) & (pl.col("up_m") > 0)).then(pl.col("up_m")).otherwise(0.0).alias("p_dm"),
+        pl.when((pl.col("dn_m") > pl.col("up_m")) & (pl.col("dn_m") > 0)).then(pl.col("dn_m")).otherwise(0.0).alias("n_dm")
+    ])
+    lf = lf.with_columns([
+        (100 * (pl.col("p_dm").ewm_mean(alpha=1/14, adjust=False) / (pl.col("atr_14") + 1e-9))).alias("p_di"),
+        (100 * (pl.col("n_dm").ewm_mean(alpha=1/14, adjust=False) / (pl.col("atr_14") + 1e-9))).alias("n_di")
+    ])
+    lf = lf.with_columns([
+        (100 * (pl.col("p_di") - pl.col("n_di")).abs() / (pl.col("p_di") + pl.col("n_di") + 1e-9)).alias("dx")
+    ])
+    lf = lf.with_columns(pl.col("dx").ewm_mean(alpha=1/14, adjust=False).alias("adx_14"))
 
-    # 11. Book Skewness (Assimetria L200 bidirecional)
-    # v8.2: Usar skewness calculada no ETL para economizar memória (800 colunas já dropadas)
-    if 'book_skew_bid' in df_pd.columns:
-        logger.info("  ↳ Auditor Sensor: Using pre-calculated Book Skew from ETL.")
-    else:
-        # Fallback: tentar calcular se as colunas brutas ainda existirem
-        bid_cols = [col for col in df_pd.columns if col.startswith('bid_') and col.endswith('_s')]
-        if bid_cols:
-            df_pd['book_skew_bid'] = df_pd[bid_cols].skew(axis=1)
-        else:
-            df_pd['book_skew_bid'] = 0.0
-        
-    if 'book_skew_ask' in df_pd.columns:
-        pass # Já presente
-    else:
-        ask_cols = [col for col in df_pd.columns if col.startswith('ask_') and col.endswith('_s')]
-        if ask_cols:
-            df_pd['book_skew_ask'] = df_pd[ask_cols].skew(axis=1)
-        else:
-            df_pd['book_skew_ask'] = 0.0
+    # VWAP and MFI
+    lf = lf.with_columns([
+        ((pl.col("high") + pl.col("low") + pl.col("close")) / 3.0).alias("tp"),
+    ])
+    lf = lf.with_columns([
+        (pl.col("tp") * pl.col("v")).alias("tpv"),
+        pl.col("tp").rolling_std(window_size=bars_per_day).alias("tp_std")
+    ])
+    lf = lf.with_columns([
+        (pl.col("tpv").rolling_sum(bars_per_day) / (pl.col("v").rolling_sum(bars_per_day) + 1e-9)).alias("vwap_rolling")
+    ])
+    lf = lf.with_columns([
+        pl.when(pl.col("tp_std") > 0).then((pl.col("close") - pl.col("vwap_rolling")) / pl.col("tp_std")).otherwise(0.0).alias("vwap_zscore")
+    ])
 
-    # Preencher NaNs com fill forward e bfill (para o início da série)
-    cols_to_fill = [
-        'ema_8', 'ema_21', 'ema_trend', 'ema_cross_dist', 'bb_upper', 'bb_lower', 'bb_pct',
-        'rsi_14', 'stoch_14', 'atr_14', 'atr_norm', 'vol_1h', 'vol_zscore_1h', 'delta_vol_24h',
+    # MFI
+    lf = lf.with_columns([
+        pl.when(pl.col("tp") > pl.col("tp").shift(1)).then(pl.col("tpv")).otherwise(0.0).alias("pos_f"),
+        pl.when(pl.col("tp") < pl.col("tp").shift(1)).then(pl.col("tpv")).otherwise(0.0).alias("neg_f")
+    ])
+    lf = lf.with_columns([
+        (100 - (100 / (1 + (pl.col("pos_f").rolling_sum(14) / (pl.col("neg_f").rolling_sum(14) + 1e-9))))).alias("mfi_14")
+    ])
+
+    # Book Skew Proxy (if ETL features present)
+    if "book_skew_bid" not in lf.columns:
+        lf = lf.with_columns(pl.lit(0.0).alias("book_skew_bid"))
+    if "book_skew_ask" not in lf.columns:
+        lf = lf.with_columns(pl.lit(0.0).alias("book_skew_ask"))
+
+    # Clean up and final fill
+    final_sensors = [
+        'ema_trend', 'ema_cross_dist', 'bb_pct', 'rsi_14', 'stoch_14', 
+        'atr_norm', 'vol_1h', 'vol_zscore_1h', 'delta_vol_24h',
         'adx_14', 'vwap_zscore', 'mfi_14', 'book_skew_bid', 'book_skew_ask'
     ]
-    df_pd[cols_to_fill] = df_pd[cols_to_fill].ffill().bfill().fillna(0.0)
+    
+    # Fill nulls (Polars equivalent of ffill().bfill())
+    for s in final_sensors:
+        lf = lf.with_columns(pl.col(s).forward_fill().backward_fill().fill_null(0.0))
 
-    return df_pd
+    return lf
+
 
 def process_and_save_context(input_dir, output_dir):
     input_path = Path(input_dir)
@@ -228,75 +184,55 @@ def process_and_save_context(input_dir, output_dir):
         logger.error(f"Nenhum arquivo encontrado em {input_dir}")
         return
 
-    logger.info(f"Carregando {len(parquet_files)} arquivos para processamento CONTÍNUO...")
+    logger.info(f"Carregando {len(parquet_files)} arquivos para processamento CONTÍNUO (PURE POLARS)...")
 
-    # v4.9: resolve resample_min from master_config
     config = load_config()
     resample_freq = config.get('pre_processing', {}).get('etl', {}).get('resample_freq', '1min')
-    import pandas as _pd_inner
-    resample_min = max(1, int(_pd_inner.to_timedelta(resample_freq).total_seconds() // 60))
+    resample_min = max(1, int(pd.to_timedelta(resample_freq).total_seconds() // 60))
     logger.info(f"auditor_preprocessing: resample_freq={resample_freq} ({resample_min} min/bar)")
 
-    # 1. Carregar todos os arquivos e manter o controle de tamanhos
-    all_dfs = []
-    file_metadata = [] # list of (filename, row_count)
-
-    # v10.42: Seleção cirúrgica de colunas para evitar estouro de RAM (57GB A4500)
-    # Carregamos apenas o necessário para os indicadores e o join final.
+    # v10.5: Uso de LazyFrame para economia radical de RAM
     needed_cols = [
         'close', 'micro_price', 'bid_0_p', 'ask_0_p', 'volatility', 
         'log_volume', 'book_skew_bid', 'book_skew_ask', 'target'
     ]
     
+    # 1. Escanear todos os arquivos em um único plano de execução
+    lfs = []
+    file_metadata = []
     for pf in parquet_files:
-        try:
-            # Detecta quais colunas existem no arquivo para evitar erro de 'coluna não encontrada'
-            available_cols = pl.scan_parquet(pf).columns
-            cols_to_load = [c for c in needed_cols if c in available_cols]
-            
-            df_i = pl.read_parquet(pf, columns=cols_to_load)
-            row_count = len(df_i)
-            all_dfs.append(df_i)
-            file_metadata.append((pf.name, row_count))
-        except Exception as e:
-            logger.error(f"Erro ao carregar {pf.name}: {e}")
-
-    if not all_dfs:
-        return
-
-    # 2. Concatenar em uma série temporal única e contínua
-    logger.info(f"Concatenando {len(all_dfs)} dataframes para cálculo global de indicadores...")
-    df_full = pl.concat(all_dfs).to_pandas()
+        available_cols = pl.scan_parquet(pf).columns
+        cols_to_load = [c for c in needed_cols if c in available_cols]
+        lf_i = pl.scan_parquet(pf).select(cols_to_load)
+        # Adiciona flag de arquivo para desmembrar depois sem perder ordem
+        lf_i = lf_i.with_columns(pl.lit(pf.name).alias("_filename"))
+        lfs.append(lf_i)
     
-    # 3. Calcular indicadores sobre a série completa (SEM BURACOS NAS FRONTEIRAS)
-    logger.info("Calculando indicators Alpha Sensors sobre o dataset completo...")
-    df_full_enriched = calculate_context_features(df_full, resample_min=resample_min)
+    lf_full = pl.concat(lfs)
+    
+    # 2. Calcular indicadores em modo LAZY
+    logger.info("Calculando indicators Alpha Sensors em modo Lazy...")
+    lf_enriched = calculate_context_features_polars(lf_full, resample_min=resample_min)
 
-    # 4. Definir colunas de exportação
-    core_features = [
+    # 3. Realizar o cálculo (Collect) - Aqui é onde a RAM sobe, mas apenas o necessário
+    logger.info("Executando plano de cálculo (Collect)...")
+    df_result = lf_enriched.collect()
+    
+    # 4. Salvar cada fragmento de volta
+    logger.info(f"Desmembrando e salvando em {output_dir}...")
+    final_sensors = [
         'ema_trend', 'ema_cross_dist', 'bb_pct', 'rsi_14', 'stoch_14', 
         'atr_norm', 'vol_1h', 'vol_zscore_1h', 'delta_vol_24h',
         'adx_14', 'vwap_zscore', 'mfi_14', 'book_skew_bid', 'book_skew_ask'
     ]
-    export_cols = core_features
-    if 'target' in df_full_enriched.columns:
-        export_cols.append('target')
-
-    # 5. Splitter: Quebrar de volta nos arquivos originais e salvar
-    logger.info(f"Desmembrando {len(file_metadata)} arquivos e salvando em {output_dir}...")
-    current_start = 0
-    for filename, row_count in file_metadata:
-        df_slice = df_full_enriched.iloc[current_start : current_start + row_count]
-        
-        # Converter de volta para polars
-        df_out = pl.DataFrame(df_slice[export_cols])
+    export_cols = final_sensors + (['target'] if 'target' in df_result.columns else [])
+    
+    for filename in [pf.name for pf in parquet_files]:
+        df_slice = df_result.filter(pl.col("_filename") == filename).select(export_cols)
         out_file = output_path / f"context_{filename}"
-        df_out.write_parquet(out_file)
-        
-        current_start += row_count
-        # logger.info(f"   [OK] Processado e salvo: {out_file.name}")
-
-    logger.info(f"✅ Processamento contínuo finalizado para {len(file_metadata)} arquivos.")
+        df_slice.write_parquet(out_file)
+    
+    logger.info(f"✅ Processamento Polars-Lazy finalizado para {len(parquet_files)} arquivos.")
 
 if __name__ == "__main__":
     setup_logger("auditor_preprocessing", "")
