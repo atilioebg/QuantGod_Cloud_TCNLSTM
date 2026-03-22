@@ -553,7 +553,7 @@ def run_optimization():
     metric_to_max = config['optimization']['base_metric']
 
     if foundation_cfg.get('base_use_min_f1_optimization', False) and metric_to_max == 'f1_macro':
-        metric_to_max = "MIN(Sell, Neu, Buy)"
+        metric_to_max = "MAX(MIN(Sell, Neu, Buy))"
     
     logger.info(f"Starting {config['optimization']['n_trials']} trials | "
                 f"Metric: {metric_to_max} | "
@@ -621,7 +621,7 @@ def run_optimization():
     logger.info("="*60)
 
     use_min_f1 = config['training']['foundation_weights'].get('base_use_min_f1_optimization', False)
-    m_f_label = "F1 M MIN" if use_min_f1 else "F1 Macro"
+    m_f_label = "MAX-MIN F1" if use_min_f1 else "F1 Macro"
     
     logger.info(f"[MACRO] Best trial: {study.best_trial.number} | {m_f_label}: {study.best_trial.value:.8f}")
     
