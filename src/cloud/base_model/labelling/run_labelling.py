@@ -182,39 +182,82 @@ def run_labelling():
     except Exception as e:
         logger.warning(f"⚠️ Auto-sync failed (using local files only): {e}")
 
-    all_files = sorted(input_dir.glob("*.parquet"))
-    if not all_files:
-        logger.error(f"No parquet files found in {input_dir}")
-        return
+    # ── [v8.5] LOW DISK STREAMING MODE ──────────────────────────────────────
+    # Evita 'Disk quota exceeded' ao processar 1.151 arquivos (72GB)
+    try:
+        from src.cloud.base_model.utils.path_utils import get_drive_session_path
+        remote_pre = get_drive_session_path("PRE_PROCESSED", config)
+        remote_lab = get_drive_session_path("LABELLED", config)
+        rclone_cfg = Path("rclone.conf")
+        rclone_bin = "rclone"
+        if os.name == 'nt' and Path("rclone.exe").exists():
+            rclone_bin = str(Path("rclone.exe").absolute())
 
-    # Determinar Workers
-    lab_cfg = config.get('pre_processing', {}).get('labelling', {})
-    if lab_cfg.get('use_dynamic_workers', False):
-        try: cpu_count = len(os.sched_getaffinity(0))
-        except: cpu_count = os.cpu_count() or 1
-        max_workers = max(1, cpu_count - 1)
-    else:
-        max_workers = lab_cfg.get('max_workers', 16)
-
-    logger.info(f"🚀 Iniciando Labelling Paralelo: {len(all_files)} dias | {max_workers} workers | Memory-Safe Mode")
-
-    global_counts = {0: 0, 1: 0, 2: 0}
-    total_kept = 0
-    total_raw = 0
-
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(process_single_file_labelling, pf, config, output_dir): pf for pf in all_files}
+        # 1. Listar arquivos remotos
+        logger.info(f"🔍 Listing remote files from {remote_pre}...")
+        ls_cmd = [rclone_bin, "lsf", remote_pre, "--include", "*.parquet"]
+        if rclone_cfg.exists(): ls_cmd += ["--config", str(rclone_cfg)]
+        remote_files = subprocess.check_output(ls_cmd).decode().splitlines()
+        remote_files = sorted([f.strip() for f in remote_files if f.strip()])
         
-        for future in tqdm(as_completed(futures), total=len(all_files), desc="Labelling"):
-            res = future.result()
-            if "error" in res:
-                logger.error(f"❌ Erro em {res.get('file', 'unknown')}: {res['error']}")
-                continue
-            
-            for cls, count in res["counts"].items():
-                global_counts[cls] += count
-            total_kept += res["n_kept"]
-            total_raw += res["n_total"]
+        if not remote_files:
+            logger.error("❌ No files found on Drive to label.")
+            return
+
+        # Determinar Workers
+        lab_cfg = config.get('pre_processing', {}).get('labelling', {})
+        if lab_cfg.get('use_dynamic_workers', False):
+            try: cpu_count = len(os.sched_getaffinity(0))
+            except: cpu_count = os.cpu_count() or 1
+            max_workers = max(1, cpu_count - 1)
+        else:
+            max_workers = lab_cfg.get('max_workers', 16)
+
+        logger.info(f"🚀 Iniciando Labelling em modo STREAMING: {len(remote_files)} dias | {max_workers} workers.")
+        
+        # 2. Processar em LOTES para economizar disco
+        BATCH_SIZE = 32 # Processa 32 dias por vez (~2GB de pico)
+        global_counts = {0: 0, 1: 0, 2: 0}
+        total_kept = 0
+        total_raw = 0
+
+        for i in range(0, len(remote_files), BATCH_SIZE):
+            batch = remote_files[i:i+BATCH_SIZE]
+            logger.info(f"📦 Processing Batch {i//BATCH_SIZE + 1}: {len(batch)} files...")
+
+            # A. Baixar Lote
+            batch_includes = [f"--include={f}" for f in batch]
+            dl_cmd = [rclone_bin, "copy", remote_pre, str(input_dir), *batch_includes]
+            if rclone_cfg.exists(): dl_cmd += ["--config", str(rclone_cfg)]
+            subprocess.run(dl_cmd, check=True)
+
+            # B. Rotular Lote
+            local_files = [input_dir / f for f in batch]
+            with ProcessPoolExecutor(max_workers=max_workers) as executor:
+                futures = {executor.submit(process_single_file_labelling, pf, config, output_dir): pf for pf in local_files}
+                for future in tqdm(as_completed(futures), total=len(local_files), desc=f"Lote {i//BATCH_SIZE + 1}"):
+                    res = future.result()
+                    if "error" in res:
+                        logger.error(f"❌ Erro em {res.get('file', 'unknown')}: {res['error']}")
+                        continue
+                    for cls, count in res["counts"].items(): global_counts[cls] += count
+                    total_kept += res["n_kept"]; total_raw += res["n_total"]
+
+            # C. Upload Lote
+            up_cmd = [rclone_bin, "copy", str(output_dir), remote_lab, *batch_includes]
+            if rclone_cfg.exists(): up_cmd += ["--config", str(rclone_cfg)]
+            subprocess.run(up_cmd, check=True)
+
+            # D. Limpeza Crítica (Disk Quota Safeguard)
+            for f in batch:
+                try: (input_dir / f).unlink(); (output_dir / f).unlink()
+                except: pass
+            logger.info(f"🗑️ Disk Cleared for Batch {i//BATCH_SIZE + 1}. Moving on...")
+            gc.collect()
+
+    except Exception as e:
+        logger.error(f"🔴 Critical failure in streaming labelling: {e}")
+        return
 
     logger.info("Labelling phase finished.")
     logger.info("Final Label Distribution:")
