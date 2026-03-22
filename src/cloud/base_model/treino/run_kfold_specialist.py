@@ -33,6 +33,7 @@ import logging
 import pickle
 import json
 import sys
+import subprocess
 import gc
 from pathlib import Path
 from datetime import datetime

@@ -241,9 +241,20 @@ def process_and_save_context(input_dir, output_dir):
     all_dfs = []
     file_metadata = [] # list of (filename, row_count)
 
+    # v10.42: Seleção cirúrgica de colunas para evitar estouro de RAM (57GB A4500)
+    # Carregamos apenas o necessário para os indicadores e o join final.
+    needed_cols = [
+        'close', 'micro_price', 'bid_0_p', 'ask_0_p', 'volatility', 
+        'log_volume', 'book_skew_bid', 'book_skew_ask', 'target'
+    ]
+    
     for pf in parquet_files:
         try:
-            df_i = pl.read_parquet(pf)
+            # Detecta quais colunas existem no arquivo para evitar erro de 'coluna não encontrada'
+            available_cols = pl.scan_parquet(pf).columns
+            cols_to_load = [c for c in needed_cols if c in available_cols]
+            
+            df_i = pl.read_parquet(pf, columns=cols_to_load)
             row_count = len(df_i)
             all_dfs.append(df_i)
             file_metadata.append((pf.name, row_count))
