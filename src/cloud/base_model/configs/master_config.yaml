@@ -232,6 +232,7 @@ pre_processing:
     # Epoch-Chunking (Varredura Global Rápida no Optuna)
     use_epoch_chunking: true
     samples_per_epoch: 10000      # FASE 1: 10k amostras (rápido). FASE 2: Aumentar para 10M.
+    samples_per_val_epoch: 50000  # Validação rápida de alta representatividade no Optuna.
     
     # Non-Event Subsampling (Equilíbrio de Classes)
     use_class_subsampling: true
