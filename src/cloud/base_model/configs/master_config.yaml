@@ -232,7 +232,7 @@ pre_processing:
     # Epoch-Chunking (Varredura Global Rápida no Optuna)
     use_epoch_chunking: true
     samples_per_epoch: 10000      # FASE 1: 10k amostras (rápido). FASE 2: Aumentar para 10M.
-    samples_per_val_epoch: 50000  # Validação rápida de alta representatividade no Optuna.
+    samples_per_val_epoch: 5000   # Validação ultra-rápida (5k amostras) para o teste final.
     
     # Non-Event Subsampling (Equilíbrio de Classes)
     use_class_subsampling: true
@@ -360,7 +360,7 @@ optimization:
   # ── [OPTUNA] Configuração do Estudo HPO ───────────────────────────────────
   # O estudo persiste no SQLite (db_path). Interromper e retomar é seguro.
   study_name: "QUANTGOD_EXPLORER_V001" # Nome da fase explorer. Mude se quiser resetar.
-  n_trials: 2                   # SOTA HPO: 400 trials para varredura global.
+  n_trials: 1                     # MODO TESTE MICRO: Apenas 1 tentativa para validar o fluxo.
   timeout: 172800                 # Teto de 48h.
 
   # ── [SAMPLER] Algoritmo de Busca ───────────────────────────────────────────
