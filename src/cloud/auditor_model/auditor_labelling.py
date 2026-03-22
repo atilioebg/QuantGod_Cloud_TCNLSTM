@@ -170,20 +170,13 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
     df_oof = pl.read_parquet(full_oof_path)
     logger.info(f"  ↳ OOF rows: {len(df_oof):,} (covering {df_oof['fold'].n_unique()} folds)")
 
-    # ── Load Context Features (ADX, Skewness, VWAP, etc.) ────────────────────
-    # Context features indexed by original row order (no timestamp in OOF itself).
-    # We use `original_row_idx` as the join key.
-    context_files = sorted(list(Path(context_dir).glob("*.parquet")))
-    if not context_files:
-        logger.error(f"❌ Context files not found in {context_dir}. Run auditor_preprocessing.py first.")
-        return
-
-    df_ctx_list = [pl.read_parquet(cf) for cf in context_files]
-    df_ctx = pl.concat(df_ctx_list)
-
-    # Add integer row index to context for joining
-    df_ctx = df_ctx.with_row_index(name="original_row_idx")
-    logger.info(f"  ↳ Context rows: {len(df_ctx):,} | Columns: {df_ctx.columns[:5]}...")
+    # ── Load Context Features (LAZY) ────────────────────
+    # v10.11: Não carregamos mais 89M de linhas em RAM. Usamos Scan.
+    logger.info(f"🔗 Lazy Fusion: Scanning context from {context_dir}")
+    lf_ctx = pl.scan_parquet(Path(context_dir) / "*.parquet")
+    
+    # Adicionamos o índice de linha ao LazyFrame para o Join
+    lf_ctx = lf_ctx.with_row_index(name="original_row_idx")
 
     # ── Foundation Model Inference on Foundation Val ──────────────────────────
     # The OOF covers Foundation Val rows. We need Foundation model probs too
@@ -235,13 +228,41 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
         logger.error(f"[FAIL] NENHUM ARQUIVO .parquet ENCONTRADO EM {foundation_val_dir}!")
         raise FileNotFoundError(f"foundation_val_dir is empty: {foundation_val_dir}")
 
-    dfs_val   = []
+    # v10.11: Carregamento seletivo — carregamos apenas os Parquets que 
+    # de fato possuem amostras no OOF, economizando MUITA RAM.
+    logger.info(f"🔍 [Audit] Loading only necessary validation segments for Foundation inference...")
+    
+    # Identificamos os índices globais necessários no OOF
+    needed_indices = df_oof["original_row_idx"].to_list()
+    min_idx, max_idx = min(needed_indices), max(needed_indices)
+    
+    # Escaneamos os dados brutos e filtramos antecipadamente
+    # (Supondo que a ordem dos arquivos em val_files bate com o row index global)
+    dfs_val = []
+    current_global_offset = 0
     for i, vf in enumerate(val_files):
-        df_i = pl.read_parquet(vf, columns=feature_cols + ['target', 'island_id'])
-        # Offset island_id per file (same logic as run_kfold_specialist.py line 406)
-        df_i = df_i.with_columns(pl.col('island_id') + (i * 10000))
-        dfs_val.append(df_i)
+        # Scan rápido para saber o tamanho
+        num_rows = pl.scan_parquet(vf).select(pl.len()).collect().item()
+        
+        file_start = current_global_offset
+        file_end = current_global_offset + num_rows
+        
+        # Se este arquivo contém algum índice do OOF (considerando o lookback do seq_len)
+        # Notas: precisamos carregar seq_len atrás para cada predição
+        seq_len_req = base_params['seq_len']
+        if not (file_end < (min_idx - seq_len_req) or file_start > max_idx):
+            df_i = pl.read_parquet(vf, columns=feature_cols + ['target', 'island_id'])
+            df_i = df_i.with_columns(pl.col('island_id') + (i * 10000))
+            dfs_val.append(df_i)
+            
+        current_global_offset += num_rows
+    
+    if not dfs_val:
+        logger.error("❌ Falha crítica: Nenhum dado de validação casa com os índices do OOF.")
+        sys.exit(1)
+        
     df_fval = pl.concat(dfs_val)
+    logger.info(f"✅ Selective Foundation Val loaded: {len(df_fval):,} rows (Optimization: RAM SAVE)")
 
     X_val_raw    = df_fval.select(feature_cols).to_numpy().astype(np.float32)
     y_val_raw    = df_fval.select('target').to_numpy().flatten().astype(np.int64)
@@ -294,20 +315,20 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
         "base_prob_buy":    probs_base[:, 2],
     })
 
-    # ── Inner Join: OOF ∩ Base Probs ∩ Context ────────────────────────────────
-    # The join key `original_row_idx` is the common index across all three sources.
-    # inner join guarantees only rows present in ALL three sources are included.
-    logger.info("🔗 Inner joining OOF predictions × Foundation probs × Context features...")
+    # ── RAM-Safe Join: OOF (Dense) × Context (Lazy) ──────────────────────────
+    logger.info("🔗 RAM-Safe joining OOF predictions × Foundation probs × Context features (Lazy)...")
 
-    df_joined = (
-        df_oof
-        .join(df_base_probs, on="original_row_idx", how="inner")
-        .join(df_ctx, on="original_row_idx", how="inner")
-        .sort("original_row_idx")
-    )
+    # Primeiro unimos os densos (OOF + Foundation Probs)
+    df_signals = df_oof.join(df_base_probs, on="original_row_idx", how="inner")
+    
+    # Agora fazemos o Join Lazy com o Contexto de 89M
+    # O Polars vai filtrar lf_ctx para conter apenas as 5.000 linhas do df_signals!
+    df_joined_lf = lf_ctx.join(df_signals.lazy(), on="original_row_idx", how="inner")
+    
+    # Coletamos o resultado (apenas as linhas filtradas)
+    df_joined = df_joined_lf.sort("original_row_idx").collect()
 
-    logger.info(f"✅ Fused rows after inner join: {len(df_joined):,}")
-    logger.info(f"   OOF had: {len(df_oof):,} | Base had: {len(df_base_probs):,} | Context had: {len(df_ctx):,}")
+    logger.info(f"✅ Fused rows after LAZY join: {len(df_joined):,}")
 
     # v4.9: Explicit guard — if true_target is missing, fail early with a clear error
     if "true_target" not in df_joined.columns:
