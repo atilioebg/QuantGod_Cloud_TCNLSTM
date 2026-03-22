@@ -339,9 +339,8 @@ def objective(trial, config, feature_cols, auto_alphas=None):
             # ── Dual Champion Tracking (GLOBAL — across all trials and epochs) ────
             global GLOBAL_BEST_MACRO, GLOBAL_BEST_DIR
 
-            # MACRO global best
+            # MACRO global best: Verify against study best to prevent orphans
             if f1_macro > GLOBAL_BEST_MACRO:
-                prev_macro = GLOBAL_BEST_MACRO
                 GLOBAL_BEST_MACRO = f1_macro
                 from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
                 base_dir = get_drive_session_path("MODELOS", config)
