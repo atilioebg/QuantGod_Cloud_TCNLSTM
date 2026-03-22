@@ -359,7 +359,7 @@ optimization:
   # ── [OPTUNA] Configuração do Estudo HPO ───────────────────────────────────
   # O estudo persiste no SQLite (db_path). Interromper e retomar é seguro.
   study_name: "QUANTGOD_EXPLORER_V001" # Nome da fase explorer. Mude se quiser resetar.
-  n_trials: 400                   # SOTA HPO: 400 trials para varredura global.
+  n_trials: 2                   # SOTA HPO: 400 trials para varredura global.
   timeout: 172800                 # Teto de 48h.
 
   # ── [SAMPLER] Algoritmo de Busca ───────────────────────────────────────────
@@ -389,11 +389,11 @@ optimization:
   # ── [AUDITOR HPO] Busca Hiperparâmetros do Juiz XGBoost ──────────────────
   auditor:
     enabled: true    # true → HPO do Auditor via Optuna antes do treino final (70 trials, ~15min).
-    n_trials: 70     # 70 trials cobre bem o espaço do XGBoost.
+    n_trials: 2     # 70 trials cobre bem o espaço do XGBoost.
     search_space:
-      max_depth: [2, 3, 4, 5, 6, 8]      # Profundidade das árvores. Sweet spot: 4-6.
+      max_depth: [2, 3]      # Profundidade das árvores. Sweet spot: 4-6.
       learning_rate: [0.01, 0.1]          # Shrinkage. Float range [min, max].
-      n_estimators: [100, 500, 1000]      # Rounds de boosting. Lista discreta.
+      n_estimators: [100, 500]      # Rounds de boosting. Lista discreta.
       subsample: [0.6, 1.0]              # Fração de amostras por árvore (anti-overfit).
       colsample_bytree: [0.6, 1.0]       # Fração de features por árvore.
       reg_alpha: [0.0, 1.0]              # L1 Regularização (Lasso). Esparsa features inúteis.
@@ -406,14 +406,14 @@ optimization:
 
   # ── [SEARCH SPACE] Hiperparâmetros da TCN-LSTM ────────────────────────────
   search_space:
-    tcn_channels:    [32, 64, 128, 256, 512]                # Otimizado p/ A4500 (20GB). Evita OOM e lentidão.
-    lstm_hidden:     [16, 32, 64, 128, 256]                 # Escalável.
-    num_lstm_layers: [2, 3, 4]                              # Sweet spot para TCN-LSTM.
-    lr:              [0.0001, 0.001, 0.01]                   # Gridding LR.
+    tcn_channels:    [32, 64]                # Otimizado p/ A4500 (20GB). Evita OOM e lentidão.
+    lstm_hidden:     [16, 32]                 # Escalável.
+    num_lstm_layers: [2, 3]                              # Sweet spot para TCN-LSTM.
+    lr:              [0.0001, 0.01]                   # Gridding LR.
     weight_decay:    [0.0001, 0.01]                         # Regularização.
-    batch_size:      [128, 256, 512, 1024]                  # Aproveita o paralelismo da A4500.
-    seq_len:         [48, 96, 144]                          # Janelas de lookback importantes.
-    dropout:         [0.2, 0.5, 0.8]                        # Estabilidade.
+    batch_size:      [128, 256]                  # Aproveita o paralelismo da A4500.
+    seq_len:         [48, 96]                          # Janelas de lookback importantes.
+    dropout:         [0.2, 0.5]                        # Estabilidade.
     asym_gamma_sell: [0.5, 5.0]
     asym_gamma_neu:  [0.1, 2.0]
     asym_gamma_buy:  [0.5, 5.0]
