@@ -407,20 +407,20 @@ optimization:
 
   # ── [SEARCH SPACE] Hiperparâmetros da TCN-LSTM ────────────────────────────
   search_space:
-    tcn_channels:    [64, 256]               # Aproveita 20GB VRAM da A4500.
-    lstm_hidden:     [32, 128]               # Maior capacidade de memória temporal.
-    num_lstm_layers: [2, 4]                              # Profundidade sniper.
-    lr:              [0.0001, 0.005]                  # LR ajustada p/ batch maior.
-    weight_decay:    [0.0001, 0.01]                         # Regularização.
-    batch_size:      [512, 1024]                 # Paralelismo massivo na GPU.
-    seq_len:         [96, 192]                         # Contexto longo do Order Book.
-    dropout:         [0.2, 0.5]                        # Estabilidade.
+    tcn_channels:    [64, 512]               # Extremo paralelismo 1D na A4500 (20GB).
+    lstm_hidden:     [64, 256]               # Massiva memória direcional (tendências longas).
+    num_lstm_layers: [2, 5]                  # Profundidade sniper colossal.
+    lr:              [0.00005, 0.002]        # LR mais refinada para estabilização de arquiteturas gigantes.
+    weight_decay:    [0.0001, 0.015]         # Regularização L2 robusta.
+    batch_size:      [512, 2048]             # Despejo brutal na VRAM.
+    seq_len:         [96, 256]               # Visão oceânica do Order Book.
+    dropout:         [0.2, 0.55]             # Estabilidade contra a memorização.
     asym_gamma_sell: [0.5, 5.0]
     asym_gamma_neu:  [0.1, 2.0]
     asym_gamma_buy:  [0.5, 5.0]
 
-    epochs: 3                    # [TESTE-EXATO] 3 épocas como solicitado.
-    early_stopping_patience: 10   # Inútil com 3 épocas, mas deixamos p/ segurança.
+    epochs: 10                    # [PRODUÇÃO] Treino base profundo para garantir convergência na busca.
+    early_stopping_patience: 4    # Paciência rígida, mata genéticas lixo rápido.
 
     # ── [FOCAL LOSS SEARCH] Foundation (Base Model) ─────────────────────────
     base_loss_gamma:     [0.5, 5.0]    # Gamma. <1.0 ≈ CrossEntropy. 5.0 = foco extremo em erros difíceis.
