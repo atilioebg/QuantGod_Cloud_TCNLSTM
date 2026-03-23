@@ -538,14 +538,14 @@ def run_optimization():
         GLOBAL_BEST_MACRO = study.best_value
         logger.info(f"Resuming study. Macro Record found: {GLOBAL_BEST_MACRO:.4f}")
     else:
-        GLOBAL_BEST_MACRO = 0.0
+        GLOBAL_BEST_MACRO = -1.0
         if completed: logger.info("DB has records but physical .pt is missing. Starting fresh Macro save-track.")
 
     if completed and dir_path.exists():
         GLOBAL_BEST_DIR = max((t.user_attrs.get("best_f1_dir", 0.0) for t in completed), default=0.0)
         logger.info(f"Resuming study. Dir Record found: {GLOBAL_BEST_DIR:.4f}")
     else:
-        GLOBAL_BEST_DIR = 0.0
+        GLOBAL_BEST_DIR = -1.0
         if completed: logger.info("DB has records but physical _dir.pt is missing. Starting fresh Dir save-track.")
 
     metric_to_max = config['optimization']['base_metric']
