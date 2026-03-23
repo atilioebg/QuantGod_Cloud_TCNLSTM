@@ -407,13 +407,13 @@ optimization:
 
   # ── [SEARCH SPACE] Hiperparâmetros da TCN-LSTM ────────────────────────────
   search_space:
-    tcn_channels:    [64, 512]               # Extremo paralelismo 1D na A4500 (20GB).
-    lstm_hidden:     [64, 256]               # Massiva memória direcional (tendências longas).
-    num_lstm_layers: [2, 5]                  # Profundidade sniper colossal.
+    tcn_channels:    [64, 128, 256, 512]     # Extremo paralelismo 1D na A4500 (20GB). Categórico.
+    lstm_hidden:     [32, 64, 128, 256]      # Massiva memória direcional (tendências longas). Categórico.
+    num_lstm_layers: [2, 5]                  # Profundidade sniper colossal. (Intervalo Int: 2 a 5).
     lr:              [0.00005, 0.002]        # LR mais refinada para estabilização de arquiteturas gigantes.
     weight_decay:    [0.0001, 0.015]         # Regularização L2 robusta.
-    batch_size:      [512, 2048]             # Despejo brutal na VRAM.
-    seq_len:         [96, 256]               # Visão oceânica do Order Book.
+    batch_size:      [512, 1024, 2048]       # Despejo brutal na VRAM. Categórico.
+    seq_len:         [96, 144, 192, 256]     # Visão oceânica do Order Book. Categórico.
     dropout:         [0.2, 0.55]             # Estabilidade contra a memorização.
     asym_gamma_sell: [0.5, 5.0]
     asym_gamma_neu:  [0.1, 2.0]
