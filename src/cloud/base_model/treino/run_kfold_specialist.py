@@ -617,9 +617,11 @@ def run_kfold_specialist():
     except (AttributeError, ImportError, NotImplementedError):
         cpu_count = os.cpu_count() or 1
         
-    # Limit pytest xdist workers to avoid OS thread bombing. Using 95 workers on a 96-core VM 
-    # creates 95 processes * 96 threads per process (for Polars/PyTorch) = 9,120 threads. Max 8 is safe.
-    pytest_workers = min(max(1, cpu_count // 4), 8)
+    lab_cfg = config.get('pre_processing', {}).get('labelling', {})
+    if lab_cfg.get('use_dynamic_workers', False):
+        pytest_workers = max(1, cpu_count - 1)
+    else:
+        pytest_workers = min(lab_cfg.get('max_workers', 16), cpu_count)
 
     qa_env = os.environ.copy()
     # Explicitly throttle internal multi-threading within each of the parallel Pytest processes
