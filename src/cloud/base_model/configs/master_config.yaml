@@ -217,7 +217,7 @@ pre_processing:
     enabled: true          # Liga K-Fold Blocked no Especialista (run_kfold_specialist.py).
     n_splits: 5            # Número de folds. Cada fold cobre ~20% dos dados de val da Foundation.
     purge_minutes: 0       # 0 → usa horizon_minutes automaticamente como purge. Garante gap entre train e test.
-    specialist_epochs: 60  # Produção: Mínimo recomendado 60-120.
+    specialist_epochs: 2  # Épocas por fold. Reduzido para modo E2E; aumentar para produção (120-200).
     use_best_foundation_arch: true  # true → reutiliza best_params.json (sem re-otimizar Optuna por fold). Economiza GPU.
     oof_output_dir: "SPECIALIST"    # Pasta onde full_oof.parquet é salvo. Lida por auditor_labelling.py.
 
@@ -231,8 +231,8 @@ pre_processing:
     
     # Epoch-Chunking (Varredura Global Rápida no Optuna)
     use_epoch_chunking: true
-    samples_per_epoch: 500000      # [PRODUÇÃO] 500k conforme solicitado pelo usuário.
-    samples_per_val_epoch: 100000   # Validação robusta (100k amostras) para precisão estatística.
+    samples_per_epoch: 10000      # [TESTE-FLUXO] Mínimo para validar o pipeline.
+    samples_per_val_epoch: 5000   # Validação ultra-rápida (5k amostras) para o teste final.
     
     # Non-Event Subsampling (Equilíbrio de Classes)
     use_class_subsampling: true
@@ -359,8 +359,8 @@ training:
 optimization:
   # ── [OPTUNA] Configuração do Estudo HPO ───────────────────────────────────
   # O estudo persiste no SQLite (db_path). Interromper e retomar é seguro.
-  study_name: "QUANTGOD_RECON_V002" # Nome para estudo de produção (v2).
-  n_trials: 400                     # [PRODUÇÃO] 400 Trials para busca exaustiva no espaço de busca.
+  study_name: "QUANTGOD_RECON_V003" # Nome para teste limpo de 2 trials.
+  n_trials: 2                     # [TESTE-EXATO] 2 Trials como solicitado.
   timeout: 172800                 # Teto de 48h.
 
   # ── [SAMPLER] Algoritmo de Busca ───────────────────────────────────────────

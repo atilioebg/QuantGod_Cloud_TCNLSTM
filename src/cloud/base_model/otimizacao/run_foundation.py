@@ -272,9 +272,8 @@ def objective(trial, config, feature_cols, auto_alphas=None):
             has_zero_signal = (f1_per_cls[0] == 0 or f1_per_cls[2] == 0)
             has_zero_class  = np.any(f1_per_cls == 0)
             
-            # Se tiver signal zerado, a punição é ABSOLUTA (0.0). Para o Optuna, esse modelo é nulo.
-            # v10.36: Temporary Test Mode - Penalty disabled (always 1.0)
-            penalty = 1.0 # 0.0 if has_zero_signal else (0.5 if has_zero_class else 1.0)
+            # Ponderação 0/1: Se não houver sinal em um dos lados (S/B), a punição é total (0.0).
+            penalty = 0.0 if has_zero_signal else (0.5 if has_zero_class else 1.0)
 
             # Aplica penalidade em ambas as métricas
             f1_macro = f1_macro * penalty
@@ -316,8 +315,6 @@ def objective(trial, config, feature_cols, auto_alphas=None):
 
             # ── Local Champion Tracking (Within this Trial) ───────────────────
             # v4.9: Patience now tracks the OPTIMIZATION METRIC (F1), not Loss.
-            # This resolves the "Patience Incongruence" and gives the model more time to stabilize.
-            # Metric value depends on master_config base_metric selection.
             trial_improved = False
             if base_metric_name == 'f1_macro':
                 if f1_macro > best_macro_f1:
@@ -340,7 +337,9 @@ def objective(trial, config, feature_cols, auto_alphas=None):
             global GLOBAL_BEST_MACRO, GLOBAL_BEST_DIR
 
             # MACRO global best: Verify against study best to prevent orphans
-            if f1_macro > GLOBAL_BEST_MACRO:
+            # MACRO global best: Ensure saves even if F1 == 0.0 by using >=
+            if f1_macro >= GLOBAL_BEST_MACRO and f1_macro >= 0.0:
+                prev_macro = GLOBAL_BEST_MACRO
                 GLOBAL_BEST_MACRO = f1_macro
                 from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
                 base_dir = get_drive_session_path("MODELOS", config)
@@ -349,10 +348,10 @@ def objective(trial, config, feature_cols, auto_alphas=None):
                 torch.save(model.state_dict(), str(model_path))
                 m_rec_label = "F1 M MIN" if use_min_f1 else "F1 Macro"
                 logger.info(f"[BEST MACRO]  Trial {trial.number} | Global {m_rec_label} record: {f1_macro:.8f} "
-                            f"(prev: {prev_macro:.8f}) -> saved {model_path.name}")
+                             f"(prev: {prev_macro:.8f}) -> saved {model_path.name}")
 
             # DIR global best
-            if f1_dir > GLOBAL_BEST_DIR:
+            if f1_dir >= GLOBAL_BEST_DIR and f1_dir >= 0.0:
                 prev_dir = GLOBAL_BEST_DIR
                 GLOBAL_BEST_DIR = f1_dir
                 from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
