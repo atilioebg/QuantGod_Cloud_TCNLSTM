@@ -120,7 +120,7 @@ def _build_fused_and_save(df_fused: pd.DataFrame, config: dict, output_dir: str)
     # Em um Stacking K-Fold, o OOF inteiro é usado pelo meta-modelo. O split aqui separa OOF-Train e OOF-Val
     # para o próprio early-stopping do Auditor.
     
-    split_pct = config['pre_processing']['split']['auditor']['train_ratio']
+    split_pct = config['pre_processing']['labelling']['split']['auditor']['train_ratio']
     split_idx = int(len(df_fused) * split_pct)
 
     train_fused = df_fused.iloc[:split_idx]
@@ -171,13 +171,9 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
     logger.info(f"  ↳ OOF rows: {len(df_oof):,} (covering {df_oof['fold'].n_unique()} folds)")
 
     # ── Load Context Features (LAZY) ────────────────────
-    # v10.11: Não carregamos mais 89M de linhas em RAM. Usamos Scan.
-    logger.info(f"🔗 Lazy Fusion: Scanning context from {context_dir}")
-    lf_ctx = pl.scan_parquet(Path(context_dir) / "*.parquet")
-    
-    # Adicionamos o índice de linha ao LazyFrame para o Join
-    lf_ctx = lf_ctx.with_row_index(name="original_row_idx")
-
+    # v10.15: O Auditor agora só carregará os arquivos de Contexto que pertencem aos recortes da Validação Foundation,
+    # atribuindo dinamicamente o offset do "original_row_idx". Isso impede que o Polars gere OOM (RAM) escalando
+    # o índice original varrendo os 274 arquivos inteiros de 89 milhões de linhas antes do Inner Join.
     # ── Foundation Model Inference on Foundation Val ──────────────────────────
     # The OOF covers Foundation Val rows. We need Foundation model probs too
     # for the Auditor to have both signals. We run inference on the same rows.
@@ -239,6 +235,7 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
     # Escaneamos os dados brutos e filtramos antecipadamente
     # (Supondo que a ordem dos arquivos em val_files bate com o row index global)
     dfs_val = []
+    dfs_ctx = []
     current_global_offset = 0
     for i, vf in enumerate(val_files):
         # Scan rápido para saber o tamanho
@@ -254,15 +251,26 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
             df_i = pl.read_parquet(vf, columns=feature_cols + ['target', 'island_id'])
             df_i = df_i.with_columns(pl.col('island_id') + (i * 10000))
             dfs_val.append(df_i)
+
+            # Lazy Context Optimization: Escaneia APENAS o parquet correspondente a este arquivo do Validator Base
+            ctx_file = Path(context_dir) / vf.name
+            if ctx_file.exists():
+                lf_c = pl.scan_parquet(str(ctx_file))
+                # Através do offset, o índice bate exatamente com o Global Row Index esperado pelo Model OOF
+                lf_c = lf_c.with_row_index("original_row_idx", offset=file_start)
+                dfs_ctx.append(lf_c)
+            else:
+                logger.warning(f"⚠️ Context file missing for intersection: {vf.name}")
             
         current_global_offset += num_rows
     
-    if not dfs_val:
-        logger.error("❌ Falha crítica: Nenhum dado de validação casa com os índices do OOF.")
+    if not dfs_val or not dfs_ctx:
+        logger.error("❌ Falha crítica: Nenhum dado de validação ou contexto casa com os índices do OOF.")
         sys.exit(1)
         
     df_fval = pl.concat(dfs_val)
-    logger.info(f"✅ Selective Foundation Val loaded: {len(df_fval):,} rows (Optimization: RAM SAVE)")
+    lf_ctx = pl.concat(dfs_ctx)
+    logger.info(f"✅ Selective Foundation Val & Context LazyFrames loaded: {len(df_fval):,} dense rows (Optimization: RAM SAVE)")
 
     X_val_raw    = df_fval.select(feature_cols).to_numpy().astype(np.float32)
     y_val_raw    = df_fval.select('target').to_numpy().flatten().astype(np.int64)
