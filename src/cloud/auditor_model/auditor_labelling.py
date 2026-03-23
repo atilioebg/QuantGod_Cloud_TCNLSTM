@@ -253,7 +253,7 @@ def load_and_fuse_kfold(config: dict, context_dir: str, output_dir: str):
             dfs_val.append(df_i)
 
             # Lazy Context Optimization: Escaneia APENAS o parquet correspondente a este arquivo do Validator Base
-            ctx_file = Path(context_dir) / vf.name
+            ctx_file = Path(context_dir) / f"context_{vf.name}"
             if ctx_file.exists():
                 lf_c = pl.scan_parquet(str(ctx_file))
                 # Através do offset, o índice bate exatamente com o Global Row Index esperado pelo Model OOF

@@ -197,77 +197,54 @@ def process_and_save_context(input_dir, output_dir):
         'volatility', 'log_volume', 'book_skew_bid', 'book_skew_ask', 'target'
     ]
     
-    # 1. Escanear todos os arquivos e UNIFICAR SCHEMA
-    lfs = []
+    # v10.16: Sequencial Chunking para eliminar o pico de 44GB de RAM.
+    # Em vez de concatenar 274 arquivos (89 Milhões de linhas) e rodar .collect() global,
+    # processamos e salvamos arquivo por arquivo. Os gaps de EMA/RSI do início do arquivo
+    # são matematicamente irrelevantes pois o Specialist ignora o começo de cada island_id (lookback).
+    logger.info("Processando e calculando indicadores Alpha Sensors arquivo por arquivo (Zero RAM Spike)...")
+    
+    final_sensors = [
+        'ema_trend', 'ema_cross_dist', 'bb_pct', 'rsi_14', 'stoch_14', 
+        'atr_norm', 'vol_1h', 'vol_zscore_1h', 'delta_vol_24h',
+        'adx_14', 'vwap_zscore', 'mfi_14', 'book_skew_bid', 'book_skew_ask'
+    ]
+    
+    processed_count = 0
     for pf in parquet_files:
         try:
-            # v10.7: Scan filtrando colunas imediatamente para reduzir o plano
+            # 1. Escanear e padronizar schema local
             lf_i = pl.scan_parquet(pf)
-            
-            # Garante schema limpo e uniforme
             exprs = []
-            available = lf_i.columns
+            available = lf_i.collect_schema().names()
             for c in needed_cols:
                 if c in available:
                     exprs.append(pl.col(c).cast(pl.Float64))
                 else:
                     exprs.append(pl.lit(None).cast(pl.Float64).alias(c))
             
-            # Adiciona filename e executa a seleção
             lf_i = lf_i.select(exprs).with_columns(pl.lit(pf.name).alias("_filename"))
-            lfs.append(lf_i)
+            
+            # 2. Calcular indicadores localmente no escopo de 1 arquivo
+            lf_enriched = calculate_context_features_polars(lf_i, resample_min=resample_min)
+            
+            # 3. Coletar e selecionar colunas exportadas
+            df_result = lf_enriched.collect()
+            export_cols = final_sensors + (['target'] if 'target' in df_result.columns else [])
+            
+            # 4. Salvar direto no disco
+            df_slice = df_result.select(export_cols)
+            out_file = output_path / f"context_{pf.name}"
+            df_slice.write_parquet(out_file)
+            
+            processed_count += 1
+            
         except Exception as e:
-            logger.warning(f"Erro ao escanear {pf.name}: {e}")
+            logger.warning(f"❌ Erro ao processar/escanear {pf.name}: {e}")
+            
+    import gc
+    gc.collect()
 
-    if not lfs:
-        logger.error("Nenhum dado válido encontrado.")
-        return
-
-    # v10.8: Uso de vertical concat explícito
-    lf_full = pl.concat(lfs, how="vertical")
-    
-    # 2. Simplificação do Plano Lógico: Collect intermediário
-    # v10.8: Concatenar 200+ arquivos Lazy cria um plano profundo demais. 
-    # Como 4.3M de linhas cabem em <5GB de RAM, coletamos aqui para "limpar" o grafo.
-    logger.info("Simplificando plano: Coletando dados normalizados em memória...")
-    try:
-        # Coleta apenas as colunas necessárias para o cálculo
-        df_base = lf_full.collect(streaming=True)
-        # Limpa cache do Polars
-        import gc
-        gc.collect()
-    except Exception as e:
-        logger.error(f"❌ Falha ao unificar arquivos: {e}")
-        raise
-
-    # 3. Calcular indicadores em modo LAZY (pós-unificação)
-    logger.info("Calculando indicators Alpha Sensors sobre o dataset completo...")
-    # Convertemos de volta para Lazy apenas para usar as expressões de indicadores (que agora terão plano raso)
-    lf_enriched = calculate_context_features_polars(df_base.lazy(), resample_min=resample_min)
-
-    # 4. Cálculo Final
-    try:
-        logger.info("Executando cálculo final dos indicadores...")
-        df_result = lf_enriched.collect() 
-    except Exception as e:
-        logger.error(f"❌ Falha no cálculo final: {e}")
-        raise
-    
-    # 4. Salvar cada fragmento de volta
-    logger.info(f"Desmembrando e salvando em {output_dir}...")
-    final_sensors = [
-        'ema_trend', 'ema_cross_dist', 'bb_pct', 'rsi_14', 'stoch_14', 
-        'atr_norm', 'vol_1h', 'vol_zscore_1h', 'delta_vol_24h',
-        'adx_14', 'vwap_zscore', 'mfi_14', 'book_skew_bid', 'book_skew_ask'
-    ]
-    export_cols = final_sensors + (['target'] if 'target' in df_result.columns else [])
-    
-    for filename in [pf.name for pf in parquet_files]:
-        df_slice = df_result.filter(pl.col("_filename") == filename).select(export_cols)
-        out_file = output_path / f"context_{filename}"
-        df_slice.write_parquet(out_file)
-    
-    logger.info(f"✅ Processamento Polars-Lazy finalizado para {len(parquet_files)} arquivos.")
+    logger.info(f"✅ Processamento Chunked-Polars finalizado com sucesso para {processed_count}/{len(parquet_files)} arquivos.")
 
 if __name__ == "__main__":
     setup_logger("auditor_preprocessing", "")
