@@ -359,7 +359,7 @@ training:
 optimization:
   # ── [OPTUNA] Configuração do Estudo HPO ───────────────────────────────────
   # O estudo persiste no SQLite (db_path). Interromper e retomar é seguro.
-  study_name: "QUANTGOD_RECON_V003" # Nome para teste limpo de 2 trials.
+  study_name: "QUANTGOD_RECON_V004" # Nome para teste limpo de 2 trials.
   n_trials: 2                     # [TESTE-EXATO] 2 Trials como solicitado.
   timeout: 172800                 # Teto de 48h.
 
