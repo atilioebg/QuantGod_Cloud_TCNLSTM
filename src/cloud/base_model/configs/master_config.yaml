@@ -217,7 +217,7 @@ pre_processing:
     enabled: true          # Liga K-Fold Blocked no Especialista (run_kfold_specialist.py).
     n_splits: 5            # Número de folds. Cada fold cobre ~20% dos dados de val da Foundation.
     purge_minutes: 0       # 0 → usa horizon_minutes automaticamente como purge. Garante gap entre train e test.
-    specialist_epochs: 2  # Épocas por fold. Reduzido para modo E2E; aumentar para produção (120-200).
+    specialist_epochs: 60 # Épocas por fold para treinamento intensivo.
     use_best_foundation_arch: true  # true → reutiliza best_params.json (sem re-otimizar Optuna por fold). Economiza GPU.
     oof_output_dir: "SPECIALIST"    # Pasta onde full_oof.parquet é salvo. Lida por auditor_labelling.py.
 
@@ -231,8 +231,8 @@ pre_processing:
     
     # Epoch-Chunking (Varredura Global Rápida no Optuna)
     use_epoch_chunking: true
-    samples_per_epoch: 10000      # [TESTE-FLUXO] Mínimo para validar o pipeline.
-    samples_per_val_epoch: 5000   # Validação ultra-rápida (5k amostras) para o teste final.
+    samples_per_epoch: 500000     # [PRODUÇÃO] Satura até 6GB VRAM por epoch na RTX A4500.
+    samples_per_val_epoch: 100000 # Escala massiva para validação profunda no fluxo Optuna.
     
     # Non-Event Subsampling (Equilíbrio de Classes)
     use_class_subsampling: true

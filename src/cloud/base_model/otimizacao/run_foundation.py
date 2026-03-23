@@ -268,12 +268,10 @@ def objective(trial, config, feature_cols, auto_alphas=None):
                 f1_per_cls = tmp
             f1_dir = np.mean([f1_per_cls[0], f1_per_cls[2]])
             # Penalidade por classe zerada (Zero Penalty)
-            # Sniper Guard: Se Sell (0) ou Buy (2) for 0, o modelo é severamente punido.
-            has_zero_signal = (f1_per_cls[0] == 0 or f1_per_cls[2] == 0)
             has_zero_class  = np.any(f1_per_cls == 0)
             
-            # Ponderação 0/1: Se não houver sinal em um dos lados (S/B), a punição é total (0.0).
-            penalty = 0.0 if has_zero_signal else (0.5 if has_zero_class else 1.0)
+            # Ponderação 0/1: Se houver QUALQUER classe ignorada, a punição é total (0.0).
+            penalty = 0.0 if has_zero_class else 1.0
 
             # Aplica penalidade em ambas as métricas
             f1_macro = f1_macro * penalty
@@ -338,7 +336,7 @@ def objective(trial, config, feature_cols, auto_alphas=None):
 
             # MACRO global best: Verify against study best to prevent orphans
             # MACRO global best: Verify against study best to prevent orphans (Strict > to match Optuna tied-value logic)
-            if f1_macro > GLOBAL_BEST_MACRO:
+            if f1_macro > GLOBAL_BEST_MACRO and f1_macro > 0.0:
                 prev_macro = GLOBAL_BEST_MACRO
                 GLOBAL_BEST_MACRO = f1_macro
                 from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
@@ -351,7 +349,7 @@ def objective(trial, config, feature_cols, auto_alphas=None):
                              f"(prev: {prev_macro:.8f}) -> saved {model_path.name}")
 
             # DIR global best
-            if f1_dir > GLOBAL_BEST_DIR:
+            if f1_dir > GLOBAL_BEST_DIR and f1_dir > 0.0:
                 prev_dir = GLOBAL_BEST_DIR
                 GLOBAL_BEST_DIR = f1_dir
                 from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_drive
