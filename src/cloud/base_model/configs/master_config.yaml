@@ -349,8 +349,8 @@ training:
     base_use_min_f1_optimization: true  # [RANKING] Optuna maximiza o PIOR F1 entre as 3 classes. Impede negligênciar minorias.
   specialization_weights:
     # ── [WORKFLOW] Controle de Fases (lidas pelo run_manager.py) ───────────
-    run_specialized_after: true   # true → roda Especialista (K-Fold OOF) após Foundation.
-    run_auditor_after: true       # true → roda Auditor XGBoost após Especialista gerar OOF.
+    run_specialized_after: false   # true → roda Especialista (K-Fold OOF) após Foundation.
+    run_auditor_after: false       # true → roda Auditor XGBoost após Especialista gerar OOF.
     use_best_f1_dir: true         # true → Specialist usa Foundation vencedor em F1 Direcional; false → usa F1 Macro.
 
     # ── [SNIPER WEIGHTS] Pesos do Especialista (mesma matriz da Foundation) ────
