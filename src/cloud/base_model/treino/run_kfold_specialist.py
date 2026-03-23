@@ -616,7 +616,16 @@ def run_kfold_specialist():
         cpu_count = len(os.sched_getaffinity(0))
     except (AttributeError, ImportError, NotImplementedError):
         cpu_count = os.cpu_count() or 1
-    pytest_workers = max(1, cpu_count - 1)
+        
+    # Limit pytest xdist workers to avoid OS thread bombing. Using 95 workers on a 96-core VM 
+    # creates 95 processes * 96 threads per process (for Polars/PyTorch) = 9,120 threads. Max 8 is safe.
+    pytest_workers = min(max(1, cpu_count // 4), 8)
+
+    qa_env = os.environ.copy()
+    # Explicitly throttle internal multi-threading within each of the parallel Pytest processes
+    qa_env["POLARS_MAX_THREADS"] = "2"
+    qa_env["OMP_NUM_THREADS"] = "1"
+    qa_env["MKL_NUM_THREADS"] = "1"
 
     qa_log_path = oof_dir / "kfold_security_QA.log"
     try:
@@ -625,7 +634,7 @@ def run_kfold_specialist():
                 ["pytest", "tests/kfold/test_kfold_security.py", "-v", "-n", str(pytest_workers)],
                 stdout=qa_file,
                 stderr=subprocess.STDOUT,
-                env=os.environ.copy(),
+                env=qa_env,
                 check=False
             )
         logger.info("[OK] Specialist QA Report saved to " + str(qa_log_path))
