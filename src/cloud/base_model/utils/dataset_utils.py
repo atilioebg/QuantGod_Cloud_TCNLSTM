@@ -98,7 +98,7 @@ class QuantGodLazyDataset(Dataset):
         
         # Threshold de segurança: 100k samples (~600MB RAM)
         n_final = len(self.file_idx_map)
-        if n_final > 0 and n_final <= 100000:
+        if n_final > 0 and n_final <= 1500000:
             logger.info(f"🚀 Pre-loading {n_final:,} samples into RAM (Lightning Mode)...")
             X_data = np.zeros((n_final, self.seq_len, len(self.feature_cols)), dtype=np.float32)
             y_data = np.zeros(n_final, dtype=np.int64)
