@@ -233,6 +233,12 @@ pre_processing:
     use_epoch_chunking: true
     samples_per_epoch: 500000     # [PRODUÇÃO] Satura até 6GB VRAM por epoch na RTX A4500.
     samples_per_val_epoch: 100000 # Escala massiva para validação profunda no fluxo Optuna.
+
+    # ── [LIGHTNING MODE] Pré-Carregamento em RAM (Solução de Gargalo de I/O) ────
+    # Diferença: O modo Lazy lê do NVMe toda vez que a GPU pede um tensor. Lento e trava a VRAM em 0%.
+    # O Lightning Mode embute tudo na RAM do servidor de uma vez, permitindo batches ultra-velocidade.
+    # Calcule sua RAM: 1.500.000 amostras com 96 seq_len pesam cerca de ~16GB de RAM na CPU.
+    lightning_mode_max_samples: 1500000
     
     # Non-Event Subsampling (Equilíbrio de Classes)
     use_class_subsampling: true
