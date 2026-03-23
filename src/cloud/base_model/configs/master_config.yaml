@@ -237,7 +237,7 @@ pre_processing:
     # Non-Event Subsampling (Equilíbrio de Classes)
     use_class_subsampling: true
     subsample_class_target: 1    # Classe Neutra (Protocolo Prado).
-    subsample_keep_ratio: 0.2    # Mantém apenas 20% das barras neutras.
+    subsample_keep_ratio: 0.5    # 50% * 50% = ~25% (Equilíbrio perfeito 1/3 para Buy/Sell/Neu)
 
 model:
   # ── [TCN-LSTM] Configuração do Modelo Base ──────────────────────────
