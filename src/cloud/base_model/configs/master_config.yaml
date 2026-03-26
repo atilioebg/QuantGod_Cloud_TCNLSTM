@@ -217,7 +217,7 @@ pre_processing:
     enabled: true          # Liga K-Fold Blocked no Especialista (run_kfold_specialist.py).
     n_splits: 5            # Número de folds. Cada fold cobre ~20% dos dados de val da Foundation.
     purge_minutes: 0       # 0 → usa horizon_minutes automaticamente como purge. Garante gap entre train e test.
-    specialist_epochs: 60 # Épocas por fold para treinamento intensivo.
+    specialist_epochs: 30 # Épocas por fold para refinamento balanceado (evita overfit do fold).
     use_best_foundation_arch: true  # true → reutiliza best_params.json (sem re-otimizar Optuna por fold). Economiza GPU.
     oof_output_dir: "SPECIALIST"    # Pasta onde full_oof.parquet é salvo. Lida por auditor_labelling.py.
 
@@ -355,8 +355,8 @@ training:
     base_use_min_f1_optimization: true  # [RANKING] Optuna maximiza o PIOR F1 entre as 3 classes. Impede negligênciar minorias.
   specialization_weights:
     # ── [WORKFLOW] Controle de Fases (lidas pelo run_manager.py) ───────────
-    run_specialized_after: false   # true → roda Especialista (K-Fold OOF) após Foundation.
-    run_auditor_after: false       # true → roda Auditor XGBoost após Especialista gerar OOF.
+    run_specialized_after: true   # true → roda Especialista (K-Fold OOF) após Foundation.
+    run_auditor_after: true       # true → roda Auditor XGBoost após Especialista gerar OOF.
     use_best_f1_dir: true         # true → Specialist usa Foundation vencedor em F1 Direcional; false → usa F1 Macro.
 
     # ── [SNIPER WEIGHTS] Pesos do Especialista (mesma matriz da Foundation) ────
@@ -372,7 +372,7 @@ optimization:
   # ── [SAMPLER] Algoritmo de Busca ───────────────────────────────────────────
   sampler:
     sampler_type: "tpe"
-    n_startup_trials: 1          # Ativa TPE imediatamente após o trial 1.
+    n_startup_trials: 100        # Ativa TPE imediatamente após o trial 1.
     multivariate: true
 
   # ── [PRUNER] Corte Antecipado de Trials Ruins ─────────────────────────────
@@ -396,11 +396,11 @@ optimization:
   # ── [AUDITOR HPO] Busca Hiperparâmetros do Juiz XGBoost ──────────────────
   auditor:
     enabled: true    # true → HPO do Auditor via Optuna antes do treino final (70 trials, ~15min).
-    n_trials: 1     # [TESTE-FLUXO] Apenas 1 trial para o Auditor.
+    n_trials: 100     # [PRODUÇÃO] 100 trials para otimizar o Juiz Auditor.
     search_space:
-      max_depth: [2, 3]      # Profundidade das árvores. Sweet spot: 4-6.
+      max_depth: [3, 6]      # Profundidade das árvores (Sweet spot AFML: 4-6).
       learning_rate: [0.01, 0.1]          # Shrinkage. Float range [min, max].
-      n_estimators: [100, 500]      # Rounds de boosting. Lista discreta.
+      n_estimators: [100, 1000]      # Rounds de boosting para busca exaustiva.
       subsample: [0.6, 1.0]              # Fração de amostras por árvore (anti-overfit).
       colsample_bytree: [0.6, 1.0]       # Fração de features por árvore.
       reg_alpha: [0.0, 1.0]              # L1 Regularização (Lasso). Esparsa features inúteis.
