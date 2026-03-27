@@ -199,7 +199,7 @@ def sync_drive_data(config):
         }
     ]
 
-    logger.info(f"🚀 Starting Rclone Sync for window 14-26 March...")
+    logger.info(f"🚀 Starting Rclone Sync for window 13-26 March...")
     for job in sync_jobs:
         cmd = [
             rclone_bin, "copy", job["remote"], str(job["local"]),
