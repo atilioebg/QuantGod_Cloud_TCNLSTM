@@ -1,0 +1,19 @@
+﻿2026-03-23 02:30:47,194 - INFO - 🔁 K-Fold Mode detected (kfold.enabled=true) → loading full_oof.parquet
+2026-03-23 02:30:47,200 - INFO - 🔗 K-Fold Mode: loading OOF predictions from /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/SPECIALIST/full_oof.parquet
+2026-03-23 02:30:47,228 - INFO -   ↳ OOF rows: 5,000 (covering 5 folds)
+2026-03-23 02:30:47,266 - INFO - 🔑 [Audit Fix] DEVICE para inferência Foundation: cuda
+2026-03-23 02:30:47,274 - INFO - Loaded Foundation Arch (best_dir_params.json): seq_len=96, tcn=64, lstm=32×2
+2026-03-23 02:30:47,274 - INFO - 🔍 [Audit Diagnostic] foundation_val_dir: /workspace/QuantGod_Cloud_TCNLSTM/data/L2/labelled/val
+2026-03-23 02:30:47,278 - INFO - 🔍 [Audit Diagnostic] Directory exists? True
+2026-03-23 02:30:47,282 - INFO - 🔍 [Audit Diagnostic] Found 274 parquet files in data/L2/labelled/val
+2026-03-23 02:30:47,282 - INFO - 🔍 [Audit] Loading only necessary validation segments for Foundation inference...
+2026-03-23 02:30:51,064 - INFO - ✅ Selective Foundation Val & Context LazyFrames loaded: 407,630 dense rows (Optimization: RAM SAVE)
+2026-03-23 02:30:51,581 - INFO - 🔑 [Audit Fix] Scaler carregado de: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/scaler_foundation.pkl
+2026-03-23 02:30:59,730 - INFO - SequenceDataset (island-aware): 407535/407535 sequências válidas (Lookback protection ativo).
+2026-03-23 02:31:00,319 - INFO - [OK] [Audit Fix] Usando Base Model: best_tcn_lstm_dir.pt
+2026-03-23 02:31:00,355 - INFO - [MODEL] Generating Foundation Model probabilities over Foundation Val...
+2026-03-23 02:31:06,540 - INFO - 🔗 RAM-Safe joining OOF predictions × Foundation probs × Context features (Lazy)...
+2026-03-23 02:31:06,733 - INFO - ✅ Fused rows after LAZY join: 4,905
+2026-03-23 02:31:06,853 - INFO - 📊 Fused Dataset: 4,905 rows | Meta-Target Accuracy: 26.75%
+2026-03-23 02:31:06,918 - INFO - 📦 Treino Fused salvo: data/auditor/dataset_fused/train/fused_auditor.parquet (3,924 rows)
+2026-03-23 02:31:06,918 - INFO - 📦 Val   Fused salvo: data/auditor/dataset_fused/val/fused_auditor.parquet (981 rows)

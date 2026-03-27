@@ -10,13 +10,23 @@ pipeline_paths:
   pre_processed_dir: "data/backtest/L2/pre_processed"
   labelled_dir: "data/backtest/L2/labelled"
   
-  # Model Assets (Champion 2026_03_21) - Usando caminhos do repo ou volume
-  model_path: "MODELS_BACKTEST/MODELOS/best_tcn_lstm_dir.pt"
-  auditor_path: "MODELS_BACKTEST/MODELOS/auditor_xgboost.json"
-  config_path: "MODELS_BACKTEST/CONFIG/best_params.json"
+  # Model Assets (Champion 2026_03_21) - Production Tree Parity
+  # Estes caminhos são relativos ao models_local_dir definido abaixo
+  best_tcn_lstm_model: "BASE_MODEL/best_tcn_lstm_dir.pt"
+  auditor_model:       "AUDITOR/auditor_xgboost.json"
+  scaler_foundation:   "BASE_MODEL/scaler_foundation.pkl"
+  scaler_auditor:      "AUDITOR/scaler_auditor.pkl"
+  auditor_oof_dir:     "SPECIALIST" # Localizado dentro de MODELS_BACKTEST/MODELOS/
   
   # Reports
-  output_dir: "/workspace/data/backtest/reports"
+  output_dir: "data/backtest/reports"
+
+# ── [EXECUÇÃO] Configuração do Motor de Inferência ──────────────────
+execution:
+  # Obriga o InferenceService a usar nossa pasta baixada
+  models_local_dir: "MODELS_BACKTEST/MODELOS"
+  dynamic_security_threshold: true
+  manual_security_threshold: 0.80
 
 # Simulation Config
 simulation:
@@ -27,6 +37,6 @@ simulation:
   
 # Processing
 processing:
-  n_workers: 4  # No Cloud podemos usar múltiplos workers com segurança
+  n_workers: 2  # Mirror da Scale Guard
   levels: 200
   sampling_ms: 100
