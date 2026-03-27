@@ -472,13 +472,16 @@ class EventSampler:
 
         vpin_col = self.vpin_lbl
         df = df.with_columns([
-            ((pl.col("max_spread") - pl.col("_rm_s")) / (pl.col("_rs_s") + 1e-7)).alias("spread_zscore_60"),
+            ((pl.col("max_spread").clip(upper_bound=100.0) - pl.col("_rm_s")) / (pl.col("_rs_s") + 1e-7)).alias("spread_zscore_60"),
             (pl.col("_ofi_roll") / (pl.col("_stot") + 1e-4)).clip(upper_bound=100.0).alias(vpin_col),
-            (pl.col(f"micro_price_delta_{ds_l}") / (pl.col(f"ofi_delta_{ds_l}").abs() + 1e-4)).alias("kyle_lambda"),
+            (pl.col(f"micro_price_delta_{ds_l}") / (pl.col(f"ofi_delta_{ds_l}").abs() + 1e-4)).clip(upper_bound=5.0).alias("kyle_lambda"),
             (pl.col("_sbd") / (pl.col("_sb_n") + 1e-4)).alias("bid_deep_ratio"),
             (pl.col("_sad") / (pl.col("_sa_n") + 1e-4)).alias("ask_deep_ratio"),
             (pl.col("_sb0") / (pl.col("_sb1") + 1e-4)).clip(upper_bound=250.0).alias("bid_convexity"),
             (pl.col("_sa0") / (pl.col("_sa1") + 1e-4)).clip(upper_bound=250.0).alias("ask_convexity"),
+            pl.col("body").clip(lower_bound=-0.05, upper_bound=0.05),
+            pl.col("upper_wick").clip(upper_bound=0.01),
+            pl.col("lower_wick").clip(upper_bound=0.01),
         ])
 
         helper = ["_rm_s", "_rs_s", "_ofi_roll", "_stot", "_sbd", "_sad", "_sb_n", "_sa_n", "_sb0", "_sb1", "_sa0", "_sa1"]

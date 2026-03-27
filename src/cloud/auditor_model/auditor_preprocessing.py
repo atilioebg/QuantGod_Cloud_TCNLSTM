@@ -164,9 +164,9 @@ def calculate_context_features_polars(lf: pl.LazyFrame, resample_min: int = 1) -
     ])
 
     # Book Skew Proxy (if ETL features present)
-    if "book_skew_bid" not in lf.columns:
+    if "book_skew_bid" not in available:
         lf = lf.with_columns(pl.lit(0.0).alias("book_skew_bid"))
-    if "book_skew_ask" not in lf.columns:
+    if "book_skew_ask" not in available:
         lf = lf.with_columns(pl.lit(0.0).alias("book_skew_ask"))
 
     final_sensors = [
@@ -179,9 +179,9 @@ def calculate_context_features_polars(lf: pl.LazyFrame, resample_min: int = 1) -
     # We drop all temporary columns created for internal math to prevent NaN leakage 
     # and satisfy the Production DataValidator.
     intermediate_cols = [
-        "ema_8", "ema_21", "bb_mean", "bb_std", "delta", "gain", "loss", "tr",
-        "up_m", "dn_m", "p_dm", "n_dm", "dx", "tp", "tpv", "tp_std", "vwap_rolling",
-        "pos_f", "neg_f", "v"
+        "ema_8", "ema_21", "bb_mean", "bb_std", "bb_upper", "bb_lower", "delta", "gain", "loss", "tr", "atr_14", "log_ret",
+        "up_m", "dn_m", "p_dm", "n_dm", "p_di", "n_di", "dx", "tp", "tpv", "tp_std", "vwap_rolling",
+        "pos_f", "neg_f", "v", "v_mean", "v_std", "v_sum_day"
     ]
     lf = lf.drop([c for c in intermediate_cols if c in lf.collect_schema().names()])
 
