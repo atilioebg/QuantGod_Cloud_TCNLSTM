@@ -136,13 +136,43 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
         del lf_trades, lf_l2, lf_merged
         gc.collect()
 
-        # ── 4. Event Sampling & Validation ───────────────────────────────
-        df_bars = event_sampler.compute_event_bars(df_merged)
-        del df_merged
+        # ── 4. Modular Event Sampling ────────────────────────────────────
+        # To avoid OOM during grouping/CUSUM, we pass only core columns to the sampler
+        core_cols = ["ts", "price", "amount", "side"]
+        if "usd_volume" in df_merged.columns: core_cols.append("usd_volume")
+        if "island_id" in df_merged.columns: core_cols.append("island_id")
+        
+        # We need to keep raw L2 around for late-join, but we want the sampler to be lean
+        df_core = df_merged.select(core_cols)
+        df_bars = event_sampler.compute_event_bars(df_core)
+        del df_core
         
         if len(df_bars) == 0:
             return {"file": zip_path.name, "status": "skipped", "reason": "No bars generated"}
             
+        # ── 5. Late Join & Heavy Feature Engineering ─────────────────────
+        # Now that we have the bar boundaries, we join back the full L2 state (800 cols)
+        # using the last() message within each bar.
+        
+        # Re-attach bar_id to original ticks (df_merged) to aggregate raw book data
+        # event_sampler.compute_event_bars returns aggregated bars, we need the mapping
+        # but to keep it simple and safe, we'll just join df_bars with df_merged on 'ts'
+        # or use a more memory-efficient approach: 
+        # apply_feature_engineering_bars already expects the aggregated bars with core metrics
+        # but IT NEEDS the raw book columns.
+        
+        # FIX: We join the raw columns (bid_0_p etc) from df_merged into df_bars
+        # using 'ts' (which is the last timestamp of the bar)
+        raw_l2_cols = [c for c in df_merged.columns if c not in core_cols]
+        df_l2_state = df_merged.select(["ts"] + raw_l2_cols)
+        del df_merged # Huge memory saving here
+        gc.collect()
+
+        # Join the raw state to the sampled bars
+        df_bars = df_bars.join(df_l2_state, on="ts", how="left")
+        del df_l2_state
+        gc.collect()
+
         df_final = event_sampler.apply_feature_engineering_bars(df_bars)
         del df_bars
         
