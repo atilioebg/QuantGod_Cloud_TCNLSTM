@@ -43,8 +43,12 @@ def load_backtest_config():
     with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
         bt_config = yaml.safe_load(f)
         
-    # Merge/Override paths from backtest config
-    config['pipeline_paths'].update(bt_config['pipeline_paths'])
+    # Merge/Override all top-level keys from backtest config (pipeline_paths, processing, simulation)
+    for k, v in bt_config.items():
+        if k in config and isinstance(config[k], dict) and isinstance(v, dict):
+            config[k].update(v)
+        else:
+            config[k] = v
     return config
 
 def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
@@ -65,7 +69,7 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
     l2_file_path = unzipped_l2_dir / f"{date_str}_BTCUSDT_ob200.data"
     
     # 1. Process Orderbook (L2) messages - Try unzipped first, fallback to ZIP
-    rows = []
+    rows = {}
     try:
         transformer = L2Transformer(
             levels=config['pre_processing']['etl']['levels'],
@@ -73,15 +77,22 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
             etl_cfg=config['pre_processing']['etl']
         )
         
+        def _process_line(line, rows_dict):
+            try:
+                msg = json.loads(line)
+                res = transformer.process_message(msg)
+                if res:
+                    if not rows_dict:
+                        for k in res.keys(): rows_dict[k] = []
+                    for k, v in res.items():
+                        rows_dict[k].append(v)
+            except: pass
+
         if l2_file_path.exists():
             # FAST PATH: Unzipped file exists
             with open(l2_file_path, 'r', encoding='utf-8') as f:
                 for line in f:
-                    try:
-                        msg = json.loads(line)
-                        res = transformer.process_message(msg)
-                        if res: rows.append(res)
-                    except: continue
+                    _process_line(line, rows)
         else:
             # FALLBACK PATH: Process directly from ZIP
             if not zip_path.exists():
@@ -92,20 +103,17 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
                     if name.endswith('.data'):
                         with z.open(name) as f:
                             for line in f:
-                                try:
-                                    msg = json.loads(line)
-                                    res = transformer.process_message(msg)
-                                    if res: rows.append(res)
-                                except: continue
+                                _process_line(line, rows)
         
         if not rows:
             return {"file": zip_path.name, "status": "no_data"}
             
-        df_l2 = pl.DataFrame(rows)
+        df_l2 = pl.DataFrame(rows).sort("ts")
         # Clear rows memory
         del rows
         gc.collect()
 
+        # 2. Load Trades
         df_trades = pl.read_csv(trade_path)
         
         df_trades = df_trades.with_columns([
@@ -113,10 +121,16 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
             pl.col("price").cast(pl.Float64),
             pl.col("size").cast(pl.Float64).alias("amount"),
             pl.when(pl.col("side") == "Buy").then(1).otherwise(-1).alias("side")
-        ])
+        ]).sort("ts")
         
-        # Interleave L2 and Trades correctly for Sampler
-        df_combined = df_l2.join(df_trades.select(['ts', 'amount', 'side']), on='ts', how='full').sort('ts').fill_null(strategy='forward')
+        # 3. Join Asof (Backward) - Much more memory efficient than Full Join
+        df_combined = df_trades.join_asof(
+            df_l2,
+            on="ts",
+            strategy="backward"
+        ).with_columns([
+            pl.all().forward_fill().backward_fill()
+        ])
         
         # Free memory L2/Trades
         del df_l2, df_trades
@@ -202,7 +216,9 @@ def run_backtest_pipeline_robust(config):
     labelled_dir.mkdir(parents=True, exist_ok=True)
     
     zip_files = sorted(list(raw_zip_dir.glob("*.zip")))
-    max_workers = 6
+    
+    # Dynamic logic: Use config value if exists, else fallback
+    max_workers = config.get('processing', {}).get('n_workers', 4)
     
     # ── 1. Parallel ETL ──
     logger.info(f"🚀 Starting PARALLEL Backtest ETL for {len(zip_files)} days with {max_workers} workers...")
