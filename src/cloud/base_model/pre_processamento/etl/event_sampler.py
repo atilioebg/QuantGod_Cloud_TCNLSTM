@@ -109,6 +109,7 @@ class EventSampler:
         self.deep_book_start      = int(etl_cfg.get("deep_book_start", 50))
         self.cn                   = int(etl_cfg.get("convexity_near_end", 10))
         self.cf                   = int(etl_cfg.get("convexity_far_end", 20))
+        self.clipping_cfg         = etl_cfg.get("clipping", {"enabled": False})
 
         # ── [AUDITORIA] Relatório de Execução ──
         self.audit_report = {
@@ -344,7 +345,7 @@ class EventSampler:
         if "ofi"                 in df.columns: l2_aggs.append(pl.col("ofi").sum().alias("ofi"))
         if "micro_price_momentum" in df.columns: l2_aggs.append(pl.col("micro_price_momentum").sum().alias("micro_price_momentum"))
         if "bid_slope"           in df.columns: l2_aggs.append(pl.col("bid_slope").mean().alias("mean_bid_slope"))
-        if "mean_ask_slope"      in df.columns: l2_aggs.append(pl.col("ask_slope").mean().alias("mean_ask_slope"))
+        if "ask_slope"           in df.columns: l2_aggs.append(pl.col("ask_slope").mean().alias("mean_ask_slope"))
         if "bid_rdi"             in df.columns: l2_aggs.append(pl.col("bid_rdi").mean().alias("bid_rdi"))
         if "ask_rdi"             in df.columns: l2_aggs.append(pl.col("ask_rdi").mean().alias("ask_rdi"))
         if "pressure_ratio"      in df.columns: l2_aggs.append(pl.col("pressure_ratio").mean().alias("pressure_ratio"))
@@ -487,28 +488,20 @@ class EventSampler:
         helper = ["_rm_s", "_rs_s", "_ofi_roll", "_stot", "_sbd", "_sad", "_sb_n", "_sa_n", "_sb0", "_sb1", "_sa0", "_sa1"]
         df = df.drop([c for c in helper if c in df.columns])
 
-        # Cleanup and finalize
-        sniper_cols = [
-            f"ofi_delta_{ds_l}", f"ofi_delta_{dl_l}", f"bid_rdi_delta_{ds_l}", f"bid_rdi_delta_{dl_l}",
-            f"ask_rdi_delta_{ds_l}", f"ask_rdi_delta_{dl_l}", f"micro_price_delta_{ds_l}", f"micro_price_delta_{dl_l}",
-            "book_asymmetry_v5", "spread_zscore_60", vpin_col, "kyle_lambda", "bid_deep_ratio", "ask_deep_ratio",
-            "bid_convexity", "ask_convexity", "body", "upper_wick", "lower_wick", "log_ret_close", "vwap",
-            "book_skew_bid", "book_skew_ask"
-        ]
-        
-        for c in sniper_cols:
-            if c in df.columns:
-                df = df.with_columns(
-                    pl.col(c).fill_nan(0.0).fill_null(0.0)
-                    .map_elements(lambda x: 0.0 if (x == float('inf') or x == float('-inf')) else x, return_dtype=pl.Float64)
-                    .alias(c)
-                )
-                
-        # Fill mean features
-        means = ["mean_spread", "mean_obi", "mean_deep_obi", "mean_bid_slope", "mean_ask_slope", "pressure_ratio"]
-        for c in means:
-            if c in df.columns:
-                df = df.with_columns(pl.col(c).fill_nan(0.0).fill_null(0.0).alias(c))
+        # ── [PRODUCTION CLIPPING] ──
+        if self.clipping_cfg.get("enabled", False):
+            target_cols = self.clipping_cfg.get("target_columns", [])
+            multiplier = self.clipping_cfg.get("p99_multiplier", 15)
+            floor = self.clipping_cfg.get("noise_floor", 1e-7)
+            
+            for col in target_cols:
+                if col in df.columns:
+                    # Calculate P99 for dynamic clipping (Production Parity)
+                    p99 = df[col].abs().quantile(0.99)
+                    if p99 > floor:
+                        limit = p99 * multiplier
+                        df = df.with_columns(pl.col(col).clip(lower_bound=-limit, upper_bound=limit))
+                        logger.debug(f"[clipping] {col} clipped at {limit:.4e} (P99={p99:.4e} x{multiplier})")
 
         # Final catch-all for any remaining NaNs across all columns (Price, Features, Raw)
         df = df.fill_nan(0.0).fill_null(0.0)

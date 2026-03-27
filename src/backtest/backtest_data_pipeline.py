@@ -190,6 +190,7 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
         df_final = calculate_context_features_polars(df_final.lazy(), resample_min=resample_min).collect()
         
         # ── 6. Production Validation (Parity) ───────────────────────────
+        df_final = df_final.fill_nan(0.0).fill_null(0.0)
         feature_list = config['model'].get('feature_names', [])
         health = validator.validate_integrity(
             df_final, name=date_str, feature_list=feature_list,
