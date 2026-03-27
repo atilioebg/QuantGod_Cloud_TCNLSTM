@@ -71,8 +71,12 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
     unzipped_l2_dir = PROJECT_ROOT / "tmp" / "unzipped_l2"
     l2_file_path = unzipped_l2_dir / f"{date_str}_BTCUSDT_ob200.data"
     
-    # ── 1. Process Orderbook (L2) messages ───────────────────────────────────
-    rows = {}
+    # ── 1. Process Orderbook (L2) messages (Chunked) ─────────────────────────
+    chunks = []
+    current_rows = {}
+    row_count = 0
+    CHUNK_SIZE = 50000 
+    
     try:
         transformer = L2Transformer(
             levels=config['pre_processing']['etl']['levels'],
@@ -80,7 +84,14 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
             etl_cfg=config['pre_processing']['etl']
         )
         
-        def _process_line(line, rows_dict):
+        def _flush_chunk(rows_dict, chunk_list):
+            if not rows_dict: return
+            # Convert to LazyFrame and append
+            chunk_list.append(pl.DataFrame(rows_dict).lazy())
+            rows_dict.clear()
+            gc.collect()
+
+        def _process_line(line, rows_dict, chunk_list, count):
             try:
                 msg = json.loads(line)
                 res = transformer.process_message(msg)
@@ -89,23 +100,34 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
                         for k in res.keys(): rows_dict[k] = []
                     for k, v in res.items():
                         rows_dict[k].append(v)
+                    count += 1
+                    
+                    if count >= CHUNK_SIZE:
+                        _flush_chunk(rows_dict, chunk_list)
+                        count = 0
             except: pass
+            return count
 
         if l2_file_path.exists():
             with open(l2_file_path, 'r', encoding='utf-8') as f:
-                for line in f: _process_line(line, rows)
+                for line in f: 
+                    row_count = _process_line(line, current_rows, chunks, row_count)
         else:
             with zipfile.ZipFile(zip_path, 'r') as z:
                 for name in z.namelist():
                     if name.endswith('.data'):
                         with z.open(name) as f:
-                            for line in f: _process_line(line, rows)
+                            for line in f: 
+                                row_count = _process_line(line, current_rows, chunks, row_count)
         
-        if not rows: return {"file": zip_path.name, "status": "no_data"}
+        # Flush the final chunk
+        _flush_chunk(current_rows, chunks)
         
-        # Immediate conversion to LazyFrame to save memory
-        lf_l2 = pl.DataFrame(rows).lazy().sort("ts")
-        del rows
+        if not chunks: return {"file": zip_path.name, "status": "no_data"}
+        
+        # Concat all chunks into a single LazyFrame
+        lf_l2 = pl.concat(chunks).sort("ts")
+        del chunks, current_rows
         gc.collect()
 
         # ── 2. Load Trades (Lazy) ───────────────────────────────────────────────
@@ -117,7 +139,6 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
         ]).sort("ts")
         
         # ── 3. Streaming Join ──────────────────────────────────────────────────
-        # We only join the columns needed for the sampler to reduce width ASAP
         lf_combined = lf_trades.join_asof(
             lf_l2,
             on="ts",
@@ -126,13 +147,9 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
             pl.all().forward_fill().backward_fill()
         ])
         
-        # Clear raw L2 LazyFrame
-        del lf_l2, lf_trades
-        
-        # Execute streaming graph to get Eager DF for the sampler
-        # This is where the peak memory happens
+        # Execute streaming graph
         df_combined = lf_combined.collect(engine="streaming")
-        del lf_combined
+        del lf_l2, lf_trades, lf_combined
         gc.collect()
 
         # ── 4. Feature Engineering ─────────────────────────────────────────────
@@ -145,7 +162,7 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
         gc.collect()
         
         vm = psutil.Process(pid).memory_info().rss / (1024**3)
-        logger.info(f"✅ [SUCCESS] {out_name} | PID {pid} peak ~{vm:.2f}GB")
+        logger.info(f"✅ [SUCCESS] {out_name} | PID {pid} current ~{vm:.2f}GB")
         
         return {"file": zip_path.name, "status": "ok"}
     except Exception as e:
