@@ -31,6 +31,7 @@ def load_backtest_config():
     LOCAL_CONFIG = PROJECT_ROOT / "src" / "backtest" / "backtest_config.yaml"
 
     CONFIG_PATH = CLOUD_CONFIG if CLOUD_CONFIG.exists() and "/workspace" in str(PROJECT_ROOT) else LOCAL_CONFIG
+    logger.info(f"🔄 Loading Backtest Config from: {CONFIG_PATH}")
     master_config_path = PROJECT_ROOT / "src/cloud/base_model/configs/master_config.yaml"
     
     with open(master_config_path, 'r', encoding='utf-8') as f:
@@ -131,11 +132,17 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
         return {"file": zip_path.name, "status": "error", "message": str(e)}
 
 def run_backtest_pipeline_robust(config):
-    raw_zip_dir = Path(config['pipeline_paths']['local_data_root']) / "raw_zip"
     raw_trade_dir = Path(config['pipeline_paths']['local_data_root']) / "raw_trades"
     pre_processed_dir = Path(config['pipeline_paths']['local_data_root']) / "pre_processed"
     labelled_dir = Path(config['pipeline_paths']['local_data_root']) / "labelled"
-    
+    raw_zip_dir = Path(config['pipeline_paths']['raw_zip_dir'])
+    if not raw_zip_dir.is_absolute():
+        raw_zip_dir = PROJECT_ROOT / raw_zip_dir
+        
+    logger.info(f"📁 Looking for ZIP files in: {raw_zip_dir}")
+    if not raw_zip_dir.exists():
+        logger.error(f"❌ Directory NOT FOUND: {raw_zip_dir}")
+        
     pre_processed_dir.mkdir(parents=True, exist_ok=True)
     labelled_dir.mkdir(parents=True, exist_ok=True)
     
