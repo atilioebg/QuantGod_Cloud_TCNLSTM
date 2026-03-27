@@ -58,12 +58,10 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
         return {"file": zip_path.name, "status": "missing_trades"}
         
     unzipped_l2_dir = PROJECT_ROOT / "tmp" / "unzipped_l2"
-    
-    # 1. Process Orderbook (L2) messages from unzipped file
     l2_file_path = unzipped_l2_dir / f"{date_str}_BTCUSDT_ob200.data"
-    if not l2_file_path.exists():
-        return {"file": zip_path.name, "status": "missing_unzipped_l2"}
-
+    
+    # 1. Process Orderbook (L2) messages - Try unzipped first, fallback to ZIP
+    rows = []
     try:
         transformer = L2Transformer(
             levels=config['pre_processing']['etl']['levels'],
@@ -71,14 +69,30 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
             etl_cfg=config['pre_processing']['etl']
         )
         
-        rows = []
-        with open(l2_file_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                try:
-                    msg = json.loads(line)
-                    res = transformer.process_message(msg)
-                    if res: rows.append(res)
-                except: continue
+        if l2_file_path.exists():
+            # FAST PATH: Unzipped file exists
+            with open(l2_file_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    try:
+                        msg = json.loads(line)
+                        res = transformer.process_message(msg)
+                        if res: rows.append(res)
+                    except: continue
+        else:
+            # FALLBACK PATH: Process directly from ZIP
+            if not zip_path.exists():
+                return {"file": zip_path.name, "status": "missing_zip_source"}
+            
+            with zipfile.ZipFile(zip_path, 'r') as z:
+                for name in z.namelist():
+                    if name.endswith('.data'):
+                        with z.open(name) as f:
+                            for line in f:
+                                try:
+                                    msg = json.loads(line)
+                                    res = transformer.process_message(msg)
+                                    if res: rows.append(res)
+                                except: continue
         
         if not rows:
             return {"file": zip_path.name, "status": "no_data"}

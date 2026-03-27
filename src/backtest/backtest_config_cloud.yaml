@@ -3,17 +3,17 @@
 
 # Paths Config
 pipeline_paths:
-  # Onde os dados do Drive foram montados ou baixados no Cloud
-  local_data_root: "/workspace/data/backtest/L2"
-  raw_zip_dir: "/workspace/data/backtest/L2/raw_zip"
-  raw_trades_dir: "/workspace/data/backtest/L2/raw_trades"
-  pre_processed_dir: "/workspace/data/backtest/L2/pre_processed"
-  labelled_dir: "/workspace/data/backtest/L2/labelled"
+  # Caminhos relativos ao PROJECT_ROOT (/workspace/QuantGod_Cloud_TCNLSTM)
+  local_data_root: "data/backtest/L2"
+  raw_zip_dir: "data/backtest/L2/raw_zip"
+  raw_trades_dir: "data/backtest/L2/raw_trades"
+  pre_processed_dir: "data/backtest/L2/pre_processed"
+  labelled_dir: "data/backtest/L2/labelled"
   
-  # Model Assets (Champion 2026_03_21)
-  model_path: "/workspace/MODELS_BACKTEST/MODELOS/best_tcn_lstm_dir.pt"
-  auditor_path: "/workspace/MODELS_BACKTEST/MODELOS/auditor_xgboost.json"
-  config_path: "/workspace/MODELS_BACKTEST/CONFIG/best_params.json"
+  # Model Assets (Champion 2026_03_21) - Usando caminhos do repo ou volume
+  model_path: "MODELS_BACKTEST/MODELOS/best_tcn_lstm_dir.pt"
+  auditor_path: "MODELS_BACKTEST/MODELOS/auditor_xgboost.json"
+  config_path: "MODELS_BACKTEST/CONFIG/best_params.json"
   
   # Reports
   output_dir: "/workspace/data/backtest/reports"
