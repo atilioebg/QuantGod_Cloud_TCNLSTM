@@ -10,6 +10,7 @@ import subprocess
 import gc
 import zipfile
 import json
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # Add project root to sys.path
 PROJECT_ROOT = Path(__file__).parents[2].absolute()
@@ -201,28 +202,26 @@ def run_backtest_pipeline_robust(config):
     labelled_dir.mkdir(parents=True, exist_ok=True)
     
     zip_files = sorted(list(raw_zip_dir.glob("*.zip")))
+    max_workers = 6
     
-    # ── 1. Sequential ETL (Robust on Windows) ──
-    logger.info(f"🚀 Starting ROBUST Sequential Backtest ETL for {len(zip_files)} days...")
-    for zp in tqdm(zip_files, desc="ETL Work"):
-        res = process_single_day_etl(zp, raw_trade_dir, pre_processed_dir, config)
-        if res['status'] == 'error':
-            logger.error(f"❌ {res['file']}: {res.get('message', '')}")
-        gc.collect()
+    # ── 1. Parallel ETL ──
+    logger.info(f"🚀 Starting PARALLEL Backtest ETL for {len(zip_files)} days with {max_workers} workers...")
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        future_to_zip = {executor.submit(process_single_day_etl, zp, raw_trade_dir, pre_processed_dir, config): zp for zp in zip_files}
+        for future in tqdm(as_completed(future_to_zip), total=len(zip_files), desc="ETL Work"):
+            res = future.result()
+            if res['status'] == 'error':
+                logger.error(f"❌ {res['file']}: {res.get('message', '')}")
 
-    # ── 2. Sequential Labelling (Robust on Windows) ──
+    # ── 2. Parallel Labelling ──
     pre_files = sorted(list(pre_processed_dir.glob("*.parquet")))
-    logger.info(f"🚀 Starting ROBUST Sequential Backtest Labelling for {len(pre_files)} files...")
-    for pf in tqdm(pre_files, desc="Labelling Work"):
-        # Skip if labelled already exists
-        out_lab = labelled_dir / pf.name
-        if out_lab.exists():
-            continue
-            
-        res = process_single_file_labelling(pf, config, labelled_dir)
-        if "error" in res:
-            logger.error(f"❌ Error labelling {res.get('file')}: {res['error']}")
-        gc.collect()
+    logger.info(f"🚀 Starting PARALLEL Backtest Labelling for {len(pre_files)} files with {max_workers} workers...")
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        future_to_pf = {executor.submit(process_single_file_labelling, pf, config, labelled_dir): pf for pf in pre_files}
+        for future in tqdm(as_completed(future_to_pf), total=len(pre_files), desc="Labelling Work"):
+            res = future.result()
+            if "error" in res:
+                logger.error(f"❌ Error labelling {res.get('file')}: {res['error']}")
 
 if __name__ == "__main__":
     config = load_backtest_config()
