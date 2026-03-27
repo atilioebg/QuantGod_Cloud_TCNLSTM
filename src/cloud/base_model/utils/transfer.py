@@ -244,12 +244,22 @@ def transfer_results(log_filename: str, run_type: str):
                     if f_path.exists():
                         files_to_transfer.append(f_path)
         
-        # ── K-Fold OOF Models \u0026 Scalers (Paper Trading Ready) ────────────────
-        oof_dir = project_root / config.get('pre_processing', {}).get('kfold', {}).get('oof_output_dir', 'data/auditor/oof_predictions')
+        # ── K-Fold OOF Models & Scalers (Paper Trading Ready) ────────────────
+        # Resolve o diretório onde o Specialist de fato salva (dentro da pasta de sessão)
+        oof_dir_name = config.get('pre_processing', {}).get('kfold', {}).get('oof_output_dir', 'SPECIALIST')
+        oof_dir = base_dir_local / oof_dir_name
+        
         if oof_dir.exists():
             files_to_transfer.extend(list(oof_dir.glob("*.pt")))
             files_to_transfer.extend(list(oof_dir.glob("*.pkl")))
             files_to_transfer.extend(list(oof_dir.glob("*.parquet"))) # OOF signals
+        else:
+            # Fallback para o caso de estar na raiz (legado ou teste local simples)
+            legacy_oof = project_root / oof_dir_name
+            if legacy_oof.exists():
+                files_to_transfer.extend(list(legacy_oof.glob("*.pt")))
+                files_to_transfer.extend(list(legacy_oof.glob("*.pkl")))
+                files_to_transfer.extend(list(legacy_oof.glob("*.parquet")))
         
     # Relatorio de Feature Importance (comum a ambos, mas gerado no foundation agora)
     report_root = config['pipeline_paths'].get('local_reports_root', 'docs/reports')

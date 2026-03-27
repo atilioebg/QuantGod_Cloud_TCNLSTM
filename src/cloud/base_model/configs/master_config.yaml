@@ -378,7 +378,7 @@ optimization:
   # ── [PRUNER] Corte Antecipado de Trials Ruins ─────────────────────────────
   pruner:
     pruner_type: "median"        # Median é mais estável para o teste rápido.
-    n_startup_trials: 1
+    n_startup_trials: 60
     n_warmup_steps: 0
 
   # ── [FEATURE SELECTION] RFE via Optuna ────────────────────────────────────
