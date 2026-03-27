@@ -129,15 +129,10 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
         del df_bars
         
         # ── 5. Auditor Context Features (Alpha Sensors) ──────────────────
-        # Fix: Ensure required context columns exist before calculation
+        # Fix: The calculation function now handles missing columns internally
         resample_freq = etl_cfg.get('resample_freq', '5min')
         resample_min = int(resample_freq.replace('min', '').replace('m', '').replace('T', ''))
         
-        context_cols = ['micro_price', 'bid_0_p', 'ask_0_p', 'volatility']
-        for c in context_cols:
-            if c not in df_final.columns:
-                df_final = df_final.with_columns(pl.lit(None).cast(pl.Float64).alias(c))
-
         df_final = calculate_context_features_polars(df_final.lazy(), resample_min=resample_min).collect()
         
         # ── 6. Production Validation ── [run_pipeline.py line 292] ──────

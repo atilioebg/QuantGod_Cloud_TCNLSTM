@@ -28,6 +28,14 @@ def calculate_context_features_polars(lf: pl.LazyFrame, resample_min: int = 1) -
     """
     bars_per_hour = max(1, 60  // resample_min)
     bars_per_day  = max(1, 1440 // resample_min)
+    
+    # 0. Schema Safety (v10.17)
+    # Garante que colunas usadas em coalesce/when existam no schema Lazy para evitar erros de resolução
+    available = lf.collect_schema().names()
+    safety_cols = ["micro_price", "bid_0_p", "ask_0_p", "volatility", "log_volume", "book_skew_bid", "book_skew_ask"]
+    missing = [c for c in safety_cols if c not in available]
+    if missing:
+        lf = lf.with_columns([pl.lit(None).cast(pl.Float64).alias(c) for c in missing])
 
     # 1. Base Price Logic
     # Se 'close' não existe, tenta micro_price ou bid/ask
@@ -96,7 +104,8 @@ def calculate_context_features_polars(lf: pl.LazyFrame, resample_min: int = 1) -
     ])
 
     # Volume Indicators
-    if "log_volume" in lf.columns:
+    current_cols = lf.collect_schema().names()
+    if "log_volume" in current_cols:
         lf = lf.with_columns(pl.col("log_volume").exp().alias("v"))
     else:
         lf = lf.with_columns(pl.lit(1.0).alias("v"))
