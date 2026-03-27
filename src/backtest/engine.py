@@ -164,7 +164,13 @@ def run_full_backtest():
         config = yaml.safe_load(f)
     with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
         bt_config = yaml.safe_load(f)
-    config['pipeline_paths'].update(bt_config['pipeline_paths'])
+    
+    # Deep update master config with backtest specific overrides
+    for key, value in bt_config.items():
+        if isinstance(value, dict) and key in config:
+            config[key].update(value)
+        else:
+            config[key] = value
     
     # ── [IMPORTANT] Override Model Paths for Backtest ──
     # The InferenceService uses relative paths from its models_local_dir.

@@ -169,16 +169,26 @@ def calculate_context_features_polars(lf: pl.LazyFrame, resample_min: int = 1) -
     if "book_skew_ask" not in lf.columns:
         lf = lf.with_columns(pl.lit(0.0).alias("book_skew_ask"))
 
-    # Clean up and final fill
     final_sensors = [
         'ema_trend', 'ema_cross_dist', 'bb_pct', 'rsi_14', 'stoch_14', 
         'atr_norm', 'vol_1h', 'vol_zscore_1h', 'delta_vol_24h',
         'adx_14', 'vwap_zscore', 'mfi_14', 'book_skew_bid', 'book_skew_ask'
     ]
-    
+
+    # Clean up intermediate columns (Audit v5.0)
+    # We drop all temporary columns created for internal math to prevent NaN leakage 
+    # and satisfy the Production DataValidator.
+    intermediate_cols = [
+        "ema_8", "ema_21", "bb_mean", "bb_std", "delta", "gain", "loss", "tr",
+        "up_m", "dn_m", "p_dm", "n_dm", "dx", "tp", "tpv", "tp_std", "vwap_rolling",
+        "pos_f", "neg_f", "v"
+    ]
+    lf = lf.drop([c for c in intermediate_cols if c in lf.collect_schema().names()])
+
     # Fill nulls (Polars equivalent of ffill().bfill())
     for s in final_sensors:
-        lf = lf.with_columns(pl.col(s).forward_fill().backward_fill().fill_null(0.0))
+        if s in lf.collect_schema().names():
+            lf = lf.with_columns(pl.col(s).forward_fill().backward_fill().fill_null(0.0))
 
     return lf
 

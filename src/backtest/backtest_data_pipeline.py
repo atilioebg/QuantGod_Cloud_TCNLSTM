@@ -107,7 +107,7 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
             on="ts",
             strategy="backward"
         ).with_columns([
-            pl.all().forward_fill().backward_fill() # [Mirror production uniform fill]
+            pl.all().forward_fill().backward_fill().fill_null(0.0) # [Robust uniform fill]
         ])
         
         merged_schema = lf_merged.collect_schema().names()
@@ -133,7 +133,20 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
         resample_freq = etl_cfg.get('resample_freq', '5min')
         resample_min = int(resample_freq.replace('min', '').replace('m', '').replace('T', ''))
         
+        # Diagnostic: Check for NaNs before Alpha Sensors
+        nan_before = df_final.null_count().sum(horizontal=True).item()
+        if nan_before > 0:
+            logger.warning(f"⚠️  [PRE-AUDIT] Found {nan_before} NaNs. Applying safety fill.")
+            df_final = df_final.fill_null(0.0)
+
         df_final = calculate_context_features_polars(df_final.lazy(), resample_min=resample_min).collect()
+        
+        # Diagnostic: Check for NaNs after Alpha Sensors
+        nan_after = df_final.null_count().sum(horizontal=True).item()
+        if nan_after > 0:
+            nan_cols = [c for c in df_final.columns if df_final[c].null_count() > 0]
+            logger.warning(f"⚠️  [POST-AUDIT] Found {nan_after} NaNs in columns: {nan_cols}. Cleaning...")
+            df_final = df_final.fill_null(0.0)
         
         # ── 6. Production Validation ── [run_pipeline.py line 292] ──────
         feature_list = config['model'].get('feature_names', [])
@@ -167,6 +180,11 @@ def setup_cloud_directories(config):
     raw_zip = PROJECT_ROOT / config['pipeline_paths']['raw_zip_dir']
     raw_trades = PROJECT_ROOT / config['pipeline_paths']['raw_trades_dir']
     
+    # Only clean if in Cloud environment to avoid deleting local test data
+    if "/workspace" not in str(PROJECT_ROOT):
+        logger.info("🏠 Local environment: skipping directory cleaning.")
+        return
+
     for folder in [raw_zip, raw_trades]:
         if folder.exists():
             logger.info(f"🧹 Cleaning folder: {folder}")
