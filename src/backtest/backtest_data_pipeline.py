@@ -16,8 +16,11 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 PROJECT_ROOT = Path(__file__).parents[2].absolute()
 sys.path.append(str(PROJECT_ROOT))
 
-# Imports
+from src.cloud.base_model.pre_processamento.etl.extract import DataExtractor
 from src.cloud.base_model.pre_processamento.etl.transform import L2Transformer
+from src.cloud.base_model.pre_processamento.etl.event_sampler import EventSampler
+from src.cloud.base_model.pre_processamento.etl.load import DataLoader
+from src.cloud.base_model.pre_processamento.etl.validate import DataValidator
 from src.cloud.base_model.labelling.run_labelling import process_single_file_labelling
 
 # Setup Logging
@@ -62,75 +65,27 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
     
     # Skip if already exists
     if out_path.exists():
-        logger.info(f"⏩ [SKIP] {out_name} already exists.")
         return {"file": zip_path.name, "status": "skipped"}
 
     if not trade_path.exists():
         return {"file": zip_path.name, "status": "missing_trades"}
         
-    unzipped_l2_dir = PROJECT_ROOT / "tmp" / "unzipped_l2"
-    l2_file_path = unzipped_l2_dir / f"{date_str}_BTCUSDT_ob200.data"
-    
-    # ── 1. Process Orderbook (L2) messages (Chunked) ─────────────────────────
-    chunks = []
-    current_rows = {}
-    row_count = 0
-    CHUNK_SIZE = 50000 
-    
     try:
-        transformer = L2Transformer(
-            levels=config['pre_processing']['etl']['levels'],
-            sampling_ms=config['pre_processing']['etl']['sampling_ms'],
-            etl_cfg=config['pre_processing']['etl']
+        etl_cfg = config['pre_processing']['etl']
+        extractor = DataExtractor(
+            config['pipeline_paths']['raw_l2_source'],
+            temp_dir=PROJECT_ROOT / "tmp" / "backtest_raw"
         )
-        
-        def _flush_chunk(rows_dict, chunk_list):
-            if not rows_dict: return
-            # Convert to LazyFrame and append
-            chunk_list.append(pl.DataFrame(rows_dict).lazy())
-            rows_dict.clear()
-            gc.collect()
+        transformer = L2Transformer(
+            levels=etl_cfg['levels'],
+            sampling_ms=etl_cfg['sampling_ms'],
+            etl_cfg=etl_cfg
+        )
+        event_sampler = EventSampler(etl_cfg)
+        loader = DataLoader(pre_processed_dir)
+        validator = DataValidator()
 
-        def _process_line(line, rows_dict, chunk_list, count):
-            try:
-                msg = json.loads(line)
-                res = transformer.process_message(msg)
-                if res:
-                    if not rows_dict:
-                        for k in res.keys(): rows_dict[k] = []
-                    for k, v in res.items():
-                        rows_dict[k].append(v)
-                    count += 1
-                    
-                    if count >= CHUNK_SIZE:
-                        _flush_chunk(rows_dict, chunk_list)
-                        count = 0
-            except: pass
-            return count
-
-        if l2_file_path.exists():
-            with open(l2_file_path, 'r', encoding='utf-8') as f:
-                for line in f: 
-                    row_count = _process_line(line, current_rows, chunks, row_count)
-        else:
-            with zipfile.ZipFile(zip_path, 'r') as z:
-                for name in z.namelist():
-                    if name.endswith('.data'):
-                        with z.open(name) as f:
-                            for line in f: 
-                                row_count = _process_line(line, current_rows, chunks, row_count)
-        
-        # Flush the final chunk
-        _flush_chunk(current_rows, chunks)
-        
-        if not chunks: return {"file": zip_path.name, "status": "no_data"}
-        
-        # Concat all chunks into a single LazyFrame
-        lf_l2 = pl.concat(chunks).sort("ts")
-        del chunks, current_rows
-        gc.collect()
-
-        # ── 2. Load Trades (Lazy) ───────────────────────────────────────────────
+        # ── 1. Load Trades (Lazy) ──────────────────────────────────────────
         lf_trades = pl.scan_csv(trade_path).with_columns([
             (pl.col("timestamp") * 1000).cast(pl.Int64).alias("ts"),
             pl.col("price").cast(pl.Float64),
@@ -138,35 +93,77 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
             pl.when(pl.col("side") == "Buy").then(1).otherwise(-1).alias("side")
         ]).sort("ts")
         
-        # ── 3. Streaming Join ──────────────────────────────────────────────────
-        lf_combined = lf_trades.join_asof(
+        # ── 2. Stream L2 ZIP (Production Style) ───────────────────────────
+        transformer.reset_book()
+        sampled_rows = {}
+        
+        # Using the production extractor to stream zip content
+        for name, file_obj in extractor.stream_zip_content(zip_path):
+            chunk_rows = 0
+            for line in file_obj:
+                if not line: continue
+                msg = json.loads(line)
+                row = transformer.process_message(msg)
+                if row:
+                    if not sampled_rows:
+                        sampled_rows = {k: [] for k in row.keys()}
+                    for k in sampled_rows.keys():
+                        sampled_rows[k].append(row.get(k, 0.0))
+                    chunk_rows += 1
+        
+        if not sampled_rows:
+            return {"file": zip_path.name, "status": "no_data"}
+            
+        lf_l2 = pl.DataFrame(sampled_rows).lazy().sort("ts")
+        del sampled_rows
+        gc.collect()
+
+        # ── 3. Production Join (Atomic AsOf) ─────────────────────────────
+        lf_merged = lf_trades.join_asof(
             lf_l2,
             on="ts",
             strategy="backward"
         ).with_columns([
-            pl.all().forward_fill().backward_fill()
+            pl.col("price").forward_fill(),
+            pl.col("amount").forward_fill(),
         ])
+        # Note: We rely on the sampler's aggregation logic (last()) for L2 columns
         
-        # Execute streaming graph
-        df_combined = lf_combined.collect(engine="streaming")
-        del lf_l2, lf_trades, lf_combined
+        # Execute the streaming graph
+        df_merged = lf_merged.collect(engine="streaming")
+        del lf_trades, lf_l2, lf_merged
         gc.collect()
 
-        # ── 4. Feature Engineering ─────────────────────────────────────────────
-        df_final = transformer.apply_feature_engineering(df_combined)
-        del df_combined
-        gc.collect()
+        # ── 4. Event Sampling & Validation ───────────────────────────────
+        df_bars = event_sampler.compute_event_bars(df_merged)
+        del df_merged
+        
+        if len(df_bars) == 0:
+            return {"file": zip_path.name, "status": "skipped", "reason": "No bars generated"}
+            
+        df_final = event_sampler.apply_feature_engineering_bars(df_bars)
+        del df_bars
+        
+        # Validation
+        feature_list = config['model'].get('feature_names', [])
+        health = validator.validate_integrity(
+            df_final, 
+            name=date_str, 
+            feature_list=feature_list,
+            resample_freq=etl_cfg.get('resample_freq', '5min')
+        )
+        
+        if not health.get('is_valid', False):
+            return {"file": zip_path.name, "status": "error", "message": f"Validation failed: {health.get('integrity_comment')}"}
 
         df_final.write_parquet(out_path)
         del df_final
         gc.collect()
         
         vm = psutil.Process(pid).memory_info().rss / (1024**3)
-        logger.info(f"✅ [SUCCESS] {out_name} | PID {pid} current ~{vm:.2f}GB")
+        logger.info(f"✅ [SUCCESS] {out_name} | PID {pid} peak ~{vm:.2f}GB")
         
         return {"file": zip_path.name, "status": "ok"}
-    except Exception as e:
-        return {"file": zip_path.name, "status": "error", "message": str(e)}
     except Exception as e:
         return {"file": zip_path.name, "status": "error", "message": str(e)}
 
@@ -239,9 +236,28 @@ def run_backtest_pipeline_robust(config):
     
     zip_files = sorted(list(raw_zip_dir.glob("*.zip")))
     
-    # Overriding to 4 workers as requested, with deep memory optimization
-    max_workers = 4
-    logger.info(f"⚙️ Memory Guard: Enforcing {max_workers} workers with Streaming/Lazy execution.")
+    # CPU Detection logic (v8.0)
+    try:
+        cpu_count = len(os.sched_getaffinity(0))
+    except AttributeError:
+        cpu_count = os.cpu_count() or 1
+        
+    etl_cfg = config['pre_processing']['etl']
+    max_workers = etl_cfg.get('max_workers', 4)
+    worker_mode = "Manual"
+
+    # Scale Guard: Adaptive reduction based on configurable thresholds
+    scale_cfg = etl_cfg.get('scale_guard', {})
+    if scale_cfg.get('enabled', False):
+        # We assume 2026 for this backtest dataset
+        multiplier = scale_cfg.get('thresholds', {}).get(2026, 1.0)
+        if multiplier < 1.0:
+            original_workers = max_workers
+            max_workers = max(1, int(max_workers * multiplier))
+            worker_mode += f" + ScaleGuard ({multiplier}x for 2026)"
+            logger.info(f"Scale Guard active: {original_workers} -> {max_workers} workers.")
+
+    logger.info(f"ETL Worker Mode: {worker_mode} -> Using {max_workers} processes.")
     
     # ── 1. Parallel ETL ──
     logger.info(f"🚀 Starting PARALLEL Backtest ETL for {len(zip_files)} days with {max_workers} workers...")
@@ -250,7 +266,9 @@ def run_backtest_pipeline_robust(config):
         for future in tqdm(as_completed(future_to_zip), total=len(zip_files), desc="ETL Work"):
             res = future.result()
             if res['status'] == 'error':
-                logger.error(f"❌ {res['file']}: {res.get('message', '')}")
+                logger.error(f"❌ {res.get('file')}: {res.get('message', '')}")
+            elif res['status'] == 'skipped' and "reason" in res:
+                logger.warning(f"⚠️ {res['file']} skipped: {res['reason']}")
 
     # ── 2. Parallel Labelling ──
     pre_files = sorted(list(pre_processed_dir.glob("*.parquet")))
