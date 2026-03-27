@@ -22,6 +22,7 @@ from src.cloud.base_model.pre_processamento.etl.event_sampler import EventSample
 from src.cloud.base_model.pre_processamento.etl.load import DataLoader
 from src.cloud.base_model.pre_processamento.etl.validate import DataValidator
 from src.cloud.base_model.labelling.run_labelling import process_single_file_labelling
+from src.cloud.auditor_model.auditor_preprocessing import calculate_context_features_polars
 
 # Setup Logging
 logging.basicConfig(
@@ -127,7 +128,14 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
         df_final = event_sampler.apply_feature_engineering_bars(df_bars)
         del df_bars
         
-        # ── 5. Production Validation ── [run_pipeline.py line 292] ──────
+        # ── 5. Auditor Context Features (Alpha Sensors) ──────────────────
+        # Fix: Calculate the 14 context features required by the 3-layer stack
+        resample_freq = etl_cfg.get('resample_freq', '5min')
+        resample_min = int(resample_freq.replace('min', '').replace('m', '').replace('T', ''))
+        
+        df_final = calculate_context_features_polars(df_final.lazy(), resample_min=resample_min).collect()
+        
+        # ── 6. Production Validation ── [run_pipeline.py line 292] ──────
         feature_list = config['model'].get('feature_names', [])
         health = validator.validate_integrity(
             df_final, 
@@ -178,7 +186,7 @@ def sync_drive_data(config):
 
     # Window filter: March 14 to March 26
     # Note: rclone uses glob, {14..26} is bash-only. We use multiple includes or a pattern.
-    window_pattern = "*2026-03-{14,15,16,17,18,19,20,21,22,23,24,25,26}*"
+    window_pattern = "*2026-03-{13,14,15,16,17,18,19,20,21,22,23,24,25,26}*"
     
     sync_jobs = [
         {
