@@ -1,0 +1,35 @@
+# =============================================================================
+# BACKTEST CONFIGURATION — March 14 - March 26 Window
+# =============================================================================
+
+pipeline_paths:
+  # ── [FONTES BACKTEST] ──────────────────────────────────────────────
+  raw_l2_source:      "drive:PROJETOS/BACKTEST/BTC_USDT_L2_2023_2026/btcusdt_L2_2026"
+  raw_trades_source:  "drive:PROJETOS/BACKTEST/BTC_USDT_L2_TRADE_2023_2026/btcusdt_L2_trade_2026"
+  
+  # ── [DADOS LOCAIS] ───────────────────────────────────────────────────
+  local_data_root:   "data/backtest/L2"
+  temp_raw_dir:      "temp_raw"
+  pre_processed_dir: "pre_processed"
+  labelled_dir:      "labelled"
+  local_logs_root:    "logs/backtest"
+
+  # ── [MODELOS CAMPEÕES] ──────────────────────────────────────────────
+  # Caminhos locais após o sync do Drive
+  models_local_dir: "MODELS_BACKTEST/MODELOS"
+  best_tcn_lstm_model: "BASE_MODEL/best_tcn_lstm_dir.pt"
+  auditor_model:       "AUDITOR/auditor_xgboost.json"
+  scaler_foundation:    "BASE_MODEL/scaler_foundation.pkl"
+  scaler_auditor:       "AUDITOR/scaler_auditor.pkl"
+  auditor_oof_dir:      "SPECIALIST"
+
+backtest_parameters:
+  start_date: "2026-03-14"
+  end_date:   "2026-03-26"
+  initial_capital: 10000.0
+  leverage: 1.0
+  fee_bps: 2.0  # 0.02% Bybit fee
+  
+  # Auditor Gatekeeper
+  use_auditor: true
+  auditor_threshold: 0.50 # Threshold de 89% precisão encontrado nos logs
