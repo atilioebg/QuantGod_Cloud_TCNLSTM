@@ -131,14 +131,66 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
     except Exception as e:
         return {"file": zip_path.name, "status": "error", "message": str(e)}
 
-def run_backtest_pipeline_robust(config):
-    raw_trade_dir = Path(config['pipeline_paths']['local_data_root']) / "raw_trades"
-    pre_processed_dir = Path(config['pipeline_paths']['local_data_root']) / "pre_processed"
-    labelled_dir = Path(config['pipeline_paths']['local_data_root']) / "labelled"
-    raw_zip_dir = Path(config['pipeline_paths']['raw_zip_dir'])
-    if not raw_zip_dir.is_absolute():
-        raw_zip_dir = PROJECT_ROOT / raw_zip_dir
+def setup_cloud_directories(config):
+    """Cria e LIMPA as pastas de dados brutos para o backtest na Cloud."""
+    raw_zip = PROJECT_ROOT / config['pipeline_paths']['raw_zip_dir']
+    raw_trades = PROJECT_ROOT / config['pipeline_paths']['raw_trades_dir']
+    
+    for folder in [raw_zip, raw_trades]:
+        if folder.exists():
+            logger.info(f"🧹 Cleaning folder: {folder}")
+            shutil.rmtree(folder)
+        folder.mkdir(parents=True, exist_ok=True)
+
+def sync_drive_data(config):
+    """Sincroniza os arquivos de Backtest do Drive para a Cloud via rclone."""
+    if "/workspace" not in str(PROJECT_ROOT):
+        logger.info("🏠 Local environment detected. Skipping rclone sync.")
+        return
+
+    rclone_cfg = PROJECT_ROOT / "rclone.conf"
+    rclone_bin = "rclone"
+    if os.name == 'nt' and (PROJECT_ROOT / "rclone.exe").exists():
+        rclone_bin = str((PROJECT_ROOT / "rclone.exe").absolute())
+
+    # Window filter: March 14 to March 26
+    # Note: rclone uses glob, {14..26} is bash-only. We use multiple includes or a pattern.
+    window_pattern = "*2026-03-{14,15,16,17,18,19,20,21,22,23,24,25,26}*"
+    
+    sync_jobs = [
+        {
+            "remote": "drive:PROJETOS/BACKTEST/BTC_USDT_L2_2023_2026/btcusdt_L2_2026",
+            "local": PROJECT_ROOT / config['pipeline_paths']['raw_zip_dir']
+        },
+        {
+            "remote": "drive:PROJETOS/BACKTEST/BTC_USDT_L2_TRADE_2023_2026/btcusdt_L2_trade_2026",
+            "local": PROJECT_ROOT / config['pipeline_paths']['raw_trades_dir']
+        }
+    ]
+
+    logger.info(f"🚀 Starting Rclone Sync for window 14-26 March...")
+    for job in sync_jobs:
+        cmd = [
+            rclone_bin, "copy", job["remote"], str(job["local"]),
+            "-P", "--include", window_pattern,
+            "--transfers", "16", "--checkers", "16"
+        ]
+        if rclone_cfg.exists():
+            cmd += ["--config", str(rclone_cfg)]
         
+        logger.info(f"📥 Syncing: {job['remote']} -> {job['local']}")
+        subprocess.run(cmd, check=True)
+
+def run_backtest_pipeline_robust(config):
+    # 0. Setup and Sync (Cloud Only)
+    setup_cloud_directories(config)
+    sync_drive_data(config)
+
+    raw_trade_dir = PROJECT_ROOT / config['pipeline_paths']['raw_trades_dir']
+    pre_processed_dir = PROJECT_ROOT / config['pipeline_paths']['pre_processed_dir']
+    labelled_dir = PROJECT_ROOT / config['pipeline_paths']['labelled_dir']
+    raw_zip_dir = PROJECT_ROOT / config['pipeline_paths']['raw_zip_dir']
+    
     logger.info(f"📁 Looking for ZIP files in: {raw_zip_dir}")
     if not raw_zip_dir.exists():
         logger.error(f"❌ Directory NOT FOUND: {raw_zip_dir}")
