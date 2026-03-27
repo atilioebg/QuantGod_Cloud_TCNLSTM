@@ -87,8 +87,9 @@ class DataExtractor:
         
         try:
             if is_remote_download:
-                # remote zip_identifier is a relative path from the root
-                remote_full_path = f"{self.path_or_remote}/{zip_identifier}" if not zip_identifier.startswith("/") else f"{self.path_or_remote}{zip_identifier}"
+                # Ensure zip_identifier is a string for startswith
+                zip_id_str = str(zip_identifier)
+                remote_full_path = f"{self.path_or_remote}/{zip_id_str}" if not zip_id_str.startswith("/") else f"{self.path_or_remote}{zip_id_str}"
                 local_zip_path = self.temp_dir / Path(zip_identifier).name
                 
                 # Pre-emptive strike: delete if already exists to avoid permission/lock errors
@@ -125,7 +126,8 @@ class DataExtractor:
         local_path = self.temp_dir / Path(identifier).name
         
         if is_remote_download:
-            remote_full_path = f"{remote_base}/{identifier}" if not identifier.startswith("/") else f"{remote_base}{identifier}"
+            id_str = str(identifier)
+            remote_full_path = f"{remote_base}/{id_str}" if not id_str.startswith("/") else f"{remote_base}{id_str}"
             if local_path.exists():
                 local_path.unlink()
                 
