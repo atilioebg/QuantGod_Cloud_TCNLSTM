@@ -232,9 +232,12 @@ def sync_drive_data(config):
         {"remote": "drive:PROJETOS/BACKTEST/BTC_USDT_L2_TRADE_2023_2026/btcusdt_L2_trade_2026", "local": PROJECT_ROOT / config['pipeline_paths']['raw_trades_dir']}
     ]
 
+    rclone_cfg = PROJECT_ROOT / "rclone.conf"
     for job in sync_jobs:
         job["local"].mkdir(parents=True, exist_ok=True)
         cmd = [rclone_bin, "copy", job["remote"], str(job["local"]), "-P", "--include", window_pattern, "--transfers", "16"]
+        if rclone_cfg.exists():
+            cmd += ["--config", str(rclone_cfg)]
         subprocess.run(cmd, check=True)
 
 def run_backtest_pipeline_robust(config):
