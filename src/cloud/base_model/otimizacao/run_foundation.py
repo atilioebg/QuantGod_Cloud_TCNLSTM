@@ -556,13 +556,20 @@ def run_optimization():
                 f"Timeout: {config['optimization']['timeout']}s")
     
     start_trials = len(study.trials)
+    target_trials = config['optimization']['n_trials']
+    remaining_trials = max(0, target_trials - start_trials)
+    
     start_time = datetime.now()
 
-    study.optimize(
-        lambda trial: objective(trial, config, feature_cols, auto_alphas=auto_alphas),
-        n_trials=config['optimization']['n_trials'],
-        timeout=config['optimization']['timeout'],
-    )
+    if remaining_trials > 0:
+        logger.info(f"Target: {target_trials} | Current: {start_trials} | Running {remaining_trials} more trials.")
+        study.optimize(
+            lambda trial: objective(trial, config, feature_cols, auto_alphas=auto_alphas),
+            n_trials=remaining_trials,
+            timeout=config['optimization']['timeout'],
+        )
+    else:
+        logger.info(f"Target of {target_trials} trials already reached ({start_trials} in DB). Skipping optimization.")
 
     end_time = datetime.now()
     duration = (end_time - start_time).total_seconds()

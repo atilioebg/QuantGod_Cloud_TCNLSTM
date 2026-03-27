@@ -142,13 +142,14 @@ def main():
     best_base_macro = mod_dir / paths.get('best_tcn_lstm_model', 'BASE_MODEL/best_tcn_lstm.pt')
     best_base_dir   = mod_dir / paths.get('best_tcn_lstm_dir_model', 'BASE_MODEL/best_tcn_lstm_dir.pt')
     
-    # Check exists is now smart: if ANY base model exists, we can skip/continue
-    any_base_exists = best_base_macro.exists() or best_base_dir.exists()
-
+    # [v4.9.5] Smart Skip: If any base model exists AND force_retrain is False, we skip.
+    # We prioritize the DIR model if it's the strategy, or MACRO otherwise.
+    check_path = primary_base if primary_base.exists() else fallback_base
+    
     success = run_phase(
-        name=f"Foundation Optuna ({n_trials_base} Trials | {epochs} Epochs | EARLY STOP: {patience})",
+        name=f"Foundation Optuna ({n_trials_base} Trials | {epochs} Epochs)",
         script_path="src/cloud/base_model/otimizacao/run_foundation.py",
-        check_exists=str(best_base_macro) if not any_base_exists else None, # Skip check if any exists
+        check_exists=str(check_path), 
         force_retrain=force_retrain
     )
     if not success and not skip_qa_on_fail: sys.exit(1)
