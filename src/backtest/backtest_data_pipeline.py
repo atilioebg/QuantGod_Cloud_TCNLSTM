@@ -134,7 +134,7 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
         resample_min = int(resample_freq.replace('min', '').replace('m', '').replace('T', ''))
         
         # Diagnostic: Check for NaNs before Alpha Sensors
-        nan_before = df_final.null_count().sum(horizontal=True).item()
+        nan_before = sum(df_final.null_count().row(0))
         if nan_before > 0:
             logger.warning(f"⚠️  [PRE-AUDIT] Found {nan_before} NaNs. Applying safety fill.")
             df_final = df_final.fill_null(0.0)
@@ -142,7 +142,7 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
         df_final = calculate_context_features_polars(df_final.lazy(), resample_min=resample_min).collect()
         
         # Diagnostic: Check for NaNs after Alpha Sensors
-        nan_after = df_final.null_count().sum(horizontal=True).item()
+        nan_after = sum(df_final.null_count().row(0))
         if nan_after > 0:
             nan_cols = [c for c in df_final.columns if df_final[c].null_count() > 0]
             logger.warning(f"⚠️  [POST-AUDIT] Found {nan_after} NaNs in columns: {nan_cols}. Cleaning...")
