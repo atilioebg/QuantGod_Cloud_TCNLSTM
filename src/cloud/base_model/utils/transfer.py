@@ -346,7 +346,7 @@ def transfer_results(log_filename: str, run_type: str):
 
         if os.name != 'nt' or shutil.which("rclone"):
             rclone_cfg = project_root / "rclone.conf"
-            rclone_transfers = str(min(32, (os.cpu_count() or 4) * 2))
+            rclone_transfers = str(min(128, (os.cpu_count() or 4) * 4)) # Aumentado para aproveitar 32 vCPUs
             
             # Resolve rclone binary (Windows-aware)
             rclone_bin = "rclone"
