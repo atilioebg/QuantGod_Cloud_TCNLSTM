@@ -2,7 +2,7 @@
 # ----------------------------------------
 
 # Paths Config
-paths:
+pipeline_paths:
   # Onde os dados do Drive foram montados ou baixados no Cloud
   local_data_root: "/workspace/data/backtest/L2"
   raw_zip_dir: "/workspace/data/backtest/L2/raw_zip"
