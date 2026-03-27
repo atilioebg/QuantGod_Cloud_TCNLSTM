@@ -63,120 +63,71 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
     out_name = zip_path.stem.replace(".data", "") + ".parquet"
     out_path = pre_processed_dir / out_name
     
-    # Skip if already exists
-    if out_path.exists():
-        return {"file": zip_path.name, "status": "skipped"}
-
-    if not trade_path.exists():
-        return {"file": zip_path.name, "status": "missing_trades"}
-        
+    # 1:1 Mirror of run_pipeline.py logic
     try:
         etl_cfg = config['pre_processing']['etl']
-        # Use local directory where we just synced the data to avoid broken remote calls
+        # Local dir as we sync first
         local_l2_dir = PROJECT_ROOT / config['pipeline_paths']['raw_zip_dir']
-        extractor = DataExtractor(
-            str(local_l2_dir),
-            temp_dir=PROJECT_ROOT / "tmp" / "backtest_raw"
-        )
-        transformer = L2Transformer(
-            levels=etl_cfg['levels'],
-            sampling_ms=etl_cfg['sampling_ms'],
-            etl_cfg=etl_cfg
-        )
+        extractor = DataExtractor(str(local_l2_dir), temp_dir=PROJECT_ROOT / "tmp" / "backtest_raw")
+        transformer = L2Transformer(levels=etl_cfg['levels'], sampling_ms=etl_cfg['sampling_ms'], etl_cfg=etl_cfg)
         event_sampler = EventSampler(etl_cfg)
         loader = DataLoader(pre_processed_dir)
         validator = DataValidator()
 
-        # ── 1. Load Trades (Lazy) ──────────────────────────────────────────
-        lf_trades = pl.scan_csv(trade_path).with_columns([
-            (pl.col("timestamp") * 1000).cast(pl.Int64).alias("ts"),
-            pl.col("price").cast(pl.Float64),
-            pl.col("size").cast(pl.Float64).alias("amount"),
-            pl.when(pl.col("side") == "Buy").then(1).otherwise(-1).alias("side")
-        ]).sort("ts")
+        # ── 1. Trade Scan (Mirror production) ───────────────────────────
+        lf_trades = pl.scan_csv(trade_path)
+        trades_schema = lf_trades.collect_schema().names()
+        if "timestamp" in trades_schema:
+            lf_trades = lf_trades.with_columns((pl.col("timestamp") * 1000).cast(pl.Int64).alias("ts"))
+        lf_trades = lf_trades.sort("ts")
         
-        # ── 2. Stream L2 ZIP (Production Style) ───────────────────────────
+        # ── 2. L2 Stream (Mirror production) ─────────────────────────────
         transformer.reset_book()
         sampled_rows = {}
-        
-        # Using the production extractor to stream zip content
         for name, file_obj in extractor.stream_zip_content(zip_path):
-            chunk_rows = 0
             for line in file_obj:
                 if not line: continue
                 msg = json.loads(line)
                 row = transformer.process_message(msg)
                 if row:
-                    if not sampled_rows:
-                        sampled_rows = {k: [] for k in row.keys()}
-                    for k in sampled_rows.keys():
-                        sampled_rows[k].append(row.get(k, 0.0))
-                    chunk_rows += 1
+                    if not sampled_rows: sampled_rows = {k: [] for k in row.keys()}
+                    for k in sampled_rows.keys(): sampled_rows[k].append(row.get(k, 0.0))
         
         if not sampled_rows:
             return {"file": zip_path.name, "status": "no_data"}
             
-        lf_l2 = pl.DataFrame(sampled_rows).lazy().sort("ts")
+        df_l2 = pl.DataFrame(sampled_rows)
+        lf_l2 = df_l2.lazy().sort("ts").with_columns(pl.col("ts").alias("l2_ts"))
         del sampled_rows
-        gc.collect()
-
-        # ── 3. Production Join (Atomic AsOf) ─────────────────────────────
+        
+        # ── 3. Production Join (Atomic AsOf) ── [run_pipeline.py line 238] ──
         lf_merged = lf_trades.join_asof(
             lf_l2,
             on="ts",
             strategy="backward"
         ).with_columns([
-            pl.col("price").forward_fill(),
-            pl.col("amount").forward_fill(),
+            pl.all().forward_fill().backward_fill() # [Mirror production uniform fill]
         ])
-        # Note: We rely on the sampler's aggregation logic (last()) for L2 columns
         
-        # Execute the streaming graph
+        merged_schema = lf_merged.collect_schema().names()
+        if "price" in merged_schema and "size" in merged_schema:
+            lf_merged = lf_merged.with_columns((pl.col("price") * pl.col("size")).alias("usd_volume"))
+            
+        if "l2_ts" in merged_schema:
+            lf_merged = lf_merged.with_columns((pl.col("ts") - pl.col("l2_ts") > 2000).fill_null(True).alias("__stale_l2__")).drop("l2_ts")
+            
         df_merged = lf_merged.collect(engine="streaming")
         del lf_trades, lf_l2, lf_merged
-        gc.collect()
-
-        # ── 4. Modular Event Sampling ────────────────────────────────────
-        # To avoid OOM during grouping/CUSUM, we pass only core columns to the sampler
-        core_cols = ["ts", "price", "amount", "side"]
-        if "usd_volume" in df_merged.columns: core_cols.append("usd_volume")
-        if "island_id" in df_merged.columns: core_cols.append("island_id")
         
-        # We need to keep raw L2 around for late-join, but we want the sampler to be lean
-        df_core = df_merged.select(core_cols)
-        df_bars = event_sampler.compute_event_bars(df_core)
-        del df_core
-        
-        if len(df_bars) == 0:
-            return {"file": zip_path.name, "status": "skipped", "reason": "No bars generated"}
+        # ── 4. Event Sampling & Feature Engineering ─────────────────────
+        df_bars = event_sampler.compute_event_bars(df_merged)
+        del df_merged
+        if len(df_bars) == 0: return {"file": zip_path.name, "status": "skipped", "reason": "No bars"}
             
-        # ── 5. Late Join & Heavy Feature Engineering ─────────────────────
-        # Now that we have the bar boundaries, we join back the full L2 state (800 cols)
-        # using the last() message within each bar.
-        
-        # Re-attach bar_id to original ticks (df_merged) to aggregate raw book data
-        # event_sampler.compute_event_bars returns aggregated bars, we need the mapping
-        # but to keep it simple and safe, we'll just join df_bars with df_merged on 'ts'
-        # or use a more memory-efficient approach: 
-        # apply_feature_engineering_bars already expects the aggregated bars with core metrics
-        # but IT NEEDS the raw book columns.
-        
-        # FIX: We join the raw columns (bid_0_p etc) from df_merged into df_bars
-        # using 'ts' (which is the last timestamp of the bar)
-        raw_l2_cols = [c for c in df_merged.columns if c not in core_cols]
-        df_l2_state = df_merged.select(["ts"] + raw_l2_cols)
-        del df_merged # Huge memory saving here
-        gc.collect()
-
-        # Join the raw state to the sampled bars
-        df_bars = df_bars.join(df_l2_state, on="ts", how="left")
-        del df_l2_state
-        gc.collect()
-
         df_final = event_sampler.apply_feature_engineering_bars(df_bars)
         del df_bars
         
-        # Validation
+        # ── 5. Production Validation ── [run_pipeline.py line 292] ──────
         feature_list = config['model'].get('feature_names', [])
         health = validator.validate_integrity(
             df_final, 
@@ -185,15 +136,19 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
             resample_freq=etl_cfg.get('resample_freq', '5min')
         )
         
-        if not health.get('is_valid', False):
-            return {"file": zip_path.name, "status": "error", "message": f"Validation failed: {health.get('integrity_comment')}"}
+        valid_ids = health.get('valid_island_ids', [])
+        if valid_ids and 'island_id' in df_final.columns:
+            df_final = df_final.filter(pl.col('island_id').is_in(valid_ids))
+
+        if not bool(health.get('is_valid', False)) or df_final.is_empty():
+            return {"file": zip_path.name, "status": "error", "message": "Production Health Check Failed"}
 
         df_final.write_parquet(out_path)
         del df_final
         gc.collect()
         
         vm = psutil.Process(pid).memory_info().rss / (1024**3)
-        logger.info(f"✅ [SUCCESS] {out_name} | PID {pid} peak ~{vm:.2f}GB")
+        logger.info(f"✅ [MIRROR] {out_name} | PID {pid} RAM ~{vm:.2f}GB")
         
         return {"file": zip_path.name, "status": "ok"}
     except Exception as e:
