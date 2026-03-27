@@ -72,8 +72,10 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
         
     try:
         etl_cfg = config['pre_processing']['etl']
+        # Use local directory where we just synced the data to avoid broken remote calls
+        local_l2_dir = PROJECT_ROOT / config['pipeline_paths']['raw_zip_dir']
         extractor = DataExtractor(
-            config['pipeline_paths']['raw_l2_source'],
+            str(local_l2_dir),
             temp_dir=PROJECT_ROOT / "tmp" / "backtest_raw"
         )
         transformer = L2Transformer(
