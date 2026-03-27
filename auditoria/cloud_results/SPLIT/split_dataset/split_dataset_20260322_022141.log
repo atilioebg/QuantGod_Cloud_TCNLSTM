@@ -1,0 +1,20 @@
+﻿2026-03-22 02:21:41,138 - INFO - 
+📝 LOGGING INITIALIZED (UTF-8-SIG): logs/split_dataset/split_dataset_20260322_022141.log
+2026-03-22 02:21:41,207 - INFO - 🔄 Syncing full Labelled history (2023-2026) from Drive: drive:PROJETOS/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/LABELLED...
+2026-03-22 02:21:54,761 - INFO - ✅ Labelled local directory is now up to date with Drive.
+2026-03-22 02:21:54,774 - INFO - 🚀 Starting Strict Out-of-Fold (OOF) Splitting over 1151 total files.
+2026-03-22 02:24:07,074 - INFO - ✂️ [Foundation] Split boundary file: 2025-06-13_BTCUSDT_ob500.data.parquet -> 386844 bars to Train / Rest to Val
+2026-03-22 02:24:38,223 - INFO - [Foundation] True Bar-level Split: 447,453,200 barras → 357,962,560 Train (80.0%) | Result: 878 train files / 274 val files
+2026-03-22 02:25:10,966 - INFO - ✂️ [Specialist] Split boundary file: 2026-01-20_BTCUSDT_ob200.data.parquet -> 257421 bars to Train / Rest to Val
+2026-03-22 02:25:17,824 - INFO - [Specialist] True Bar-level Split: 89,490,640 barras → 71,592,512 Train (80.0%) | Result: 222 train files / 53 val files
+2026-03-22 02:25:19,910 - INFO - 🛡️ [Foundation] TEMPORAL PURGE: Removed 3581 bars to keep 15m gap before validation.
+2026-03-22 02:25:20,261 - INFO - 🛡️ [Specialist] TEMPORAL PURGE: Removed 4929 bars to keep 15m gap before validation.
+2026-03-22 02:25:20,488 - INFO - 🚫 [Foundation] TEMPORAL EMBARGO: Removed 2907 bars to add 15m safety after boundary.
+2026-03-22 02:25:20,810 - INFO - 🚫 [Specialist] TEMPORAL EMBARGO: Removed 5329 bars to add 15m safety after boundary.
+2026-03-22 02:25:20,811 - INFO - 🕵️ [CHRONO GUARD] Validating chronological integrity of splits...
+2026-03-22 02:25:20,860 - INFO - ✅ [Foundation] Chrono Guard PASSED — gap between train/val boundary: 1803121 ms
+2026-03-22 02:25:20,917 - INFO - ✅ [Specialist] Chrono Guard PASSED — gap between train/val boundary: 1801428 ms
+2026-03-22 02:25:20,918 - INFO - ⏳ Generating split_summary.json with hashes and timestamp boundaries...
+2026-03-22 02:26:44,219 - INFO - ✅ Strict OOF Splitting complete! Summary saved to data/L2/split_summary_labelled.json
+2026-03-22 02:26:44,220 - INFO -    ↳ Rclone will upload this summary artifact in the Final Transfer.
+2026-03-22 02:26:44,266 - INFO - 📤 [AUDIT UPLOAD] Stage=SPLIT → drive:PROJETOS/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/AUDITORIA/SPLIT

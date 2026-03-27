@@ -1,0 +1,20 @@
+﻿2026-03-21 23:20:15,628 - INFO - 
+📝 LOGGING INITIALIZED (UTF-8-SIG): logs/split_dataset/split_dataset_20260321_232015.log
+2026-03-21 23:20:15,682 - INFO - 🚀 Starting Strict Out-of-Fold (OOF) Splitting over 72 total files.
+2026-03-21 23:20:25,371 - INFO - ✂️ [Foundation] Split boundary file: 2026-03-02_BTCUSDT_ob200.data.parquet -> 152192 bars to Train / Rest to Val
+2026-03-21 23:20:27,078 - INFO - [Foundation] True Bar-level Split: 22,837,601 barras → 18,270,080 Train (80.0%) | Result: 61 train files / 12 val files
+2026-03-21 23:20:29,508 - INFO - ✂️ [Specialist] Split boundary file: 2026-03-11_BTCUSDT_ob200.data.parquet -> 327519 bars to Train / Rest to Val
+2026-03-21 23:20:29,759 - INFO - [Specialist] True Bar-level Split: 4,567,521 barras → 3,654,016 Train (80.0%) | Result: 10 train files / 3 val files
+2026-03-21 23:20:31,735 - INFO - 🛡️ [Foundation] PURGE GAP APLICADO: 3 barras (15 min) removidas de 2026-03-02_BTCUSDT_ob200.data_partA.parquet
+2026-03-21 23:20:32,086 - INFO - 🛡️ [Specialist] PURGE GAP APLICADO: 3 barras (15 min) removidas de 2026-03-11_BTCUSDT_ob200.data_partA.parquet
+2026-03-21 23:20:32,299 - INFO - 🚫 [Foundation] EMBARGO APLICADO: 3 barras (15 min) removidas de 2026-03-02_BTCUSDT_ob200.data_partB.parquet
+2026-03-21 23:20:32,443 - INFO - 🚫 [Specialist] EMBARGO APLICADO: 3 barras (15 min) removidas de 2026-03-11_BTCUSDT_ob200.data_partB.parquet
+2026-03-21 23:20:32,443 - INFO - 🕵️ [CHRONO GUARD] Validating chronological integrity of splits...
+2026-03-21 23:20:32,497 - INFO - ✅ [Foundation] Chrono Guard PASSED — gap between train/val boundary: 81 ms
+2026-03-21 23:20:32,548 - INFO - ✅ [Specialist] Chrono Guard PASSED — gap between train/val boundary: 868 ms
+2026-03-21 23:20:32,548 - INFO - ⏳ Generating split_summary.json with hashes and timestamp boundaries...
+2026-03-21 23:20:36,713 - INFO - ✅ Strict OOF Splitting complete! Summary saved to data/L2/split_summary_labelled.json
+2026-03-21 23:20:36,713 - INFO -    ↳ Rclone will upload this summary artifact in the Final Transfer.
+2026-03-21 23:20:36,741 - INFO - 📤 [AUDIT UPLOAD] Stage=SPLIT → drive:PROJETOS/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/AUDITORIA/SPLIT
+2026-03-21 23:20:43,884 - INFO -   ✅ Uploaded logs/split_dataset → drive:PROJETOS/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/AUDITORIA/SPLIT/split_dataset
+2026-03-21 23:20:43,884 - INFO - 📤 [AUDIT UPLOAD] SPLIT complete.

@@ -1,0 +1,27 @@
+﻿2026-03-27 11:45:37,345 - INFO - 📁 DYNAMIC DATA PATHS: Train=data/L2/labelled/train | Val=data/L2/labelled/val
+2026-03-27 11:45:37,345 - INFO - 📐 Fitting Global Scaler (Smart Sampler: 100k rows)...
+2026-03-27 11:45:40,558 - INFO - 📊 Global Scaler initialized on 4,329,177 representative rows.
+2026-03-27 11:45:40,574 - INFO - 💾 Scaler saved properly to: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/scaler_foundation.pkl
+2026-03-27 11:45:40,811 - INFO - FocalLoss alpha: DYNAMIC RANGE active anchor points: [S:1.31, N:0.72, B:1.18]
+2026-03-27 11:45:40,811 - INFO - Loss: FocalLossWithSmoothing | fallback_gamma=OPTUNA_DINAMICO | fallback_smoothing=OPTUNA_DINAMICO | SniperLoss=ENABLED
+2026-03-27 11:45:40,823 - INFO - Sampler: TPE (startup=100, multivariate=True)
+2026-03-27 11:45:40,824 - INFO - Pruner: Median (startup=1, warmup=0)
+2026-03-27 11:45:44,913 - INFO - Using an existing study with name 'QUANTGOD_RECON_V009' instead of creating a new one.
+2026-03-27 11:45:45,548 - INFO - Resuming study. Macro Record found: 0.5050
+2026-03-27 11:45:45,550 - INFO - Resuming study. Dir Record found: 0.5106
+2026-03-27 11:45:45,550 - INFO - Starting 400 trials | Metric: MAX(MIN(Sell, Neu, Buy)) | Timeout: 172800s
+2026-03-27 11:45:45,623 - INFO - Target of 400 trials already reached (400 in DB). Skipping optimization.
+2026-03-27 11:45:45,694 - INFO - ============================================================
+2026-03-27 11:45:45,694 - INFO - --- OTIMIZACAO FINALIZADA ---
+2026-03-27 11:45:45,695 - INFO - Motivo da Parada: PARADA MANUAL OU ERRO INTERNO
+2026-03-27 11:45:45,695 - INFO - Tempo de Execucao da Sessao: 0.00 Horas
+2026-03-27 11:45:45,695 - INFO - Trials Executados nesta Sessao: 0
+2026-03-27 11:45:45,695 - INFO - ============================================================
+2026-03-27 11:45:45,719 - INFO - [MACRO] Best trial: 384 | MAX-MIN F1: 0.50503720
+2026-03-27 11:45:45,727 - INFO - [MACRO] Best params: {'tcn_channels': 256, 'lstm_hidden': 256, 'num_lstm_layers': 2, 'batch_size': 512, 'dropout': '0.27346176', 'seq_len': 256, 'lr': '0.00071226', 'weight_decay': '0.01039999', 'base_alpha_sell': '1.14382830', 'base_alpha_neutral': '1.02571141', 'base_alpha_buy': '1.39259954', 'base_loss_gamma': '3.50560885', 'base_loss_smoothing': '0.30769222', 'asym_gamma_sell': '1.75570345', 'asym_gamma_neu': '1.48977280', 'asym_gamma_buy': '3.55890197', 'num_features': 30, 'base_alpha_list': [1.1438283014711244, 1.0257114084524597, 1.3925995444484711]}
+2026-03-27 11:45:45,743 - INFO - [BEST MACRO] Best params saved: src/cloud/base_model/otimizacao/best_params.json
+2026-03-27 11:45:45,840 - INFO - [BEST DIR]   Best trial: 384 | F1 Dir: 0.51064810
+2026-03-27 11:45:45,852 - INFO - [BEST DIR]   Best params saved: src/cloud/base_model/otimizacao/best_dir_params.json
+2026-03-27 11:45:45,853 - INFO - ============================================================
+2026-03-27 11:45:45,853 - INFO - [OK] Optuna Foundation Training completed. Orchestration is now handled by run_manager.py
+2026-03-27 11:45:45,853 - INFO - ============================================================

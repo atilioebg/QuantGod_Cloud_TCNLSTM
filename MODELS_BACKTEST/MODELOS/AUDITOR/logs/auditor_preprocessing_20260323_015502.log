@@ -1,0 +1,6 @@
+﻿2026-03-23 01:55:02,925 - INFO - 📂 [Audit Fix] Context features extraídas de Foundation Val: data/L2/labelled/val
+2026-03-23 01:55:02,932 - INFO - Carregando 274 arquivos para processamento CONTÍNUO (PURE POLARS)...
+2026-03-23 01:55:02,985 - INFO - auditor_preprocessing: resample_freq=5min (5 min/bar)
+2026-03-23 01:55:02,985 - INFO - Processando e calculando indicadores Alpha Sensors arquivo por arquivo (Zero RAM Spike)...
+2026-03-23 01:56:44,170 - INFO - ✅ Processamento Chunked-Polars finalizado com sucesso para 274/274 arquivos.
+2026-03-23 01:56:44,172 - INFO - ✅ Auditor Preprocessing (Context Engineering) Finalizado OOF.

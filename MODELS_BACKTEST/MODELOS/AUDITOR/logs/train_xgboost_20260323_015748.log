@@ -1,0 +1,79 @@
+﻿2026-03-23 01:57:48,517 - INFO - Carregando dados fundidos de data/auditor/dataset_fused...
+2026-03-23 01:58:07,817 - INFO - 🏆 Iniciando Otimização Optuna do Auditor (1 trials)...
+2026-03-23 01:58:09,000 - INFO - ✅ Melhor Trial Auditor: 0 (AUC: 0.5621)
+2026-03-23 01:58:09,000 - INFO - 🎯 Novos Parâmetros Optuna: {'max_depth': 3, 'learning_rate': 0.0244365110254983, 'n_estimators': 401, 'subsample': 0.8063796936959322, 'colsample_bytree': 0.6142303168664356, 'reg_alpha': 0.49679704684414716, 'reg_lambda': 2.06335392538236}
+2026-03-23 01:58:09,000 - INFO - Tamanho Treino: 3924 | Tamanho Val: 981
+2026-03-23 01:58:09,001 - INFO - Ocorrência de Acertos (1) no Treino: 27.40%
+2026-03-23 01:58:09,001 - INFO - Ocorrência de Acertos (1) no Val: 27.93%
+2026-03-23 01:58:09,001 - INFO - Iniciando treinamento do XGBoost Meta-Labeler...
+2026-03-23 01:58:09,461 - INFO - Treinamento finalizado. Gerando métricas de validação...
+2026-03-23 01:58:09,472 - INFO - === Calibração de Threshold do Auditor (F-Beta 0.5) ===
+2026-03-23 01:58:09,479 - INFO - Threshold 0.50 -> Prec: 0.3333 | Rec: 0.4453 | F-0.5: 0.3510
+2026-03-23 01:58:09,485 - INFO - Threshold 0.52 -> Prec: 0.3446 | Rec: 0.3723 | F-0.5: 0.3498
+2026-03-23 01:58:09,491 - INFO - Threshold 0.54 -> Prec: 0.3790 | Rec: 0.3029 | F-0.5: 0.3609
+2026-03-23 01:58:09,497 - INFO - Threshold 0.56 -> Prec: 0.3758 | Rec: 0.2263 | F-0.5: 0.3319
+2026-03-23 01:58:09,503 - INFO - Threshold 0.58 -> Prec: 0.3760 | Rec: 0.1715 | F-0.5: 0.3036
+2026-03-23 01:58:09,509 - INFO - Threshold 0.60 -> Prec: 0.3882 | Rec: 0.1204 | F-0.5: 0.2687
+2026-03-23 01:58:09,515 - INFO - Threshold 0.62 -> Prec: 0.3966 | Rec: 0.0839 | F-0.5: 0.2273
+2026-03-23 01:58:09,521 - INFO - Threshold 0.64 -> Prec: 0.3750 | Rec: 0.0547 | F-0.5: 0.1728
+2026-03-23 01:58:09,527 - INFO - Threshold 0.66 -> Prec: 0.3636 | Rec: 0.0292 | F-0.5: 0.1105
+2026-03-23 01:58:09,533 - INFO - Threshold 0.68 -> Prec: 0.3333 | Rec: 0.0219 | F-0.5: 0.0867
+2026-03-23 01:58:09,539 - INFO - Threshold 0.70 -> Prec: 0.2000 | Rec: 0.0073 | F-0.5: 0.0318
+2026-03-23 01:58:09,545 - INFO - Threshold 0.72 -> Prec: 0.2500 | Rec: 0.0073 | F-0.5: 0.0327
+2026-03-23 01:58:09,551 - INFO - Threshold 0.74 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,557 - INFO - Threshold 0.76 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,563 - INFO - Threshold 0.78 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,569 - INFO - Threshold 0.80 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,575 - INFO - Threshold 0.82 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,581 - INFO - Threshold 0.84 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,587 - INFO - Threshold 0.86 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,593 - INFO - Threshold 0.88 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,599 - INFO - Threshold 0.90 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,605 - INFO - Threshold 0.92 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,611 - INFO - Threshold 0.94 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,611 - INFO - 🚀 Melhor Threshold Automático Escolhido (F-0.5 Máximo): 0.54 (F: 0.3609)
+
+2026-03-23 01:58:09,614 - INFO - === Performance Final do XGBoost Auditor (Threshold: 0.54) ===
+2026-03-23 01:58:09,615 - INFO - Accuracy: 0.6667 | F1-Score (Acertos): 0.3367 | ROC-AUC: 0.5632
+2026-03-23 01:58:09,619 - INFO - Relatório de Classificação:
+              precision    recall  f1-score   support
+
+    ERRO (0)       0.75      0.81      0.78       707
+  ACERTO (1)       0.38      0.30      0.34       274
+
+    accuracy                           0.67       981
+   macro avg       0.56      0.56      0.56       981
+weighted avg       0.65      0.67      0.65       981
+
+2026-03-23 01:58:09,620 - INFO - Feature Importance (Top 10):
+2026-03-23 01:58:09,620 - INFO -   spec_prob_neu       : 0.0619
+2026-03-23 01:58:09,620 - INFO -   rsi_14              : 0.0549
+2026-03-23 01:58:09,620 - INFO -   stoch_14            : 0.0547
+2026-03-23 01:58:09,620 - INFO -   base_prob_buy       : 0.0539
+2026-03-23 01:58:09,620 - INFO -   mfi_14              : 0.0518
+2026-03-23 01:58:09,621 - INFO -   ema_cross_dist      : 0.0516
+2026-03-23 01:58:09,621 - INFO -   vol_1h              : 0.0516
+2026-03-23 01:58:09,621 - INFO -   spec_prob_buy       : 0.0511
+2026-03-23 01:58:09,621 - INFO -   spec_prob_sell      : 0.0508
+2026-03-23 01:58:09,621 - INFO -   atr_norm            : 0.0504
+2026-03-23 01:58:09,621 - INFO -                                                             
+2026-03-23 01:58:09,621 - INFO - === Output Quádruplo Final (Amostra do Val Set) ===
+2026-03-23 01:58:09,623 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.36 | Status_XGB: Nao_Executa | Proba_XGBoost: 0.51]  --> Realidade: Errou
+2026-03-23 01:58:09,623 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.36 | Status_XGB: Nao_Executa | Proba_XGBoost: 0.37]  --> Realidade: Errou
+2026-03-23 01:58:09,623 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.36 | Status_XGB: Nao_Executa | Proba_XGBoost: 0.43]  --> Realidade: Errou
+2026-03-23 01:58:09,623 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.35 | Status_XGB: Executa     | Proba_XGBoost: 0.58]  --> Realidade: Errou
+2026-03-23 01:58:09,624 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.36 | Status_XGB: Executa     | Proba_XGBoost: 0.58]  --> Realidade: Errou
+2026-03-23 01:58:09,624 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.35 | Status_XGB: Nao_Executa | Proba_XGBoost: 0.33]  --> Realidade: Errou
+2026-03-23 01:58:09,624 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.35 | Status_XGB: Executa     | Proba_XGBoost: 0.54]  --> Realidade: Errou
+2026-03-23 01:58:09,624 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.36 | Status_XGB: Executa     | Proba_XGBoost: 0.63]  --> Realidade: Acertou
+2026-03-23 01:58:09,624 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.35 | Status_XGB: Executa     | Proba_XGBoost: 0.64]  --> Realidade: Errou
+2026-03-23 01:58:09,625 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.35 | Status_XGB: Executa     | Proba_XGBoost: 0.76]  --> Realidade: Errou
+2026-03-23 01:58:09,625 - INFO -                                                             
+2026-03-23 01:58:09,670 - INFO - 🤖 Modelo XGBoost Auditor Salvo: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/AUDITOR/auditor_xgboost.json
+2026-03-23 01:58:09,681 - INFO - ⚙️ Configurações do Auditor (Threshold) salvas em: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/AUDITOR/auditor_config.json
+2026-03-23 01:58:09,693 - INFO - 💾 Scaler XGBoost Auditor Salvo: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/AUDITOR/scaler_auditor.pkl
+2026-03-23 01:58:09,710 - INFO - 📤 [AUDIT UPLOAD] Stage=AUDITOR → drive:PROJETOS/RESULTADOS/AUDITORIA/AUDITOR
+2026-03-23 01:58:53,508 - INFO -   ✅ Uploaded logs/train_xgboost → drive:PROJETOS/RESULTADOS/AUDITORIA/AUDITOR/train_xgboost
+2026-03-23 01:59:00,547 - INFO -   ✅ Uploaded logs/auditor_preprocessing → drive:PROJETOS/RESULTADOS/AUDITORIA/AUDITOR/auditor_preprocessing
+2026-03-23 01:59:07,427 - INFO -   ✅ Uploaded logs/auditor_labelling → drive:PROJETOS/RESULTADOS/AUDITORIA/AUDITOR/auditor_labelling
+2026-03-23 01:59:07,427 - INFO - 📤 [AUDIT UPLOAD] AUDITOR complete.

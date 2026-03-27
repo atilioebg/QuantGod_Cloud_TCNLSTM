@@ -1,0 +1,309 @@
+﻿2026-03-23 01:38:11,263 - INFO - 
+📝 LOGGING INITIALIZED (UTF-8-SIG): logs/run_manager/run_manager_20260323_013811.log
+2026-03-23 01:38:11,263 - INFO - ============================================================
+2026-03-23 01:38:11,263 - INFO - [START] INICIANDO NOVA SESSAO DO PIPELINE: 2026-03-23 01:38:11
+2026-03-23 01:38:11,263 - INFO - ============================================================
+2026-03-23 01:38:11,361 - INFO - ============================================================
+2026-03-23 01:38:11,362 - INFO - [START] INICIANDO FASE: Foundation Optuna (2 Trials | 3 Epochs | EARLY STOP: 10)
+2026-03-23 01:38:11,362 - INFO - ============================================================
+2026-03-23 01:39:32,141 - INFO - 📁 DYNAMIC DATA PATHS: Train=data/L2/labelled/train | Val=data/L2/labelled/val
+2026-03-23 01:39:32,142 - INFO - 📐 Fitting Global Scaler (Smart Sampler: 100k rows)...
+2026-03-23 01:39:35,353 - INFO - 📊 Global Scaler initialized on 4,329,177 representative rows.
+2026-03-23 01:39:35,376 - INFO - 💾 Scaler saved properly to: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/scaler_foundation.pkl
+2026-03-23 01:39:35,607 - INFO - FocalLoss alpha: DYNAMIC RANGE active anchor points: [S:1.31, N:0.72, B:1.18]
+2026-03-23 01:39:35,607 - INFO - Loss: FocalLossWithSmoothing | fallback_gamma=OPTUNA_DINAMICO | fallback_smoothing=OPTUNA_DINAMICO | SniperLoss=ENABLED
+2026-03-23 01:39:35,619 - INFO - /workspace/QuantGod_Cloud_TCNLSTM/venv_gpu/lib/python3.11/site-packages/optuna/_experimental.py:33: ExperimentalWarning: Argument ``multivariate`` is an experimental feature. The interface can change in the future.
+2026-03-23 01:39:35,619 - INFO -   optuna_warn(
+2026-03-23 01:39:35,619 - INFO - Sampler: TPE (startup=1, multivariate=True)
+2026-03-23 01:39:35,620 - INFO - Pruner: Median (startup=1, warmup=0)
+2026-03-23 01:39:47,687 - INFO - A new study created in RDB with name: QUANTGOD_RECON_V007
+2026-03-23 01:39:47,735 - INFO - Starting 2 trials | Metric: MAX(MIN(Sell, Neu, Buy)) | Timeout: 172800s
+2026-03-23 01:39:48,595 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-23 01:40:34,977 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 10,000 amostras aleatórias.
+2026-03-23 01:40:34,978 - INFO - 🚀 Pre-loading 10,000 samples into RAM (Lightning Mode)...
+2026-03-23 01:43:38,502 - INFO - ✅ RAM-Safe Streaming Dataset: 10,000 sequences indexed and PRE-LOADED.
+2026-03-23 01:43:38,510 - INFO - ✅ RAM-Safe Streaming Dataset: 10,000 sequences indexed (Mode: Lightning).
+2026-03-23 01:43:38,542 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-23 01:43:49,195 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 5,000 amostras aleatórias.
+2026-03-23 01:43:49,195 - INFO - 🚀 Pre-loading 5,000 samples into RAM (Lightning Mode)...
+2026-03-23 01:44:45,698 - INFO - ✅ RAM-Safe Streaming Dataset: 5,000 sequences indexed and PRE-LOADED.
+2026-03-23 01:44:45,699 - INFO - ✅ RAM-Safe Streaming Dataset: 5,000 sequences indexed (Mode: Lightning).
+2026-03-23 01:44:46,962 - INFO - Trial 0 START | tcn=64, lstm=32, layers=2, batch=1024, seq=96 | RFE=30 | loss=ASYM (g_s=3.27, g_n=0.60, g_b=4.31) | alpha=[1.69, 0.86, 1.05], smooth=0.25
+2026-03-23 01:45:38,577 - INFO - T0 E1/3 | [WARN] ZERO_PENALTY | L: 0.59813129/0.66642523 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.4412/0.0000/0.0000] | LR: 0.00024364
+2026-03-23 01:45:38,592 - INFO - [BEST MACRO]  Trial 0 | Global F1 M MIN record: 0.00000000 (prev: -1.00000000) -> saved best_tcn_lstm.pt
+2026-03-23 01:45:38,615 - INFO - [BEST DIR]    Trial 0 | Global F1 Dir record: 0.00000000 (prev: -1.00000000) -> saved best_tcn_lstm_dir.pt
+2026-03-23 01:45:39,251 - INFO - T0 E2/3 | [WARN] ZERO_PENALTY | L: 0.57764564/0.66021508 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.4412/0.0000/0.0000] | LR: 0.00008121
+2026-03-23 01:45:39,861 - INFO - T0 E3/3 | [WARN] ZERO_PENALTY | L: 0.56417161/0.65722198 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.4412/0.0000/0.0000] | LR: 0.00000000
+2026-03-23 01:45:40,154 - INFO - Trial 0 finished with value: 0.0 and parameters: {'tcn_channels': 64, 'lstm_hidden': 32, 'num_lstm_layers': 2, 'batch_size': 1024, 'dropout': 0.41440045754398147, 'seq_len': 96, 'lr': 0.00032485107738385065, 'weight_decay': 0.007264768411084693, 'base_alpha_sell': 1.690414719308493, 'base_alpha_neutral': 0.860600875367336, 'base_alpha_buy': 1.0510241388121568, 'base_loss_gamma': 2.937929406670087, 'base_loss_smoothing': 0.25075273684936183, 'asym_gamma_sell': 3.272709771562548, 'asym_gamma_neu': 0.6030275644664804, 'asym_gamma_buy': 4.306911613617824}. Best is trial 0 with value: 0.0.
+2026-03-23 01:45:40,835 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-23 01:46:29,831 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 10,000 amostras aleatórias.
+2026-03-23 01:46:29,833 - INFO - 🚀 Pre-loading 10,000 samples into RAM (Lightning Mode)...
+2026-03-23 01:49:30,127 - INFO - ✅ RAM-Safe Streaming Dataset: 10,000 sequences indexed and PRE-LOADED.
+2026-03-23 01:49:30,128 - INFO - ✅ RAM-Safe Streaming Dataset: 10,000 sequences indexed (Mode: Lightning).
+2026-03-23 01:49:30,164 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-23 01:49:43,246 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 5,000 amostras aleatórias.
+2026-03-23 01:49:43,246 - INFO - 🚀 Pre-loading 5,000 samples into RAM (Lightning Mode)...
+2026-03-23 01:50:38,142 - INFO - ✅ RAM-Safe Streaming Dataset: 5,000 sequences indexed and PRE-LOADED.
+2026-03-23 01:50:38,144 - INFO - ✅ RAM-Safe Streaming Dataset: 5,000 sequences indexed (Mode: Lightning).
+2026-03-23 01:50:38,572 - INFO - Trial 1 START | tcn=64, lstm=32, layers=2, batch=1024, seq=96 | RFE=30 | loss=ASYM (g_s=4.53, g_n=1.56, g_b=2.98) | alpha=[1.80, 0.80, 0.82], smooth=0.32
+2026-03-23 01:50:39,063 - INFO - T1 E1/3 | [WARN] ZERO_PENALTY | L: 0.41139456/0.45018183 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.4385/0.0000/0.0000] | LR: 0.00042001
+2026-03-23 01:50:39,664 - INFO - T1 E2/3 | [WARN] ZERO_PENALTY | L: 0.38726483/0.44975125 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.4385/0.0000/0.0000] | LR: 0.00014000
+2026-03-23 01:50:40,248 - INFO - T1 E3/3 | [WARN] ZERO_PENALTY | L: 0.37126243/0.45205625 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.4385/0.0000/0.0000] | LR: 0.00000000
+2026-03-23 01:50:40,579 - INFO - Trial 1 finished with value: 0.0 and parameters: {'tcn_channels': 64, 'lstm_hidden': 32, 'num_lstm_layers': 2, 'batch_size': 1024, 'dropout': 0.4191762055335903, 'seq_len': 96, 'lr': 0.0005600163013883438, 'weight_decay': 0.0024168468316674327, 'base_alpha_sell': 1.803359159460464, 'base_alpha_neutral': 0.8019408363145116, 'base_alpha_buy': 0.822602342107966, 'base_loss_gamma': 3.438293358491507, 'base_loss_smoothing': 0.31683220602129786, 'asym_gamma_sell': 4.533079251738008, 'asym_gamma_neu': 1.5597926167554086, 'asym_gamma_buy': 2.979073838852021}. Best is trial 0 with value: 0.0.
+2026-03-23 01:50:40,671 - INFO - ============================================================
+2026-03-23 01:50:40,672 - INFO - --- OTIMIZACAO FINALIZADA ---
+2026-03-23 01:50:40,672 - INFO - Motivo da Parada: MAXIMO DE TRIALS (2) ALCANCADOS
+2026-03-23 01:50:40,672 - INFO - Tempo de Execucao da Sessao: 0.18 Horas
+2026-03-23 01:50:40,672 - INFO - Trials Executados nesta Sessao: 2
+2026-03-23 01:50:40,673 - INFO - ============================================================
+2026-03-23 01:50:40,690 - INFO - [MACRO] Best trial: 0 | MAX-MIN F1: 0.00000000
+2026-03-23 01:50:40,698 - INFO - [MACRO] Best params: {'tcn_channels': 64, 'lstm_hidden': 32, 'num_lstm_layers': 2, 'batch_size': 1024, 'dropout': '0.41440046', 'seq_len': 96, 'lr': '0.00032485', 'weight_decay': '0.00726477', 'base_alpha_sell': '1.69041472', 'base_alpha_neutral': '0.86060088', 'base_alpha_buy': '1.05102414', 'base_loss_gamma': '2.93792941', 'base_loss_smoothing': '0.25075274', 'asym_gamma_sell': '3.27270977', 'asym_gamma_neu': '0.60302756', 'asym_gamma_buy': '4.30691161', 'num_features': 30, 'base_alpha_list': [1.690414719308493, 0.860600875367336, 1.0510241388121568]}
+2026-03-23 01:50:40,722 - INFO - [BEST MACRO] Best params saved: src/cloud/base_model/otimizacao/best_params.json
+2026-03-23 01:50:40,737 - INFO - [BEST DIR]   Best trial: 0 | F1 Dir: 0.00000000
+2026-03-23 01:50:40,749 - INFO - [BEST DIR]   Best params saved: src/cloud/base_model/otimizacao/best_dir_params.json
+2026-03-23 01:50:40,749 - INFO - ============================================================
+2026-03-23 01:50:40,749 - INFO - [OK] Optuna Foundation Training completed. Orchestration is now handled by run_manager.py
+2026-03-23 01:50:40,750 - INFO - ============================================================
+2026-03-23 01:50:43,538 - INFO - [OK] FASE CONCLUIDA: Foundation Optuna (2 Trials | 3 Epochs | EARLY STOP: 10)
+2026-03-23 01:50:43,538 - INFO - [CLEAN] Initiating deep memory sweep (gc.collect and torch.cuda.empty_cache)...
+2026-03-23 01:51:02,232 - INFO -   -> CUDA VRAM cache cleared.
+2026-03-23 01:51:02,233 - INFO - [KFOLD] Executando 5-Fold Purged K-Fold Specialist
+2026-03-23 01:51:02,233 - INFO - ============================================================
+2026-03-23 01:51:02,233 - INFO - [START] INICIANDO FASE: K-Fold Specialist OOF (5 Folds + Purge 16min)
+2026-03-23 01:51:02,233 - INFO - ============================================================
+2026-03-23 01:51:34,019 - INFO - 🖥️  Device: cuda
+2026-03-23 01:51:34,020 - INFO - 🔄 Purge Dinamico Sniper ativado: 15min (horizon) + 1min (seguranca) = 16min
+2026-03-23 01:51:34,024 - INFO - 📐 K-Fold Setup: 5 folds, purge=16min (4 bars), resample=5min
+2026-03-23 01:51:34,032 - INFO - Loaded Foundation Arch (best_dir_params.json): seq_len=96, tcn=64, lstm=32×2
+2026-03-23 01:51:34,041 - INFO - 📂 Foundation Val: 274 files in data/L2/labelled/val
+2026-03-23 01:51:34,043 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-23 01:51:44,134 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 5,000 amostras aleatórias.
+2026-03-23 01:51:44,134 - INFO - 🚀 Pre-loading 5,000 samples into RAM (Lightning Mode)...
+2026-03-23 01:52:05,052 - INFO - ✅ RAM-Safe Streaming Dataset: 5,000 sequences indexed and PRE-LOADED.
+2026-03-23 01:52:05,053 - INFO - ✅ RAM-Safe Streaming Dataset: 5,000 sequences indexed (Mode: Lightning).
+2026-03-23 01:52:05,094 - INFO - 📐 Pre-scanning labels for class balance stats...
+2026-03-23 01:52:05,559 - INFO - 📊 Foundation Val: 5,000 rows (Mapped) | Labels: 89,487,733
+2026-03-23 01:52:05,628 - INFO - 📊 Class Distribution: Neutral=45.4%, Directional=54.6%
+2026-03-23 01:52:05,629 - INFO - 🧬 Alphas Genetic Inheritance: [1.690414719308493, 0.860600875367336, 1.0510241388121568]
+2026-03-23 01:52:05,629 - INFO - ============================================================
+2026-03-23 01:52:05,629 - INFO - [KFOLD] FOLD 1/5 | Train: 3,984 rows | Test: 1,000 rows
+2026-03-23 01:52:05,630 - INFO - [Fold 0] Right Purge Gap OK: 4 bars (20 min)
+2026-03-23 01:52:05,849 - INFO - 🔄 Warm-Starting from Foundation Checkpoint: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt
+2026-03-23 01:52:05,907 - INFO - 🔥 [Fold 0] WARM-START SUCCESS: Base weights initialized.
+2026-03-23 01:52:06,371 - INFO - [LOSS] Specialist Loss: alpha=[1.690414719308493, 0.860600875367336, 1.0510241388121568], gamma=2.94, smoothing=0.25 (Inherited: YES)
+2026-03-23 01:52:34,560 - INFO - [Fold 0] E1/2 | Sniper: 0.1925 | F1_Dir: 0.2138 | F1_Macro: 0.1426
+2026-03-23 01:52:36,540 - INFO - [Fold 0] E2/2 | Sniper: 0.1925 | F1_Dir: 0.2138 | F1_Macro: 0.1426
+2026-03-23 01:52:36,564 - INFO - [Fold 0] Model saved: model_fold_0.pt
+2026-03-23 01:52:37,153 - INFO - [Fold 0] OOF Sniper: 0.1925 | Dir: 0.2138 | Macro: 0.1426
+2026-03-23 01:52:37,343 - INFO - [Fold 0] Saved: fold_0.parquet (1,000 rows)
+2026-03-23 01:52:37,512 - INFO - ============================================================
+2026-03-23 01:52:37,512 - INFO - [KFOLD] FOLD 2/5 | Train: 3,984 rows | Test: 1,000 rows
+2026-03-23 01:52:37,513 - INFO - [Fold 1] Left Purge Gap OK: 4 bars (20 min)
+2026-03-23 01:52:37,513 - INFO - [Fold 1] Right Purge Gap OK: 4 bars (20 min)
+2026-03-23 01:52:37,670 - INFO - 🔄 Warm-Starting from Foundation Checkpoint: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt
+2026-03-23 01:52:37,686 - INFO - 🔥 [Fold 1] WARM-START SUCCESS: Base weights initialized.
+2026-03-23 01:52:37,690 - INFO - [LOSS] Specialist Loss: alpha=[1.690414719308493, 0.860600875367336, 1.0510241388121568], gamma=2.94, smoothing=0.25 (Inherited: YES)
+2026-03-23 01:52:39,650 - INFO - [Fold 1] E1/2 | Sniper: 0.1980 | F1_Dir: 0.2200 | F1_Macro: 0.1466
+2026-03-23 01:52:41,603 - INFO - [Fold 1] E2/2 | Sniper: 0.1980 | F1_Dir: 0.2200 | F1_Macro: 0.1466
+2026-03-23 01:52:41,627 - INFO - [Fold 1] Model saved: model_fold_1.pt
+2026-03-23 01:52:42,200 - INFO - [Fold 1] OOF Sniper: 0.1980 | Dir: 0.2200 | Macro: 0.1466
+2026-03-23 01:52:42,222 - INFO - [Fold 1] Saved: fold_1.parquet (1,000 rows)
+2026-03-23 01:52:42,384 - INFO - ============================================================
+2026-03-23 01:52:42,384 - INFO - [KFOLD] FOLD 3/5 | Train: 3,984 rows | Test: 1,000 rows
+2026-03-23 01:52:42,385 - INFO - [Fold 2] Left Purge Gap OK: 4 bars (20 min)
+2026-03-23 01:52:42,385 - INFO - [Fold 2] Right Purge Gap OK: 4 bars (20 min)
+2026-03-23 01:52:42,545 - INFO - 🔄 Warm-Starting from Foundation Checkpoint: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt
+2026-03-23 01:52:42,561 - INFO - 🔥 [Fold 2] WARM-START SUCCESS: Base weights initialized.
+2026-03-23 01:52:42,565 - INFO - [LOSS] Specialist Loss: alpha=[1.690414719308493, 0.860600875367336, 1.0510241388121568], gamma=2.94, smoothing=0.25 (Inherited: YES)
+2026-03-23 01:52:44,521 - INFO - [Fold 2] E1/2 | Sniper: 0.1963 | F1_Dir: 0.2181 | F1_Macro: 0.1454
+2026-03-23 01:52:46,492 - INFO - [Fold 2] E2/2 | Sniper: 0.1963 | F1_Dir: 0.2181 | F1_Macro: 0.1454
+2026-03-23 01:52:46,521 - INFO - [Fold 2] Model saved: model_fold_2.pt
+2026-03-23 01:52:47,101 - INFO - [Fold 2] OOF Sniper: 0.1963 | Dir: 0.2181 | Macro: 0.1454
+2026-03-23 01:52:47,124 - INFO - [Fold 2] Saved: fold_2.parquet (1,000 rows)
+2026-03-23 01:52:47,297 - INFO - ============================================================
+2026-03-23 01:52:47,297 - INFO - [KFOLD] FOLD 4/5 | Train: 3,984 rows | Test: 1,000 rows
+2026-03-23 01:52:47,297 - INFO - [Fold 3] Left Purge Gap OK: 4 bars (20 min)
+2026-03-23 01:52:47,298 - INFO - [Fold 3] Right Purge Gap OK: 4 bars (20 min)
+2026-03-23 01:52:47,447 - INFO - 🔄 Warm-Starting from Foundation Checkpoint: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt
+2026-03-23 01:52:47,464 - INFO - 🔥 [Fold 3] WARM-START SUCCESS: Base weights initialized.
+2026-03-23 01:52:47,468 - INFO - [LOSS] Specialist Loss: alpha=[1.690414719308493, 0.860600875367336, 1.0510241388121568], gamma=2.94, smoothing=0.25 (Inherited: YES)
+2026-03-23 01:52:49,409 - INFO - [Fold 3] E1/2 | Sniper: 0.1891 | F1_Dir: 0.2101 | F1_Macro: 0.1401
+2026-03-23 01:52:51,390 - INFO - [Fold 3] E2/2 | Sniper: 0.1891 | F1_Dir: 0.2101 | F1_Macro: 0.1401
+2026-03-23 01:52:51,426 - INFO - [Fold 3] Model saved: model_fold_3.pt
+2026-03-23 01:52:51,990 - INFO - [Fold 3] OOF Sniper: 0.1891 | Dir: 0.2101 | Macro: 0.1401
+2026-03-23 01:52:52,018 - INFO - [Fold 3] Saved: fold_3.parquet (1,000 rows)
+2026-03-23 01:52:52,188 - INFO - ============================================================
+2026-03-23 01:52:52,188 - INFO - [KFOLD] FOLD 5/5 | Train: 3,984 rows | Test: 1,000 rows
+2026-03-23 01:52:52,189 - INFO - [Fold 4] Left Purge Gap OK: 4 bars (20 min)
+2026-03-23 01:52:52,344 - INFO - 🔄 Warm-Starting from Foundation Checkpoint: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt
+2026-03-23 01:52:52,361 - INFO - 🔥 [Fold 4] WARM-START SUCCESS: Base weights initialized.
+2026-03-23 01:52:52,365 - INFO - [LOSS] Specialist Loss: alpha=[1.690414719308493, 0.860600875367336, 1.0510241388121568], gamma=2.94, smoothing=0.25 (Inherited: YES)
+2026-03-23 01:52:54,242 - INFO - [Fold 4] E1/2 | Sniper: 0.1980 | F1_Dir: 0.2200 | F1_Macro: 0.1466
+2026-03-23 01:52:56,202 - INFO - [Fold 4] E2/2 | Sniper: 0.1980 | F1_Dir: 0.2200 | F1_Macro: 0.1466
+2026-03-23 01:52:56,231 - INFO - [Fold 4] Model saved: model_fold_4.pt
+2026-03-23 01:52:56,798 - INFO - [Fold 4] OOF Sniper: 0.1980 | Dir: 0.2200 | Macro: 0.1466
+2026-03-23 01:52:56,822 - INFO - [Fold 4] Saved: fold_4.parquet (1,000 rows)
+2026-03-23 01:52:56,996 - INFO - Assembling full_oof.parquet (chronological order)...
+2026-03-23 01:52:57,123 - INFO - full_oof.parquet: 5,000 rows | Coverage: 100.0% of Foundation Val
+2026-03-23 01:52:57,123 - INFO - Expected: ~4,980 (after purge removal)
+2026-03-23 01:52:57,126 - INFO - No duplicate rows in full_oof.parquet
+2026-03-23 01:52:57,126 - INFO - Running Automated Specialist Security QA (pytest)...
+2026-03-23 01:54:48,580 - INFO - [OK] Specialist QA Report saved to /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/SPECIALIST/kfold_security_QA.log
+2026-03-23 01:54:48,581 - INFO - [END] K-Fold Specialist finished. Auditor fusion ready.
+2026-03-23 01:54:48,625 - INFO - 📤 [AUDIT UPLOAD] Stage=KFOLD_SPECIALIST → drive:PROJETOS/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/AUDITORIA/KFOLD_SPECIALIST
+2026-03-23 01:54:54,047 - INFO -   ✅ Uploaded logs/kfold_specialist → drive:PROJETOS/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/AUDITORIA/KFOLD_SPECIALIST/kfold_specialist
+2026-03-23 01:54:54,048 - INFO - 📤 [AUDIT UPLOAD] KFOLD_SPECIALIST complete.
+2026-03-23 01:54:55,634 - INFO - [OK] FASE CONCLUIDA: K-Fold Specialist OOF (5 Folds + Purge 16min)
+2026-03-23 01:54:55,635 - INFO - [CLEAN] Initiating deep memory sweep (gc.collect and torch.cuda.empty_cache)...
+2026-03-23 01:54:55,687 - INFO -   -> CUDA VRAM cache cleared.
+2026-03-23 01:54:55,695 - INFO - [DIAG] Auditor Requirements OK. Usando Base Model: best_tcn_lstm_dir.pt
+2026-03-23 01:54:55,695 - INFO - ============================================================
+2026-03-23 01:54:55,696 - INFO - [START] INICIANDO FASE: Auditor Preprocessing (Context generation)
+2026-03-23 01:54:55,696 - INFO - ============================================================
+2026-03-23 01:55:02,925 - INFO - 📂 [Audit Fix] Context features extraídas de Foundation Val: data/L2/labelled/val
+2026-03-23 01:55:02,932 - INFO - Carregando 274 arquivos para processamento CONTÍNUO (PURE POLARS)...
+2026-03-23 01:55:02,985 - INFO - auditor_preprocessing: resample_freq=5min (5 min/bar)
+2026-03-23 01:55:02,985 - INFO - Processando e calculando indicadores Alpha Sensors arquivo por arquivo (Zero RAM Spike)...
+2026-03-23 01:55:03,028 - INFO - /workspace/QuantGod_Cloud_TCNLSTM/src/cloud/auditor_model/auditor_preprocessing.py:99: PerformanceWarning: Determining the column names of a LazyFrame requires resolving its schema, which is a potentially expensive operation. Use `LazyFrame.collect_schema().names()` to get the column names without this warning.
+2026-03-23 01:55:03,028 - INFO -   if "log_volume" in lf.columns:
+2026-03-23 01:55:03,029 - INFO - /workspace/QuantGod_Cloud_TCNLSTM/src/cloud/auditor_model/auditor_preprocessing.py:158: PerformanceWarning: Determining the column names of a LazyFrame requires resolving its schema, which is a potentially expensive operation. Use `LazyFrame.collect_schema().names()` to get the column names without this warning.
+2026-03-23 01:55:03,029 - INFO -   if "book_skew_bid" not in lf.columns:
+2026-03-23 01:55:03,030 - INFO - /workspace/QuantGod_Cloud_TCNLSTM/src/cloud/auditor_model/auditor_preprocessing.py:160: PerformanceWarning: Determining the column names of a LazyFrame requires resolving its schema, which is a potentially expensive operation. Use `LazyFrame.collect_schema().names()` to get the column names without this warning.
+2026-03-23 01:55:03,030 - INFO -   if "book_skew_ask" not in lf.columns:
+2026-03-23 01:56:44,170 - INFO - ✅ Processamento Chunked-Polars finalizado com sucesso para 274/274 arquivos.
+2026-03-23 01:56:44,172 - INFO - ✅ Auditor Preprocessing (Context Engineering) Finalizado OOF.
+2026-03-23 01:56:44,488 - INFO - [OK] FASE CONCLUIDA: Auditor Preprocessing (Context generation)
+2026-03-23 01:56:44,489 - INFO - ============================================================
+2026-03-23 01:56:44,489 - INFO - [START] INICIANDO FASE: Auditor Labelling (Fused Logits + Sinais OOF)
+2026-03-23 01:56:44,489 - INFO - ============================================================
+2026-03-23 01:57:09,021 - INFO - 🔁 K-Fold Mode detected (kfold.enabled=true) → loading full_oof.parquet
+2026-03-23 01:57:09,027 - INFO - 🔗 K-Fold Mode: loading OOF predictions from /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/SPECIALIST/full_oof.parquet
+2026-03-23 01:57:09,055 - INFO -   ↳ OOF rows: 5,000 (covering 5 folds)
+2026-03-23 01:57:09,098 - INFO - 🔑 [Audit Fix] DEVICE para inferência Foundation: cuda
+2026-03-23 01:57:09,122 - INFO - Loaded Foundation Arch (best_dir_params.json): seq_len=96, tcn=64, lstm=32×2
+2026-03-23 01:57:09,123 - INFO - 🔍 [Audit Diagnostic] foundation_val_dir: /workspace/QuantGod_Cloud_TCNLSTM/data/L2/labelled/val
+2026-03-23 01:57:09,127 - INFO - 🔍 [Audit Diagnostic] Directory exists? True
+2026-03-23 01:57:09,131 - INFO - 🔍 [Audit Diagnostic] Found 274 parquet files in data/L2/labelled/val
+2026-03-23 01:57:09,132 - INFO - 🔍 [Audit] Loading only necessary validation segments for Foundation inference...
+2026-03-23 01:57:12,537 - INFO - ✅ Selective Foundation Val & Context LazyFrames loaded: 407,630 dense rows (Optimization: RAM SAVE)
+2026-03-23 01:57:13,380 - INFO - 🔑 [Audit Fix] Scaler carregado de: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/scaler_foundation.pkl
+2026-03-23 01:57:21,850 - INFO - SequenceDataset (island-aware): 407535/407535 sequências válidas (Lookback protection ativo).
+2026-03-23 01:57:22,433 - INFO - [OK] [Audit Fix] Usando Base Model: best_tcn_lstm_dir.pt
+2026-03-23 01:57:22,470 - INFO - [MODEL] Generating Foundation Model probabilities over Foundation Val...
+2026-03-23 01:57:28,768 - INFO - 🔗 RAM-Safe joining OOF predictions × Foundation probs × Context features (Lazy)...
+2026-03-23 01:57:28,963 - INFO - ✅ Fused rows after LAZY join: 4,905
+2026-03-23 01:57:29,079 - INFO - 📊 Fused Dataset: 4,905 rows | Meta-Target Accuracy: 27.50%
+2026-03-23 01:57:29,143 - INFO - 📦 Treino Fused salvo: data/auditor/dataset_fused/train/fused_auditor.parquet (3,924 rows)
+2026-03-23 01:57:29,143 - INFO - 📦 Val   Fused salvo: data/auditor/dataset_fused/val/fused_auditor.parquet (981 rows)
+2026-03-23 01:57:31,205 - INFO - [OK] FASE CONCLUIDA: Auditor Labelling (Fused Logits + Sinais OOF)
+2026-03-23 01:57:31,206 - INFO - [CLEAN] Initiating deep memory sweep (gc.collect and torch.cuda.empty_cache)...
+2026-03-23 01:57:31,258 - INFO -   -> CUDA VRAM cache cleared.
+2026-03-23 01:57:31,258 - INFO - ============================================================
+2026-03-23 01:57:31,259 - INFO - [START] INICIANDO FASE: Auditor XGBoost (Dynamic Thresholding)
+2026-03-23 01:57:31,259 - INFO - ============================================================
+2026-03-23 01:57:48,517 - INFO - Carregando dados fundidos de data/auditor/dataset_fused...
+2026-03-23 01:58:07,818 - INFO - 🏆 Iniciando Otimização Optuna do Auditor (1 trials)...
+2026-03-23 01:58:07,818 - INFO - [I 2026-03-23 01:58:07,818] A new study created in memory with name: no-name-8afbbf0d-6351-4da1-859d-46dd1a07ad54
+2026-03-23 01:58:08,978 - INFO - /workspace/QuantGod_Cloud_TCNLSTM/venv_gpu/lib/python3.11/site-packages/xgboost/core.py:751: UserWarning: [01:58:08] WARNING: /__w/xgboost/xgboost/src/common/error_msg.cc:62: Falling back to prediction using DMatrix due to mismatched devices. This might lead to higher memory usage and slower performance. XGBoost is running on: cuda:0, while the input data is on: cpu.
+2026-03-23 01:58:08,978 - INFO - Potential solutions:
+2026-03-23 01:58:08,978 - INFO - - Use a data structure that matches the device ordinal in the booster.
+2026-03-23 01:58:08,979 - INFO - - Set the device for booster before call to inplace_predict.
+2026-03-23 01:58:08,979 - INFO - This warning will only be shown once.
+2026-03-23 01:58:08,979 - INFO -   return func(**kwargs)
+2026-03-23 01:58:09,000 - INFO - [I 2026-03-23 01:58:08,999] Trial 0 finished with value: 0.5620747684778905 and parameters: {'max_depth': 3, 'learning_rate': 0.0244365110254983, 'n_estimators': 401, 'subsample': 0.8063796936959322, 'colsample_bytree': 0.6142303168664356, 'reg_alpha': 0.49679704684414716, 'reg_lambda': 2.06335392538236}. Best is trial 0 with value: 0.5620747684778905.
+2026-03-23 01:58:09,000 - INFO - ✅ Melhor Trial Auditor: 0 (AUC: 0.5621)
+2026-03-23 01:58:09,000 - INFO - 🎯 Novos Parâmetros Optuna: {'max_depth': 3, 'learning_rate': 0.0244365110254983, 'n_estimators': 401, 'subsample': 0.8063796936959322, 'colsample_bytree': 0.6142303168664356, 'reg_alpha': 0.49679704684414716, 'reg_lambda': 2.06335392538236}
+2026-03-23 01:58:09,001 - INFO - Tamanho Treino: 3924 | Tamanho Val: 981
+2026-03-23 01:58:09,001 - INFO - Ocorrência de Acertos (1) no Treino: 27.40%
+2026-03-23 01:58:09,001 - INFO - Ocorrência de Acertos (1) no Val: 27.93%
+2026-03-23 01:58:09,001 - INFO - Iniciando treinamento do XGBoost Meta-Labeler...
+2026-03-23 01:58:09,029 - INFO - [0]	validation_0-auc:0.56446	validation_1-auc:0.56158
+2026-03-23 01:58:09,082 - INFO - [50]	validation_0-auc:0.66173	validation_1-auc:0.58231
+2026-03-23 01:58:09,133 - INFO - [100]	validation_0-auc:0.68418	validation_1-auc:0.58068
+2026-03-23 01:58:09,184 - INFO - [150]	validation_0-auc:0.70765	validation_1-auc:0.57135
+2026-03-23 01:58:09,236 - INFO - [200]	validation_0-auc:0.73239	validation_1-auc:0.57085
+2026-03-23 01:58:09,287 - INFO - [250]	validation_0-auc:0.75095	validation_1-auc:0.56766
+2026-03-23 01:58:09,339 - INFO - [300]	validation_0-auc:0.77133	validation_1-auc:0.56640
+2026-03-23 01:58:09,390 - INFO - [350]	validation_0-auc:0.78464	validation_1-auc:0.56446
+2026-03-23 01:58:09,442 - INFO - [400]	validation_0-auc:0.79857	validation_1-auc:0.56317
+2026-03-23 01:58:09,461 - INFO - Treinamento finalizado. Gerando métricas de validação...
+2026-03-23 01:58:09,472 - INFO - === Calibração de Threshold do Auditor (F-Beta 0.5) ===
+2026-03-23 01:58:09,479 - INFO - Threshold 0.50 -> Prec: 0.3333 | Rec: 0.4453 | F-0.5: 0.3510
+2026-03-23 01:58:09,485 - INFO - Threshold 0.52 -> Prec: 0.3446 | Rec: 0.3723 | F-0.5: 0.3498
+2026-03-23 01:58:09,491 - INFO - Threshold 0.54 -> Prec: 0.3790 | Rec: 0.3029 | F-0.5: 0.3609
+2026-03-23 01:58:09,497 - INFO - Threshold 0.56 -> Prec: 0.3758 | Rec: 0.2263 | F-0.5: 0.3319
+2026-03-23 01:58:09,503 - INFO - Threshold 0.58 -> Prec: 0.3760 | Rec: 0.1715 | F-0.5: 0.3036
+2026-03-23 01:58:09,509 - INFO - Threshold 0.60 -> Prec: 0.3882 | Rec: 0.1204 | F-0.5: 0.2687
+2026-03-23 01:58:09,515 - INFO - Threshold 0.62 -> Prec: 0.3966 | Rec: 0.0839 | F-0.5: 0.2273
+2026-03-23 01:58:09,521 - INFO - Threshold 0.64 -> Prec: 0.3750 | Rec: 0.0547 | F-0.5: 0.1728
+2026-03-23 01:58:09,527 - INFO - Threshold 0.66 -> Prec: 0.3636 | Rec: 0.0292 | F-0.5: 0.1105
+2026-03-23 01:58:09,533 - INFO - Threshold 0.68 -> Prec: 0.3333 | Rec: 0.0219 | F-0.5: 0.0867
+2026-03-23 01:58:09,539 - INFO - Threshold 0.70 -> Prec: 0.2000 | Rec: 0.0073 | F-0.5: 0.0318
+2026-03-23 01:58:09,545 - INFO - Threshold 0.72 -> Prec: 0.2500 | Rec: 0.0073 | F-0.5: 0.0327
+2026-03-23 01:58:09,551 - INFO - Threshold 0.74 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,557 - INFO - Threshold 0.76 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,563 - INFO - Threshold 0.78 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,569 - INFO - Threshold 0.80 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,575 - INFO - Threshold 0.82 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,581 - INFO - Threshold 0.84 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,587 - INFO - Threshold 0.86 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,593 - INFO - Threshold 0.88 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,599 - INFO - Threshold 0.90 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,605 - INFO - Threshold 0.92 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,611 - INFO - Threshold 0.94 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-23 01:58:09,612 - INFO - 🚀 Melhor Threshold Automático Escolhido (F-0.5 Máximo): 0.54 (F: 0.3609)
+2026-03-23 01:58:09,614 - INFO - === Performance Final do XGBoost Auditor (Threshold: 0.54) ===
+2026-03-23 01:58:09,615 - INFO - Accuracy: 0.6667 | F1-Score (Acertos): 0.3367 | ROC-AUC: 0.5632
+2026-03-23 01:58:09,619 - INFO - Relatório de Classificação:
+2026-03-23 01:58:09,620 - INFO -               precision    recall  f1-score   support
+2026-03-23 01:58:09,620 - INFO -     ERRO (0)       0.75      0.81      0.78       707
+2026-03-23 01:58:09,620 - INFO -   ACERTO (1)       0.38      0.30      0.34       274
+2026-03-23 01:58:09,620 - INFO -     accuracy                           0.67       981
+2026-03-23 01:58:09,620 - INFO -    macro avg       0.56      0.56      0.56       981
+2026-03-23 01:58:09,621 - INFO - weighted avg       0.65      0.67      0.65       981
+2026-03-23 01:58:09,621 - INFO - Feature Importance (Top 10):
+2026-03-23 01:58:09,621 - INFO -   spec_prob_neu       : 0.0619
+2026-03-23 01:58:09,621 - INFO -   rsi_14              : 0.0549
+2026-03-23 01:58:09,621 - INFO -   stoch_14            : 0.0547
+2026-03-23 01:58:09,622 - INFO -   base_prob_buy       : 0.0539
+2026-03-23 01:58:09,622 - INFO -   mfi_14              : 0.0518
+2026-03-23 01:58:09,622 - INFO -   ema_cross_dist      : 0.0516
+2026-03-23 01:58:09,622 - INFO -   vol_1h              : 0.0516
+2026-03-23 01:58:09,622 - INFO -   spec_prob_buy       : 0.0511
+2026-03-23 01:58:09,623 - INFO -   spec_prob_sell      : 0.0508
+2026-03-23 01:58:09,623 - INFO -   atr_norm            : 0.0504
+2026-03-23 01:58:09,623 - INFO - 2026-03-23 01:58:09,621 - INFO -
+2026-03-23 01:58:09,623 - INFO - === Output Quádruplo Final (Amostra do Val Set) ===
+2026-03-23 01:58:09,623 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.36 | Status_XGB: Nao_Executa | Proba_XGBoost: 0.51]  --> Realidade: Errou
+2026-03-23 01:58:09,624 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.36 | Status_XGB: Nao_Executa | Proba_XGBoost: 0.37]  --> Realidade: Errou
+2026-03-23 01:58:09,624 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.36 | Status_XGB: Nao_Executa | Proba_XGBoost: 0.43]  --> Realidade: Errou
+2026-03-23 01:58:09,624 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.35 | Status_XGB: Executa     | Proba_XGBoost: 0.58]  --> Realidade: Errou
+2026-03-23 01:58:09,624 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.36 | Status_XGB: Executa     | Proba_XGBoost: 0.58]  --> Realidade: Errou
+2026-03-23 01:58:09,624 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.35 | Status_XGB: Nao_Executa | Proba_XGBoost: 0.33]  --> Realidade: Errou
+2026-03-23 01:58:09,625 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.35 | Status_XGB: Executa     | Proba_XGBoost: 0.54]  --> Realidade: Errou
+2026-03-23 01:58:09,625 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.36 | Status_XGB: Executa     | Proba_XGBoost: 0.63]  --> Realidade: Acertou
+2026-03-23 01:58:09,625 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.35 | Status_XGB: Executa     | Proba_XGBoost: 0.64]  --> Realidade: Errou
+2026-03-23 01:58:09,625 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.35 | Status_XGB: Executa     | Proba_XGBoost: 0.76]  --> Realidade: Errou
+2026-03-23 01:58:09,625 - INFO - 2026-03-23 01:58:09,625 - INFO -
+2026-03-23 01:58:09,670 - INFO - 🤖 Modelo XGBoost Auditor Salvo: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/AUDITOR/auditor_xgboost.json
+2026-03-23 01:58:09,681 - INFO - ⚙️ Configurações do Auditor (Threshold) salvas em: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/AUDITOR/auditor_config.json
+2026-03-23 01:58:09,693 - INFO - 💾 Scaler XGBoost Auditor Salvo: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/AUDITOR/scaler_auditor.pkl
+2026-03-23 01:58:09,710 - INFO - 📤 [AUDIT UPLOAD] Stage=AUDITOR → drive:PROJETOS/RESULTADOS/AUDITORIA/AUDITOR
+2026-03-23 01:58:53,508 - INFO -   ✅ Uploaded logs/train_xgboost → drive:PROJETOS/RESULTADOS/AUDITORIA/AUDITOR/train_xgboost
+2026-03-23 01:59:00,547 - INFO -   ✅ Uploaded logs/auditor_preprocessing → drive:PROJETOS/RESULTADOS/AUDITORIA/AUDITOR/auditor_preprocessing
+2026-03-23 01:59:07,427 - INFO -   ✅ Uploaded logs/auditor_labelling → drive:PROJETOS/RESULTADOS/AUDITORIA/AUDITOR/auditor_labelling
+2026-03-23 01:59:07,427 - INFO - 📤 [AUDIT UPLOAD] AUDITOR complete.
+2026-03-23 01:59:08,235 - INFO - [OK] FASE CONCLUIDA: Auditor XGBoost (Dynamic Thresholding)
+2026-03-23 01:59:08,235 - INFO - [CLEAN] Initiating deep memory sweep (gc.collect and torch.cuda.empty_cache)...
+2026-03-23 01:59:08,286 - INFO -   -> CUDA VRAM cache cleared.
+2026-03-23 01:59:08,287 - INFO - ============================================================
+2026-03-23 01:59:08,287 - INFO - [HEALTH] INICIANDO AVALIACAO DE SAUDE (QA) OOF
+2026-03-23 01:59:08,287 - INFO - ============================================================
+2026-03-23 01:59:08,287 - INFO - [START] INICIANDO FASE: Health QA Generation (Target Balance & NaNs)
+2026-03-23 01:59:08,288 - INFO - ============================================================
+2026-03-23 01:59:16,359 - INFO - ✅ QA Log gerado: logs/QA/base_labelling_health_QA.log
+2026-03-23 01:59:16,946 - INFO - ✅ QA Log gerado: logs/QA/specialized_labelling_health_QA.log
+2026-03-23 01:59:17,022 - INFO - ✅ QA Log gerado: logs/QA/auditor_final_health_QA.log
+2026-03-23 01:59:17,205 - INFO - [OK] FASE CONCLUIDA: Health QA Generation (Target Balance & NaNs)
+2026-03-23 01:59:17,206 - INFO - ============================================================
+2026-03-23 01:59:17,206 - INFO - [TRANSFER] INICIANDO TRANSFERENCIA INTEGRAL (QA LOGS E MODELOS)

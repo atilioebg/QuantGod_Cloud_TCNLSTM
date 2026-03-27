@@ -1,0 +1,92 @@
+﻿2026-03-22 20:36:39,279 - INFO - 🖥️  Device: cuda
+2026-03-22 20:36:39,280 - INFO - 🔄 Purge Dinamico Sniper ativado: 15min (horizon) + 1min (seguranca) = 16min
+2026-03-22 20:36:39,283 - INFO - 📐 K-Fold Setup: 5 folds, purge=16min (4 bars), resample=5min
+2026-03-22 20:36:39,290 - INFO - Loaded Foundation Arch (best_dir_params.json): seq_len=192, tcn=256, lstm=32×4
+2026-03-22 20:36:39,297 - INFO - 📂 Foundation Val: 274 files in data/L2/labelled/val
+2026-03-22 20:36:39,308 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-22 20:36:48,717 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 5,000 amostras aleatórias.
+2026-03-22 20:36:48,717 - INFO - 🚀 Pre-loading 5,000 samples into RAM (Lightning Mode)...
+2026-03-22 20:37:09,363 - INFO - ✅ RAM-Safe Streaming Dataset: 5,000 sequences indexed and PRE-LOADED.
+2026-03-22 20:37:09,364 - INFO - ✅ RAM-Safe Streaming Dataset: 5,000 sequences indexed (Mode: Lightning).
+2026-03-22 20:37:09,426 - INFO - 📐 Pre-scanning labels for class balance stats...
+2026-03-22 20:37:09,811 - INFO - 📊 Foundation Val: 5,000 rows (Mapped) | Labels: 89,487,733
+2026-03-22 20:37:09,886 - INFO - 📊 Class Distribution: Neutral=45.4%, Directional=54.6%
+2026-03-22 20:37:09,887 - INFO - 🧬 Alphas Genetic Inheritance: [1.5205807897408987, 0.8828649417624105, 1.130924341214876]
+2026-03-22 20:37:09,887 - INFO - ============================================================
+2026-03-22 20:37:09,887 - INFO - [KFOLD] FOLD 1/5 | Train: 3,984 rows | Test: 1,000 rows
+2026-03-22 20:37:09,889 - INFO - [Fold 0] Right Purge Gap OK: 4 bars (20 min)
+2026-03-22 20:37:10,280 - INFO - 🔄 Warm-Starting from Foundation Checkpoint: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt
+2026-03-22 20:37:10,350 - INFO - 🔥 [Fold 0] WARM-START SUCCESS: Base weights initialized.
+2026-03-22 20:37:10,783 - INFO - [LOSS] Specialist Loss: alpha=[1.5205807897408987, 0.8828649417624105, 1.130924341214876], gamma=2.20, smoothing=0.13 (Inherited: YES)
+2026-03-22 20:37:35,745 - INFO - [Fold 0] E1/60 | Sniper: 0.2864 | F1_Dir: 0.3182 | F1_Macro: 0.2121
+2026-03-22 20:37:48,427 - INFO - [Fold 0] E6/60 | Sniper: 0.2072 | F1_Dir: 0.2302 | F1_Macro: 0.1535
+2026-03-22 20:38:01,040 - INFO - [Fold 0] E11/60 | Sniper: 0.2072 | F1_Dir: 0.2302 | F1_Macro: 0.1535
+2026-03-22 20:38:01,040 - INFO - [Fold 0] Early stop at epoch 11.
+2026-03-22 20:38:01,074 - INFO - [Fold 0] Model saved: model_fold_0.pt
+2026-03-22 20:38:01,710 - INFO - [Fold 0] OOF Sniper: 0.2864 | Dir: 0.3182 | Macro: 0.2121
+2026-03-22 20:38:01,844 - INFO - [Fold 0] Saved: fold_0.parquet (1,000 rows)
+2026-03-22 20:38:02,031 - INFO - ============================================================
+2026-03-22 20:38:02,032 - INFO - [KFOLD] FOLD 2/5 | Train: 3,984 rows | Test: 1,000 rows
+2026-03-22 20:38:02,032 - INFO - [Fold 1] Left Purge Gap OK: 4 bars (20 min)
+2026-03-22 20:38:02,032 - INFO - [Fold 1] Right Purge Gap OK: 4 bars (20 min)
+2026-03-22 20:38:02,317 - INFO - 🔄 Warm-Starting from Foundation Checkpoint: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt
+2026-03-22 20:38:02,335 - INFO - 🔥 [Fold 1] WARM-START SUCCESS: Base weights initialized.
+2026-03-22 20:38:02,341 - INFO - [LOSS] Specialist Loss: alpha=[1.5205807897408987, 0.8828649417624105, 1.130924341214876], gamma=2.20, smoothing=0.13 (Inherited: YES)
+2026-03-22 20:38:04,857 - INFO - [Fold 1] E1/60 | Sniper: 0.2637 | F1_Dir: 0.2930 | F1_Macro: 0.1954
+2026-03-22 20:38:17,283 - INFO - [Fold 1] E6/60 | Sniper: 0.1947 | F1_Dir: 0.2163 | F1_Macro: 0.1442
+2026-03-22 20:38:29,713 - INFO - [Fold 1] E11/60 | Sniper: 0.1947 | F1_Dir: 0.2163 | F1_Macro: 0.1442
+2026-03-22 20:38:29,714 - INFO - [Fold 1] Early stop at epoch 11.
+2026-03-22 20:38:29,771 - INFO - [Fold 1] Model saved: model_fold_1.pt
+2026-03-22 20:38:30,407 - INFO - [Fold 1] OOF Sniper: 0.2637 | Dir: 0.2930 | Macro: 0.1954
+2026-03-22 20:38:30,424 - INFO - [Fold 1] Saved: fold_1.parquet (1,000 rows)
+2026-03-22 20:38:30,607 - INFO - ============================================================
+2026-03-22 20:38:30,607 - INFO - [KFOLD] FOLD 3/5 | Train: 3,984 rows | Test: 1,000 rows
+2026-03-22 20:38:30,607 - INFO - [Fold 2] Left Purge Gap OK: 4 bars (20 min)
+2026-03-22 20:38:30,607 - INFO - [Fold 2] Right Purge Gap OK: 4 bars (20 min)
+2026-03-22 20:38:30,887 - INFO - 🔄 Warm-Starting from Foundation Checkpoint: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt
+2026-03-22 20:38:30,903 - INFO - 🔥 [Fold 2] WARM-START SUCCESS: Base weights initialized.
+2026-03-22 20:38:30,909 - INFO - [LOSS] Specialist Loss: alpha=[1.5205807897408987, 0.8828649417624105, 1.130924341214876], gamma=2.20, smoothing=0.13 (Inherited: YES)
+2026-03-22 20:38:33,402 - INFO - [Fold 2] E1/60 | Sniper: 0.2591 | F1_Dir: 0.2879 | F1_Macro: 0.1919
+2026-03-22 20:38:46,130 - INFO - [Fold 2] E6/60 | Sniper: 0.1958 | F1_Dir: 0.2175 | F1_Macro: 0.1450
+2026-03-22 20:38:58,672 - INFO - [Fold 2] E11/60 | Sniper: 0.1958 | F1_Dir: 0.2175 | F1_Macro: 0.1450
+2026-03-22 20:38:58,672 - INFO - [Fold 2] Early stop at epoch 11.
+2026-03-22 20:38:58,749 - INFO - [Fold 2] Model saved: model_fold_2.pt
+2026-03-22 20:38:59,379 - INFO - [Fold 2] OOF Sniper: 0.2591 | Dir: 0.2879 | Macro: 0.1919
+2026-03-22 20:38:59,397 - INFO - [Fold 2] Saved: fold_2.parquet (1,000 rows)
+2026-03-22 20:38:59,583 - INFO - ============================================================
+2026-03-22 20:38:59,583 - INFO - [KFOLD] FOLD 4/5 | Train: 3,984 rows | Test: 1,000 rows
+2026-03-22 20:38:59,584 - INFO - [Fold 3] Left Purge Gap OK: 4 bars (20 min)
+2026-03-22 20:38:59,584 - INFO - [Fold 3] Right Purge Gap OK: 4 bars (20 min)
+2026-03-22 20:38:59,860 - INFO - 🔄 Warm-Starting from Foundation Checkpoint: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt
+2026-03-22 20:38:59,872 - INFO - 🔥 [Fold 3] WARM-START SUCCESS: Base weights initialized.
+2026-03-22 20:38:59,877 - INFO - [LOSS] Specialist Loss: alpha=[1.5205807897408987, 0.8828649417624105, 1.130924341214876], gamma=2.20, smoothing=0.13 (Inherited: YES)
+2026-03-22 20:39:02,404 - INFO - [Fold 3] E1/60 | Sniper: 0.2389 | F1_Dir: 0.2655 | F1_Macro: 0.1770
+2026-03-22 20:39:15,003 - INFO - [Fold 3] E6/60 | Sniper: 0.1897 | F1_Dir: 0.2107 | F1_Macro: 0.1405
+2026-03-22 20:39:27,500 - INFO - [Fold 3] E11/60 | Sniper: 0.1897 | F1_Dir: 0.2107 | F1_Macro: 0.1405
+2026-03-22 20:39:27,500 - INFO - [Fold 3] Early stop at epoch 11.
+2026-03-22 20:39:27,534 - INFO - [Fold 3] Model saved: model_fold_3.pt
+2026-03-22 20:39:28,162 - INFO - [Fold 3] OOF Sniper: 0.2389 | Dir: 0.2655 | Macro: 0.1770
+2026-03-22 20:39:28,182 - INFO - [Fold 3] Saved: fold_3.parquet (1,000 rows)
+2026-03-22 20:39:28,371 - INFO - ============================================================
+2026-03-22 20:39:28,371 - INFO - [KFOLD] FOLD 5/5 | Train: 3,984 rows | Test: 1,000 rows
+2026-03-22 20:39:28,372 - INFO - [Fold 4] Left Purge Gap OK: 4 bars (20 min)
+2026-03-22 20:39:28,655 - INFO - 🔄 Warm-Starting from Foundation Checkpoint: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt
+2026-03-22 20:39:28,670 - INFO - 🔥 [Fold 4] WARM-START SUCCESS: Base weights initialized.
+2026-03-22 20:39:28,677 - INFO - [LOSS] Specialist Loss: alpha=[1.5205807897408987, 0.8828649417624105, 1.130924341214876], gamma=2.20, smoothing=0.13 (Inherited: YES)
+2026-03-22 20:39:31,202 - INFO - [Fold 4] E1/60 | Sniper: 0.2704 | F1_Dir: 0.3004 | F1_Macro: 0.2003
+2026-03-22 20:39:43,824 - INFO - [Fold 4] E6/60 | Sniper: 0.1963 | F1_Dir: 0.2181 | F1_Macro: 0.1454
+2026-03-22 20:39:56,350 - INFO - [Fold 4] E11/60 | Sniper: 0.1963 | F1_Dir: 0.2181 | F1_Macro: 0.1454
+2026-03-22 20:39:56,350 - INFO - [Fold 4] Early stop at epoch 11.
+2026-03-22 20:39:56,377 - INFO - [Fold 4] Model saved: model_fold_4.pt
+2026-03-22 20:39:56,992 - INFO - [Fold 4] OOF Sniper: 0.2704 | Dir: 0.3004 | Macro: 0.2003
+2026-03-22 20:39:57,021 - INFO - [Fold 4] Saved: fold_4.parquet (1,000 rows)
+2026-03-22 20:39:57,210 - INFO - Assembling full_oof.parquet (chronological order)...
+2026-03-22 20:39:57,308 - INFO - full_oof.parquet: 5,000 rows | Coverage: 100.0% of Foundation Val
+2026-03-22 20:39:57,309 - INFO - Expected: ~4,980 (after purge removal)
+2026-03-22 20:39:57,311 - INFO - No duplicate rows in full_oof.parquet
+2026-03-22 20:39:57,311 - INFO - Running Automated Specialist Security QA (pytest)...
+2026-03-22 20:41:45,929 - INFO - [OK] Specialist QA Report saved to /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/SPECIALIST/kfold_security_QA.log
+2026-03-22 20:41:45,932 - INFO - [END] K-Fold Specialist finished. Auditor fusion ready.
+2026-03-22 20:41:46,029 - INFO - 📤 [AUDIT UPLOAD] Stage=KFOLD_SPECIALIST → drive:PROJETOS/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/AUDITORIA/KFOLD_SPECIALIST
+2026-03-22 20:41:51,313 - INFO -   ✅ Uploaded logs/kfold_specialist → drive:PROJETOS/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/AUDITORIA/KFOLD_SPECIALIST/kfold_specialist
+2026-03-22 20:41:51,313 - INFO - 📤 [AUDIT UPLOAD] KFOLD_SPECIALIST complete.

@@ -1,0 +1,10 @@
+﻿2026-03-22 14:17:43,591 - INFO - 🖥️  Device: cuda
+2026-03-22 14:17:43,591 - INFO - 🔄 Purge Dinamico Sniper ativado: 15min (horizon) + 1min (seguranca) = 16min
+2026-03-22 14:17:43,596 - INFO - 📐 K-Fold Setup: 5 folds, purge=16min (4 bars), resample=5min
+2026-03-22 14:17:43,613 - INFO - Loaded Foundation Arch (best_dir_params.json): seq_len=48, tcn=64, lstm=32×2
+2026-03-22 14:17:43,623 - INFO - 📂 Foundation Val: 274 files in data/L2/labelled/val
+2026-03-22 14:19:37,316 - INFO - 📊 Foundation Val: 89,487,733 rows | SELL=24,620,198 NEU=40,623,759 BUY=24,243,776
+2026-03-22 14:19:38,174 - INFO - 🧬 Alphas Genetic Inheritance: [1.5755749551361278, 1.030775632184917, 0.8721727026364031]
+2026-03-22 14:19:47,640 - INFO - ============================================================
+2026-03-22 14:19:47,640 - INFO - [KFOLD] FOLD 1/5 | Train: 71,590,171 rows | Test: 17,897,546 rows
+2026-03-22 14:19:52,753 - INFO - [Fold 0] Right Purge Gap OK: 4 bars (20 min)

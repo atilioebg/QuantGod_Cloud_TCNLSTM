@@ -1,0 +1,16 @@
+﻿2026-03-21 23:14:46,533 - INFO - 
+📝 LOGGING INITIALIZED (UTF-8-SIG): logs/labelling/labelling_PT_0.7_SL_0.3_H_15min_S_144_20260321_231446.log
+2026-03-21 23:14:46,539 - INFO - 🚀 Iniciando Labelling Paralelo: 72 dias | 16 workers | Memory-Safe Mode
+2026-03-21 23:14:51,415 - INFO - Labelling phase finished.
+2026-03-21 23:14:51,415 - INFO - Final Label Distribution:
+2026-03-21 23:14:51,416 - INFO -    SELL (0): 6,458,701 samples (28.28%)
+2026-03-21 23:14:51,416 - INFO -    NEUTRAL (1): 10,018,680 samples (43.87%)
+2026-03-21 23:14:51,416 - INFO -    BUY (2): 6,360,220 samples (27.85%)
+2026-03-21 23:14:51,416 - INFO - Total labelled samples: 22,837,601 (Raw: 12,993,162 | Kept: 22,837,601)
+2026-03-21 23:14:51,417 - INFO - 🚀 Starting automated export to Drive: drive:PROJETOS/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/LABELLED...
+2026-03-21 23:14:51,417 - INFO - 🧪 Running Automated Health QA (pytest) with 16 workers...
+2026-03-21 23:15:45,654 - INFO - ✅ QA Report saved to data/L2/labelled/labelling_health_QA.log
+2026-03-21 23:19:09,332 - INFO - ✅ Export completed successfully: drive:PROJETOS/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/LABELLED
+2026-03-21 23:19:09,387 - INFO - 📤 [AUDIT UPLOAD] Stage=LABELLING → drive:PROJETOS/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/AUDITORIA/LABELLING
+2026-03-21 23:19:50,744 - INFO -   ✅ Uploaded logs/labelling → drive:PROJETOS/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/AUDITORIA/LABELLING/labelling
+2026-03-21 23:19:50,745 - INFO - 📤 [AUDIT UPLOAD] LABELLING complete.

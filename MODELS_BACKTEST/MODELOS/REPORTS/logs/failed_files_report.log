@@ -1,0 +1,1 @@
+❌ FILE: Global/Unknown | TEST: test_purge_respects_horizon_minutes | ERROR: purge_minutes (0) < horizon_minutes (15). Labels at the boundary can bleed into training features!

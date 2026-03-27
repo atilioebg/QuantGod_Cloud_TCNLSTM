@@ -1,0 +1,56 @@
+﻿2026-03-23 02:13:33,750 - INFO - 📁 DYNAMIC DATA PATHS: Train=data/L2/labelled/train | Val=data/L2/labelled/val
+2026-03-23 02:13:33,751 - INFO - 📐 Fitting Global Scaler (Smart Sampler: 100k rows)...
+2026-03-23 02:13:37,122 - INFO - 📊 Global Scaler initialized on 4,329,177 representative rows.
+2026-03-23 02:13:37,144 - INFO - 💾 Scaler saved properly to: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/scaler_foundation.pkl
+2026-03-23 02:13:37,387 - INFO - FocalLoss alpha: DYNAMIC RANGE active anchor points: [S:1.31, N:0.72, B:1.18]
+2026-03-23 02:13:37,388 - INFO - Loss: FocalLossWithSmoothing | fallback_gamma=OPTUNA_DINAMICO | fallback_smoothing=OPTUNA_DINAMICO | SniperLoss=ENABLED
+2026-03-23 02:13:37,396 - INFO - Sampler: TPE (startup=1, multivariate=True)
+2026-03-23 02:13:37,397 - INFO - Pruner: Median (startup=1, warmup=0)
+2026-03-23 02:13:48,937 - INFO - A new study created in RDB with name: QUANTGOD_RECON_V008
+2026-03-23 02:13:48,973 - INFO - Starting 2 trials | Metric: MAX(MIN(Sell, Neu, Buy)) | Timeout: 172800s
+2026-03-23 02:13:49,865 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-23 02:14:38,681 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 10,000 amostras aleatórias.
+2026-03-23 02:14:38,683 - INFO - 🚀 Pre-loading 10,000 samples into RAM (Lightning Mode)...
+2026-03-23 02:17:47,034 - INFO - ✅ RAM-Safe Streaming Dataset: 10,000 sequences indexed and PRE-LOADED.
+2026-03-23 02:17:47,035 - INFO - ✅ RAM-Safe Streaming Dataset: 10,000 sequences indexed (Mode: Lightning).
+2026-03-23 02:17:47,087 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-23 02:17:58,463 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 5,000 amostras aleatórias.
+2026-03-23 02:17:58,463 - INFO - 🚀 Pre-loading 5,000 samples into RAM (Lightning Mode)...
+2026-03-23 02:18:54,597 - INFO - ✅ RAM-Safe Streaming Dataset: 5,000 sequences indexed and PRE-LOADED.
+2026-03-23 02:18:54,599 - INFO - ✅ RAM-Safe Streaming Dataset: 5,000 sequences indexed (Mode: Lightning).
+2026-03-23 02:18:55,630 - INFO - Trial 0 START | tcn=64, lstm=32, layers=2, batch=512, seq=96 | RFE=30 | loss=ASYM (g_s=4.46, g_n=1.05, g_b=1.33) | alpha=[1.15, 0.55, 1.66], smooth=0.29
+2026-03-23 02:19:46,804 - INFO - T0 E1/3 | [WARN] ZERO_PENALTY | L: 0.56094433/0.60627608 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.0000/0.4407] | LR: 0.00307466
+2026-03-23 02:19:46,826 - INFO - [BEST MACRO]  Trial 0 | Global F1 M MIN record: 0.00000000 (prev: -1.00000000) -> saved best_tcn_lstm.pt
+2026-03-23 02:19:46,843 - INFO - [BEST DIR]    Trial 0 | Global F1 Dir record: 0.00000000 (prev: -1.00000000) -> saved best_tcn_lstm_dir.pt
+2026-03-23 02:19:47,865 - INFO - T0 E2/3 | [WARN] ZERO_PENALTY | L: 0.49190757/0.58584564 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.0000/0.4407] | LR: 0.00102489
+2026-03-23 02:19:48,870 - INFO - T0 E3/3 | [WARN] ZERO_PENALTY | L: 0.48531681/0.59814314 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.0000/0.4407] | LR: 0.00000000
+2026-03-23 02:19:49,139 - INFO - Trial 0 finished with value: 0.0 and parameters: {'tcn_channels': 64, 'lstm_hidden': 32, 'num_lstm_layers': 2, 'batch_size': 512, 'dropout': 0.3433922432141574, 'seq_len': 96, 'lr': 0.004099547787484503, 'weight_decay': 0.0008219020635106632, 'base_alpha_sell': 1.1510968939811397, 'base_alpha_neutral': 0.5517862497690256, 'base_alpha_buy': 1.660271479972985, 'base_loss_gamma': 2.7970691508363608, 'base_loss_smoothing': 0.29382514182316477, 'asym_gamma_sell': 4.4626224710753775, 'asym_gamma_neu': 1.054105219962349, 'asym_gamma_buy': 1.3331134307718273}. Best is trial 0 with value: 0.0.
+2026-03-23 02:19:49,740 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-23 02:20:38,586 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 10,000 amostras aleatórias.
+2026-03-23 02:20:38,587 - INFO - 🚀 Pre-loading 10,000 samples into RAM (Lightning Mode)...
+2026-03-23 02:23:44,416 - INFO - ✅ RAM-Safe Streaming Dataset: 10,000 sequences indexed and PRE-LOADED.
+2026-03-23 02:23:44,417 - INFO - ✅ RAM-Safe Streaming Dataset: 10,000 sequences indexed (Mode: Lightning).
+2026-03-23 02:23:44,447 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-23 02:23:57,450 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 5,000 amostras aleatórias.
+2026-03-23 02:23:57,451 - INFO - 🚀 Pre-loading 5,000 samples into RAM (Lightning Mode)...
+2026-03-23 02:24:55,015 - INFO - ✅ RAM-Safe Streaming Dataset: 5,000 sequences indexed and PRE-LOADED.
+2026-03-23 02:24:55,017 - INFO - ✅ RAM-Safe Streaming Dataset: 5,000 sequences indexed (Mode: Lightning).
+2026-03-23 02:24:55,454 - INFO - Trial 1 START | tcn=64, lstm=32, layers=2, batch=512, seq=96 | RFE=30 | loss=ASYM (g_s=3.22, g_n=1.10, g_b=2.82) | alpha=[1.08, 0.64, 1.30], smooth=0.34
+2026-03-23 02:24:56,347 - INFO - T1 E1/3 | [WARN] ZERO_PENALTY | L: 0.43691662/0.45563262 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.0000/0.4316] | LR: 0.00096379
+2026-03-23 02:24:57,290 - INFO - T1 E2/3 | [WARN] ZERO_PENALTY | L: 0.36682228/0.48781410 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.0000/0.4316] | LR: 0.00032126
+2026-03-23 02:24:58,263 - INFO - T1 E3/3 | [WARN] ZERO_PENALTY | L: 0.35841097/0.48249746 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.0000/0.4316] | LR: 0.00000000
+2026-03-23 02:24:58,485 - INFO - Trial 1 finished with value: 0.0 and parameters: {'tcn_channels': 64, 'lstm_hidden': 32, 'num_lstm_layers': 2, 'batch_size': 512, 'dropout': 0.3292783841527533, 'seq_len': 96, 'lr': 0.0012850529994443169, 'weight_decay': 0.0008680063416946475, 'base_alpha_sell': 1.076748287268361, 'base_alpha_neutral': 0.6350116805371036, 'base_alpha_buy': 1.2981665733667156, 'base_loss_gamma': 3.056858126611636, 'base_loss_smoothing': 0.3422362280689233, 'asym_gamma_sell': 3.2162307796106737, 'asym_gamma_neu': 1.100849554265695, 'asym_gamma_buy': 2.8234591476634825}. Best is trial 0 with value: 0.0.
+2026-03-23 02:24:58,544 - INFO - ============================================================
+2026-03-23 02:24:58,545 - INFO - --- OTIMIZACAO FINALIZADA ---
+2026-03-23 02:24:58,545 - INFO - Motivo da Parada: MAXIMO DE TRIALS (2) ALCANCADOS
+2026-03-23 02:24:58,545 - INFO - Tempo de Execucao da Sessao: 0.19 Horas
+2026-03-23 02:24:58,545 - INFO - Trials Executados nesta Sessao: 2
+2026-03-23 02:24:58,546 - INFO - ============================================================
+2026-03-23 02:24:58,662 - INFO - [MACRO] Best trial: 0 | MAX-MIN F1: 0.00000000
+2026-03-23 02:24:58,670 - INFO - [MACRO] Best params: {'tcn_channels': 64, 'lstm_hidden': 32, 'num_lstm_layers': 2, 'batch_size': 512, 'dropout': '0.34339224', 'seq_len': 96, 'lr': '0.00409955', 'weight_decay': '0.00082190', 'base_alpha_sell': '1.15109689', 'base_alpha_neutral': '0.55178625', 'base_alpha_buy': '1.66027148', 'base_loss_gamma': '2.79706915', 'base_loss_smoothing': '0.29382514', 'asym_gamma_sell': '4.46262247', 'asym_gamma_neu': '1.05410522', 'asym_gamma_buy': '1.33311343', 'num_features': 30, 'base_alpha_list': [1.1510968939811397, 0.5517862497690256, 1.660271479972985]}
+2026-03-23 02:24:58,685 - INFO - [BEST MACRO] Best params saved: src/cloud/base_model/otimizacao/best_params.json
+2026-03-23 02:24:58,699 - INFO - [BEST DIR]   Best trial: 0 | F1 Dir: 0.00000000
+2026-03-23 02:24:58,718 - INFO - [BEST DIR]   Best params saved: src/cloud/base_model/otimizacao/best_dir_params.json
+2026-03-23 02:24:58,718 - INFO - ============================================================
+2026-03-23 02:24:58,718 - INFO - [OK] Optuna Foundation Training completed. Orchestration is now handled by run_manager.py
+2026-03-23 02:24:58,719 - INFO - ============================================================

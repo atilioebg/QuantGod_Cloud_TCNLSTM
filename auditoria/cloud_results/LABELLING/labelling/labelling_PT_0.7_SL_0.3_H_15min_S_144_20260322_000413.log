@@ -1,0 +1,5 @@
+﻿2026-03-22 00:04:13,458 - INFO - 
+📝 LOGGING INITIALIZED (UTF-8-SIG): logs/labelling/labelling_PT_0.7_SL_0.3_H_15min_S_144_20260322_000413.log
+2026-03-22 00:04:13,461 - INFO - 🔄 Syncing full ETL history (2023-2026) from Drive: drive:PROJETOS/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/PRE_PROCESSED...
+2026-03-22 00:06:30,271 - INFO - ✅ Pre-processed local directory is now up to date with Drive.
+2026-03-22 00:06:30,287 - INFO - 🚀 Iniciando Labelling Paralelo: 1151 dias | 16 workers | Memory-Safe Mode

@@ -1,0 +1,24 @@
+{
+    "tcn_channels": 256,
+    "lstm_hidden": 256,
+    "num_lstm_layers": 2,
+    "batch_size": 512,
+    "dropout": 0.27346176420851814,
+    "seq_len": 256,
+    "lr": 0.0007122591836333119,
+    "weight_decay": 0.01039999212878067,
+    "base_alpha_sell": 1.1438283014711244,
+    "base_alpha_neutral": 1.0257114084524597,
+    "base_alpha_buy": 1.3925995444484711,
+    "base_loss_gamma": 3.5056088498369977,
+    "base_loss_smoothing": 0.3076922158198972,
+    "asym_gamma_sell": 1.7557034503270845,
+    "asym_gamma_neu": 1.4897728032678372,
+    "asym_gamma_buy": 3.55890196969621,
+    "num_features": 30,
+    "base_alpha_list": [
+        1.1438283014711244,
+        1.0257114084524597,
+        1.3925995444484711
+    ]
+}

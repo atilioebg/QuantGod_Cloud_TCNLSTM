@@ -1,0 +1,9 @@
+﻿2026-03-22 17:04:21,302 - INFO - 🖥️  Device: cuda
+2026-03-22 17:04:21,302 - INFO - 🔄 Purge Dinamico Sniper ativado: 15min (horizon) + 1min (seguranca) = 16min
+2026-03-22 17:04:21,314 - INFO - 📐 K-Fold Setup: 5 folds, purge=16min (4 bars), resample=5min
+2026-03-22 17:04:21,321 - INFO - Loaded Foundation Arch (best_dir_params.json): seq_len=48, tcn=64, lstm=16×3
+2026-03-22 17:04:21,328 - INFO - 📂 Foundation Val: 274 files in data/L2/labelled/val
+2026-03-22 17:04:21,328 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-22 17:04:33,377 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 5,000 amostras aleatórias.
+2026-03-22 17:04:33,377 - INFO - 🚀 Pre-loading 5,000 samples into RAM (Lightning Mode)...
+2026-03-22 17:05:08,851 - INFO - ✅ RAM-Safe Streaming Dataset: 5,000 sequences indexed and PRE-LOADED.

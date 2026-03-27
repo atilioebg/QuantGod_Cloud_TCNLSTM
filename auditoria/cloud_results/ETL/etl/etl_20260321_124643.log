@@ -1,0 +1,1122 @@
+﻿2026-03-21 12:46:43,999 - INFO - 
+📝 LOGGING INITIALIZED (UTF-8-SIG): logs/etl/etl_20260321_124643.log
+2026-03-21 12:46:44,012 - INFO - 🧹 PRE-PROCESS: Cleaning up old temp files in data/L2/temp_raw
+2026-03-21 12:46:44,071 - INFO - 🧹 GOLD CLEANUP: Clearing old parquets in data/L2/pre_processed
+2026-03-21 12:46:44,073 - INFO - Listing ZIP files from remote: drive:PROJETOS/BTC_USDT_L2_2023_2026...
+2026-03-21 12:46:46,739 - INFO - Found 1151 ZIP files in remote.
+2026-03-21 12:46:46,740 - INFO - Listing Trades CSV files from remote: drive:PROJETOS/BTC_USDT_L2_TRADE_2023_2026...
+2026-03-21 12:46:49,445 - INFO - Found 1151 Trades files in remote.
+2026-03-21 12:46:49,479 - INFO - Scale Guard active: 32 -> 16 workers (Factor: 0.5)
+2026-03-21 12:46:49,479 - INFO - System detected 32 vCPUs allocated.
+2026-03-21 12:46:49,479 - INFO - ETL Scope: 2023 to 2023
+2026-03-21 12:46:49,480 - INFO - ETL Worker Mode: Manual (Static) + ScaleGuard (0.5x for 2023) -> Using 16 processes.
+2026-03-21 12:46:49,480 - INFO - Found 348 Paired Days (L2 + Trades) to process.
+2026-03-21 12:46:49,531 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-01-19.csv.gz
+2026-03-21 12:46:49,544 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-01-22.csv.gz
+2026-03-21 12:46:49,547 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-01-28.csv.gz
+2026-03-21 12:46:49,547 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-01-21.csv.gz
+2026-03-21 12:46:49,548 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-01-18.csv.gz
+2026-03-21 12:46:49,549 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-01-20.csv.gz
+2026-03-21 12:46:49,551 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-01-23.csv.gz
+2026-03-21 12:46:49,552 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-01-24.csv.gz
+2026-03-21 12:46:49,553 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-01-25.csv.gz
+2026-03-21 12:46:49,553 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-01-26.csv.gz
+2026-03-21 12:46:49,554 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-01-30.csv.gz
+2026-03-21 12:46:49,556 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-01-31.csv.gz
+2026-03-21 12:46:49,556 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-01-27.csv.gz
+2026-03-21 12:46:49,557 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-01.csv.gz
+2026-03-21 12:46:49,557 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-01-29.csv.gz
+2026-03-21 12:46:49,558 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-02.csv.gz
+2026-03-21 12:46:54,975 - INFO - 📥 DOWNLOAD: 2023-01-28_BTCUSDT_ob500.data.zip
+2026-03-21 12:46:54,976 - INFO - 📥 DOWNLOAD: 2023-01-26_BTCUSDT_ob500.data.zip
+2026-03-21 12:46:55,059 - INFO - 📥 DOWNLOAD: 2023-02-02_BTCUSDT_ob500.data.zip
+2026-03-21 12:46:55,080 - INFO - 📥 DOWNLOAD: 2023-01-23_BTCUSDT_ob500.data.zip
+2026-03-21 12:46:55,222 - INFO - 📥 DOWNLOAD: 2023-01-30_BTCUSDT_ob500.data.zip
+2026-03-21 12:46:55,632 - INFO - 📥 DOWNLOAD: 2023-01-18_BTCUSDT_ob500.data.zip
+2026-03-21 12:46:55,681 - INFO - 📥 DOWNLOAD: 2023-01-19_BTCUSDT_ob500.data.zip
+2026-03-21 12:46:55,741 - INFO - 📥 DOWNLOAD: 2023-01-31_BTCUSDT_ob500.data.zip
+2026-03-21 12:46:56,324 - INFO - 📥 DOWNLOAD: 2023-01-24_BTCUSDT_ob500.data.zip
+2026-03-21 12:46:56,598 - INFO - 📥 DOWNLOAD: 2023-01-22_BTCUSDT_ob500.data.zip
+2026-03-21 12:46:56,598 - INFO - 📥 DOWNLOAD: 2023-01-27_BTCUSDT_ob500.data.zip
+2026-03-21 12:46:57,035 - INFO - 📥 DOWNLOAD: 2023-02-01_BTCUSDT_ob500.data.zip
+2026-03-21 12:46:57,241 - INFO - 📥 DOWNLOAD: 2023-01-29_BTCUSDT_ob500.data.zip
+2026-03-21 12:46:57,924 - INFO - 📥 DOWNLOAD: 2023-01-25_BTCUSDT_ob500.data.zip
+2026-03-21 12:47:00,877 - INFO - 📂 STREAMING: 2023-01-28_BTCUSDT_ob500.data
+2026-03-21 12:47:01,576 - INFO - 📥 DOWNLOAD: 2023-01-21_BTCUSDT_ob500.data.zip
+2026-03-21 12:47:01,589 - INFO - 📂 STREAMING: 2023-02-02_BTCUSDT_ob500.data
+2026-03-21 12:47:02,573 - INFO - 📥 DOWNLOAD: 2023-01-20_BTCUSDT_ob500.data.zip
+2026-03-21 12:47:03,157 - INFO - 📂 STREAMING: 2023-01-27_BTCUSDT_ob500.data
+2026-03-21 12:47:04,732 - INFO - 📂 STREAMING: 2023-01-23_BTCUSDT_ob500.data
+2026-03-21 12:47:05,530 - INFO - 📂 STREAMING: 2023-01-22_BTCUSDT_ob500.data
+2026-03-21 12:47:05,536 - INFO - 📂 STREAMING: 2023-01-29_BTCUSDT_ob500.data
+2026-03-21 12:47:06,368 - INFO - 📂 STREAMING: 2023-01-31_BTCUSDT_ob500.data
+2026-03-21 12:47:06,566 - INFO - 📂 STREAMING: 2023-01-26_BTCUSDT_ob500.data
+2026-03-21 12:47:06,845 - INFO - 📂 STREAMING: 2023-01-24_BTCUSDT_ob500.data
+2026-03-21 12:47:07,553 - INFO - 📂 STREAMING: 2023-01-19_BTCUSDT_ob500.data
+2026-03-21 12:47:08,062 - INFO - 📂 STREAMING: 2023-01-25_BTCUSDT_ob500.data
+2026-03-21 12:47:08,361 - INFO - 📂 STREAMING: 2023-01-30_BTCUSDT_ob500.data
+2026-03-21 12:47:08,817 - INFO - 📂 STREAMING: 2023-02-01_BTCUSDT_ob500.data
+2026-03-21 12:47:14,485 - INFO - 📂 STREAMING: 2023-01-20_BTCUSDT_ob500.data
+2026-03-21 12:47:15,919 - INFO - 📂 STREAMING: 2023-01-21_BTCUSDT_ob500.data
+2026-03-21 12:47:24,723 - INFO - 📂 STREAMING: 2023-01-18_BTCUSDT_ob500.data
+2026-03-21 12:47:28,982 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-01-28_BTCUSDT_ob500.data.zip
+2026-03-21 12:47:30,768 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:47:31,340 - INFO - CUSUM (both): 10698 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:47:31,516 - INFO - Barras geradas: 100848 | Ilhas: 1
+2026-03-21 12:47:34,482 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:47:34,505 - INFO - --- Validating 2023-01-28_BTCUSDT_ob500.data ---
+2026-03-21 12:47:34,621 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:47:34,644 - INFO - No NaNs found.
+2026-03-21 12:47:34,656 - INFO - No Infinite values found.
+2026-03-21 12:47:34,657 - INFO - Chronological order verified.
+2026-03-21 12:47:34,663 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-01-28_BTCUSDT_ob500.data
+2026-03-21 12:47:34,668 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] ask_deep_ratio max (1.2859e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:47:34,672 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] bid_deep_ratio max (1.1882e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:47:34,676 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (5.0948e+02) is > 15x P99. Clipping might have failed!
+2026-03-21 12:47:34,722 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 102 points with Z-Score > 12.
+2026-03-21 12:47:34,722 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 101 points with Z-Score > 12.
+2026-03-21 12:47:34,722 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] max_spread has 232 points with Z-Score > 12.
+2026-03-21 12:47:34,723 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 127 points with Z-Score > 12.
+2026-03-21 12:47:34,723 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 56 points with Z-Score > 12.
+2026-03-21 12:47:34,723 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 131 points with Z-Score > 12.
+2026-03-21 12:47:34,723 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 96 points with Z-Score > 12.
+2026-03-21 12:47:34,723 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 93 points with Z-Score > 12.
+2026-03-21 12:47:34,723 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 61 points with Z-Score > 12.
+2026-03-21 12:47:34,723 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 27 points with Z-Score > 12.
+2026-03-21 12:47:34,723 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 14 points with Z-Score > 12.
+2026-03-21 12:47:34,723 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 53 points with Z-Score > 12.
+2026-03-21 12:47:34,724 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 78 points with Z-Score > 12.
+2026-03-21 12:47:34,724 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 54 points with Z-Score > 12.
+2026-03-21 12:47:34,724 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 190 points with Z-Score > 12.
+2026-03-21 12:47:34,724 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 134 points with Z-Score > 12.
+2026-03-21 12:47:34,724 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 121 points with Z-Score > 12.
+2026-03-21 12:47:34,724 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 36 points with Z-Score > 12.
+2026-03-21 12:47:34,724 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 109 points with Z-Score > 12.
+2026-03-21 12:47:34,724 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 141 points with Z-Score > 12.
+2026-03-21 12:47:34,768 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 100848
+2026-03-21 12:47:34,768 - INFO - 🏆 Gold Validation complete for 2023-01-28_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:47:34,876 - INFO - Successfully saved 100848 rows to data/L2/pre_processed/2023-01-28_BTCUSDT_ob500.data.parquet
+2026-03-21 12:47:34,876 - INFO - ✅ Saved event-driven dataset: 2023-01-28_BTCUSDT_ob500.data.parquet
+2026-03-21 12:47:34,879 - INFO - 📊 [Memory] 2023-01-28_BTCUSDT_ob500.data: 73.6MB -> 6806.6MB
+2026-03-21 12:47:35,782 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-03.csv.gz
+2026-03-21 12:47:36,513 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-01-27_BTCUSDT_ob500.data.zip
+2026-03-21 12:47:38,018 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-02-02_BTCUSDT_ob500.data.zip
+2026-03-21 12:47:38,726 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-01-23_BTCUSDT_ob500.data.zip
+2026-03-21 12:47:39,173 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-01-22_BTCUSDT_ob500.data.zip
+2026-03-21 12:47:39,290 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-01-19_BTCUSDT_ob500.data.zip
+2026-03-21 12:47:39,685 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-01-31_BTCUSDT_ob500.data.zip
+2026-03-21 12:47:39,977 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-01-29_BTCUSDT_ob500.data.zip
+2026-03-21 12:47:40,132 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-01-24_BTCUSDT_ob500.data.zip
+2026-03-21 12:47:40,229 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-01-26_BTCUSDT_ob500.data.zip
+2026-03-21 12:47:41,215 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:47:41,684 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:47:42,236 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:47:42,932 - INFO - CUSUM (both): 20828 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:47:43,235 - INFO - 📥 DOWNLOAD: 2023-02-03_BTCUSDT_ob500.data.zip
+2026-03-21 12:47:43,238 - INFO - CUSUM (both): 28921 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:47:43,242 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:47:43,375 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:47:43,558 - INFO - CUSUM (both): 23438 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:47:43,630 - INFO - Barras geradas: 288676 | Ilhas: 1
+2026-03-21 12:47:43,641 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-01-25_BTCUSDT_ob500.data.zip
+2026-03-21 12:47:43,759 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-02-01_BTCUSDT_ob500.data.zip
+2026-03-21 12:47:44,006 - INFO - Barras geradas: 466337 | Ilhas: 1
+2026-03-21 12:47:44,018 - INFO - Barras geradas: 293727 | Ilhas: 1
+2026-03-21 12:47:45,428 - INFO - CUSUM (both): 26648 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:47:45,666 - INFO - CUSUM (both): 28277 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:47:45,683 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:47:46,452 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-01-30_BTCUSDT_ob500.data.zip
+2026-03-21 12:47:47,072 - INFO - Barras geradas: 388432 | Ilhas: 1
+2026-03-21 12:47:48,005 - INFO - Barras geradas: 449969 | Ilhas: 1
+2026-03-21 12:47:52,642 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:47:53,114 - INFO - CUSUM (both): 26749 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:47:53,844 - INFO - 📂 STREAMING: 2023-02-03_BTCUSDT_ob500.data
+2026-03-21 12:47:55,335 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-01-20_BTCUSDT_ob500.data.zip
+2026-03-21 12:47:56,649 - INFO - Barras geradas: 433287 | Ilhas: 1
+2026-03-21 12:47:58,380 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:47:59,862 - INFO - CUSUM (both): 28463 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:48:03,220 - INFO - Barras geradas: 439702 | Ilhas: 1
+2026-03-21 12:48:03,958 - INFO - CUSUM (both): 27694 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:48:05,127 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:48:07,262 - INFO - Barras geradas: 337348 | Ilhas: 1
+2026-03-21 12:48:10,645 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:48:10,757 - INFO - --- Validating 2023-01-31_BTCUSDT_ob500.data ---
+2026-03-21 12:48:10,915 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:48:10,991 - INFO - No NaNs found.
+2026-03-21 12:48:11,046 - INFO - No Infinite values found.
+2026-03-21 12:48:11,048 - INFO - Chronological order verified.
+2026-03-21 12:48:11,089 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-01-31_BTCUSDT_ob500.data
+2026-03-21 12:48:11,112 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] ask_deep_ratio max (1.9056e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:11,126 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] kyle_lambda max (1.9125e+01) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:11,152 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] body max (1.9322e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:11,174 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] bid_deep_ratio max (1.4739e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:11,189 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] upper_wick max (1.0716e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:11,223 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (1.9392e+03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:11,299 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] lower_wick max (1.7188e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:13,424 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 269 points with Z-Score > 12.
+2026-03-21 12:48:13,434 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 269 points with Z-Score > 12.
+2026-03-21 12:48:13,437 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] max_spread has 148 points with Z-Score > 12.
+2026-03-21 12:48:13,444 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 369 points with Z-Score > 12.
+2026-03-21 12:48:13,448 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 326 points with Z-Score > 12.
+2026-03-21 12:48:13,455 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 96 points with Z-Score > 12.
+2026-03-21 12:48:13,459 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 548 points with Z-Score > 12.
+2026-03-21 12:48:13,463 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 362 points with Z-Score > 12.
+2026-03-21 12:48:13,467 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 410 points with Z-Score > 12.
+2026-03-21 12:48:13,471 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 123 points with Z-Score > 12.
+2026-03-21 12:48:13,479 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 208 points with Z-Score > 12.
+2026-03-21 12:48:13,483 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 494 points with Z-Score > 12.
+2026-03-21 12:48:13,486 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 76 points with Z-Score > 12.
+2026-03-21 12:48:13,490 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 238 points with Z-Score > 12.
+2026-03-21 12:48:13,498 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_5 has 320 points with Z-Score > 12.
+2026-03-21 12:48:13,502 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 106 points with Z-Score > 12.
+2026-03-21 12:48:13,510 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 479 points with Z-Score > 12.
+2026-03-21 12:48:13,518 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 449 points with Z-Score > 12.
+2026-03-21 12:48:13,525 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 452 points with Z-Score > 12.
+2026-03-21 12:48:13,533 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 258 points with Z-Score > 12.
+2026-03-21 12:48:13,541 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 1082 points with Z-Score > 12.
+2026-03-21 12:48:13,541 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_convexity has 328 points with Z-Score > 12.
+2026-03-21 12:48:15,076 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 293727
+2026-03-21 12:48:15,076 - INFO - 🏆 Gold Validation complete for 2023-01-31_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:48:15,764 - INFO - Successfully saved 293727 rows to data/L2/pre_processed/2023-01-31_BTCUSDT_ob500.data.parquet
+2026-03-21 12:48:15,772 - INFO - ✅ Saved event-driven dataset: 2023-01-31_BTCUSDT_ob500.data.parquet
+2026-03-21 12:48:15,775 - INFO - 📊 [Memory] 2023-01-31_BTCUSDT_ob500.data: 73.6MB -> 13630.4MB
+2026-03-21 12:48:15,870 - INFO - CUSUM (both): 30001 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:48:16,186 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-01-18_BTCUSDT_ob500.data.zip
+2026-03-21 12:48:16,919 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:48:18,334 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:48:18,946 - INFO - Barras geradas: 476863 | Ilhas: 1
+2026-03-21 12:48:20,111 - INFO - --- Validating 2023-01-19_BTCUSDT_ob500.data ---
+2026-03-21 12:48:20,331 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:48:20,607 - INFO - No NaNs found.
+2026-03-21 12:48:20,736 - INFO - No Infinite values found.
+2026-03-21 12:48:20,741 - INFO - Chronological order verified.
+2026-03-21 12:48:20,806 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-01-19_BTCUSDT_ob500.data
+2026-03-21 12:48:20,861 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] ask_deep_ratio max (1.0658e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:20,952 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] body max (8.3210e-04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:20,987 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] bid_deep_ratio max (3.8690e+04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:21,007 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] upper_wick max (6.6591e-04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:21,091 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (2.4293e+03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:21,142 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] lower_wick max (9.4953e-04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:22,886 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 305 points with Z-Score > 12.
+2026-03-21 12:48:22,894 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 304 points with Z-Score > 12.
+2026-03-21 12:48:22,894 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] max_spread has 418 points with Z-Score > 12.
+2026-03-21 12:48:22,895 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 393 points with Z-Score > 12.
+2026-03-21 12:48:22,895 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 127 points with Z-Score > 12.
+2026-03-21 12:48:22,895 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 108 points with Z-Score > 12.
+2026-03-21 12:48:22,895 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 292 points with Z-Score > 12.
+2026-03-21 12:48:22,896 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 232 points with Z-Score > 12.
+2026-03-21 12:48:22,896 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 277 points with Z-Score > 12.
+2026-03-21 12:48:22,896 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 110 points with Z-Score > 12.
+2026-03-21 12:48:22,896 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 145 points with Z-Score > 12.
+2026-03-21 12:48:22,896 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 278 points with Z-Score > 12.
+2026-03-21 12:48:22,896 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 117 points with Z-Score > 12.
+2026-03-21 12:48:22,896 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 205 points with Z-Score > 12.
+2026-03-21 12:48:22,896 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_5 has 53 points with Z-Score > 12.
+2026-03-21 12:48:22,896 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 148 points with Z-Score > 12.
+2026-03-21 12:48:22,897 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 276 points with Z-Score > 12.
+2026-03-21 12:48:22,897 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 390 points with Z-Score > 12.
+2026-03-21 12:48:22,897 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] vpin_min15 has 24 points with Z-Score > 12.
+2026-03-21 12:48:22,897 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 249 points with Z-Score > 12.
+2026-03-21 12:48:22,897 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 379 points with Z-Score > 12.
+2026-03-21 12:48:22,897 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 693 points with Z-Score > 12.
+2026-03-21 12:48:22,897 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_convexity has 119 points with Z-Score > 12.
+2026-03-21 12:48:23,570 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 288676
+2026-03-21 12:48:23,582 - INFO - 🏆 Gold Validation complete for 2023-01-19_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:48:24,176 - INFO - Successfully saved 288676 rows to data/L2/pre_processed/2023-01-19_BTCUSDT_ob500.data.parquet
+2026-03-21 12:48:24,184 - INFO - ✅ Saved event-driven dataset: 2023-01-19_BTCUSDT_ob500.data.parquet
+2026-03-21 12:48:24,187 - INFO - 📊 [Memory] 2023-01-19_BTCUSDT_ob500.data: 73.6MB -> 12575.5MB
+2026-03-21 12:48:26,346 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-04.csv.gz
+2026-03-21 12:48:26,516 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:48:26,674 - INFO - --- Validating 2023-01-24_BTCUSDT_ob500.data ---
+2026-03-21 12:48:27,081 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:48:29,688 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-01-21_BTCUSDT_ob500.data.zip
+2026-03-21 12:48:30,273 - INFO - CUSUM (both): 33648 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:48:30,880 - INFO - CUSUM (both): 27593 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:48:32,838 - INFO - Barras geradas: 425072 | Ilhas: 1
+2026-03-21 12:48:32,942 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-05.csv.gz
+2026-03-21 12:48:33,546 - INFO - 📥 DOWNLOAD: 2023-02-04_BTCUSDT_ob500.data.zip
+2026-03-21 12:48:34,100 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:48:34,138 - INFO - Barras geradas: 497955 | Ilhas: 1
+2026-03-21 12:48:34,262 - INFO - --- Validating 2023-01-29_BTCUSDT_ob500.data ---
+2026-03-21 12:48:34,408 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:48:34,480 - INFO - No NaNs found.
+2026-03-21 12:48:34,538 - INFO - No Infinite values found.
+2026-03-21 12:48:34,543 - INFO - Chronological order verified.
+2026-03-21 12:48:34,609 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-01-29_BTCUSDT_ob500.data
+2026-03-21 12:48:34,633 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] ask_deep_ratio max (1.8141e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:34,667 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] body max (9.0939e-04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:34,687 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] bid_deep_ratio max (1.2755e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:34,697 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] upper_wick max (5.9375e-04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:34,725 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (1.1177e+04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:34,734 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] lower_wick max (8.0486e-04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:35,131 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 392 points with Z-Score > 12.
+2026-03-21 12:48:35,135 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 391 points with Z-Score > 12.
+2026-03-21 12:48:35,135 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] max_spread has 856 points with Z-Score > 12.
+2026-03-21 12:48:35,136 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 619 points with Z-Score > 12.
+2026-03-21 12:48:35,136 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 743 points with Z-Score > 12.
+2026-03-21 12:48:35,136 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 498 points with Z-Score > 12.
+2026-03-21 12:48:35,136 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 394 points with Z-Score > 12.
+2026-03-21 12:48:35,136 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 336 points with Z-Score > 12.
+2026-03-21 12:48:35,136 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 434 points with Z-Score > 12.
+2026-03-21 12:48:35,137 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 142 points with Z-Score > 12.
+2026-03-21 12:48:35,137 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 245 points with Z-Score > 12.
+2026-03-21 12:48:35,137 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 707 points with Z-Score > 12.
+2026-03-21 12:48:35,137 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 263 points with Z-Score > 12.
+2026-03-21 12:48:35,137 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 385 points with Z-Score > 12.
+2026-03-21 12:48:35,137 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_5 has 227 points with Z-Score > 12.
+2026-03-21 12:48:35,137 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 324 points with Z-Score > 12.
+2026-03-21 12:48:35,137 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 445 points with Z-Score > 12.
+2026-03-21 12:48:35,138 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 703 points with Z-Score > 12.
+2026-03-21 12:48:35,138 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 512 points with Z-Score > 12.
+2026-03-21 12:48:35,138 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 712 points with Z-Score > 12.
+2026-03-21 12:48:35,138 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 806 points with Z-Score > 12.
+2026-03-21 12:48:35,138 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_convexity has 160 points with Z-Score > 12.
+2026-03-21 12:48:35,138 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_convexity has 270 points with Z-Score > 12.
+2026-03-21 12:48:35,925 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 449969
+2026-03-21 12:48:35,926 - INFO - 🏆 Gold Validation complete for 2023-01-29_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:48:36,634 - INFO - Successfully saved 449969 rows to data/L2/pre_processed/2023-01-29_BTCUSDT_ob500.data.parquet
+2026-03-21 12:48:36,635 - INFO - ✅ Saved event-driven dataset: 2023-01-29_BTCUSDT_ob500.data.parquet
+2026-03-21 12:48:36,637 - INFO - 📊 [Memory] 2023-01-29_BTCUSDT_ob500.data: 73.6MB -> 17671.2MB
+2026-03-21 12:48:38,026 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:48:38,095 - INFO - No NaNs found.
+2026-03-21 12:48:38,137 - INFO - No Infinite values found.
+2026-03-21 12:48:38,141 - INFO - Chronological order verified.
+2026-03-21 12:48:38,177 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-01-24_BTCUSDT_ob500.data
+2026-03-21 12:48:38,187 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] ask_deep_ratio max (9.9204e+04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:38,250 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] body max (1.8293e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:38,288 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] bid_deep_ratio max (1.3123e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:38,299 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] upper_wick max (1.8301e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:38,346 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (1.8620e+04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:38,383 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] lower_wick max (1.4972e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:38,953 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:48:39,343 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 387 points with Z-Score > 12.
+2026-03-21 12:48:39,343 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 387 points with Z-Score > 12.
+2026-03-21 12:48:39,343 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] max_spread has 413 points with Z-Score > 12.
+2026-03-21 12:48:39,344 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 521 points with Z-Score > 12.
+2026-03-21 12:48:39,344 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 139 points with Z-Score > 12.
+2026-03-21 12:48:39,344 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 403 points with Z-Score > 12.
+2026-03-21 12:48:39,344 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 493 points with Z-Score > 12.
+2026-03-21 12:48:39,344 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 131 points with Z-Score > 12.
+2026-03-21 12:48:39,344 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 489 points with Z-Score > 12.
+2026-03-21 12:48:39,344 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 233 points with Z-Score > 12.
+2026-03-21 12:48:39,345 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 231 points with Z-Score > 12.
+2026-03-21 12:48:39,345 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 582 points with Z-Score > 12.
+2026-03-21 12:48:39,345 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 209 points with Z-Score > 12.
+2026-03-21 12:48:39,345 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 306 points with Z-Score > 12.
+2026-03-21 12:48:39,345 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_5 has 138 points with Z-Score > 12.
+2026-03-21 12:48:39,345 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 218 points with Z-Score > 12.
+2026-03-21 12:48:39,348 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 506 points with Z-Score > 12.
+2026-03-21 12:48:39,348 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_30 has 1 points with Z-Score > 12.
+2026-03-21 12:48:39,348 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 571 points with Z-Score > 12.
+2026-03-21 12:48:39,348 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 482 points with Z-Score > 12.
+2026-03-21 12:48:39,348 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 600 points with Z-Score > 12.
+2026-03-21 12:48:39,348 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 563 points with Z-Score > 12.
+2026-03-21 12:48:39,348 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_convexity has 202 points with Z-Score > 12.
+2026-03-21 12:48:39,349 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_convexity has 106 points with Z-Score > 12.
+2026-03-21 12:48:39,432 - INFO - 📥 DOWNLOAD: 2023-02-05_BTCUSDT_ob500.data.zip
+2026-03-21 12:48:40,188 - INFO - --- Validating 2023-01-23_BTCUSDT_ob500.data ---
+2026-03-21 12:48:40,254 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:48:40,353 - INFO - --- Validating 2023-01-26_BTCUSDT_ob500.data ---
+2026-03-21 12:48:40,362 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 388432
+2026-03-21 12:48:40,362 - INFO - 🏆 Gold Validation complete for 2023-01-24_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:48:40,369 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:48:40,453 - INFO - No NaNs found.
+2026-03-21 12:48:40,476 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:48:40,496 - INFO - No Infinite values found.
+2026-03-21 12:48:40,505 - INFO - Chronological order verified.
+2026-03-21 12:48:40,547 - INFO - No NaNs found.
+2026-03-21 12:48:40,576 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-01-23_BTCUSDT_ob500.data
+2026-03-21 12:48:40,596 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] ask_deep_ratio max (1.3973e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:40,612 - INFO - No Infinite values found.
+2026-03-21 12:48:40,613 - INFO - Chronological order verified.
+2026-03-21 12:48:40,630 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] body max (1.2859e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:40,650 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-01-26_BTCUSDT_ob500.data
+2026-03-21 12:48:40,655 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] bid_deep_ratio max (1.4731e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:40,658 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] upper_wick max (1.0442e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:40,677 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (1.4567e+04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:40,688 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] lower_wick max (1.0225e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:40,701 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] ask_deep_ratio max (1.4675e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:40,750 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] body max (1.2027e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:40,770 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] bid_deep_ratio max (1.1896e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:40,777 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] upper_wick max (1.2034e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:40,806 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (3.0604e+03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:40,811 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:48:40,817 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] lower_wick max (1.1801e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:40,884 - INFO - Successfully saved 388432 rows to data/L2/pre_processed/2023-01-24_BTCUSDT_ob500.data.parquet
+2026-03-21 12:48:40,892 - INFO - ✅ Saved event-driven dataset: 2023-01-24_BTCUSDT_ob500.data.parquet
+2026-03-21 12:48:40,911 - INFO - 📊 [Memory] 2023-01-24_BTCUSDT_ob500.data: 73.6MB -> 16217.9MB
+2026-03-21 12:48:40,921 - INFO - --- Validating 2023-01-27_BTCUSDT_ob500.data ---
+2026-03-21 12:48:41,053 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:48:41,154 - INFO - No NaNs found.
+2026-03-21 12:48:41,251 - INFO - No Infinite values found.
+2026-03-21 12:48:41,253 - INFO - Chronological order verified.
+2026-03-21 12:48:41,306 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-01-27_BTCUSDT_ob500.data
+2026-03-21 12:48:41,336 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] ask_deep_ratio max (1.5070e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:41,374 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] body max (1.4271e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:41,397 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] bid_deep_ratio max (1.2966e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:41,410 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] upper_wick max (1.4281e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:41,440 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 402 points with Z-Score > 12.
+2026-03-21 12:48:41,442 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (3.5202e+03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:41,444 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 404 points with Z-Score > 12.
+2026-03-21 12:48:41,445 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] max_spread has 660 points with Z-Score > 12.
+2026-03-21 12:48:41,445 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 590 points with Z-Score > 12.
+2026-03-21 12:48:41,445 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 524 points with Z-Score > 12.
+2026-03-21 12:48:41,445 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 548 points with Z-Score > 12.
+2026-03-21 12:48:41,446 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 534 points with Z-Score > 12.
+2026-03-21 12:48:41,446 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 208 points with Z-Score > 12.
+2026-03-21 12:48:41,446 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 649 points with Z-Score > 12.
+2026-03-21 12:48:41,446 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 225 points with Z-Score > 12.
+2026-03-21 12:48:41,447 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 198 points with Z-Score > 12.
+2026-03-21 12:48:41,447 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 698 points with Z-Score > 12.
+2026-03-21 12:48:41,447 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 320 points with Z-Score > 12.
+2026-03-21 12:48:41,447 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 253 points with Z-Score > 12.
+2026-03-21 12:48:41,448 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_5 has 130 points with Z-Score > 12.
+2026-03-21 12:48:41,448 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 543 points with Z-Score > 12.
+2026-03-21 12:48:41,448 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 472 points with Z-Score > 12.
+2026-03-21 12:48:41,448 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_30 has 2 points with Z-Score > 12.
+2026-03-21 12:48:41,448 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 676 points with Z-Score > 12.
+2026-03-21 12:48:41,454 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 482 points with Z-Score > 12.
+2026-03-21 12:48:41,454 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 784 points with Z-Score > 12.
+2026-03-21 12:48:41,455 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 833 points with Z-Score > 12.
+2026-03-21 12:48:41,455 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_convexity has 399 points with Z-Score > 12.
+2026-03-21 12:48:41,455 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_convexity has 378 points with Z-Score > 12.
+2026-03-21 12:48:41,468 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] lower_wick max (1.2322e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:41,515 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 328 points with Z-Score > 12.
+2026-03-21 12:48:41,519 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 327 points with Z-Score > 12.
+2026-03-21 12:48:41,519 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] max_spread has 370 points with Z-Score > 12.
+2026-03-21 12:48:41,520 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 413 points with Z-Score > 12.
+2026-03-21 12:48:41,520 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 365 points with Z-Score > 12.
+2026-03-21 12:48:41,520 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 236 points with Z-Score > 12.
+2026-03-21 12:48:41,520 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 353 points with Z-Score > 12.
+2026-03-21 12:48:41,520 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 446 points with Z-Score > 12.
+2026-03-21 12:48:41,521 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 277 points with Z-Score > 12.
+2026-03-21 12:48:41,521 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 112 points with Z-Score > 12.
+2026-03-21 12:48:41,521 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 110 points with Z-Score > 12.
+2026-03-21 12:48:41,521 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 314 points with Z-Score > 12.
+2026-03-21 12:48:41,521 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 173 points with Z-Score > 12.
+2026-03-21 12:48:41,521 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 269 points with Z-Score > 12.
+2026-03-21 12:48:41,521 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_5 has 126 points with Z-Score > 12.
+2026-03-21 12:48:41,522 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 312 points with Z-Score > 12.
+2026-03-21 12:48:41,522 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 374 points with Z-Score > 12.
+2026-03-21 12:48:41,522 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 498 points with Z-Score > 12.
+2026-03-21 12:48:41,522 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 304 points with Z-Score > 12.
+2026-03-21 12:48:41,522 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 651 points with Z-Score > 12.
+2026-03-21 12:48:41,522 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 599 points with Z-Score > 12.
+2026-03-21 12:48:41,522 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_convexity has 68 points with Z-Score > 12.
+2026-03-21 12:48:41,522 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_convexity has 21 points with Z-Score > 12.
+2026-03-21 12:48:42,444 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 337348
+2026-03-21 12:48:42,445 - INFO - 🏆 Gold Validation complete for 2023-01-26_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:48:42,455 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 410 points with Z-Score > 12.
+2026-03-21 12:48:42,456 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 411 points with Z-Score > 12.
+2026-03-21 12:48:42,456 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] max_spread has 325 points with Z-Score > 12.
+2026-03-21 12:48:42,456 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 516 points with Z-Score > 12.
+2026-03-21 12:48:42,460 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 147 points with Z-Score > 12.
+2026-03-21 12:48:42,460 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 443 points with Z-Score > 12.
+2026-03-21 12:48:42,460 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 682 points with Z-Score > 12.
+2026-03-21 12:48:42,460 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 204 points with Z-Score > 12.
+2026-03-21 12:48:42,461 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 602 points with Z-Score > 12.
+2026-03-21 12:48:42,461 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 206 points with Z-Score > 12.
+2026-03-21 12:48:42,461 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 141 points with Z-Score > 12.
+2026-03-21 12:48:42,461 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 672 points with Z-Score > 12.
+2026-03-21 12:48:42,461 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 319 points with Z-Score > 12.
+2026-03-21 12:48:42,461 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 209 points with Z-Score > 12.
+2026-03-21 12:48:42,461 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_5 has 367 points with Z-Score > 12.
+2026-03-21 12:48:42,461 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 522 points with Z-Score > 12.
+2026-03-21 12:48:42,462 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 583 points with Z-Score > 12.
+2026-03-21 12:48:42,462 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_30 has 1 points with Z-Score > 12.
+2026-03-21 12:48:42,462 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 664 points with Z-Score > 12.
+2026-03-21 12:48:42,462 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 509 points with Z-Score > 12.
+2026-03-21 12:48:42,462 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 673 points with Z-Score > 12.
+2026-03-21 12:48:42,462 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 609 points with Z-Score > 12.
+2026-03-21 12:48:42,462 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_convexity has 536 points with Z-Score > 12.
+2026-03-21 12:48:42,462 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_convexity has 250 points with Z-Score > 12.
+2026-03-21 12:48:42,850 - INFO - Successfully saved 337348 rows to data/L2/pre_processed/2023-01-26_BTCUSDT_ob500.data.parquet
+2026-03-21 12:48:42,852 - INFO - ✅ Saved event-driven dataset: 2023-01-26_BTCUSDT_ob500.data.parquet
+2026-03-21 12:48:42,853 - INFO - 📊 [Memory] 2023-01-26_BTCUSDT_ob500.data: 73.6MB -> 15643.6MB
+2026-03-21 12:48:42,860 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 466337
+2026-03-21 12:48:42,864 - INFO - 🏆 Gold Validation complete for 2023-01-23_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:48:43,524 - INFO - Successfully saved 466337 rows to data/L2/pre_processed/2023-01-23_BTCUSDT_ob500.data.parquet
+2026-03-21 12:48:43,532 - INFO - ✅ Saved event-driven dataset: 2023-01-23_BTCUSDT_ob500.data.parquet
+2026-03-21 12:48:43,541 - INFO - 📊 [Memory] 2023-01-23_BTCUSDT_ob500.data: 73.6MB -> 18753.9MB
+2026-03-21 12:48:43,943 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:48:44,181 - INFO - 📂 STREAMING: 2023-02-04_BTCUSDT_ob500.data
+2026-03-21 12:48:46,735 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-06.csv.gz
+2026-03-21 12:48:48,578 - INFO - CUSUM (both): 34680 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:48:48,778 - INFO - 📂 STREAMING: 2023-02-05_BTCUSDT_ob500.data
+2026-03-21 12:48:50,543 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-07.csv.gz
+2026-03-21 12:48:52,173 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-08.csv.gz
+2026-03-21 12:48:52,245 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 433287
+2026-03-21 12:48:52,246 - INFO - 🏆 Gold Validation complete for 2023-01-27_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:48:52,451 - INFO - Barras geradas: 595749 | Ilhas: 1
+2026-03-21 12:48:52,631 - INFO - Successfully saved 433287 rows to data/L2/pre_processed/2023-01-27_BTCUSDT_ob500.data.parquet
+2026-03-21 12:48:52,631 - INFO - ✅ Saved event-driven dataset: 2023-01-27_BTCUSDT_ob500.data.parquet
+2026-03-21 12:48:52,632 - INFO - 📊 [Memory] 2023-01-27_BTCUSDT_ob500.data: 73.6MB -> 18928.0MB
+2026-03-21 12:48:52,695 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:48:52,851 - INFO - --- Validating 2023-01-22_BTCUSDT_ob500.data ---
+2026-03-21 12:48:52,996 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:48:53,083 - INFO - No NaNs found.
+2026-03-21 12:48:53,155 - INFO - No Infinite values found.
+2026-03-21 12:48:53,157 - INFO - Chronological order verified.
+2026-03-21 12:48:53,186 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-01-22_BTCUSDT_ob500.data
+2026-03-21 12:48:53,224 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] body max (1.1427e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:53,243 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] upper_wick max (1.0150e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:53,272 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (2.6558e+04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:53,284 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] lower_wick max (6.6184e-04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:53,598 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 410 points with Z-Score > 12.
+2026-03-21 12:48:53,602 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 408 points with Z-Score > 12.
+2026-03-21 12:48:53,602 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] max_spread has 454 points with Z-Score > 12.
+2026-03-21 12:48:53,602 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 494 points with Z-Score > 12.
+2026-03-21 12:48:53,603 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 257 points with Z-Score > 12.
+2026-03-21 12:48:53,603 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 162 points with Z-Score > 12.
+2026-03-21 12:48:53,603 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 618 points with Z-Score > 12.
+2026-03-21 12:48:53,603 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 64 points with Z-Score > 12.
+2026-03-21 12:48:53,603 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 507 points with Z-Score > 12.
+2026-03-21 12:48:53,603 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 174 points with Z-Score > 12.
+2026-03-21 12:48:53,603 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 212 points with Z-Score > 12.
+2026-03-21 12:48:53,604 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 625 points with Z-Score > 12.
+2026-03-21 12:48:53,604 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 130 points with Z-Score > 12.
+2026-03-21 12:48:53,604 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 240 points with Z-Score > 12.
+2026-03-21 12:48:53,604 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_5 has 80 points with Z-Score > 12.
+2026-03-21 12:48:53,604 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 140 points with Z-Score > 12.
+2026-03-21 12:48:53,604 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 622 points with Z-Score > 12.
+2026-03-21 12:48:53,604 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 670 points with Z-Score > 12.
+2026-03-21 12:48:53,604 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 427 points with Z-Score > 12.
+2026-03-21 12:48:53,604 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 667 points with Z-Score > 12.
+2026-03-21 12:48:53,604 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 631 points with Z-Score > 12.
+2026-03-21 12:48:53,604 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_convexity has 65 points with Z-Score > 12.
+2026-03-21 12:48:53,857 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 439702
+2026-03-21 12:48:53,857 - INFO - 🏆 Gold Validation complete for 2023-01-22_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:48:54,146 - INFO - Successfully saved 439702 rows to data/L2/pre_processed/2023-01-22_BTCUSDT_ob500.data.parquet
+2026-03-21 12:48:54,146 - INFO - ✅ Saved event-driven dataset: 2023-01-22_BTCUSDT_ob500.data.parquet
+2026-03-21 12:48:54,149 - INFO - 📊 [Memory] 2023-01-22_BTCUSDT_ob500.data: 73.6MB -> 18960.7MB
+2026-03-21 12:48:54,742 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-09.csv.gz
+2026-03-21 12:48:55,047 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-10.csv.gz
+2026-03-21 12:48:55,732 - INFO - 📥 DOWNLOAD: 2023-02-06_BTCUSDT_ob500.data.zip
+2026-03-21 12:48:56,083 - INFO - 📥 DOWNLOAD: 2023-02-07_BTCUSDT_ob500.data.zip
+2026-03-21 12:48:56,420 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-11.csv.gz
+2026-03-21 12:48:57,706 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:48:57,928 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:48:58,232 - INFO - --- Validating 2023-01-30_BTCUSDT_ob500.data ---
+2026-03-21 12:48:58,342 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:48:58,378 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:48:58,394 - INFO - No NaNs found.
+2026-03-21 12:48:58,437 - INFO - No Infinite values found.
+2026-03-21 12:48:58,438 - INFO - Chronological order verified.
+2026-03-21 12:48:58,467 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-01-30_BTCUSDT_ob500.data
+2026-03-21 12:48:58,479 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] ask_deep_ratio max (1.8923e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:58,494 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] body max (1.7021e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:58,505 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] bid_deep_ratio max (1.2867e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:58,509 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] upper_wick max (1.7035e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:58,523 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (1.5089e+03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:58,534 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] lower_wick max (1.7035e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:58,559 - INFO - --- Validating 2023-02-01_BTCUSDT_ob500.data ---
+2026-03-21 12:48:58,680 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:48:58,772 - INFO - No NaNs found.
+2026-03-21 12:48:58,807 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 428 points with Z-Score > 12.
+2026-03-21 12:48:58,811 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 424 points with Z-Score > 12.
+2026-03-21 12:48:58,811 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] max_spread has 1325 points with Z-Score > 12.
+2026-03-21 12:48:58,812 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 622 points with Z-Score > 12.
+2026-03-21 12:48:58,812 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 434 points with Z-Score > 12.
+2026-03-21 12:48:58,812 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 406 points with Z-Score > 12.
+2026-03-21 12:48:58,813 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 454 points with Z-Score > 12.
+2026-03-21 12:48:58,813 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 130 points with Z-Score > 12.
+2026-03-21 12:48:58,813 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 640 points with Z-Score > 12.
+2026-03-21 12:48:58,813 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 235 points with Z-Score > 12.
+2026-03-21 12:48:58,813 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 179 points with Z-Score > 12.
+2026-03-21 12:48:58,814 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 730 points with Z-Score > 12.
+2026-03-21 12:48:58,814 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 327 points with Z-Score > 12.
+2026-03-21 12:48:58,814 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 267 points with Z-Score > 12.
+2026-03-21 12:48:58,814 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_5 has 266 points with Z-Score > 12.
+2026-03-21 12:48:58,814 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 560 points with Z-Score > 12.
+2026-03-21 12:48:58,814 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 474 points with Z-Score > 12.
+2026-03-21 12:48:58,814 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_30 has 8 points with Z-Score > 12.
+2026-03-21 12:48:58,814 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 661 points with Z-Score > 12.
+2026-03-21 12:48:58,815 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 582 points with Z-Score > 12.
+2026-03-21 12:48:58,815 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 744 points with Z-Score > 12.
+2026-03-21 12:48:58,815 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 725 points with Z-Score > 12.
+2026-03-21 12:48:58,815 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_convexity has 227 points with Z-Score > 12.
+2026-03-21 12:48:58,815 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_convexity has 508 points with Z-Score > 12.
+2026-03-21 12:48:58,834 - INFO - No Infinite values found.
+2026-03-21 12:48:58,840 - INFO - Chronological order verified.
+2026-03-21 12:48:58,891 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-02-01_BTCUSDT_ob500.data
+2026-03-21 12:48:58,916 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] ask_deep_ratio max (1.8621e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:58,946 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] body max (1.7864e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:58,967 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] bid_deep_ratio max (1.4994e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:58,976 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] upper_wick max (9.6483e-04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:59,008 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (3.0565e+03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:59,022 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] lower_wick max (1.5296e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:48:59,062 - INFO - 📥 DOWNLOAD: 2023-02-08_BTCUSDT_ob500.data.zip
+2026-03-21 12:48:59,103 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 476863
+2026-03-21 12:48:59,107 - INFO - 🏆 Gold Validation complete for 2023-01-30_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:48:59,438 - INFO - Successfully saved 476863 rows to data/L2/pre_processed/2023-01-30_BTCUSDT_ob500.data.parquet
+2026-03-21 12:48:59,439 - INFO - ✅ Saved event-driven dataset: 2023-01-30_BTCUSDT_ob500.data.parquet
+2026-03-21 12:48:59,441 - INFO - 📊 [Memory] 2023-01-30_BTCUSDT_ob500.data: 73.6MB -> 18656.5MB
+2026-03-21 12:48:59,682 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 389 points with Z-Score > 12.
+2026-03-21 12:48:59,686 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 390 points with Z-Score > 12.
+2026-03-21 12:48:59,686 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] max_spread has 665 points with Z-Score > 12.
+2026-03-21 12:48:59,687 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 519 points with Z-Score > 12.
+2026-03-21 12:48:59,687 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 209 points with Z-Score > 12.
+2026-03-21 12:48:59,687 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 732 points with Z-Score > 12.
+2026-03-21 12:48:59,687 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 832 points with Z-Score > 12.
+2026-03-21 12:48:59,687 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 142 points with Z-Score > 12.
+2026-03-21 12:48:59,688 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 381 points with Z-Score > 12.
+2026-03-21 12:48:59,688 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 251 points with Z-Score > 12.
+2026-03-21 12:48:59,688 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 233 points with Z-Score > 12.
+2026-03-21 12:48:59,688 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 356 points with Z-Score > 12.
+2026-03-21 12:48:59,688 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 442 points with Z-Score > 12.
+2026-03-21 12:48:59,688 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 270 points with Z-Score > 12.
+2026-03-21 12:48:59,689 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_5 has 138 points with Z-Score > 12.
+2026-03-21 12:48:59,689 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 530 points with Z-Score > 12.
+2026-03-21 12:48:59,689 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 462 points with Z-Score > 12.
+2026-03-21 12:48:59,689 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 604 points with Z-Score > 12.
+2026-03-21 12:48:59,689 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 260 points with Z-Score > 12.
+2026-03-21 12:48:59,689 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 864 points with Z-Score > 12.
+2026-03-21 12:48:59,689 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 735 points with Z-Score > 12.
+2026-03-21 12:48:59,689 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_convexity has 23 points with Z-Score > 12.
+2026-03-21 12:48:59,690 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_convexity has 9 points with Z-Score > 12.
+2026-03-21 12:49:00,413 - INFO - CUSUM (both): 32713 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:49:01,233 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 425072
+2026-03-21 12:49:01,237 - INFO - 🏆 Gold Validation complete for 2023-02-01_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:49:01,631 - INFO - Successfully saved 425072 rows to data/L2/pre_processed/2023-02-01_BTCUSDT_ob500.data.parquet
+2026-03-21 12:49:01,640 - INFO - ✅ Saved event-driven dataset: 2023-02-01_BTCUSDT_ob500.data.parquet
+2026-03-21 12:49:01,641 - INFO - 📊 [Memory] 2023-02-01_BTCUSDT_ob500.data: 73.6MB -> 18528.0MB
+2026-03-21 12:49:01,940 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-12.csv.gz
+2026-03-21 12:49:02,013 - INFO - 📥 DOWNLOAD: 2023-02-11_BTCUSDT_ob500.data.zip
+2026-03-21 12:49:02,158 - INFO - 📥 DOWNLOAD: 2023-02-10_BTCUSDT_ob500.data.zip
+2026-03-21 12:49:02,834 - INFO - Barras geradas: 604954 | Ilhas: 1
+2026-03-21 12:49:03,381 - INFO - 📥 DOWNLOAD: 2023-02-09_BTCUSDT_ob500.data.zip
+2026-03-21 12:49:03,764 - INFO - 📂 STREAMING: 2023-02-07_BTCUSDT_ob500.data
+2026-03-21 12:49:04,329 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:49:05,204 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:49:06,560 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-13.csv.gz
+2026-03-21 12:49:06,950 - INFO - 📂 STREAMING: 2023-02-08_BTCUSDT_ob500.data
+2026-03-21 12:49:08,541 - INFO - CUSUM (both): 39029 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:49:09,244 - INFO - CUSUM (both): 33101 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:49:09,327 - INFO - 📥 DOWNLOAD: 2023-02-12_BTCUSDT_ob500.data.zip
+2026-03-21 12:49:09,333 - INFO - 📂 STREAMING: 2023-02-11_BTCUSDT_ob500.data
+2026-03-21 12:49:10,122 - INFO - 📂 STREAMING: 2023-02-10_BTCUSDT_ob500.data
+2026-03-21 12:49:10,411 - INFO - 📂 STREAMING: 2023-02-09_BTCUSDT_ob500.data
+2026-03-21 12:49:11,436 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:49:11,518 - INFO - --- Validating 2023-02-02_BTCUSDT_ob500.data ---
+2026-03-21 12:49:11,642 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:49:11,691 - INFO - No NaNs found.
+2026-03-21 12:49:11,716 - INFO - No Infinite values found.
+2026-03-21 12:49:11,718 - INFO - Chronological order verified.
+2026-03-21 12:49:11,744 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-02-02_BTCUSDT_ob500.data
+2026-03-21 12:49:11,752 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] ask_deep_ratio max (1.1596e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:11,783 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] body max (1.1174e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:11,789 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] bid_deep_ratio max (1.6819e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:11,792 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] upper_wick max (9.1591e-04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:11,803 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (5.0110e+03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:11,820 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] lower_wick max (1.1337e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:11,958 - INFO - Barras geradas: 610655 | Ilhas: 1
+2026-03-21 12:49:11,967 - INFO - Barras geradas: 651039 | Ilhas: 1
+2026-03-21 12:49:12,170 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 502 points with Z-Score > 12.
+2026-03-21 12:49:12,170 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 500 points with Z-Score > 12.
+2026-03-21 12:49:12,170 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] max_spread has 726 points with Z-Score > 12.
+2026-03-21 12:49:12,170 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 633 points with Z-Score > 12.
+2026-03-21 12:49:12,171 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 672 points with Z-Score > 12.
+2026-03-21 12:49:12,171 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 669 points with Z-Score > 12.
+2026-03-21 12:49:12,171 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 834 points with Z-Score > 12.
+2026-03-21 12:49:12,171 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 319 points with Z-Score > 12.
+2026-03-21 12:49:12,171 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 529 points with Z-Score > 12.
+2026-03-21 12:49:12,171 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 257 points with Z-Score > 12.
+2026-03-21 12:49:12,171 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 315 points with Z-Score > 12.
+2026-03-21 12:49:12,171 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 614 points with Z-Score > 12.
+2026-03-21 12:49:12,171 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 315 points with Z-Score > 12.
+2026-03-21 12:49:12,172 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 349 points with Z-Score > 12.
+2026-03-21 12:49:12,172 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_5 has 147 points with Z-Score > 12.
+2026-03-21 12:49:12,172 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 423 points with Z-Score > 12.
+2026-03-21 12:49:12,172 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 641 points with Z-Score > 12.
+2026-03-21 12:49:12,172 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 720 points with Z-Score > 12.
+2026-03-21 12:49:12,172 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 478 points with Z-Score > 12.
+2026-03-21 12:49:12,172 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 619 points with Z-Score > 12.
+2026-03-21 12:49:12,172 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 835 points with Z-Score > 12.
+2026-03-21 12:49:12,172 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_convexity has 185 points with Z-Score > 12.
+2026-03-21 12:49:12,173 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_convexity has 598 points with Z-Score > 12.
+2026-03-21 12:49:13,788 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 497955
+2026-03-21 12:49:13,789 - INFO - 🏆 Gold Validation complete for 2023-02-02_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:49:14,134 - INFO - Successfully saved 497955 rows to data/L2/pre_processed/2023-02-02_BTCUSDT_ob500.data.parquet
+2026-03-21 12:49:14,134 - INFO - ✅ Saved event-driven dataset: 2023-02-02_BTCUSDT_ob500.data.parquet
+2026-03-21 12:49:14,137 - INFO - 📊 [Memory] 2023-02-02_BTCUSDT_ob500.data: 73.6MB -> 13020.0MB
+2026-03-21 12:49:14,948 - INFO - 📥 DOWNLOAD: 2023-02-13_BTCUSDT_ob500.data.zip
+2026-03-21 12:49:15,896 - INFO - 📂 STREAMING: 2023-02-06_BTCUSDT_ob500.data
+2026-03-21 12:49:17,649 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-14.csv.gz
+2026-03-21 12:49:24,821 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:49:24,970 - INFO - --- Validating 2023-01-25_BTCUSDT_ob500.data ---
+2026-03-21 12:49:25,138 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:49:25,238 - INFO - No NaNs found.
+2026-03-21 12:49:25,328 - INFO - No Infinite values found.
+2026-03-21 12:49:25,334 - INFO - Chronological order verified.
+2026-03-21 12:49:25,393 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-01-25_BTCUSDT_ob500.data
+2026-03-21 12:49:25,430 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] ask_deep_ratio max (1.3680e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:25,497 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] body max (1.4710e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:25,528 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] bid_deep_ratio max (1.2200e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:25,542 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] upper_wick max (1.3491e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:25,596 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (2.7577e+03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:25,635 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] lower_wick max (1.1345e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:27,092 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 488 points with Z-Score > 12.
+2026-03-21 12:49:27,096 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 485 points with Z-Score > 12.
+2026-03-21 12:49:27,096 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] max_spread has 1927 points with Z-Score > 12.
+2026-03-21 12:49:27,097 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 718 points with Z-Score > 12.
+2026-03-21 12:49:27,097 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 546 points with Z-Score > 12.
+2026-03-21 12:49:27,097 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 377 points with Z-Score > 12.
+2026-03-21 12:49:27,097 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 199 points with Z-Score > 12.
+2026-03-21 12:49:27,097 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 417 points with Z-Score > 12.
+2026-03-21 12:49:27,098 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 737 points with Z-Score > 12.
+2026-03-21 12:49:27,098 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 355 points with Z-Score > 12.
+2026-03-21 12:49:27,098 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 378 points with Z-Score > 12.
+2026-03-21 12:49:27,098 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 882 points with Z-Score > 12.
+2026-03-21 12:49:27,098 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 409 points with Z-Score > 12.
+2026-03-21 12:49:27,098 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 162 points with Z-Score > 12.
+2026-03-21 12:49:27,099 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_5 has 124 points with Z-Score > 12.
+2026-03-21 12:49:27,099 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 603 points with Z-Score > 12.
+2026-03-21 12:49:27,099 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 208 points with Z-Score > 12.
+2026-03-21 12:49:27,099 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_30 has 7 points with Z-Score > 12.
+2026-03-21 12:49:27,099 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 911 points with Z-Score > 12.
+2026-03-21 12:49:27,099 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 617 points with Z-Score > 12.
+2026-03-21 12:49:27,099 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 885 points with Z-Score > 12.
+2026-03-21 12:49:27,099 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 728 points with Z-Score > 12.
+2026-03-21 12:49:27,099 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_convexity has 500 points with Z-Score > 12.
+2026-03-21 12:49:27,100 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_convexity has 519 points with Z-Score > 12.
+2026-03-21 12:49:28,475 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 595749
+2026-03-21 12:49:28,479 - INFO - 🏆 Gold Validation complete for 2023-01-25_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:49:28,958 - INFO - Successfully saved 595749 rows to data/L2/pre_processed/2023-01-25_BTCUSDT_ob500.data.parquet
+2026-03-21 12:49:28,960 - INFO - ✅ Saved event-driven dataset: 2023-01-25_BTCUSDT_ob500.data.parquet
+2026-03-21 12:49:28,962 - INFO - 📊 [Memory] 2023-01-25_BTCUSDT_ob500.data: 73.6MB -> 15432.8MB
+2026-03-21 12:49:32,616 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-15.csv.gz
+2026-03-21 12:49:35,819 - INFO - 📂 STREAMING: 2023-02-13_BTCUSDT_ob500.data
+2026-03-21 12:49:37,022 - INFO - 📂 STREAMING: 2023-02-12_BTCUSDT_ob500.data
+2026-03-21 12:49:37,334 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-02-03_BTCUSDT_ob500.data.zip
+2026-03-21 12:49:38,148 - INFO - 📥 DOWNLOAD: 2023-02-14_BTCUSDT_ob500.data.zip
+2026-03-21 12:49:43,454 - INFO - 📥 DOWNLOAD: 2023-02-15_BTCUSDT_ob500.data.zip
+2026-03-21 12:49:43,702 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:49:43,808 - INFO - --- Validating 2023-01-20_BTCUSDT_ob500.data ---
+2026-03-21 12:49:43,862 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:49:43,894 - INFO - No NaNs found.
+2026-03-21 12:49:43,916 - INFO - No Infinite values found.
+2026-03-21 12:49:43,917 - INFO - Chronological order verified.
+2026-03-21 12:49:43,933 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-01-20_BTCUSDT_ob500.data
+2026-03-21 12:49:43,940 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] ask_deep_ratio max (1.5494e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:43,945 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] kyle_lambda max (2.9759e+01) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:43,952 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] body max (3.3661e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:43,958 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] bid_deep_ratio max (1.1154e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:43,961 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] upper_wick max (2.8837e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:43,970 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (4.8342e+03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:43,975 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] lower_wick max (3.1429e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:44,204 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 509 points with Z-Score > 12.
+2026-03-21 12:49:44,204 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 515 points with Z-Score > 12.
+2026-03-21 12:49:44,204 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] max_spread has 1853 points with Z-Score > 12.
+2026-03-21 12:49:44,204 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 756 points with Z-Score > 12.
+2026-03-21 12:49:44,204 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 464 points with Z-Score > 12.
+2026-03-21 12:49:44,205 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 386 points with Z-Score > 12.
+2026-03-21 12:49:44,205 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 1833 points with Z-Score > 12.
+2026-03-21 12:49:44,205 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 283 points with Z-Score > 12.
+2026-03-21 12:49:44,205 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 926 points with Z-Score > 12.
+2026-03-21 12:49:44,205 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 265 points with Z-Score > 12.
+2026-03-21 12:49:44,205 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 450 points with Z-Score > 12.
+2026-03-21 12:49:44,205 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 937 points with Z-Score > 12.
+2026-03-21 12:49:44,205 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 284 points with Z-Score > 12.
+2026-03-21 12:49:44,205 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 383 points with Z-Score > 12.
+2026-03-21 12:49:44,205 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_5 has 624 points with Z-Score > 12.
+2026-03-21 12:49:44,206 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 320 points with Z-Score > 12.
+2026-03-21 12:49:44,206 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 705 points with Z-Score > 12.
+2026-03-21 12:49:44,206 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_30 has 78 points with Z-Score > 12.
+2026-03-21 12:49:44,206 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 908 points with Z-Score > 12.
+2026-03-21 12:49:44,206 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 822 points with Z-Score > 12.
+2026-03-21 12:49:44,206 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 815 points with Z-Score > 12.
+2026-03-21 12:49:44,206 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 893 points with Z-Score > 12.
+2026-03-21 12:49:44,206 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_convexity has 305 points with Z-Score > 12.
+2026-03-21 12:49:44,206 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_convexity has 1006 points with Z-Score > 12.
+2026-03-21 12:49:44,462 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 604954
+2026-03-21 12:49:44,462 - INFO - 🏆 Gold Validation complete for 2023-01-20_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:49:44,672 - INFO - Successfully saved 604954 rows to data/L2/pre_processed/2023-01-20_BTCUSDT_ob500.data.parquet
+2026-03-21 12:49:44,672 - INFO - ✅ Saved event-driven dataset: 2023-01-20_BTCUSDT_ob500.data.parquet
+2026-03-21 12:49:44,674 - INFO - 📊 [Memory] 2023-01-20_BTCUSDT_ob500.data: 73.6MB -> 15553.5MB
+2026-03-21 12:49:45,932 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-16.csv.gz
+2026-03-21 12:49:47,181 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-02-04_BTCUSDT_ob500.data.zip
+2026-03-21 12:49:48,443 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:49:48,565 - INFO - --- Validating 2023-01-21_BTCUSDT_ob500.data ---
+2026-03-21 12:49:49,070 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:49:49,565 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:49:49,612 - INFO - No NaNs found.
+2026-03-21 12:49:49,625 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:49:49,631 - INFO - No Infinite values found.
+2026-03-21 12:49:49,633 - INFO - Chronological order verified.
+2026-03-21 12:49:49,649 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-01-21_BTCUSDT_ob500.data
+2026-03-21 12:49:49,661 - INFO - --- Validating 2023-01-18_BTCUSDT_ob500.data ---
+2026-03-21 12:49:49,666 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] body max (1.5425e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:49,672 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] bid_deep_ratio max (1.2160e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:49,675 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] upper_wick max (1.7807e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:49,684 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (4.1837e+03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:49,689 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] lower_wick max (1.1541e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:49,729 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:49:49,769 - INFO - No NaNs found.
+2026-03-21 12:49:49,790 - INFO - No Infinite values found.
+2026-03-21 12:49:49,792 - INFO - Chronological order verified.
+2026-03-21 12:49:49,809 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-01-18_BTCUSDT_ob500.data
+2026-03-21 12:49:49,815 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] ask_deep_ratio max (1.4535e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:49,824 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] kyle_lambda max (6.2746e+01) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:49,831 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] body max (5.7895e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:49,837 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] bid_deep_ratio max (1.3588e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:49,840 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] upper_wick max (6.1767e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:49,850 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (1.5140e+03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:49,852 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] ask_convexity max (2.2832e+02) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:49,856 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] lower_wick max (6.2587e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:50,102 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 514 points with Z-Score > 12.
+2026-03-21 12:49:50,103 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 518 points with Z-Score > 12.
+2026-03-21 12:49:50,103 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] max_spread has 487 points with Z-Score > 12.
+2026-03-21 12:49:50,103 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 746 points with Z-Score > 12.
+2026-03-21 12:49:50,103 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 747 points with Z-Score > 12.
+2026-03-21 12:49:50,103 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 882 points with Z-Score > 12.
+2026-03-21 12:49:50,103 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 459 points with Z-Score > 12.
+2026-03-21 12:49:50,103 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 157 points with Z-Score > 12.
+2026-03-21 12:49:50,103 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 861 points with Z-Score > 12.
+2026-03-21 12:49:50,103 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 331 points with Z-Score > 12.
+2026-03-21 12:49:50,103 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 388 points with Z-Score > 12.
+2026-03-21 12:49:50,104 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 901 points with Z-Score > 12.
+2026-03-21 12:49:50,104 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 459 points with Z-Score > 12.
+2026-03-21 12:49:50,104 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 399 points with Z-Score > 12.
+2026-03-21 12:49:50,104 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_5 has 194 points with Z-Score > 12.
+2026-03-21 12:49:50,104 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 1023 points with Z-Score > 12.
+2026-03-21 12:49:50,104 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 537 points with Z-Score > 12.
+2026-03-21 12:49:50,104 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 981 points with Z-Score > 12.
+2026-03-21 12:49:50,104 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 482 points with Z-Score > 12.
+2026-03-21 12:49:50,104 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 938 points with Z-Score > 12.
+2026-03-21 12:49:50,104 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 1164 points with Z-Score > 12.
+2026-03-21 12:49:50,104 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_convexity has 165 points with Z-Score > 12.
+2026-03-21 12:49:50,104 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_convexity has 1529 points with Z-Score > 12.
+2026-03-21 12:49:50,218 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 511 points with Z-Score > 12.
+2026-03-21 12:49:50,219 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 512 points with Z-Score > 12.
+2026-03-21 12:49:50,219 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] max_spread has 2031 points with Z-Score > 12.
+2026-03-21 12:49:50,219 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 819 points with Z-Score > 12.
+2026-03-21 12:49:50,219 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 643 points with Z-Score > 12.
+2026-03-21 12:49:50,219 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 1104 points with Z-Score > 12.
+2026-03-21 12:49:50,219 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 754 points with Z-Score > 12.
+2026-03-21 12:49:50,219 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 495 points with Z-Score > 12.
+2026-03-21 12:49:50,220 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 706 points with Z-Score > 12.
+2026-03-21 12:49:50,220 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 308 points with Z-Score > 12.
+2026-03-21 12:49:50,220 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 295 points with Z-Score > 12.
+2026-03-21 12:49:50,220 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 908 points with Z-Score > 12.
+2026-03-21 12:49:50,220 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 333 points with Z-Score > 12.
+2026-03-21 12:49:50,220 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 376 points with Z-Score > 12.
+2026-03-21 12:49:50,220 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_5 has 632 points with Z-Score > 12.
+2026-03-21 12:49:50,220 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 716 points with Z-Score > 12.
+2026-03-21 12:49:50,220 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 512 points with Z-Score > 12.
+2026-03-21 12:49:50,220 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_30 has 217 points with Z-Score > 12.
+2026-03-21 12:49:50,221 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 1049 points with Z-Score > 12.
+2026-03-21 12:49:50,221 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 764 points with Z-Score > 12.
+2026-03-21 12:49:50,221 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 1109 points with Z-Score > 12.
+2026-03-21 12:49:50,221 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 1050 points with Z-Score > 12.
+2026-03-21 12:49:50,221 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_convexity has 217 points with Z-Score > 12.
+2026-03-21 12:49:50,221 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_convexity has 523 points with Z-Score > 12.
+2026-03-21 12:49:50,252 - INFO - 📂 STREAMING: 2023-02-14_BTCUSDT_ob500.data
+2026-03-21 12:49:50,422 - INFO - CUSUM (both): 26418 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:49:50,546 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 610655
+2026-03-21 12:49:50,546 - INFO - 🏆 Gold Validation complete for 2023-01-21_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:49:50,633 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 651039
+2026-03-21 12:49:50,633 - INFO - 🏆 Gold Validation complete for 2023-01-18_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:49:50,819 - INFO - Successfully saved 610655 rows to data/L2/pre_processed/2023-01-21_BTCUSDT_ob500.data.parquet
+2026-03-21 12:49:50,819 - INFO - ✅ Saved event-driven dataset: 2023-01-21_BTCUSDT_ob500.data.parquet
+2026-03-21 12:49:50,821 - INFO - 📊 [Memory] 2023-01-21_BTCUSDT_ob500.data: 73.6MB -> 15702.8MB
+2026-03-21 12:49:50,835 - INFO - Barras geradas: 357461 | Ilhas: 1
+2026-03-21 12:49:50,932 - INFO - Successfully saved 651039 rows to data/L2/pre_processed/2023-01-18_BTCUSDT_ob500.data.parquet
+2026-03-21 12:49:50,932 - INFO - ✅ Saved event-driven dataset: 2023-01-18_BTCUSDT_ob500.data.parquet
+2026-03-21 12:49:50,933 - INFO - 📊 [Memory] 2023-01-18_BTCUSDT_ob500.data: 73.6MB -> 15937.8MB
+2026-03-21 12:49:51,600 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:49:51,759 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-17.csv.gz
+2026-03-21 12:49:52,092 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-18.csv.gz
+2026-03-21 12:49:52,256 - INFO - CUSUM (both): 11410 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:49:52,733 - INFO - Barras geradas: 106366 | Ilhas: 1
+2026-03-21 12:49:53,011 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-02-05_BTCUSDT_ob500.data.zip
+2026-03-21 12:49:55,210 - INFO - 📂 STREAMING: 2023-02-15_BTCUSDT_ob500.data
+2026-03-21 12:49:57,051 - INFO - 📥 DOWNLOAD: 2023-02-16_BTCUSDT_ob500.data.zip
+2026-03-21 12:49:57,979 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:49:57,996 - INFO - --- Validating 2023-02-04_BTCUSDT_ob500.data ---
+2026-03-21 12:49:58,018 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:49:58,022 - INFO - No NaNs found.
+2026-03-21 12:49:58,026 - INFO - No Infinite values found.
+2026-03-21 12:49:58,026 - INFO - Chronological order verified.
+2026-03-21 12:49:58,030 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-02-04_BTCUSDT_ob500.data
+2026-03-21 12:49:58,032 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] ask_deep_ratio max (6.6846e+04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:58,036 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] bid_deep_ratio max (2.3214e+04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:58,038 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] upper_wick max (5.5765e-04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:58,040 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (6.6396e+03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:58,042 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] lower_wick max (3.6442e-04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:49:58,095 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 115 points with Z-Score > 12.
+2026-03-21 12:49:58,095 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 115 points with Z-Score > 12.
+2026-03-21 12:49:58,095 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] max_spread has 114 points with Z-Score > 12.
+2026-03-21 12:49:58,095 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 107 points with Z-Score > 12.
+2026-03-21 12:49:58,095 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 60 points with Z-Score > 12.
+2026-03-21 12:49:58,096 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 131 points with Z-Score > 12.
+2026-03-21 12:49:58,096 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 64 points with Z-Score > 12.
+2026-03-21 12:49:58,096 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 73 points with Z-Score > 12.
+2026-03-21 12:49:58,096 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 77 points with Z-Score > 12.
+2026-03-21 12:49:58,096 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 60 points with Z-Score > 12.
+2026-03-21 12:49:58,096 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 33 points with Z-Score > 12.
+2026-03-21 12:49:58,096 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 105 points with Z-Score > 12.
+2026-03-21 12:49:58,096 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 72 points with Z-Score > 12.
+2026-03-21 12:49:58,096 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 62 points with Z-Score > 12.
+2026-03-21 12:49:58,097 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_5 has 4 points with Z-Score > 12.
+2026-03-21 12:49:58,097 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 110 points with Z-Score > 12.
+2026-03-21 12:49:58,097 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 60 points with Z-Score > 12.
+2026-03-21 12:49:58,097 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 108 points with Z-Score > 12.
+2026-03-21 12:49:58,097 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 108 points with Z-Score > 12.
+2026-03-21 12:49:58,097 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 75 points with Z-Score > 12.
+2026-03-21 12:49:58,097 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 169 points with Z-Score > 12.
+2026-03-21 12:49:58,172 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 106366
+2026-03-21 12:49:58,173 - INFO - 🏆 Gold Validation complete for 2023-02-04_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:49:58,231 - INFO - Successfully saved 106366 rows to data/L2/pre_processed/2023-02-04_BTCUSDT_ob500.data.parquet
+2026-03-21 12:49:58,231 - INFO - ✅ Saved event-driven dataset: 2023-02-04_BTCUSDT_ob500.data.parquet
+2026-03-21 12:49:58,233 - INFO - 📊 [Memory] 2023-02-04_BTCUSDT_ob500.data: 13029.3MB -> 10872.5MB
+2026-03-21 12:49:58,381 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-02-07_BTCUSDT_ob500.data.zip
+2026-03-21 12:49:59,271 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-19.csv.gz
+2026-03-21 12:50:00,294 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:50:01,214 - INFO - 📥 DOWNLOAD: 2023-02-18_BTCUSDT_ob500.data.zip
+2026-03-21 12:50:01,520 - INFO - CUSUM (both): 24558 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:50:01,750 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:50:01,852 - INFO - Barras geradas: 366520 | Ilhas: 1
+2026-03-21 12:50:01,865 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:50:01,874 - INFO - --- Validating 2023-02-03_BTCUSDT_ob500.data ---
+2026-03-21 12:50:01,937 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:50:02,020 - INFO - No NaNs found.
+2026-03-21 12:50:02,032 - INFO - No Infinite values found.
+2026-03-21 12:50:02,033 - INFO - Chronological order verified.
+2026-03-21 12:50:02,044 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-02-03_BTCUSDT_ob500.data
+2026-03-21 12:50:02,048 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] ask_deep_ratio max (1.1313e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:02,050 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] kyle_lambda max (1.7201e+01) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:02,055 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] body max (1.5672e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:02,058 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] bid_deep_ratio max (1.1681e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:02,060 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] upper_wick max (1.1134e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:02,064 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] max_spread max (1.7000e+01) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:02,066 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (1.3078e+04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:02,070 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] lower_wick max (8.7793e-04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:02,286 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 335 points with Z-Score > 12.
+2026-03-21 12:50:02,286 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 335 points with Z-Score > 12.
+2026-03-21 12:50:02,287 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] max_spread has 267 points with Z-Score > 12.
+2026-03-21 12:50:02,287 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 459 points with Z-Score > 12.
+2026-03-21 12:50:02,287 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 375 points with Z-Score > 12.
+2026-03-21 12:50:02,287 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 756 points with Z-Score > 12.
+2026-03-21 12:50:02,287 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 256 points with Z-Score > 12.
+2026-03-21 12:50:02,287 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 112 points with Z-Score > 12.
+2026-03-21 12:50:02,287 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 334 points with Z-Score > 12.
+2026-03-21 12:50:02,288 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 162 points with Z-Score > 12.
+2026-03-21 12:50:02,288 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 130 points with Z-Score > 12.
+2026-03-21 12:50:02,288 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 439 points with Z-Score > 12.
+2026-03-21 12:50:02,288 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 276 points with Z-Score > 12.
+2026-03-21 12:50:02,288 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 210 points with Z-Score > 12.
+2026-03-21 12:50:02,288 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_5 has 215 points with Z-Score > 12.
+2026-03-21 12:50:02,288 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 594 points with Z-Score > 12.
+2026-03-21 12:50:02,288 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 394 points with Z-Score > 12.
+2026-03-21 12:50:02,288 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 486 points with Z-Score > 12.
+2026-03-21 12:50:02,288 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 474 points with Z-Score > 12.
+2026-03-21 12:50:02,288 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 638 points with Z-Score > 12.
+2026-03-21 12:50:02,288 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 642 points with Z-Score > 12.
+2026-03-21 12:50:02,289 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_convexity has 39 points with Z-Score > 12.
+2026-03-21 12:50:02,289 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_convexity has 2152 points with Z-Score > 12.
+2026-03-21 12:50:02,554 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 357461
+2026-03-21 12:50:02,555 - INFO - 🏆 Gold Validation complete for 2023-02-03_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:50:02,742 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-02-08_BTCUSDT_ob500.data.zip
+2026-03-21 12:50:02,850 - INFO - Successfully saved 357461 rows to data/L2/pre_processed/2023-02-03_BTCUSDT_ob500.data.parquet
+2026-03-21 12:50:02,854 - INFO - ✅ Saved event-driven dataset: 2023-02-03_BTCUSDT_ob500.data.parquet
+2026-03-21 12:50:02,855 - INFO - 📊 [Memory] 2023-02-03_BTCUSDT_ob500.data: 6244.0MB -> 15996.7MB
+2026-03-21 12:50:02,906 - INFO - CUSUM (both): 19359 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:50:03,228 - INFO - 📥 DOWNLOAD: 2023-02-17_BTCUSDT_ob500.data.zip
+2026-03-21 12:50:03,637 - INFO - Barras geradas: 273407 | Ilhas: 1
+2026-03-21 12:50:04,856 - INFO - 📂 STREAMING: 2023-02-16_BTCUSDT_ob500.data
+2026-03-21 12:50:06,074 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:50:06,752 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-02-09_BTCUSDT_ob500.data.zip
+2026-03-21 12:50:06,912 - INFO - 📥 DOWNLOAD: 2023-02-19_BTCUSDT_ob500.data.zip
+2026-03-21 12:50:08,167 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-02-06_BTCUSDT_ob500.data.zip
+2026-03-21 12:50:08,601 - INFO - CUSUM (both): 22363 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:50:09,625 - INFO - Barras geradas: 332013 | Ilhas: 1
+2026-03-21 12:50:10,682 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-20.csv.gz
+2026-03-21 12:50:12,081 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:50:13,047 - INFO - 📂 STREAMING: 2023-02-17_BTCUSDT_ob500.data
+2026-03-21 12:50:13,386 - INFO - EventSampler iniciado. Modo: 'both' | Dollar=500000.0 | Tick=5000 | Info=100.0 | Time=300000ms
+2026-03-21 12:50:14,517 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-02-10_BTCUSDT_ob500.data.zip
+2026-03-21 12:50:14,643 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-02-11_BTCUSDT_ob500.data.zip
+2026-03-21 12:50:15,079 - INFO - CUSUM (both): 34586 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:50:15,320 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:50:15,372 - INFO - --- Validating 2023-02-07_BTCUSDT_ob500.data ---
+2026-03-21 12:50:15,412 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:50:15,437 - INFO - No NaNs found.
+2026-03-21 12:50:15,470 - INFO - No Infinite values found.
+2026-03-21 12:50:15,471 - INFO - Chronological order verified.
+2026-03-21 12:50:15,492 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-02-07_BTCUSDT_ob500.data
+2026-03-21 12:50:15,503 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] ask_deep_ratio max (1.1801e+05) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:15,518 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] body max (1.2856e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:15,528 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] bid_deep_ratio max (8.0410e+04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:15,531 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] upper_wick max (8.1826e-04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:15,543 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] max_spread max (8.0000e+00) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:15,550 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (4.9647e+03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:15,559 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] lower_wick max (6.3364e-04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:15,660 - INFO - CUSUM (both): 23443 eventos. Trigger IID será aplicado dentro de cada janela CUSUM.
+2026-03-21 12:50:15,990 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 340 points with Z-Score > 12.
+2026-03-21 12:50:15,990 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 343 points with Z-Score > 12.
+2026-03-21 12:50:15,990 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] max_spread has 758 points with Z-Score > 12.
+2026-03-21 12:50:15,990 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 477 points with Z-Score > 12.
+2026-03-21 12:50:15,991 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 246 points with Z-Score > 12.
+2026-03-21 12:50:15,993 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 307 points with Z-Score > 12.
+2026-03-21 12:50:15,993 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 237 points with Z-Score > 12.
+2026-03-21 12:50:15,993 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 171 points with Z-Score > 12.
+2026-03-21 12:50:15,993 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_volume has 1 points with Z-Score > 12.
+2026-03-21 12:50:15,995 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 437 points with Z-Score > 12.
+2026-03-21 12:50:15,995 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 142 points with Z-Score > 12.
+2026-03-21 12:50:15,995 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 184 points with Z-Score > 12.
+2026-03-21 12:50:15,995 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 539 points with Z-Score > 12.
+2026-03-21 12:50:15,995 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 171 points with Z-Score > 12.
+2026-03-21 12:50:15,995 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 173 points with Z-Score > 12.
+2026-03-21 12:50:15,995 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_5 has 165 points with Z-Score > 12.
+2026-03-21 12:50:15,995 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 216 points with Z-Score > 12.
+2026-03-21 12:50:15,996 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 208 points with Z-Score > 12.
+2026-03-21 12:50:15,996 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 496 points with Z-Score > 12.
+2026-03-21 12:50:15,996 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 401 points with Z-Score > 12.
+2026-03-21 12:50:15,996 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 357 points with Z-Score > 12.
+2026-03-21 12:50:15,996 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 557 points with Z-Score > 12.
+2026-03-21 12:50:16,000 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_convexity has 88 points with Z-Score > 12.
+2026-03-21 12:50:16,268 - INFO - Barras geradas: 356692 | Ilhas: 1
+2026-03-21 12:50:16,310 - INFO - 💾 Memory Optimization: Dropping 801 raw book columns.
+2026-03-21 12:50:16,346 - INFO - --- Validating 2023-02-05_BTCUSDT_ob500.data ---
+2026-03-21 12:50:16,366 - INFO - Barras geradas: 635386 | Ilhas: 1
+2026-03-21 12:50:16,368 - INFO - ✅ ARCHITECTURE INTEGRITY: 30/30 features present. Audit Scope: 46 columns (30 Features + 15 Raw/Price).
+2026-03-21 12:50:16,379 - INFO - No NaNs found.
+2026-03-21 12:50:16,384 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 366520
+2026-03-21 12:50:16,384 - INFO - 🏆 Gold Validation complete for 2023-02-07_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:50:16,388 - INFO - No Infinite values found.
+2026-03-21 12:50:16,389 - INFO - Chronological order verified.
+2026-03-21 12:50:16,397 - WARNING - ⚠️ STALE DATA ALERT: Possible feed lock detected in 2023-02-05_BTCUSDT_ob500.data
+2026-03-21 12:50:16,400 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] ask_deep_ratio max (9.9436e+04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:16,405 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] body max (1.4250e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:16,408 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] bid_deep_ratio max (8.9992e+04) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:16,410 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] upper_wick max (1.2964e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:16,415 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] pressure_ratio max (1.3385e+03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:16,418 - WARNING - ☢️ CRITICAL OUTLIER: [DNN_INPUT] lower_wick max (1.1310e-03) is > 15x P99. Clipping might have failed!
+2026-03-21 12:50:16,521 - INFO - Successfully saved 366520 rows to data/L2/pre_processed/2023-02-07_BTCUSDT_ob500.data.parquet
+2026-03-21 12:50:16,522 - INFO - ✅ Saved event-driven dataset: 2023-02-07_BTCUSDT_ob500.data.parquet
+2026-03-21 12:50:16,523 - INFO - 📊 [Memory] 2023-02-07_BTCUSDT_ob500.data: 15665.9MB -> 12793.4MB
+2026-03-21 12:50:16,535 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_usd_volume has 296 points with Z-Score > 12.
+2026-03-21 12:50:16,535 - WARNING - ⚠️ HIGH TAIL INTENSITY: [RAW_DATA] bar_btc_volume has 299 points with Z-Score > 12.
+2026-03-21 12:50:16,535 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] volatility has 321 points with Z-Score > 12.
+2026-03-21 12:50:16,536 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_momentum has 146 points with Z-Score > 12.
+2026-03-21 12:50:16,536 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi has 481 points with Z-Score > 12.
+2026-03-21 12:50:16,536 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi has 193 points with Z-Score > 12.
+2026-03-21 12:50:16,536 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] pressure_ratio has 213 points with Z-Score > 12.
+2026-03-21 12:50:16,536 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] body has 404 points with Z-Score > 12.
+2026-03-21 12:50:16,536 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] upper_wick has 119 points with Z-Score > 12.
+2026-03-21 12:50:16,536 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] lower_wick has 132 points with Z-Score > 12.
+2026-03-21 12:50:16,536 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] log_ret_close has 500 points with Z-Score > 12.
+2026-03-21 12:50:16,536 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_5 has 154 points with Z-Score > 12.
+2026-03-21 12:50:16,536 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_5 has 135 points with Z-Score > 12.
+2026-03-21 12:50:16,536 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] micro_price_delta_5 has 232 points with Z-Score > 12.
+2026-03-21 12:50:16,536 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_rdi_delta_30 has 264 points with Z-Score > 12.
+2026-03-21 12:50:16,537 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_rdi_delta_30 has 164 points with Z-Score > 12.
+2026-03-21 12:50:16,537 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] spread_zscore_60 has 361 points with Z-Score > 12.
+2026-03-21 12:50:16,537 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] kyle_lambda has 475 points with Z-Score > 12.
+2026-03-21 12:50:16,537 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_deep_ratio has 245 points with Z-Score > 12.
+2026-03-21 12:50:16,537 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_deep_ratio has 294 points with Z-Score > 12.
+2026-03-21 12:50:16,537 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] bid_convexity has 48 points with Z-Score > 12.
+2026-03-21 12:50:16,537 - WARNING - ⚠️ HIGH TAIL INTENSITY: [DNN_INPUT] ask_convexity has 84 points with Z-Score > 12.
+2026-03-21 12:50:16,646 - INFO - ✅ Protocol Island Split: 1/1 islands survived. Total rows: 273407
+2026-03-21 12:50:16,646 - INFO - 🏆 Gold Validation complete for 2023-02-05_BTCUSDT_ob500.data. Status: VALID
+2026-03-21 12:50:16,789 - INFO - Successfully saved 273407 rows to data/L2/pre_processed/2023-02-05_BTCUSDT_ob500.data.parquet
+2026-03-21 12:50:16,789 - INFO - ✅ Saved event-driven dataset: 2023-02-05_BTCUSDT_ob500.data.parquet
+2026-03-21 12:50:16,791 - INFO - 📊 [Memory] 2023-02-05_BTCUSDT_ob500.data: 12089.5MB -> 14278.4MB
+2026-03-21 12:50:18,099 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-21.csv.gz
+2026-03-21 12:50:19,927 - INFO - 📊 [Memory] 2023-02-08_BTCUSDT_ob500.data: 15287.7MB -> 14888.7MB
+2026-03-21 12:50:19,929 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-02-14_BTCUSDT_ob500.data.zip
+2026-03-21 12:50:19,929 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-02-17_BTCUSDT_ob500.data.zip
+2026-03-21 12:50:19,929 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-02-16_BTCUSDT_ob500.data.zip
+2026-03-21 12:50:19,929 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-02-12_BTCUSDT_ob500.data.zip
+2026-03-21 12:50:19,929 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-02-15_BTCUSDT_ob500.data.zip
+2026-03-21 12:50:19,932 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-02-13_BTCUSDT_ob500.data.zip
+2026-03-21 12:50:19,945 - INFO - 📊 [Memory] 2023-02-14_BTCUSDT_ob500.data: 12337.7MB -> 12644.5MB
+2026-03-21 12:50:19,948 - INFO - 📊 [Memory] 2023-02-21_BTCUSDT_ob500.data: 12214.8MB -> 12214.8MB
+2026-03-21 12:50:19,950 - INFO - 📊 [Memory] 2023-02-16_BTCUSDT_ob500.data: 15131.9MB -> 15111.7MB
+2026-03-21 12:50:19,946 - INFO - 📊 [Memory] 2023-02-17_BTCUSDT_ob500.data: 15634.3MB -> 15654.5MB
+2026-03-21 12:50:19,968 - INFO - 📊 [Memory] 2023-02-19_BTCUSDT_ob500.data: 10162.7MB -> 8642.4MB
+2026-03-21 12:50:19,968 - INFO - 📊 [Memory] 2023-02-20_BTCUSDT_ob500.data: 15338.9MB -> 15338.9MB
+2026-03-21 12:50:19,968 - INFO - 📊 [Memory] 2023-02-15_BTCUSDT_ob500.data: 14875.0MB -> 14977.0MB
+2026-03-21 12:50:19,978 - INFO - 📊 [Memory] 2023-02-12_BTCUSDT_ob500.data: 18258.8MB -> 16728.8MB
+2026-03-21 12:50:20,013 - INFO - 📊 [Memory] 2023-02-13_BTCUSDT_ob500.data: 18007.2MB -> 17884.9MB
+2026-03-21 12:50:20,014 - INFO - 🗑️ CLEANUP: Deleting processed zip: 2023-02-18_BTCUSDT_ob500.data.zip
+2026-03-21 12:50:20,057 - INFO - 📊 [Memory] 2023-02-18_BTCUSDT_ob500.data: 15113.1MB -> 15113.1MB
+2026-03-21 12:50:20,192 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-22.csv.gz
+2026-03-21 12:50:20,256 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-23.csv.gz
+2026-03-21 12:50:20,259 - INFO - 📊 [Memory] 2023-02-22_BTCUSDT_ob500.data: 12214.8MB -> 12214.8MB
+2026-03-21 12:50:20,261 - INFO - 📊 [Memory] 2023-02-23_BTCUSDT_ob500.data: 15113.1MB -> 15113.1MB
+2026-03-21 12:50:20,292 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-24.csv.gz
+2026-03-21 12:50:20,336 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-25.csv.gz
+2026-03-21 12:50:20,419 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-26.csv.gz
+2026-03-21 12:50:20,462 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-27.csv.gz
+2026-03-21 12:50:20,584 - INFO - 📊 [Memory] 2023-02-24_BTCUSDT_ob500.data: 15620.2MB -> 15620.2MB
+2026-03-21 12:50:20,588 - INFO - 📊 [Memory] 2023-02-27_BTCUSDT_ob500.data: 15113.1MB -> 15113.1MB
+2026-03-21 12:50:20,603 - INFO - 📊 [Memory] 2023-02-25_BTCUSDT_ob500.data: 15338.9MB -> 15338.9MB
+2026-03-21 12:50:20,612 - INFO - 📊 [Memory] 2023-02-26_BTCUSDT_ob500.data: 12214.8MB -> 12214.8MB
+2026-03-21 12:50:20,690 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-02-28.csv.gz
+2026-03-21 12:50:20,779 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-01.csv.gz
+2026-03-21 12:50:20,817 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-02.csv.gz
+2026-03-21 12:50:20,819 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-03.csv.gz
+2026-03-21 12:50:20,935 - INFO - 📊 [Memory] 2023-03-02_BTCUSDT_ob500.data: 15113.1MB -> 15113.1MB
+2026-03-21 12:50:20,935 - INFO - 📊 [Memory] 2023-03-03_BTCUSDT_ob500.data: 15111.7MB -> 15111.7MB
+2026-03-21 12:50:20,938 - INFO - 📊 [Memory] 2023-03-01_BTCUSDT_ob500.data: 12214.8MB -> 12214.8MB
+2026-03-21 12:50:20,947 - INFO - 📊 [Memory] 2023-02-28_BTCUSDT_ob500.data: 15620.2MB -> 15620.2MB
+2026-03-21 12:50:20,976 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-04.csv.gz
+2026-03-21 12:50:21,070 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-05.csv.gz
+2026-03-21 12:50:21,192 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-06.csv.gz
+2026-03-21 12:50:21,245 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-07.csv.gz
+2026-03-21 12:50:21,263 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-08.csv.gz
+2026-03-21 12:50:21,349 - INFO - 📊 [Memory] 2023-03-04_BTCUSDT_ob500.data: 15338.9MB -> 15338.9MB
+2026-03-21 12:50:21,349 - INFO - 📊 [Memory] 2023-03-05_BTCUSDT_ob500.data: 12214.8MB -> 12214.8MB
+2026-03-21 12:50:21,351 - INFO - 📊 [Memory] 2023-03-06_BTCUSDT_ob500.data: 15113.1MB -> 15113.1MB
+2026-03-21 12:50:21,351 - INFO - 📊 [Memory] 2023-03-07_BTCUSDT_ob500.data: 15620.2MB -> 15620.2MB
+2026-03-21 12:50:21,352 - INFO - 📊 [Memory] 2023-03-08_BTCUSDT_ob500.data: 12644.5MB -> 12644.5MB
+2026-03-21 12:50:21,564 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-09.csv.gz
+2026-03-21 12:50:21,592 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-10.csv.gz
+2026-03-21 12:50:21,601 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-11.csv.gz
+2026-03-21 12:50:21,699 - INFO - 📊 [Memory] 2023-03-11_BTCUSDT_ob500.data: 15113.1MB -> 15113.1MB
+2026-03-21 12:50:21,699 - INFO - 📊 [Memory] 2023-03-10_BTCUSDT_ob500.data: 12214.8MB -> 12214.8MB
+2026-03-21 12:50:21,701 - INFO - 📊 [Memory] 2023-03-09_BTCUSDT_ob500.data: 15620.2MB -> 15620.2MB
+2026-03-21 12:50:21,733 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-12.csv.gz
+2026-03-21 12:50:21,843 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-13.csv.gz
+2026-03-21 12:50:21,913 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-14.csv.gz
+2026-03-21 12:50:21,914 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-15.csv.gz
+2026-03-21 12:50:22,085 - INFO - 📊 [Memory] 2023-03-15_BTCUSDT_ob500.data: 15620.2MB -> 15620.2MB
+2026-03-21 12:50:22,086 - INFO - 📊 [Memory] 2023-03-13_BTCUSDT_ob500.data: 12214.8MB -> 12215.5MB
+2026-03-21 12:50:22,089 - INFO - 📊 [Memory] 2023-03-14_BTCUSDT_ob500.data: 15113.1MB -> 15113.1MB
+2026-03-21 12:50:22,100 - INFO - 📊 [Memory] 2023-03-12_BTCUSDT_ob500.data: 15338.9MB -> 15338.9MB
+2026-03-21 12:50:22,209 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-16.csv.gz
+2026-03-21 12:50:22,229 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-17.csv.gz
+2026-03-21 12:50:22,245 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-18.csv.gz
+2026-03-21 12:50:22,297 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-19.csv.gz
+2026-03-21 12:50:22,312 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-20.csv.gz
+2026-03-21 12:50:22,437 - INFO - 📊 [Memory] 2023-03-16_BTCUSDT_ob500.data: 15056.5MB -> 15056.5MB
+2026-03-21 12:50:22,439 - INFO - 📊 [Memory] 2023-03-17_BTCUSDT_ob500.data: 15620.2MB -> 15620.2MB
+2026-03-21 12:50:22,439 - INFO - 📊 [Memory] 2023-03-19_BTCUSDT_ob500.data: 15405.1MB -> 15405.1MB
+2026-03-21 12:50:22,439 - INFO - 📊 [Memory] 2023-03-18_BTCUSDT_ob500.data: 12215.5MB -> 12215.5MB
+2026-03-21 12:50:22,451 - INFO - 📊 [Memory] 2023-03-20_BTCUSDT_ob500.data: 15113.1MB -> 15113.1MB
+2026-03-21 12:50:22,482 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-21.csv.gz
+2026-03-21 12:50:22,542 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-22.csv.gz
+2026-03-21 12:50:22,568 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-23.csv.gz
+2026-03-21 12:50:22,584 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-24.csv.gz
+2026-03-21 12:50:22,638 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-25.csv.gz
+2026-03-21 12:50:22,807 - INFO - 📊 [Memory] 2023-03-21_BTCUSDT_ob500.data: 15338.9MB -> 15338.9MB
+2026-03-21 12:50:22,809 - INFO - 📊 [Memory] 2023-03-24_BTCUSDT_ob500.data: 15056.5MB -> 15056.5MB
+2026-03-21 12:50:22,809 - INFO - 📊 [Memory] 2023-03-23_BTCUSDT_ob500.data: 15113.1MB -> 15113.1MB
+2026-03-21 12:50:22,815 - INFO - 📊 [Memory] 2023-03-25_BTCUSDT_ob500.data: 12215.5MB -> 12215.5MB
+2026-03-21 12:50:22,841 - INFO - 📊 [Memory] 2023-03-22_BTCUSDT_ob500.data: 15620.2MB -> 15620.2MB
+2026-03-21 12:50:22,918 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-26.csv.gz
+2026-03-21 12:50:22,965 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-27.csv.gz
+2026-03-21 12:50:23,045 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-28.csv.gz
+2026-03-21 12:50:23,054 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-29.csv.gz
+2026-03-21 12:50:23,080 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-30.csv.gz
+2026-03-21 12:50:23,151 - INFO - 📊 [Memory] 2023-03-29_BTCUSDT_ob500.data: 12215.5MB -> 12215.5MB
+2026-03-21 12:50:23,151 - INFO - 📊 [Memory] 2023-03-28_BTCUSDT_ob500.data: 15113.1MB -> 15113.1MB
+2026-03-21 12:50:23,154 - INFO - 📊 [Memory] 2023-03-27_BTCUSDT_ob500.data: 15620.2MB -> 15620.2MB
+2026-03-21 12:50:23,154 - INFO - 📊 [Memory] 2023-03-26_BTCUSDT_ob500.data: 16728.8MB -> 16728.8MB
+2026-03-21 12:50:23,155 - INFO - 📊 [Memory] 2023-03-30_BTCUSDT_ob500.data: 15056.5MB -> 15056.5MB
+2026-03-21 12:50:23,224 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-03-31.csv.gz
+2026-03-21 12:50:23,262 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-04-01.csv.gz
+2026-03-21 12:50:23,264 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-04-02.csv.gz
+2026-03-21 12:50:23,281 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-04-03.csv.gz
+2026-03-21 12:50:23,292 - INFO - 📥 DOWNLOAD FILE: BTCUSDT2023-04-04.csv.gz

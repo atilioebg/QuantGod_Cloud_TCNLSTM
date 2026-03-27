@@ -1,0 +1,25 @@
+﻿2026-03-27 11:26:26,861 - INFO - 
+📝 LOGGING INITIALIZED (UTF-8-SIG): logs/run_manager/run_manager_20260327_112626.log
+2026-03-27 11:26:26,861 - INFO - ============================================================
+2026-03-27 11:26:26,861 - INFO - [START] INICIANDO NOVA SESSAO DO PIPELINE: 2026-03-27 11:26:26
+2026-03-27 11:26:26,862 - INFO - ============================================================
+2026-03-27 11:26:26,936 - INFO - ============================================================
+2026-03-27 11:26:26,936 - INFO - [START] INICIANDO FASE: Foundation Optuna (400 Trials | 10 Epochs | EARLY STOP: 4)
+2026-03-27 11:26:26,936 - INFO - ============================================================
+2026-03-27 11:27:03,272 - INFO - 📁 DYNAMIC DATA PATHS: Train=data/L2/labelled/train | Val=data/L2/labelled/val
+2026-03-27 11:27:03,273 - INFO - 📐 Fitting Global Scaler (Smart Sampler: 100k rows)...
+2026-03-27 11:27:06,524 - INFO - 📊 Global Scaler initialized on 4,329,177 representative rows.
+2026-03-27 11:27:06,540 - INFO - 💾 Scaler saved properly to: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/scaler_foundation.pkl
+2026-03-27 11:27:06,769 - INFO - FocalLoss alpha: DYNAMIC RANGE active anchor points: [S:1.31, N:0.72, B:1.18]
+2026-03-27 11:27:06,769 - INFO - Loss: FocalLossWithSmoothing | fallback_gamma=OPTUNA_DINAMICO | fallback_smoothing=OPTUNA_DINAMICO | SniperLoss=ENABLED
+2026-03-27 11:27:06,778 - INFO - /workspace/QuantGod_Cloud_TCNLSTM/venv_gpu/lib/python3.11/site-packages/optuna/_experimental.py:33: ExperimentalWarning: Argument ``multivariate`` is an experimental feature. The interface can change in the future.
+2026-03-27 11:27:06,779 - INFO -   optuna_warn(
+2026-03-27 11:27:06,779 - INFO - Sampler: TPE (startup=100, multivariate=True)
+2026-03-27 11:27:06,779 - INFO - Pruner: Median (startup=1, warmup=0)
+2026-03-27 11:27:11,228 - INFO - Using an existing study with name 'QUANTGOD_RECON_V009' instead of creating a new one.
+2026-03-27 11:27:11,874 - INFO - Resuming study. Macro Record found: 0.5052
+2026-03-27 11:27:11,876 - INFO - Resuming study. Dir Record found: 0.5106
+2026-03-27 11:27:11,876 - INFO - Starting 400 trials | Metric: MAX(MIN(Sell, Neu, Buy)) | Timeout: 172800s
+2026-03-27 11:27:13,016 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 11:27:58,296 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 11:27:58,297 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...

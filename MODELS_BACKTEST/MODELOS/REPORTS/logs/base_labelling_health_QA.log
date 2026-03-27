@@ -1,0 +1,6 @@
+Timestamp, Event, Status, Metric_Value, Details
+[2026-03-27 12:07:48, Data Integrity, PASS, 500000, Sampled rows from data/L2/labelled/train]
+[2026-03-27 12:07:48, NaN Check, WARN, 241251, Total NaNs across dataset]
+[2026-03-27 12:07:48, Inf Check, PASS, 0, Total Infs across dataset]
+[2026-03-27 12:07:48, Target Balance, INFO, N/A, BUY:27.46% | NEUTRAL:48.25% | SELL:24.29%]
+[2026-03-27 12:07:48, OOF Verification, PASS, Symmetric, Data mapped via Strict Nested Splits without Leakage]

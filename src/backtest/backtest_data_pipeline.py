@@ -52,6 +52,9 @@ def load_backtest_config():
     return config
 
 def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
+    import psutil
+    pid = os.getpid()
+    
     date_str = zip_path.name.split("_")[0]
     trade_path = raw_trade_dir / f"BTCUSDT{date_str}.csv.gz"
     out_name = zip_path.stem.replace(".data", "") + ".parquet"
@@ -68,7 +71,7 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
     unzipped_l2_dir = PROJECT_ROOT / "tmp" / "unzipped_l2"
     l2_file_path = unzipped_l2_dir / f"{date_str}_BTCUSDT_ob200.data"
     
-    # 1. Process Orderbook (L2) messages - Try unzipped first, fallback to ZIP
+    # ── 1. Process Orderbook (L2) messages ───────────────────────────────────
     rows = {}
     try:
         transformer = L2Transformer(
@@ -89,53 +92,50 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
             except: pass
 
         if l2_file_path.exists():
-            # FAST PATH: Unzipped file exists
             with open(l2_file_path, 'r', encoding='utf-8') as f:
-                for line in f:
-                    _process_line(line, rows)
+                for line in f: _process_line(line, rows)
         else:
-            # FALLBACK PATH: Process directly from ZIP
-            if not zip_path.exists():
-                return {"file": zip_path.name, "status": "missing_zip_source"}
-            
             with zipfile.ZipFile(zip_path, 'r') as z:
                 for name in z.namelist():
                     if name.endswith('.data'):
                         with z.open(name) as f:
-                            for line in f:
-                                _process_line(line, rows)
+                            for line in f: _process_line(line, rows)
         
-        if not rows:
-            return {"file": zip_path.name, "status": "no_data"}
-            
-        df_l2 = pl.DataFrame(rows).sort("ts")
-        # Clear rows memory
+        if not rows: return {"file": zip_path.name, "status": "no_data"}
+        
+        # Immediate conversion to LazyFrame to save memory
+        lf_l2 = pl.DataFrame(rows).lazy().sort("ts")
         del rows
         gc.collect()
 
-        # 2. Load Trades
-        df_trades = pl.read_csv(trade_path)
-        
-        df_trades = df_trades.with_columns([
+        # ── 2. Load Trades (Lazy) ───────────────────────────────────────────────
+        lf_trades = pl.scan_csv(trade_path).with_columns([
             (pl.col("timestamp") * 1000).cast(pl.Int64).alias("ts"),
             pl.col("price").cast(pl.Float64),
             pl.col("size").cast(pl.Float64).alias("amount"),
             pl.when(pl.col("side") == "Buy").then(1).otherwise(-1).alias("side")
         ]).sort("ts")
         
-        # 3. Join Asof (Backward) - Much more memory efficient than Full Join
-        df_combined = df_trades.join_asof(
-            df_l2,
+        # ── 3. Streaming Join ──────────────────────────────────────────────────
+        # We only join the columns needed for the sampler to reduce width ASAP
+        lf_combined = lf_trades.join_asof(
+            lf_l2,
             on="ts",
             strategy="backward"
         ).with_columns([
             pl.all().forward_fill().backward_fill()
         ])
         
-        # Free memory L2/Trades
-        del df_l2, df_trades
+        # Clear raw L2 LazyFrame
+        del lf_l2, lf_trades
+        
+        # Execute streaming graph to get Eager DF for the sampler
+        # This is where the peak memory happens
+        df_combined = lf_combined.collect(engine="streaming")
+        del lf_combined
         gc.collect()
 
+        # ── 4. Feature Engineering ─────────────────────────────────────────────
         df_final = transformer.apply_feature_engineering(df_combined)
         del df_combined
         gc.collect()
@@ -144,7 +144,12 @@ def process_single_day_etl(zip_path, raw_trade_dir, pre_processed_dir, config):
         del df_final
         gc.collect()
         
+        vm = psutil.Process(pid).memory_info().rss / (1024**3)
+        logger.info(f"✅ [SUCCESS] {out_name} | PID {pid} peak ~{vm:.2f}GB")
+        
         return {"file": zip_path.name, "status": "ok"}
+    except Exception as e:
+        return {"file": zip_path.name, "status": "error", "message": str(e)}
     except Exception as e:
         return {"file": zip_path.name, "status": "error", "message": str(e)}
 
@@ -217,8 +222,9 @@ def run_backtest_pipeline_robust(config):
     
     zip_files = sorted(list(raw_zip_dir.glob("*.zip")))
     
-    # Dynamic logic: Use config value if exists, else fallback
-    max_workers = config.get('processing', {}).get('n_workers', 4)
+    # Overriding to 4 workers as requested, with deep memory optimization
+    max_workers = 4
+    logger.info(f"⚙️ Memory Guard: Enforcing {max_workers} workers with Streaming/Lazy execution.")
     
     # ── 1. Parallel ETL ──
     logger.info(f"🚀 Starting PARALLEL Backtest ETL for {len(zip_files)} days with {max_workers} workers...")

@@ -1,0 +1,20 @@
+﻿2026-03-22 20:57:10,898 - INFO - 🖥️  Device: cuda
+2026-03-22 20:57:10,899 - INFO - 🔄 Purge Dinamico Sniper ativado: 15min (horizon) + 1min (seguranca) = 16min
+2026-03-22 20:57:10,904 - INFO - 📐 K-Fold Setup: 5 folds, purge=16min (4 bars), resample=5min
+2026-03-22 20:57:10,918 - INFO - Loaded Foundation Arch (best_dir_params.json): seq_len=192, tcn=256, lstm=32×4
+2026-03-22 20:57:10,927 - INFO - 📂 Foundation Val: 274 files in data/L2/labelled/val
+2026-03-22 20:57:10,930 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-22 20:57:21,575 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 5,000 amostras aleatórias.
+2026-03-22 20:57:21,576 - INFO - 🚀 Pre-loading 5,000 samples into RAM (Lightning Mode)...
+2026-03-22 20:57:43,771 - INFO - ✅ RAM-Safe Streaming Dataset: 5,000 sequences indexed and PRE-LOADED.
+2026-03-22 20:57:43,772 - INFO - ✅ RAM-Safe Streaming Dataset: 5,000 sequences indexed (Mode: Lightning).
+2026-03-22 20:57:43,834 - INFO - 📐 Pre-scanning labels for class balance stats...
+2026-03-22 20:57:44,428 - INFO - 📊 Foundation Val: 5,000 rows (Mapped) | Labels: 89,487,733
+2026-03-22 20:57:44,502 - INFO - 📊 Class Distribution: Neutral=45.4%, Directional=54.6%
+2026-03-22 20:57:44,503 - INFO - 🧬 Alphas Genetic Inheritance: [1.354598581612727, 0.8097031523280036, 1.324777596416604]
+2026-03-22 20:57:44,503 - INFO - ============================================================
+2026-03-22 20:57:44,503 - INFO - [KFOLD] FOLD 1/5 | Train: 3,984 rows | Test: 1,000 rows
+2026-03-22 20:57:44,505 - INFO - [Fold 0] Right Purge Gap OK: 4 bars (20 min)
+2026-03-22 20:57:44,891 - INFO - 🔄 Warm-Starting from Foundation Checkpoint: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt
+2026-03-22 20:57:44,955 - INFO - 🔥 [Fold 0] WARM-START SUCCESS: Base weights initialized.
+2026-03-22 20:57:45,436 - INFO - [LOSS] Specialist Loss: alpha=[1.354598581612727, 0.8097031523280036, 1.324777596416604], gamma=2.18, smoothing=0.23 (Inherited: YES)

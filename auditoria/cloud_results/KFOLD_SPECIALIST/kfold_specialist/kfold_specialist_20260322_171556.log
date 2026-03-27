@@ -1,0 +1,19 @@
+﻿2026-03-22 17:15:56,143 - INFO - 🖥️  Device: cuda
+2026-03-22 17:15:56,143 - INFO - 🔄 Purge Dinamico Sniper ativado: 15min (horizon) + 1min (seguranca) = 16min
+2026-03-22 17:15:56,146 - INFO - 📐 K-Fold Setup: 5 folds, purge=16min (4 bars), resample=5min
+2026-03-22 17:15:56,152 - INFO - Loaded Foundation Arch (best_dir_params.json): seq_len=48, tcn=64, lstm=16×3
+2026-03-22 17:15:56,159 - INFO - 📂 Foundation Val: 274 files in data/L2/labelled/val
+2026-03-22 17:15:56,159 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-22 17:16:08,365 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 5,000 amostras aleatórias.
+2026-03-22 17:16:08,365 - INFO - 🚀 Pre-loading 5,000 samples into RAM (Lightning Mode)...
+2026-03-22 17:16:44,794 - INFO - ✅ RAM-Safe Streaming Dataset: 5,000 sequences indexed and PRE-LOADED.
+2026-03-22 17:16:44,795 - INFO - ✅ RAM-Safe Streaming Dataset: 5,000 sequences indexed (Mode: Lightning).
+2026-03-22 17:16:44,846 - INFO - 📐 Pre-scanning labels for class balance stats...
+2026-03-22 17:17:00,090 - INFO - 📊 Foundation Val: 5,000 rows (Mapped) | Labels: 89,487,733
+2026-03-22 17:17:00,180 - WARNING - ⚠️  NEUTRAL = 812475.2% — extremamente desbalanceado! Considere aumentar os thresholds (sell/buy) no master_config.yaml. O Especialista terá poucos sinais de volatilidade para aprender.
+2026-03-22 17:17:00,180 - INFO - 🧬 Alphas Genetic Inheritance: [1.4998740452493275, 0.41033424947514935, 1.011232252967265]
+2026-03-22 17:17:00,181 - INFO - ============================================================
+2026-03-22 17:17:00,181 - INFO - [KFOLD] FOLD 1/5 | Train: 3,984 rows | Test: 1,000 rows
+2026-03-22 17:17:00,181 - INFO - [Fold 0] Right Purge Gap OK: 4 bars (20 min)
+2026-03-22 17:17:00,369 - ERROR - ❌ MODELO BASE AUSENTE CERIFIQUE
+2026-03-22 17:17:00,369 - ERROR -    ↳ Caminho esperado: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt

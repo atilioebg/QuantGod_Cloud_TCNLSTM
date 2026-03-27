@@ -392,7 +392,6 @@ class EventSampler:
             ((pl.min_horizontal("open", "close") - pl.col("low")) / (prev_close + 1e-9)).alias("lower_wick"),
             ((pl.col("close") / (prev_close + 1e-9)).log()).alias("log_ret_close"),
         ])
-
         # Se nao houver as variaveis originarias L2 por causa de CSV incompleto de teste,
         # criamos zeros pra n quebrar as math ops subsequentes (OFI, RDI, etc)
         missing = [c for c in ["ofi", "bid_rdi", "ask_rdi"] if c not in df.columns]
@@ -448,19 +447,18 @@ class EventSampler:
         ])
 
         # ── [BOOK SKEWNESS] Pearson Moment (L200 Depth) ──
-        # Calculate moments for Bids and Asks across all 200 levels
-        bid_cols = [pl.col(f"bid_{i}_s") for i in range(self.levels) if f"bid_{i}_s" in df.columns]
-        ask_cols = [pl.col(f"ask_{i}_s") for i in range(self.levels) if f"ask_{i}_s" in df.columns]
+        # Optimized to avoid creating 200+ intermediate columns
+        bid_cols = [f"bid_{i}_s" for i in range(self.levels) if f"bid_{i}_s" in df.columns]
+        ask_cols = [f"ask_{i}_s" for i in range(self.levels) if f"ask_{i}_s" in df.columns]
         
         if bid_cols and ask_cols:
             b_mean = pl.mean_horizontal(bid_cols)
+            b_m2 = pl.sum_horizontal([(pl.col(c) - b_mean).pow(2) for c in bid_cols]) / len(bid_cols)
+            b_m3 = pl.sum_horizontal([(pl.col(c) - b_mean).pow(3) for c in bid_cols]) / len(bid_cols)
+            
             a_mean = pl.mean_horizontal(ask_cols)
-            
-            b_m2 = pl.mean_horizontal([(c - b_mean)**2 for c in bid_cols])
-            b_m3 = pl.mean_horizontal([(c - b_mean)**3 for c in bid_cols])
-            
-            a_m2 = pl.mean_horizontal([(c - a_mean)**2 for c in ask_cols])
-            a_m3 = pl.mean_horizontal([(c - a_mean)**3 for c in ask_cols])
+            a_m2 = pl.sum_horizontal([(pl.col(c) - a_mean).pow(2) for c in ask_cols]) / len(ask_cols)
+            a_m3 = pl.sum_horizontal([(pl.col(c) - a_mean).pow(3) for c in ask_cols]) / len(ask_cols)
             
             df = df.with_columns([
                 (b_m3 / (b_m2.pow(1.5) + 1e-9)).alias("book_skew_bid"),

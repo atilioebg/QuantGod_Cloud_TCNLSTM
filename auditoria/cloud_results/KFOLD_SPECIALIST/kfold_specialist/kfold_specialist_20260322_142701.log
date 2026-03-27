@@ -1,0 +1,16 @@
+﻿2026-03-22 14:27:01,132 - INFO - 🖥️  Device: cuda
+2026-03-22 14:27:01,132 - INFO - 🔄 Purge Dinamico Sniper ativado: 15min (horizon) + 1min (seguranca) = 16min
+2026-03-22 14:27:01,137 - INFO - 📐 K-Fold Setup: 5 folds, purge=16min (4 bars), resample=5min
+2026-03-22 14:27:01,145 - INFO - Loaded Foundation Arch (best_dir_params.json): seq_len=48, tcn=64, lstm=32×2
+2026-03-22 14:27:01,157 - INFO - 🧪 [TEST MODE] Limiting Specialist data load to 5 files.
+2026-03-22 14:27:01,158 - INFO - 📂 Foundation Val: 5 files in data/L2/labelled/val
+2026-03-22 14:27:02,719 - INFO - 📊 Foundation Val: 1,933,533 rows | SELL=500,090 NEU=914,616 BUY=518,827
+2026-03-22 14:27:02,722 - INFO - 🧬 Alphas Genetic Inheritance: [1.5755749551361278, 1.030775632184917, 0.8721727026364031]
+2026-03-22 14:27:02,742 - INFO - ============================================================
+2026-03-22 14:27:02,742 - INFO - [KFOLD] FOLD 1/5 | Train: 1,546,811 rows | Test: 386,706 rows
+2026-03-22 14:27:02,750 - INFO - [Fold 0] Right Purge Gap OK: 4 bars (20 min)
+2026-03-22 14:27:03,429 - INFO - [Fold 0] Scaler saved: scaler_fold_0.pkl
+2026-03-22 14:27:03,437 - INFO - SequenceDataset: 1546576/1546764 valid sequences (Dropped 188 due to Island Crossings | Lookback=48)
+2026-03-22 14:27:03,440 - INFO - SequenceDataset: 386659/386659 valid sequences (Dropped 0 due to Island Crossings | Lookback=48)
+2026-03-22 14:27:03,516 - ERROR - ❌ MODELO BASE AUSENTE CERIFIQUE
+2026-03-22 14:27:03,517 - ERROR -    ↳ Caminho esperado: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt

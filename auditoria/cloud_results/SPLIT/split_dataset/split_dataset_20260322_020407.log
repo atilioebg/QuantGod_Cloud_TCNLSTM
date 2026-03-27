@@ -1,0 +1,22 @@
+﻿2026-03-22 02:04:07,727 - INFO - 
+📝 LOGGING INITIALIZED (UTF-8-SIG): logs/split_dataset/split_dataset_20260322_020407.log
+2026-03-22 02:04:07,793 - INFO - 🔄 Syncing full Labelled history (2023-2026) from Drive: drive:PROJETOS/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/LABELLED...
+2026-03-22 02:06:44,043 - INFO - ✅ Labelled local directory is now up to date with Drive.
+2026-03-22 02:06:44,058 - INFO - 🚀 Starting Strict Out-of-Fold (OOF) Splitting over 1151 total files.
+2026-03-22 02:08:56,011 - INFO - ✂️ [Foundation] Split boundary file: 2025-06-13_BTCUSDT_ob500.data.parquet -> 386844 bars to Train / Rest to Val
+2026-03-22 02:09:27,184 - INFO - [Foundation] True Bar-level Split: 447,453,200 barras → 357,962,560 Train (80.0%) | Result: 878 train files / 274 val files
+2026-03-22 02:09:58,493 - INFO - ✂️ [Specialist] Split boundary file: 2026-01-20_BTCUSDT_ob200.data.parquet -> 257421 bars to Train / Rest to Val
+2026-03-22 02:10:05,429 - INFO - [Specialist] True Bar-level Split: 89,490,640 barras → 71,592,512 Train (80.0%) | Result: 222 train files / 53 val files
+2026-03-22 02:10:07,545 - INFO - 🛡️ [Foundation] PURGE GAP APLICADO: 3 barras (15 min) removidas de 2025-06-13_BTCUSDT_ob500.data_partA.parquet
+2026-03-22 02:10:07,933 - INFO - 🛡️ [Specialist] PURGE GAP APLICADO: 3 barras (15 min) removidas de 2026-01-20_BTCUSDT_ob200.data_partA.parquet
+2026-03-22 02:10:08,162 - INFO - 🚫 [Foundation] EMBARGO APLICADO: 3 barras (15 min) removidas de 2025-06-13_BTCUSDT_ob500.data_partB.parquet
+2026-03-22 02:10:08,469 - INFO - 🚫 [Specialist] EMBARGO APLICADO: 3 barras (15 min) removidas de 2026-01-20_BTCUSDT_ob200.data_partB.parquet
+2026-03-22 02:10:08,470 - INFO - 🕵️ [CHRONO GUARD] Validating chronological integrity of splits...
+2026-03-22 02:10:08,532 - ERROR - ❌ [Foundation] CHRONOLOGICAL VIOLATION: last train ts (2025-06-13 05:17:51.697000) >= first val ts (2025-06-13 05:17:51.697000). DATA LEAKAGE RISK!
+2026-03-22 02:10:08,586 - INFO - ✅ [Specialist] Chrono Guard PASSED — gap between train/val boundary: 144 ms
+2026-03-22 02:10:08,586 - INFO - ⏳ Generating split_summary.json with hashes and timestamp boundaries...
+2026-03-22 02:11:33,294 - INFO - ✅ Strict OOF Splitting complete! Summary saved to data/L2/split_summary_labelled.json
+2026-03-22 02:11:33,295 - INFO -    ↳ Rclone will upload this summary artifact in the Final Transfer.
+2026-03-22 02:11:33,338 - INFO - 📤 [AUDIT UPLOAD] Stage=SPLIT → drive:PROJETOS/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/AUDITORIA/SPLIT
+2026-03-22 02:11:38,448 - INFO -   ✅ Uploaded logs/split_dataset → drive:PROJETOS/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/AUDITORIA/SPLIT/split_dataset
+2026-03-22 02:11:38,448 - INFO - 📤 [AUDIT UPLOAD] SPLIT complete.

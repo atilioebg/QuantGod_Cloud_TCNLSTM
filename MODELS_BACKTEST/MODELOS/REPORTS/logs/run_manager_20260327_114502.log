@@ -1,0 +1,380 @@
+﻿2026-03-27 11:45:02,190 - INFO - 
+📝 LOGGING INITIALIZED (UTF-8-SIG): logs/run_manager/run_manager_20260327_114502.log
+2026-03-27 11:45:02,190 - INFO - ============================================================
+2026-03-27 11:45:02,190 - INFO - [START] INICIANDO NOVA SESSAO DO PIPELINE: 2026-03-27 11:45:02
+2026-03-27 11:45:02,191 - INFO - ============================================================
+2026-03-27 11:45:02,263 - INFO - ============================================================
+2026-03-27 11:45:02,264 - INFO - [START] INICIANDO FASE: Foundation Optuna (400 Trials | 10 Epochs)
+2026-03-27 11:45:02,264 - INFO - ============================================================
+2026-03-27 11:45:37,345 - INFO - 📁 DYNAMIC DATA PATHS: Train=data/L2/labelled/train | Val=data/L2/labelled/val
+2026-03-27 11:45:37,347 - INFO - 📐 Fitting Global Scaler (Smart Sampler: 100k rows)...
+2026-03-27 11:45:40,558 - INFO - 📊 Global Scaler initialized on 4,329,177 representative rows.
+2026-03-27 11:45:40,574 - INFO - 💾 Scaler saved properly to: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/scaler_foundation.pkl
+2026-03-27 11:45:40,811 - INFO - FocalLoss alpha: DYNAMIC RANGE active anchor points: [S:1.31, N:0.72, B:1.18]
+2026-03-27 11:45:40,812 - INFO - Loss: FocalLossWithSmoothing | fallback_gamma=OPTUNA_DINAMICO | fallback_smoothing=OPTUNA_DINAMICO | SniperLoss=ENABLED
+2026-03-27 11:45:40,823 - INFO - /workspace/QuantGod_Cloud_TCNLSTM/venv_gpu/lib/python3.11/site-packages/optuna/_experimental.py:33: ExperimentalWarning: Argument ``multivariate`` is an experimental feature. The interface can change in the future.
+2026-03-27 11:45:40,824 - INFO -   optuna_warn(
+2026-03-27 11:45:40,824 - INFO - Sampler: TPE (startup=100, multivariate=True)
+2026-03-27 11:45:40,824 - INFO - Pruner: Median (startup=1, warmup=0)
+2026-03-27 11:45:44,913 - INFO - Using an existing study with name 'QUANTGOD_RECON_V009' instead of creating a new one.
+2026-03-27 11:45:45,549 - INFO - Resuming study. Macro Record found: 0.5050
+2026-03-27 11:45:45,550 - INFO - Resuming study. Dir Record found: 0.5106
+2026-03-27 11:45:45,550 - INFO - Starting 400 trials | Metric: MAX(MIN(Sell, Neu, Buy)) | Timeout: 172800s
+2026-03-27 11:45:45,623 - INFO - Target of 400 trials already reached (400 in DB). Skipping optimization.
+2026-03-27 11:45:45,694 - INFO - ============================================================
+2026-03-27 11:45:45,695 - INFO - --- OTIMIZACAO FINALIZADA ---
+2026-03-27 11:45:45,695 - INFO - Motivo da Parada: PARADA MANUAL OU ERRO INTERNO
+2026-03-27 11:45:45,695 - INFO - Tempo de Execucao da Sessao: 0.00 Horas
+2026-03-27 11:45:45,695 - INFO - Trials Executados nesta Sessao: 0
+2026-03-27 11:45:45,695 - INFO - ============================================================
+2026-03-27 11:45:45,719 - INFO - [MACRO] Best trial: 384 | MAX-MIN F1: 0.50503720
+2026-03-27 11:45:45,727 - INFO - [MACRO] Best params: {'tcn_channels': 256, 'lstm_hidden': 256, 'num_lstm_layers': 2, 'batch_size': 512, 'dropout': '0.27346176', 'seq_len': 256, 'lr': '0.00071226', 'weight_decay': '0.01039999', 'base_alpha_sell': '1.14382830', 'base_alpha_neutral': '1.02571141', 'base_alpha_buy': '1.39259954', 'base_loss_gamma': '3.50560885', 'base_loss_smoothing': '0.30769222', 'asym_gamma_sell': '1.75570345', 'asym_gamma_neu': '1.48977280', 'asym_gamma_buy': '3.55890197', 'num_features': 30, 'base_alpha_list': [1.1438283014711244, 1.0257114084524597, 1.3925995444484711]}
+2026-03-27 11:45:45,743 - INFO - [BEST MACRO] Best params saved: src/cloud/base_model/otimizacao/best_params.json
+2026-03-27 11:45:45,840 - INFO - [BEST DIR]   Best trial: 384 | F1 Dir: 0.51064810
+2026-03-27 11:45:45,853 - INFO - [BEST DIR]   Best params saved: src/cloud/base_model/otimizacao/best_dir_params.json
+2026-03-27 11:45:45,853 - INFO - ============================================================
+2026-03-27 11:45:45,853 - INFO - [OK] Optuna Foundation Training completed. Orchestration is now handled by run_manager.py
+2026-03-27 11:45:45,854 - INFO - ============================================================
+2026-03-27 11:45:47,934 - INFO - [OK] FASE CONCLUIDA: Foundation Optuna (400 Trials | 10 Epochs)
+2026-03-27 11:45:47,935 - INFO - [CLEAN] Initiating deep memory sweep (gc.collect and torch.cuda.empty_cache)...
+2026-03-27 11:46:00,597 - INFO -   -> CUDA VRAM cache cleared.
+2026-03-27 11:46:00,597 - INFO - [KFOLD] Executando 5-Fold Purged K-Fold Specialist
+2026-03-27 11:46:00,597 - INFO - ============================================================
+2026-03-27 11:46:00,597 - INFO - [START] INICIANDO FASE: K-Fold Specialist OOF (5 Folds + Purge 16min)
+2026-03-27 11:46:00,597 - INFO - ============================================================
+2026-03-27 11:46:22,716 - INFO - 🖥️  Device: cuda
+2026-03-27 11:46:22,717 - INFO - 🔄 Purge Dinamico Sniper ativado: 15min (horizon) + 1min (seguranca) = 16min
+2026-03-27 11:46:22,720 - INFO - 📐 K-Fold Setup: 5 folds, purge=16min (4 bars), resample=5min
+2026-03-27 11:46:22,726 - INFO - Loaded Foundation Arch (best_dir_params.json): seq_len=256, tcn=256, lstm=256×2
+2026-03-27 11:46:22,731 - INFO - 📂 Foundation Val: 274 files in data/L2/labelled/val
+2026-03-27 11:46:22,733 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 11:46:36,063 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 11:46:36,063 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 11:47:23,418 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 11:47:23,419 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 11:47:23,499 - INFO - 📐 Pre-scanning labels for class balance stats...
+2026-03-27 11:47:23,864 - INFO - 📊 Foundation Val: 100,000 rows (Mapped) | Labels: 89,487,733
+2026-03-27 11:47:23,918 - INFO - 📊 Class Distribution: Neutral=45.4%, Directional=54.6%
+2026-03-27 11:47:23,918 - INFO - 🧬 Alphas Genetic Inheritance: [1.1438283014711244, 1.0257114084524597, 1.3925995444484711]
+2026-03-27 11:47:23,919 - INFO - ============================================================
+2026-03-27 11:47:23,919 - INFO - [KFOLD] FOLD 1/5 | Train: 79,984 rows | Test: 20,000 rows
+2026-03-27 11:47:23,921 - INFO - [Fold 0] Right Purge Gap OK: 4 bars (20 min)
+2026-03-27 11:47:30,577 - INFO - 🔄 Warm-Starting from Foundation Checkpoint: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt
+2026-03-27 11:47:30,663 - INFO - 🔥 [Fold 0] WARM-START SUCCESS: Base weights initialized.
+2026-03-27 11:47:31,090 - INFO - [LOSS] Specialist Loss: alpha=[1.1438283014711244, 1.0257114084524597, 1.3925995444484711], gamma=3.51, smoothing=0.31 (Inherited: YES)
+2026-03-27 11:48:09,968 - INFO - [Fold 0] E1/30 | Sniper: 0.4408 | F1_Dir: 0.3904 | F1_Macro: 0.5582
+2026-03-27 11:49:36,833 - INFO - [Fold 0] E6/30 | Sniper: 0.4709 | F1_Dir: 0.4240 | F1_Macro: 0.5802
+2026-03-27 11:49:54,251 - INFO - [Fold 0] Early stop at epoch 7.
+2026-03-27 11:49:54,356 - INFO - [Fold 0] Model saved: model_fold_0.pt
+2026-03-27 11:49:56,250 - INFO - [Fold 0] OOF Sniper: 0.4889 | Dir: 0.4437 | Macro: 0.5942
+2026-03-27 11:49:56,392 - INFO - [Fold 0] Saved: fold_0.parquet (20,000 rows)
+2026-03-27 11:49:56,591 - INFO - ============================================================
+2026-03-27 11:49:56,592 - INFO - [KFOLD] FOLD 2/5 | Train: 79,984 rows | Test: 20,000 rows
+2026-03-27 11:49:56,592 - INFO - [Fold 1] Left Purge Gap OK: 4 bars (20 min)
+2026-03-27 11:49:56,592 - INFO - [Fold 1] Right Purge Gap OK: 4 bars (20 min)
+2026-03-27 11:50:03,313 - INFO - 🔄 Warm-Starting from Foundation Checkpoint: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt
+2026-03-27 11:50:03,387 - INFO - 🔥 [Fold 1] WARM-START SUCCESS: Base weights initialized.
+2026-03-27 11:50:03,394 - INFO - [LOSS] Specialist Loss: alpha=[1.1438283014711244, 1.0257114084524597, 1.3925995444484711], gamma=3.51, smoothing=0.31 (Inherited: YES)
+2026-03-27 11:50:20,871 - INFO - [Fold 1] E1/30 | Sniper: 0.5065 | F1_Dir: 0.4629 | F1_Macro: 0.6081
+2026-03-27 11:51:30,958 - INFO - [Fold 1] Early stop at epoch 5.
+2026-03-27 11:51:30,999 - INFO - [Fold 1] Model saved: model_fold_1.pt
+2026-03-27 11:51:32,881 - INFO - [Fold 1] OOF Sniper: 0.5065 | Dir: 0.4629 | Macro: 0.6081
+2026-03-27 11:51:32,913 - INFO - [Fold 1] Saved: fold_1.parquet (20,000 rows)
+2026-03-27 11:51:33,115 - INFO - ============================================================
+2026-03-27 11:51:33,116 - INFO - [KFOLD] FOLD 3/5 | Train: 79,984 rows | Test: 20,000 rows
+2026-03-27 11:51:33,116 - INFO - [Fold 2] Left Purge Gap OK: 4 bars (20 min)
+2026-03-27 11:51:33,117 - INFO - [Fold 2] Right Purge Gap OK: 4 bars (20 min)
+2026-03-27 11:51:39,728 - INFO - 🔄 Warm-Starting from Foundation Checkpoint: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt
+2026-03-27 11:51:39,749 - INFO - 🔥 [Fold 2] WARM-START SUCCESS: Base weights initialized.
+2026-03-27 11:51:39,755 - INFO - [LOSS] Specialist Loss: alpha=[1.1438283014711244, 1.0257114084524597, 1.3925995444484711], gamma=3.51, smoothing=0.31 (Inherited: YES)
+2026-03-27 11:51:57,268 - INFO - [Fold 2] E1/30 | Sniper: 0.4629 | F1_Dir: 0.4148 | F1_Macro: 0.5751
+2026-03-27 11:53:25,070 - INFO - [Fold 2] E6/30 | Sniper: 0.4473 | F1_Dir: 0.3981 | F1_Macro: 0.5622
+2026-03-27 11:53:42,657 - INFO - [Fold 2] Early stop at epoch 7.
+2026-03-27 11:53:42,709 - INFO - [Fold 2] Model saved: model_fold_2.pt
+2026-03-27 11:53:44,573 - INFO - [Fold 2] OOF Sniper: 0.5470 | Dir: 0.5081 | Macro: 0.6378
+2026-03-27 11:53:44,596 - INFO - [Fold 2] Saved: fold_2.parquet (20,000 rows)
+2026-03-27 11:53:44,767 - INFO - ============================================================
+2026-03-27 11:53:44,768 - INFO - [KFOLD] FOLD 4/5 | Train: 79,984 rows | Test: 20,000 rows
+2026-03-27 11:53:44,768 - INFO - [Fold 3] Left Purge Gap OK: 4 bars (20 min)
+2026-03-27 11:53:44,768 - INFO - [Fold 3] Right Purge Gap OK: 4 bars (20 min)
+2026-03-27 11:53:51,336 - INFO - 🔄 Warm-Starting from Foundation Checkpoint: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt
+2026-03-27 11:53:51,411 - INFO - 🔥 [Fold 3] WARM-START SUCCESS: Base weights initialized.
+2026-03-27 11:53:51,419 - INFO - [LOSS] Specialist Loss: alpha=[1.1438283014711244, 1.0257114084524597, 1.3925995444484711], gamma=3.51, smoothing=0.31 (Inherited: YES)
+2026-03-27 11:54:08,912 - INFO - [Fold 3] E1/30 | Sniper: 0.4446 | F1_Dir: 0.3945 | F1_Macro: 0.5613
+2026-03-27 11:55:36,585 - INFO - [Fold 3] E6/30 | Sniper: 0.5216 | F1_Dir: 0.4805 | F1_Macro: 0.6174
+2026-03-27 11:57:04,489 - INFO - [Fold 3] E11/30 | Sniper: 0.5330 | F1_Dir: 0.4945 | F1_Macro: 0.6229
+2026-03-27 11:58:32,314 - INFO - [Fold 3] E16/30 | Sniper: 0.5389 | F1_Dir: 0.5024 | F1_Macro: 0.6240
+2026-03-27 11:58:32,315 - INFO - [Fold 3] Early stop at epoch 16.
+2026-03-27 11:58:32,363 - INFO - [Fold 3] Model saved: model_fold_3.pt
+2026-03-27 11:58:34,276 - INFO - [Fold 3] OOF Sniper: 0.5518 | Dir: 0.5154 | Macro: 0.6367
+2026-03-27 11:58:34,315 - INFO - [Fold 3] Saved: fold_3.parquet (20,000 rows)
+2026-03-27 11:58:34,517 - INFO - ============================================================
+2026-03-27 11:58:34,517 - INFO - [KFOLD] FOLD 5/5 | Train: 79,984 rows | Test: 20,000 rows
+2026-03-27 11:58:34,518 - INFO - [Fold 4] Left Purge Gap OK: 4 bars (20 min)
+2026-03-27 11:58:41,125 - INFO - 🔄 Warm-Starting from Foundation Checkpoint: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/best_tcn_lstm_dir.pt
+2026-03-27 11:58:41,213 - INFO - 🔥 [Fold 4] WARM-START SUCCESS: Base weights initialized.
+2026-03-27 11:58:41,222 - INFO - [LOSS] Specialist Loss: alpha=[1.1438283014711244, 1.0257114084524597, 1.3925995444484711], gamma=3.51, smoothing=0.31 (Inherited: YES)
+2026-03-27 11:58:58,730 - INFO - [Fold 4] E1/30 | Sniper: 0.4764 | F1_Dir: 0.4299 | F1_Macro: 0.5851
+2026-03-27 12:00:26,634 - INFO - [Fold 4] E6/30 | Sniper: 0.4890 | F1_Dir: 0.4450 | F1_Macro: 0.5915
+2026-03-27 12:01:01,746 - INFO - [Fold 4] Early stop at epoch 8.
+2026-03-27 12:01:01,855 - INFO - [Fold 4] Model saved: model_fold_4.pt
+2026-03-27 12:01:03,753 - INFO - [Fold 4] OOF Sniper: 0.5354 | Dir: 0.4955 | Macro: 0.6285
+2026-03-27 12:01:03,782 - INFO - [Fold 4] Saved: fold_4.parquet (20,000 rows)
+2026-03-27 12:01:03,977 - INFO - Assembling full_oof.parquet (chronological order)...
+2026-03-27 12:01:04,110 - INFO - full_oof.parquet: 100,000 rows | Coverage: 100.0% of Foundation Val
+2026-03-27 12:01:04,110 - INFO - Expected: ~99,980 (after purge removal)
+2026-03-27 12:01:04,112 - INFO - No duplicate rows in full_oof.parquet
+2026-03-27 12:01:04,113 - INFO - Running Automated Specialist Security QA (pytest)...
+2026-03-27 12:02:10,625 - INFO - [OK] Specialist QA Report saved to /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/SPECIALIST/kfold_security_QA.log
+2026-03-27 12:02:10,626 - INFO - [END] K-Fold Specialist finished. Auditor fusion ready.
+2026-03-27 12:02:10,794 - INFO - 📤 [AUDIT UPLOAD] Stage=KFOLD_SPECIALIST → drive:PROJETOS/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/AUDITORIA/KFOLD_SPECIALIST
+2026-03-27 12:03:05,305 - INFO -   ✅ Uploaded logs/kfold_specialist → drive:PROJETOS/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/AUDITORIA/KFOLD_SPECIALIST/kfold_specialist
+2026-03-27 12:03:05,309 - INFO - 📤 [AUDIT UPLOAD] KFOLD_SPECIALIST complete.
+2026-03-27 12:03:07,042 - INFO - [OK] FASE CONCLUIDA: K-Fold Specialist OOF (5 Folds + Purge 16min)
+2026-03-27 12:03:07,042 - INFO - [CLEAN] Initiating deep memory sweep (gc.collect and torch.cuda.empty_cache)...
+2026-03-27 12:03:07,096 - INFO -   -> CUDA VRAM cache cleared.
+2026-03-27 12:03:07,112 - INFO - [DIAG] Auditor Requirements OK. Usando Base Model: best_tcn_lstm_dir.pt
+2026-03-27 12:03:07,112 - INFO - ============================================================
+2026-03-27 12:03:07,112 - INFO - [START] INICIANDO FASE: Auditor Preprocessing (Context generation)
+2026-03-27 12:03:07,113 - INFO - ============================================================
+2026-03-27 12:03:13,028 - INFO - 📂 [Audit Fix] Context features extraídas de Foundation Val: data/L2/labelled/val
+2026-03-27 12:03:13,033 - INFO - Carregando 274 arquivos para processamento CONTÍNUO (PURE POLARS)...
+2026-03-27 12:03:13,085 - INFO - auditor_preprocessing: resample_freq=5min (5 min/bar)
+2026-03-27 12:03:13,086 - INFO - Processando e calculando indicadores Alpha Sensors arquivo por arquivo (Zero RAM Spike)...
+2026-03-27 12:03:13,268 - INFO - /workspace/QuantGod_Cloud_TCNLSTM/src/cloud/auditor_model/auditor_preprocessing.py:99: PerformanceWarning: Determining the column names of a LazyFrame requires resolving its schema, which is a potentially expensive operation. Use `LazyFrame.collect_schema().names()` to get the column names without this warning.
+2026-03-27 12:03:13,268 - INFO -   if "log_volume" in lf.columns:
+2026-03-27 12:03:13,312 - INFO - /workspace/QuantGod_Cloud_TCNLSTM/src/cloud/auditor_model/auditor_preprocessing.py:158: PerformanceWarning: Determining the column names of a LazyFrame requires resolving its schema, which is a potentially expensive operation. Use `LazyFrame.collect_schema().names()` to get the column names without this warning.
+2026-03-27 12:03:13,313 - INFO -   if "book_skew_bid" not in lf.columns:
+2026-03-27 12:03:13,314 - INFO - /workspace/QuantGod_Cloud_TCNLSTM/src/cloud/auditor_model/auditor_preprocessing.py:160: PerformanceWarning: Determining the column names of a LazyFrame requires resolving its schema, which is a potentially expensive operation. Use `LazyFrame.collect_schema().names()` to get the column names without this warning.
+2026-03-27 12:03:13,314 - INFO -   if "book_skew_ask" not in lf.columns:
+2026-03-27 12:04:54,811 - INFO - ✅ Processamento Chunked-Polars finalizado com sucesso para 274/274 arquivos.
+2026-03-27 12:04:54,813 - INFO - ✅ Auditor Preprocessing (Context Engineering) Finalizado OOF.
+2026-03-27 12:04:55,152 - INFO - [OK] FASE CONCLUIDA: Auditor Preprocessing (Context generation)
+2026-03-27 12:04:55,152 - INFO - ============================================================
+2026-03-27 12:04:55,152 - INFO - [START] INICIANDO FASE: Auditor Labelling (Fused Logits + Sinais OOF)
+2026-03-27 12:04:55,152 - INFO - ============================================================
+2026-03-27 12:05:17,994 - INFO - 🔁 K-Fold Mode detected (kfold.enabled=true) → loading full_oof.parquet
+2026-03-27 12:05:17,998 - INFO - 🔗 K-Fold Mode: loading OOF predictions from /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/SPECIALIST/full_oof.parquet
+2026-03-27 12:05:18,323 - INFO -   ↳ OOF rows: 100,000 (covering 5 folds)
+2026-03-27 12:05:18,367 - INFO - 🔑 [Audit Fix] DEVICE para inferência Foundation: cuda
+2026-03-27 12:05:18,377 - INFO - Loaded Foundation Arch (best_dir_params.json): seq_len=256, tcn=256, lstm=256×2
+2026-03-27 12:05:18,377 - INFO - 🔍 [Audit Diagnostic] foundation_val_dir: /workspace/QuantGod_Cloud_TCNLSTM/data/L2/labelled/val
+2026-03-27 12:05:18,380 - INFO - 🔍 [Audit Diagnostic] Directory exists? True
+2026-03-27 12:05:18,386 - INFO - 🔍 [Audit Diagnostic] Found 274 parquet files in data/L2/labelled/val
+2026-03-27 12:05:18,387 - INFO - 🔍 [Audit] Loading only necessary validation segments for Foundation inference...
+2026-03-27 12:05:22,256 - INFO - ✅ Selective Foundation Val & Context LazyFrames loaded: 407,630 dense rows (Optimization: RAM SAVE)
+2026-03-27 12:05:22,819 - INFO - 🔑 [Audit Fix] Scaler carregado de: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/scaler_foundation.pkl
+2026-03-27 12:05:30,903 - INFO - SequenceDataset (island-aware): 407375/407375 sequências válidas (Lookback protection ativo).
+2026-03-27 12:05:31,469 - INFO - [OK] [Audit Fix] Usando Base Model: best_tcn_lstm_dir.pt
+2026-03-27 12:05:31,569 - INFO - [MODEL] Generating Foundation Model probabilities over Foundation Val...
+2026-03-27 12:05:56,072 - INFO - 🔗 RAM-Safe joining OOF predictions × Foundation probs × Context features (Lazy)...
+2026-03-27 12:05:56,310 - INFO - ✅ Fused rows after LAZY join: 99,745
+2026-03-27 12:05:56,624 - INFO - 📊 Fused Dataset: 99,745 rows | Meta-Target Accuracy: 69.30%
+2026-03-27 12:05:56,739 - INFO - 📦 Treino Fused salvo: data/auditor/dataset_fused/train/fused_auditor.parquet (79,796 rows)
+2026-03-27 12:05:56,740 - INFO - 📦 Val   Fused salvo: data/auditor/dataset_fused/val/fused_auditor.parquet (19,949 rows)
+2026-03-27 12:05:58,888 - INFO - [OK] FASE CONCLUIDA: Auditor Labelling (Fused Logits + Sinais OOF)
+2026-03-27 12:05:58,888 - INFO - [CLEAN] Initiating deep memory sweep (gc.collect and torch.cuda.empty_cache)...
+2026-03-27 12:05:58,936 - INFO -   -> CUDA VRAM cache cleared.
+2026-03-27 12:05:58,937 - INFO - ============================================================
+2026-03-27 12:05:58,937 - INFO - [START] INICIANDO FASE: Auditor XGBoost (Dynamic Thresholding)
+2026-03-27 12:05:58,937 - INFO - ============================================================
+2026-03-27 12:06:15,323 - INFO - Carregando dados fundidos de data/auditor/dataset_fused...
+2026-03-27 12:06:33,973 - INFO - 🏆 Iniciando Otimização Optuna do Auditor (100 trials)...
+2026-03-27 12:06:33,973 - INFO - [I 2026-03-27 12:06:33,973] A new study created in memory with name: no-name-ff36ba0b-653a-45e4-b6ff-59007bc2c32e
+2026-03-27 12:06:35,784 - INFO - /workspace/QuantGod_Cloud_TCNLSTM/venv_gpu/lib/python3.11/site-packages/xgboost/core.py:751: UserWarning: [12:06:35] WARNING: /__w/xgboost/xgboost/src/common/error_msg.cc:62: Falling back to prediction using DMatrix due to mismatched devices. This might lead to higher memory usage and slower performance. XGBoost is running on: cuda:0, while the input data is on: cpu.
+2026-03-27 12:06:35,784 - INFO - Potential solutions:
+2026-03-27 12:06:35,784 - INFO - - Use a data structure that matches the device ordinal in the booster.
+2026-03-27 12:06:35,784 - INFO - - Set the device for booster before call to inplace_predict.
+2026-03-27 12:06:35,785 - INFO - This warning will only be shown once.
+2026-03-27 12:06:35,785 - INFO -   return func(**kwargs)
+2026-03-27 12:06:35,820 - INFO - [I 2026-03-27 12:06:35,820] Trial 0 finished with value: 0.7414942321315192 and parameters: {'max_depth': 6, 'learning_rate': 0.08436570486729851, 'n_estimators': 531, 'subsample': 0.6632251691766001, 'colsample_bytree': 0.8273399685796995, 'reg_alpha': 0.010509832962045218, 'reg_lambda': 3.1859734650509606}. Best is trial 0 with value: 0.7414942321315192.
+2026-03-27 12:06:37,250 - INFO - [I 2026-03-27 12:06:37,250] Trial 1 finished with value: 0.7471607933539965 and parameters: {'max_depth': 6, 'learning_rate': 0.02896315766870514, 'n_estimators': 707, 'subsample': 0.9964335108967278, 'colsample_bytree': 0.6163481125345797, 'reg_alpha': 0.2706474460469288, 'reg_lambda': 2.0326134437762944}. Best is trial 1 with value: 0.7471607933539965.
+2026-03-27 12:06:37,568 - INFO - [I 2026-03-27 12:06:37,568] Trial 2 finished with value: 0.7548026499658287 and parameters: {'max_depth': 6, 'learning_rate': 0.01599437948709636, 'n_estimators': 116, 'subsample': 0.8060158290093984, 'colsample_bytree': 0.8995922855071674, 'reg_alpha': 0.9879167690921755, 'reg_lambda': 4.852373835116261}. Best is trial 2 with value: 0.7548026499658287.
+2026-03-27 12:06:38,654 - INFO - [I 2026-03-27 12:06:38,653] Trial 3 finished with value: 0.746785230157799 and parameters: {'max_depth': 4, 'learning_rate': 0.06065886241062509, 'n_estimators': 786, 'subsample': 0.9326811443368651, 'colsample_bytree': 0.8842675713532833, 'reg_alpha': 0.737596572914137, 'reg_lambda': 2.3008454418572253}. Best is trial 2 with value: 0.7548026499658287.
+2026-03-27 12:06:39,640 - INFO - [I 2026-03-27 12:06:39,640] Trial 4 finished with value: 0.7501785596894354 and parameters: {'max_depth': 6, 'learning_rate': 0.0280708311903977, 'n_estimators': 450, 'subsample': 0.9422470850045341, 'colsample_bytree': 0.953977071721434, 'reg_alpha': 0.9814374564004095, 'reg_lambda': 2.7789270910954427}. Best is trial 2 with value: 0.7548026499658287.
+2026-03-27 12:06:40,704 - INFO - [I 2026-03-27 12:06:40,703] Trial 5 finished with value: 0.7528276755452576 and parameters: {'max_depth': 3, 'learning_rate': 0.010269848227671758, 'n_estimators': 897, 'subsample': 0.7152941179262549, 'colsample_bytree': 0.6894083305287578, 'reg_alpha': 0.3853220574841304, 'reg_lambda': 3.2769058033294467}. Best is trial 2 with value: 0.7548026499658287.
+2026-03-27 12:06:41,844 - INFO - [I 2026-03-27 12:06:41,843] Trial 6 finished with value: 0.752021140430619 and parameters: {'max_depth': 4, 'learning_rate': 0.018675463936146167, 'n_estimators': 834, 'subsample': 0.6426800335336097, 'colsample_bytree': 0.639573819930013, 'reg_alpha': 0.8936457727417296, 'reg_lambda': 3.371153276544361}. Best is trial 2 with value: 0.7548026499658287.
+2026-03-27 12:06:42,635 - INFO - [I 2026-03-27 12:06:42,635] Trial 7 finished with value: 0.753244911188532 and parameters: {'max_depth': 5, 'learning_rate': 0.011857981199629546, 'n_estimators': 456, 'subsample': 0.6972960264902974, 'colsample_bytree': 0.8615648641257725, 'reg_alpha': 0.2623088648448514, 'reg_lambda': 3.227267793732246}. Best is trial 2 with value: 0.7548026499658287.
+2026-03-27 12:06:43,739 - INFO - [I 2026-03-27 12:06:43,739] Trial 8 finished with value: 0.7475852091878383 and parameters: {'max_depth': 4, 'learning_rate': 0.06322286447220991, 'n_estimators': 798, 'subsample': 0.9034312410906084, 'colsample_bytree': 0.7676852119056299, 'reg_alpha': 0.9469860913358638, 'reg_lambda': 3.5181928683626285}. Best is trial 2 with value: 0.7548026499658287.
+2026-03-27 12:06:44,086 - INFO - [I 2026-03-27 12:06:44,086] Trial 9 finished with value: 0.7514651868341459 and parameters: {'max_depth': 3, 'learning_rate': 0.08311932573908316, 'n_estimators': 256, 'subsample': 0.8226510039178723, 'colsample_bytree': 0.8585540852210698, 'reg_alpha': 0.38593832321107824, 'reg_lambda': 2.279473986161265}. Best is trial 2 with value: 0.7548026499658287.
+2026-03-27 12:06:44,350 - INFO - [I 2026-03-27 12:06:44,349] Trial 10 finished with value: 0.7554443735539316 and parameters: {'max_depth': 5, 'learning_rate': 0.01657131898891151, 'n_estimators': 107, 'subsample': 0.7900873097317047, 'colsample_bytree': 0.9899852991788224, 'reg_alpha': 0.6494539119043476, 'reg_lambda': 4.816420787685274}. Best is trial 10 with value: 0.7554443735539316.
+2026-03-27 12:06:44,596 - INFO - [I 2026-03-27 12:06:44,596] Trial 11 finished with value: 0.7555098630735281 and parameters: {'max_depth': 5, 'learning_rate': 0.017444863226427923, 'n_estimators': 102, 'subsample': 0.8042640425319951, 'colsample_bytree': 0.9979965856462738, 'reg_alpha': 0.672598550886403, 'reg_lambda': 4.802592283726489}. Best is trial 11 with value: 0.7555098630735281.
+2026-03-27 12:06:44,968 - INFO - [I 2026-03-27 12:06:44,968] Trial 12 finished with value: 0.7541875014042384 and parameters: {'max_depth': 5, 'learning_rate': 0.019568845903453567, 'n_estimators': 186, 'subsample': 0.7578462848651769, 'colsample_bytree': 0.9564247516856029, 'reg_alpha': 0.6560984140318595, 'reg_lambda': 4.991653564071741}. Best is trial 11 with value: 0.7555098630735281.
+2026-03-27 12:06:45,519 - INFO - [I 2026-03-27 12:06:45,518] Trial 13 finished with value: 0.7514722897544506 and parameters: {'max_depth': 5, 'learning_rate': 0.04079837294549069, 'n_estimators': 293, 'subsample': 0.8544504403525485, 'colsample_bytree': 0.9931156022081572, 'reg_alpha': 0.6162132599494299, 'reg_lambda': 4.174711914516486}. Best is trial 11 with value: 0.7555098630735281.
+2026-03-27 12:06:46,164 - INFO - [I 2026-03-27 12:06:46,163] Trial 14 finished with value: 0.7531530011829483 and parameters: {'max_depth': 5, 'learning_rate': 0.015658327652476916, 'n_estimators': 350, 'subsample': 0.7469190360017943, 'colsample_bytree': 0.990947953339803, 'reg_alpha': 0.5498653681147027, 'reg_lambda': 1.0489108533967348}. Best is trial 11 with value: 0.7555098630735281.
+2026-03-27 12:06:46,428 - INFO - [I 2026-03-27 12:06:46,428] Trial 15 finished with value: 0.7550055319564248 and parameters: {'max_depth': 5, 'learning_rate': 0.022372697264128664, 'n_estimators': 111, 'subsample': 0.6021680185631539, 'colsample_bytree': 0.7463632031823058, 'reg_alpha': 0.7680796737878718, 'reg_lambda': 4.164967354436776}. Best is trial 11 with value: 0.7555098630735281.
+2026-03-27 12:06:47,330 - INFO - [I 2026-03-27 12:06:47,330] Trial 16 finished with value: 0.7507164677076279 and parameters: {'max_depth': 4, 'learning_rate': 0.04049168630074485, 'n_estimators': 632, 'subsample': 0.8467529909858059, 'colsample_bytree': 0.9228723471416409, 'reg_alpha': 0.8055347712465329, 'reg_lambda': 4.2204529446693595}. Best is trial 11 with value: 0.7555098630735281.
+2026-03-27 12:06:48,020 - INFO - [I 2026-03-27 12:06:48,020] Trial 17 finished with value: 0.7536765725954713 and parameters: {'max_depth': 5, 'learning_rate': 0.013673649062583167, 'n_estimators': 381, 'subsample': 0.7663137728345287, 'colsample_bytree': 0.9400916356603424, 'reg_alpha': 0.46374973178747025, 'reg_lambda': 4.547480556527881}. Best is trial 11 with value: 0.7555098630735281.
+2026-03-27 12:06:48,392 - INFO - [I 2026-03-27 12:06:48,391] Trial 18 finished with value: 0.7540092270203885 and parameters: {'max_depth': 4, 'learning_rate': 0.0220539297817513, 'n_estimators': 230, 'subsample': 0.8787312441197361, 'colsample_bytree': 0.8088998154495403, 'reg_alpha': 0.6255758181757335, 'reg_lambda': 3.8835197491903313}. Best is trial 11 with value: 0.7555098630735281.
+2026-03-27 12:06:50,422 - INFO - [I 2026-03-27 12:06:50,422] Trial 19 finished with value: 0.7446817552903086 and parameters: {'max_depth': 6, 'learning_rate': 0.03384565400731034, 'n_estimators': 973, 'subsample': 0.7844873628145526, 'colsample_bytree': 0.998183032328578, 'reg_alpha': 0.8466402128485253, 'reg_lambda': 4.709915843724811}. Best is trial 11 with value: 0.7555098630735281.
+2026-03-27 12:06:50,772 - INFO - [I 2026-03-27 12:06:50,772] Trial 20 finished with value: 0.7555107189902844 and parameters: {'max_depth': 5, 'learning_rate': 0.010167823846332387, 'n_estimators': 170, 'subsample': 0.8151974719984074, 'colsample_bytree': 0.9186294847353986, 'reg_alpha': 0.6915127071418274, 'reg_lambda': 3.7437059835189803}. Best is trial 20 with value: 0.7555107189902844.
+2026-03-27 12:06:51,122 - INFO - [I 2026-03-27 12:06:51,121] Trial 21 finished with value: 0.7555156999502974 and parameters: {'max_depth': 5, 'learning_rate': 0.010518968643208677, 'n_estimators': 169, 'subsample': 0.8232869169936882, 'colsample_bytree': 0.9606051417207868, 'reg_alpha': 0.7163928169637903, 'reg_lambda': 4.401806439150734}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:06:51,500 - INFO - [I 2026-03-27 12:06:51,500] Trial 22 finished with value: 0.7552928703441844 and parameters: {'max_depth': 5, 'learning_rate': 0.010581446015808044, 'n_estimators': 190, 'subsample': 0.8389215162133923, 'colsample_bytree': 0.917957316060711, 'reg_alpha': 0.7207093356290983, 'reg_lambda': 3.764211140811503}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:06:52,105 - INFO - [I 2026-03-27 12:06:52,104] Trial 23 finished with value: 0.7540059281745566 and parameters: {'max_depth': 5, 'learning_rate': 0.013154974639504902, 'n_estimators': 322, 'subsample': 0.8814307876953268, 'colsample_bytree': 0.9628990959153696, 'reg_alpha': 0.5272360247788493, 'reg_lambda': 4.452609190249008}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:06:52,426 - INFO - [I 2026-03-27 12:06:52,426] Trial 24 finished with value: 0.7547055331333102 and parameters: {'max_depth': 4, 'learning_rate': 0.010032725249202661, 'n_estimators': 187, 'subsample': 0.8202821256602145, 'colsample_bytree': 0.8800069673690267, 'reg_alpha': 0.8573013830962964, 'reg_lambda': 3.829580163970404}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:06:53,167 - INFO - [I 2026-03-27 12:06:53,167] Trial 25 finished with value: 0.7534844608907264 and parameters: {'max_depth': 5, 'learning_rate': 0.012942519012219296, 'n_estimators': 413, 'subsample': 0.7275358324994461, 'colsample_bytree': 0.9168085661047398, 'reg_alpha': 0.7065332442744585, 'reg_lambda': 4.404833890807173}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:06:53,782 - INFO - [I 2026-03-27 12:06:53,782] Trial 26 finished with value: 0.7537768693964944 and parameters: {'max_depth': 6, 'learning_rate': 0.014692368337501878, 'n_estimators': 255, 'subsample': 0.8746170960269812, 'colsample_bytree': 0.8396724090938628, 'reg_alpha': 0.5469918349704113, 'reg_lambda': 3.977535370171208}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:06:54,133 - INFO - [I 2026-03-27 12:06:54,133] Trial 27 finished with value: 0.7553389947471676 and parameters: {'max_depth': 5, 'learning_rate': 0.011685340302117568, 'n_estimators': 171, 'subsample': 0.7891736563985372, 'colsample_bytree': 0.9667977335076835, 'reg_alpha': 0.4616590157191987, 'reg_lambda': 3.5765507756561057}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:06:54,891 - INFO - [I 2026-03-27 12:06:54,891] Trial 28 finished with value: 0.7525677918762326 and parameters: {'max_depth': 4, 'learning_rate': 0.024244879487874703, 'n_estimators': 513, 'subsample': 0.9159508312533821, 'colsample_bytree': 0.7739630905938223, 'reg_alpha': 0.7874343465920163, 'reg_lambda': 4.621646095107425}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:06:56,115 - INFO - [I 2026-03-27 12:06:56,115] Trial 29 finished with value: 0.7513456735131686 and parameters: {'max_depth': 6, 'learning_rate': 0.017555187882769406, 'n_estimators': 579, 'subsample': 0.6800645163862735, 'colsample_bytree': 0.8261638566632055, 'reg_alpha': 0.12944526469344592, 'reg_lambda': 2.9975368504387516}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:06:56,822 - INFO - [I 2026-03-27 12:06:56,821] Trial 30 finished with value: 0.753533646384887 and parameters: {'max_depth': 6, 'learning_rate': 0.011806140791350943, 'n_estimators': 297, 'subsample': 0.8198164407519564, 'colsample_bytree': 0.9311743843274745, 'reg_alpha': 0.5917516900889624, 'reg_lambda': 4.304225650091652}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:06:57,111 - INFO - [I 2026-03-27 12:06:57,111] Trial 31 finished with value: 0.7552254966189504 and parameters: {'max_depth': 5, 'learning_rate': 0.014974499065816766, 'n_estimators': 129, 'subsample': 0.7707537319064081, 'colsample_bytree': 0.9710389523034177, 'reg_alpha': 0.6605429483597104, 'reg_lambda': 4.999719143664516}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:06:57,369 - INFO - [I 2026-03-27 12:06:57,369] Trial 32 finished with value: 0.7553679889272904 and parameters: {'max_depth': 5, 'learning_rate': 0.017379864406453338, 'n_estimators': 109, 'subsample': 0.7970736699201503, 'colsample_bytree': 0.978450705450567, 'reg_alpha': 0.6884275603530344, 'reg_lambda': 4.7068390860148055}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:06:57,802 - INFO - [I 2026-03-27 12:06:57,802] Trial 33 finished with value: 0.7537602206268091 and parameters: {'max_depth': 5, 'learning_rate': 0.020522160337683372, 'n_estimators': 224, 'subsample': 0.9749563967181247, 'colsample_bytree': 0.9429971224896506, 'reg_alpha': 0.8164726707174775, 'reg_lambda': 4.8042817228779064}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:06:58,129 - INFO - [I 2026-03-27 12:06:58,128] Trial 34 finished with value: 0.7554933510127695 and parameters: {'max_depth': 5, 'learning_rate': 0.012047608890704373, 'n_estimators': 156, 'subsample': 0.742434471034148, 'colsample_bytree': 0.8928360261843805, 'reg_alpha': 0.01804778504749921, 'reg_lambda': 4.09859581891404}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:06:58,548 - INFO - [I 2026-03-27 12:06:58,548] Trial 35 finished with value: 0.7549189714305686 and parameters: {'max_depth': 6, 'learning_rate': 0.011721441951338467, 'n_estimators': 161, 'subsample': 0.7324085032107714, 'colsample_bytree': 0.894451632544593, 'reg_alpha': 0.2829724850139456, 'reg_lambda': 4.094677418017588}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:06:59,693 - INFO - [I 2026-03-27 12:06:59,693] Trial 36 finished with value: 0.7523259002906907 and parameters: {'max_depth': 5, 'learning_rate': 0.013144585289240441, 'n_estimators': 695, 'subsample': 0.708911533954695, 'colsample_bytree': 0.907396039736239, 'reg_alpha': 0.07819030331739096, 'reg_lambda': 2.9597811420232354}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:07:00,109 - INFO - [I 2026-03-27 12:07:00,109] Trial 37 finished with value: 0.7548883189117304 and parameters: {'max_depth': 4, 'learning_rate': 0.010149961729763096, 'n_estimators': 266, 'subsample': 0.6554458212651363, 'colsample_bytree': 0.8700262780363467, 'reg_alpha': 0.015620024572249924, 'reg_lambda': 3.6168662851181863}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:07:00,515 - INFO - [I 2026-03-27 12:07:00,515] Trial 38 finished with value: 0.7551289622853358 and parameters: {'max_depth': 6, 'learning_rate': 0.011387903145819712, 'n_estimators': 154, 'subsample': 0.7442234536443193, 'colsample_bytree': 0.8957084783457622, 'reg_alpha': 0.911400449740307, 'reg_lambda': 2.629774746628391}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:07:01,155 - INFO - [I 2026-03-27 12:07:01,154] Trial 39 finished with value: 0.7521576591532629 and parameters: {'max_depth': 5, 'learning_rate': 0.027983357922703855, 'n_estimators': 348, 'subsample': 0.811220344233976, 'colsample_bytree': 0.9454531477133602, 'reg_alpha': 0.1942027560014869, 'reg_lambda': 4.481951850491965}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:07:01,527 - INFO - [I 2026-03-27 12:07:01,527] Trial 40 finished with value: 0.7545195079477219 and parameters: {'max_depth': 4, 'learning_rate': 0.014158444007331737, 'n_estimators': 227, 'subsample': 0.8566289173337003, 'colsample_bytree': 0.8487757518477355, 'reg_alpha': 0.3895484342503072, 'reg_lambda': 1.5343085408260184}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:07:01,792 - INFO - [I 2026-03-27 12:07:01,792] Trial 41 finished with value: 0.7554823310845309 and parameters: {'max_depth': 5, 'learning_rate': 0.015440818286221387, 'n_estimators': 113, 'subsample': 0.7794852523836375, 'colsample_bytree': 0.9792128681444394, 'reg_alpha': 0.743296702217268, 'reg_lambda': 4.818544061191604}. Best is trial 21 with value: 0.7555156999502974.
+2026-03-27 12:07:02,113 - INFO - [I 2026-03-27 12:07:02,113] Trial 42 finished with value: 0.7555495681008385 and parameters: {'max_depth': 5, 'learning_rate': 0.01223770134712539, 'n_estimators': 150, 'subsample': 0.7678528362756647, 'colsample_bytree': 0.9726791323505288, 'reg_alpha': 0.7284641031091134, 'reg_lambda': 4.000064650962277}. Best is trial 42 with value: 0.7555495681008385.
+2026-03-27 12:07:02,517 - INFO - [I 2026-03-27 12:07:02,517] Trial 43 finished with value: 0.7548505396971219 and parameters: {'max_depth': 5, 'learning_rate': 0.012504485613946705, 'n_estimators': 206, 'subsample': 0.8383802377655997, 'colsample_bytree': 0.9462371072625501, 'reg_alpha': 0.6000963437178686, 'reg_lambda': 3.4060274375562827}. Best is trial 42 with value: 0.7555495681008385.
+2026-03-27 12:07:02,834 - INFO - [I 2026-03-27 12:07:02,834] Trial 44 finished with value: 0.755256987222946 and parameters: {'max_depth': 5, 'learning_rate': 0.011172070563682662, 'n_estimators': 146, 'subsample': 0.8044432878036295, 'colsample_bytree': 0.6039664976804789, 'reg_alpha': 0.734991079864937, 'reg_lambda': 4.010003890307703}. Best is trial 42 with value: 0.7555495681008385.
+2026-03-27 12:07:03,219 - INFO - [I 2026-03-27 12:07:03,218] Trial 45 finished with value: 0.7528416792944108 and parameters: {'max_depth': 3, 'learning_rate': 0.010261781967132034, 'n_estimators': 282, 'subsample': 0.7586950928680136, 'colsample_bytree': 0.6975595657294937, 'reg_alpha': 0.6910805214459527, 'reg_lambda': 3.6953642990907696}. Best is trial 42 with value: 0.7555495681008385.
+2026-03-27 12:07:03,548 - INFO - [I 2026-03-27 12:07:03,548] Trial 46 finished with value: 0.7546661669063828 and parameters: {'max_depth': 5, 'learning_rate': 0.018605554005563664, 'n_estimators': 154, 'subsample': 0.6955692559641422, 'colsample_bytree': 0.965826291739812, 'reg_alpha': 0.3176691889100464, 'reg_lambda': 4.32377208949957}. Best is trial 42 with value: 0.7555495681008385.
+2026-03-27 12:07:04,384 - INFO - [I 2026-03-27 12:07:04,383] Trial 47 finished with value: 0.7533402686366066 and parameters: {'max_depth': 5, 'learning_rate': 0.014062631087610772, 'n_estimators': 474, 'subsample': 0.8318136378943558, 'colsample_bytree': 0.9305547297952412, 'reg_alpha': 0.8859566024761732, 'reg_lambda': 3.9636545226875755}. Best is trial 42 with value: 0.7555495681008385.
+2026-03-27 12:07:04,845 - INFO - [I 2026-03-27 12:07:04,845] Trial 48 finished with value: 0.7544120606754634 and parameters: {'max_depth': 5, 'learning_rate': 0.012561390222688172, 'n_estimators': 240, 'subsample': 0.7285483826759339, 'colsample_bytree': 0.998856544817488, 'reg_alpha': 0.49226465652186013, 'reg_lambda': 3.1773232509105593}. Best is trial 42 with value: 0.7555495681008385.
+2026-03-27 12:07:05,580 - INFO - [I 2026-03-27 12:07:05,580] Trial 49 finished with value: 0.7527917032660236 and parameters: {'max_depth': 6, 'learning_rate': 0.016323735024319348, 'n_estimators': 313, 'subsample': 0.8629179466765126, 'colsample_bytree': 0.9050369803593815, 'reg_alpha': 0.7654879196954247, 'reg_lambda': 4.552470378885068}. Best is trial 42 with value: 0.7555495681008385.
+2026-03-27 12:07:05,976 - INFO - [I 2026-03-27 12:07:05,976] Trial 50 finished with value: 0.751956150195797 and parameters: {'max_depth': 5, 'learning_rate': 0.05618147589062831, 'n_estimators': 201, 'subsample': 0.8995528414156805, 'colsample_bytree': 0.8804082804318033, 'reg_alpha': 0.5689765867842762, 'reg_lambda': 4.171590049208154}. Best is trial 42 with value: 0.7555495681008385.
+2026-03-27 12:07:06,226 - INFO - [I 2026-03-27 12:07:06,226] Trial 51 finished with value: 0.7556419120086667 and parameters: {'max_depth': 5, 'learning_rate': 0.015384696060950795, 'n_estimators': 103, 'subsample': 0.7783807799128094, 'colsample_bytree': 0.9829594454098076, 'reg_alpha': 0.7689599193384082, 'reg_lambda': 4.912226240149951}. Best is trial 51 with value: 0.7556419120086667.
+2026-03-27 12:07:06,516 - INFO - [I 2026-03-27 12:07:06,516] Trial 52 finished with value: 0.7556894332202453 and parameters: {'max_depth': 5, 'learning_rate': 0.010763897022311512, 'n_estimators': 130, 'subsample': 0.750956422559549, 'colsample_bytree': 0.9790763956785089, 'reg_alpha': 0.6428957049298479, 'reg_lambda': 4.981533008025408}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:06,772 - INFO - [I 2026-03-27 12:07:06,771] Trial 53 finished with value: 0.7554375321637469 and parameters: {'max_depth': 5, 'learning_rate': 0.013977883226850715, 'n_estimators': 107, 'subsample': 0.7733273970914454, 'colsample_bytree': 0.9823169187808632, 'reg_alpha': 0.6528000173232071, 'reg_lambda': 4.912281218649849}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:07,072 - INFO - [I 2026-03-27 12:07:07,072] Trial 54 finished with value: 0.755586681602414 and parameters: {'max_depth': 5, 'learning_rate': 0.010924030731631566, 'n_estimators': 137, 'subsample': 0.803845814915969, 'colsample_bytree': 0.9573867982642796, 'reg_alpha': 0.8216704885719026, 'reg_lambda': 4.6747239423026725}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:07,461 - INFO - [I 2026-03-27 12:07:07,460] Trial 55 finished with value: 0.7553733681263495 and parameters: {'max_depth': 5, 'learning_rate': 0.011004822805596845, 'n_estimators': 195, 'subsample': 0.8008559182418322, 'colsample_bytree': 0.9582849687418867, 'reg_alpha': 0.9753683115173469, 'reg_lambda': 4.698948786885573}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:07,946 - INFO - [I 2026-03-27 12:07:07,945] Trial 56 finished with value: 0.7547289697983829 and parameters: {'max_depth': 5, 'learning_rate': 0.01102175580345536, 'n_estimators': 253, 'subsample': 0.7563629111644304, 'colsample_bytree': 0.9510977533704889, 'reg_alpha': 0.8240406109891684, 'reg_lambda': 4.358776708151108}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:08,243 - INFO - [I 2026-03-27 12:07:08,243] Trial 57 finished with value: 0.7556424231811739 and parameters: {'max_depth': 5, 'learning_rate': 0.010126488273170475, 'n_estimators': 133, 'subsample': 0.7852952902214047, 'colsample_bytree': 0.9814475833842911, 'reg_alpha': 0.7778654733946251, 'reg_lambda': 4.601933859950411}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:08,506 - INFO - [I 2026-03-27 12:07:08,506] Trial 58 finished with value: 0.7548092298258934 and parameters: {'max_depth': 4, 'learning_rate': 0.012834509407196005, 'n_estimators': 138, 'subsample': 0.7854954316350693, 'colsample_bytree': 0.9832416776285972, 'reg_alpha': 0.9293673253851001, 'reg_lambda': 4.598054838412294}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:08,756 - INFO - [I 2026-03-27 12:07:08,756] Trial 59 finished with value: 0.7521196481278664 and parameters: {'max_depth': 5, 'learning_rate': 0.09517421722223546, 'n_estimators': 103, 'subsample': 0.765404997865584, 'colsample_bytree': 0.9311529228603226, 'reg_alpha': 0.8617269320042197, 'reg_lambda': 4.959487095174474}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:09,175 - INFO - [I 2026-03-27 12:07:09,174] Trial 60 finished with value: 0.7550743381534524 and parameters: {'max_depth': 5, 'learning_rate': 0.010822571232272963, 'n_estimators': 212, 'subsample': 0.7127073097270016, 'colsample_bytree': 0.9709679244537389, 'reg_alpha': 0.7735430385772735, 'reg_lambda': 4.724999472391867}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:09,531 - INFO - [I 2026-03-27 12:07:09,530] Trial 61 finished with value: 0.7552967219695882 and parameters: {'max_depth': 5, 'learning_rate': 0.01069230337292692, 'n_estimators': 174, 'subsample': 0.8273888713271902, 'colsample_bytree': 0.9548680214985168, 'reg_alpha': 0.7452710863317143, 'reg_lambda': 4.481497960443998}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:09,819 - INFO - [I 2026-03-27 12:07:09,819] Trial 62 finished with value: 0.7554202890074255 and parameters: {'max_depth': 5, 'learning_rate': 0.010060585435674686, 'n_estimators': 129, 'subsample': 0.8122633015250501, 'colsample_bytree': 0.9840644772095516, 'reg_alpha': 0.6255137384529992, 'reg_lambda': 4.2591568295646525}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:10,184 - INFO - [I 2026-03-27 12:07:10,184] Trial 63 finished with value: 0.7552708542631728 and parameters: {'max_depth': 5, 'learning_rate': 0.01187358861440332, 'n_estimators': 179, 'subsample': 0.792617465715937, 'colsample_bytree': 0.9996912063895766, 'reg_alpha': 0.8027752382386365, 'reg_lambda': 4.844508141058199}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:11,578 - INFO - [I 2026-03-27 12:07:11,577] Trial 64 finished with value: 0.7520320949763274 and parameters: {'max_depth': 5, 'learning_rate': 0.013527509798529439, 'n_estimators': 850, 'subsample': 0.7765995921803012, 'colsample_bytree': 0.9179689730587475, 'reg_alpha': 0.7076125692639541, 'reg_lambda': 4.638615702380566}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:11,885 - INFO - [I 2026-03-27 12:07:11,884] Trial 65 finished with value: 0.755556522424484 and parameters: {'max_depth': 5, 'learning_rate': 0.011026634182617451, 'n_estimators': 140, 'subsample': 0.8409487100408922, 'colsample_bytree': 0.964404549653378, 'reg_alpha': 0.8273495789694976, 'reg_lambda': 4.3564502344274745}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:12,192 - INFO - [I 2026-03-27 12:07:12,191] Trial 66 finished with value: 0.7553002823455399 and parameters: {'max_depth': 5, 'learning_rate': 0.01500596641650923, 'n_estimators': 142, 'subsample': 0.845898618252146, 'colsample_bytree': 0.6574966403344273, 'reg_alpha': 0.8405062177260763, 'reg_lambda': 4.522842290965576}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:12,440 - INFO - [I 2026-03-27 12:07:12,440] Trial 67 finished with value: 0.7555066831050234 and parameters: {'max_depth': 5, 'learning_rate': 0.01238810465630806, 'n_estimators': 101, 'subsample': 0.7501675120248222, 'colsample_bytree': 0.9648530038700461, 'reg_alpha': 0.8682399429103352, 'reg_lambda': 4.367740639233369}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:12,808 - INFO - [I 2026-03-27 12:07:12,808] Trial 68 finished with value: 0.7550024886968465 and parameters: {'max_depth': 4, 'learning_rate': 0.011328343551819877, 'n_estimators': 225, 'subsample': 0.800028475965146, 'colsample_bytree': 0.9350995388651518, 'reg_alpha': 0.778476820671514, 'reg_lambda': 4.859844954195586}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:13,097 - INFO - [I 2026-03-27 12:07:13,097] Trial 69 finished with value: 0.7540556010657591 and parameters: {'max_depth': 5, 'learning_rate': 0.03326203639699273, 'n_estimators': 127, 'subsample': 0.8226064223216799, 'colsample_bytree': 0.9871669163715701, 'reg_alpha': 0.7243842923777377, 'reg_lambda': 4.755953501629358}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:13,761 - INFO - [I 2026-03-27 12:07:13,761] Trial 70 finished with value: 0.7534861192294419 and parameters: {'max_depth': 6, 'learning_rate': 0.013504451667741108, 'n_estimators': 274, 'subsample': 0.7357875968378396, 'colsample_bytree': 0.9744192565213798, 'reg_alpha': 0.9472630425176185, 'reg_lambda': 4.955701872645432}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:14,117 - INFO - [I 2026-03-27 12:07:14,117] Trial 71 finished with value: 0.7555602254532287 and parameters: {'max_depth': 5, 'learning_rate': 0.010146835132633966, 'n_estimators': 172, 'subsample': 0.8675283310479707, 'colsample_bytree': 0.9571159163890048, 'reg_alpha': 0.6805979299890184, 'reg_lambda': 3.8735483503996546}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:14,482 - INFO - [I 2026-03-27 12:07:14,481] Trial 72 finished with value: 0.7554493426262118 and parameters: {'max_depth': 5, 'learning_rate': 0.010573270420961463, 'n_estimators': 177, 'subsample': 0.8643895317978961, 'colsample_bytree': 0.9518722753687124, 'reg_alpha': 0.8239025040386727, 'reg_lambda': 3.8471036409467994}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:14,783 - INFO - [I 2026-03-27 12:07:14,783] Trial 73 finished with value: 0.7556286512428089 and parameters: {'max_depth': 5, 'learning_rate': 0.010001611984490535, 'n_estimators': 137, 'subsample': 0.8850021851026141, 'colsample_bytree': 0.9650313223808831, 'reg_alpha': 0.6740774129317043, 'reg_lambda': 4.247717059164138}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:15,082 - INFO - [I 2026-03-27 12:07:15,082] Trial 74 finished with value: 0.755591270267247 and parameters: {'max_depth': 5, 'learning_rate': 0.011880150965531508, 'n_estimators': 135, 'subsample': 0.9019746196998885, 'colsample_bytree': 0.9895451187029605, 'reg_alpha': 0.6625218865145268, 'reg_lambda': 4.07312284632049}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:15,485 - INFO - [I 2026-03-27 12:07:15,485] Trial 75 finished with value: 0.7549426577380284 and parameters: {'max_depth': 5, 'learning_rate': 0.011320951875020135, 'n_estimators': 205, 'subsample': 0.9465098138835392, 'colsample_bytree': 0.9430696756886683, 'reg_alpha': 0.6763728184661888, 'reg_lambda': 4.183169448974978}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:15,778 - INFO - [I 2026-03-27 12:07:15,778] Trial 76 finished with value: 0.7554248955038574 and parameters: {'max_depth': 5, 'learning_rate': 0.011863987550907432, 'n_estimators': 131, 'subsample': 0.8918299656461938, 'colsample_bytree': 0.9914657065315167, 'reg_alpha': 0.6425765834664003, 'reg_lambda': 4.63874267141658}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:17,000 - INFO - [I 2026-03-27 12:07:16,999] Trial 77 finished with value: 0.7529979138217836 and parameters: {'max_depth': 5, 'learning_rate': 0.010011858839906485, 'n_estimators': 734, 'subsample': 0.9243060082371998, 'colsample_bytree': 0.9578701153034435, 'reg_alpha': 0.5660256933743391, 'reg_lambda': 1.9442438321050846}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:17,283 - INFO - [I 2026-03-27 12:07:17,283] Trial 78 finished with value: 0.7556395285182548 and parameters: {'max_depth': 5, 'learning_rate': 0.010770219860155987, 'n_estimators': 124, 'subsample': 0.8839037820606547, 'colsample_bytree': 0.9928739424080896, 'reg_alpha': 0.7961549799132976, 'reg_lambda': 4.44055259770621}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:17,742 - INFO - [I 2026-03-27 12:07:17,742] Trial 79 finished with value: 0.7520284038353156 and parameters: {'max_depth': 5, 'learning_rate': 0.04146949623643023, 'n_estimators': 240, 'subsample': 0.9121001306426015, 'colsample_bytree': 0.9929026468189398, 'reg_alpha': 0.7578986915638174, 'reg_lambda': 4.438504643135908}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:17,987 - INFO - [I 2026-03-27 12:07:17,987] Trial 80 finished with value: 0.7554117655030597 and parameters: {'max_depth': 5, 'learning_rate': 0.012910927029683755, 'n_estimators': 100, 'subsample': 0.9435960211393023, 'colsample_bytree': 0.9768475363788678, 'reg_alpha': 0.7937052445059367, 'reg_lambda': 4.095536161809733}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:18,283 - INFO - [I 2026-03-27 12:07:18,283] Trial 81 finished with value: 0.7554530634865556 and parameters: {'max_depth': 5, 'learning_rate': 0.010811936630884124, 'n_estimators': 133, 'subsample': 0.8798524193732821, 'colsample_bytree': 0.9677551328285091, 'reg_alpha': 0.8954107632469995, 'reg_lambda': 4.319827362237062}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:18,631 - INFO - [I 2026-03-27 12:07:18,630] Trial 82 finished with value: 0.7556132566289266 and parameters: {'max_depth': 5, 'learning_rate': 0.011540630786210369, 'n_estimators': 167, 'subsample': 0.9004866259237846, 'colsample_bytree': 0.9879001510454284, 'reg_alpha': 0.6729407751864886, 'reg_lambda': 4.565244820448038}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:18,996 - INFO - [I 2026-03-27 12:07:18,995] Trial 83 finished with value: 0.7554252580797056 and parameters: {'max_depth': 5, 'learning_rate': 0.011830188547501973, 'n_estimators': 178, 'subsample': 0.8901289915806492, 'colsample_bytree': 0.9870973502252843, 'reg_alpha': 0.6030249796558613, 'reg_lambda': 4.577195385446057}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:20,640 - INFO - [I 2026-03-27 12:07:20,639] Trial 84 finished with value: 0.7525164784779138 and parameters: {'max_depth': 5, 'learning_rate': 0.0100515667374144, 'n_estimators': 991, 'subsample': 0.9325766811174153, 'colsample_bytree': 0.9972073019376411, 'reg_alpha': 0.6685876018803891, 'reg_lambda': 4.772264326602569}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:20,985 - INFO - [I 2026-03-27 12:07:20,984] Trial 85 finished with value: 0.7556091910243339 and parameters: {'max_depth': 5, 'learning_rate': 0.012121641700343267, 'n_estimators': 163, 'subsample': 0.9109872447134547, 'colsample_bytree': 0.9783270984645246, 'reg_alpha': 0.711788805539283, 'reg_lambda': 4.903514043369989}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:22,011 - INFO - [I 2026-03-27 12:07:22,010] Trial 86 finished with value: 0.7529221057501796 and parameters: {'max_depth': 5, 'learning_rate': 0.014451602692139309, 'n_estimators': 610, 'subsample': 0.9523832860081722, 'colsample_bytree': 0.7310801478798354, 'reg_alpha': 0.6342001618778625, 'reg_lambda': 4.88924820904216}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:22,412 - INFO - [I 2026-03-27 12:07:22,412] Trial 87 finished with value: 0.7547638424623393 and parameters: {'max_depth': 5, 'learning_rate': 0.012529501362750444, 'n_estimators': 199, 'subsample': 0.9582659018673304, 'colsample_bytree': 0.9808103312412869, 'reg_alpha': 0.7080634769086026, 'reg_lambda': 4.996068866465679}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:22,826 - INFO - [I 2026-03-27 12:07:22,825] Trial 88 finished with value: 0.7542077759324054 and parameters: {'max_depth': 6, 'learning_rate': 0.016204594077601137, 'n_estimators': 158, 'subsample': 0.9096559697826959, 'colsample_bytree': 0.9396543102063014, 'reg_alpha': 0.5125502505644485, 'reg_lambda': 4.67353584818639}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:23,104 - INFO - [I 2026-03-27 12:07:23,104] Trial 89 finished with value: 0.7551256218324393 and parameters: {'max_depth': 5, 'learning_rate': 0.011500181161323729, 'n_estimators': 122, 'subsample': 0.9240152847852806, 'colsample_bytree': 0.798558884944434, 'reg_alpha': 0.7488144537855653, 'reg_lambda': 4.783669721461692}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:23,475 - INFO - [I 2026-03-27 12:07:23,475] Trial 90 finished with value: 0.754975212294103 and parameters: {'max_depth': 4, 'learning_rate': 0.013197839174526367, 'n_estimators': 225, 'subsample': 0.9833838802801877, 'colsample_bytree': 0.973734394580948, 'reg_alpha': 0.7957974575612943, 'reg_lambda': 4.537986852856606}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:23,816 - INFO - [I 2026-03-27 12:07:23,816] Trial 91 finished with value: 0.7553816063251297 and parameters: {'max_depth': 5, 'learning_rate': 0.010527745505540111, 'n_estimators': 163, 'subsample': 0.8995391347748762, 'colsample_bytree': 0.9897956055876548, 'reg_alpha': 0.6799546757277233, 'reg_lambda': 4.4502772045852765}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:24,191 - INFO - [I 2026-03-27 12:07:24,190] Trial 92 finished with value: 0.7552192020644712 and parameters: {'max_depth': 5, 'learning_rate': 0.012198691383340066, 'n_estimators': 185, 'subsample': 0.8713074205126617, 'colsample_bytree': 0.953217005886489, 'reg_alpha': 0.5785322348126559, 'reg_lambda': 4.916768743584978}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:24,473 - INFO - [I 2026-03-27 12:07:24,473] Trial 93 finished with value: 0.7555945750569453 and parameters: {'max_depth': 5, 'learning_rate': 0.010531357998461159, 'n_estimators': 124, 'subsample': 0.8843883048473605, 'colsample_bytree': 0.9638090633740972, 'reg_alpha': 0.6967330447485806, 'reg_lambda': 4.234353763571294}. Best is trial 52 with value: 0.7556894332202453.
+2026-03-27 12:07:24,751 - INFO - [I 2026-03-27 12:07:24,751] Trial 94 finished with value: 0.7558569789253086 and parameters: {'max_depth': 5, 'learning_rate': 0.011359304860070299, 'n_estimators': 121, 'subsample': 0.9041864820690665, 'colsample_bytree': 0.9999188281558179, 'reg_alpha': 0.7076926067521436, 'reg_lambda': 4.245288042216386}. Best is trial 94 with value: 0.7558569789253086.
+2026-03-27 12:07:25,027 - INFO - [I 2026-03-27 12:07:25,026] Trial 95 finished with value: 0.7557411686330759 and parameters: {'max_depth': 5, 'learning_rate': 0.013749659444399459, 'n_estimators': 119, 'subsample': 0.8920917969970905, 'colsample_bytree': 0.9785535037966402, 'reg_alpha': 0.6162911301437772, 'reg_lambda': 4.233040094771954}. Best is trial 94 with value: 0.7558569789253086.
+2026-03-27 12:07:25,244 - INFO - [I 2026-03-27 12:07:25,244] Trial 96 finished with value: 0.7516963437970346 and parameters: {'max_depth': 3, 'learning_rate': 0.015318187604599291, 'n_estimators': 119, 'subsample': 0.8836982034687839, 'colsample_bytree': 0.9990419376426093, 'reg_alpha': 0.6244767059063412, 'reg_lambda': 4.2792823351224385}. Best is trial 94 with value: 0.7558569789253086.
+2026-03-27 12:07:25,979 - INFO - [I 2026-03-27 12:07:25,978] Trial 97 finished with value: 0.7534231261337181 and parameters: {'max_depth': 5, 'learning_rate': 0.014266705068327624, 'n_estimators': 405, 'subsample': 0.9215876212905887, 'colsample_bytree': 0.968892705834466, 'reg_alpha': 0.7054764224551298, 'reg_lambda': 2.5757524406072165}. Best is trial 94 with value: 0.7558569789253086.
+2026-03-27 12:07:26,313 - INFO - [I 2026-03-27 12:07:26,312] Trial 98 finished with value: 0.7554567724591665 and parameters: {'max_depth': 5, 'learning_rate': 0.01368050222280375, 'n_estimators': 157, 'subsample': 0.8909317170365997, 'colsample_bytree': 0.9803017044938027, 'reg_alpha': 0.5391072261764271, 'reg_lambda': 4.245568446301629}. Best is trial 94 with value: 0.7558569789253086.
+2026-03-27 12:07:26,596 - INFO - [I 2026-03-27 12:07:26,596] Trial 99 finished with value: 0.755294124499987 and parameters: {'max_depth': 5, 'learning_rate': 0.017175591667031833, 'n_estimators': 123, 'subsample': 0.8540766721754683, 'colsample_bytree': 0.9744376408760154, 'reg_alpha': 0.611342431758942, 'reg_lambda': 4.459480403825512}. Best is trial 94 with value: 0.7558569789253086.
+2026-03-27 12:07:26,596 - INFO - ✅ Melhor Trial Auditor: 94 (AUC: 0.7559)
+2026-03-27 12:07:26,597 - INFO - 🎯 Novos Parâmetros Optuna: {'max_depth': 5, 'learning_rate': 0.011359304860070299, 'n_estimators': 121, 'subsample': 0.9041864820690665, 'colsample_bytree': 0.9999188281558179, 'reg_alpha': 0.7076926067521436, 'reg_lambda': 4.245288042216386}
+2026-03-27 12:07:26,597 - INFO - Tamanho Treino: 79796 | Tamanho Val: 19949
+2026-03-27 12:07:26,598 - INFO - Ocorrência de Acertos (1) no Treino: 69.22%
+2026-03-27 12:07:26,598 - INFO - Ocorrência de Acertos (1) no Val: 69.65%
+2026-03-27 12:07:26,598 - INFO - Iniciando treinamento do XGBoost Meta-Labeler...
+2026-03-27 12:07:26,684 - INFO - [0]	validation_0-auc:0.74805	validation_1-auc:0.74232
+2026-03-27 12:07:26,768 - INFO - [50]	validation_0-auc:0.76008	validation_1-auc:0.75351
+2026-03-27 12:07:26,852 - INFO - [100]	validation_0-auc:0.76183	validation_1-auc:0.75430
+2026-03-27 12:07:26,885 - INFO - [120]	validation_0-auc:0.76261	validation_1-auc:0.75511
+2026-03-27 12:07:26,894 - INFO - Treinamento finalizado. Gerando métricas de validação...
+2026-03-27 12:07:26,900 - INFO - === Calibração de Threshold do Auditor (F-Beta 0.5) ===
+2026-03-27 12:07:26,912 - INFO - Threshold 0.50 -> Prec: 0.8886 | Rec: 0.5493 | F-0.5: 0.7909
+2026-03-27 12:07:26,922 - INFO - Threshold 0.52 -> Prec: 0.8996 | Rec: 0.5173 | F-0.5: 0.7838
+2026-03-27 12:07:26,933 - INFO - Threshold 0.54 -> Prec: 0.9048 | Rec: 0.5006 | F-0.5: 0.7790
+2026-03-27 12:07:26,943 - INFO - Threshold 0.56 -> Prec: 0.9116 | Rec: 0.4815 | F-0.5: 0.7734
+2026-03-27 12:07:26,953 - INFO - Threshold 0.58 -> Prec: 0.9179 | Rec: 0.4643 | F-0.5: 0.7678
+2026-03-27 12:07:26,963 - INFO - Threshold 0.60 -> Prec: 0.9239 | Rec: 0.4490 | F-0.5: 0.7626
+2026-03-27 12:07:26,973 - INFO - Threshold 0.62 -> Prec: 0.9320 | Rec: 0.4250 | F-0.5: 0.7525
+2026-03-27 12:07:26,984 - INFO - Threshold 0.64 -> Prec: 0.9374 | Rec: 0.4009 | F-0.5: 0.7395
+2026-03-27 12:07:26,994 - INFO - Threshold 0.66 -> Prec: 0.9431 | Rec: 0.3827 | F-0.5: 0.7294
+2026-03-27 12:07:27,004 - INFO - Threshold 0.68 -> Prec: 0.9490 | Rec: 0.3613 | F-0.5: 0.7160
+2026-03-27 12:07:27,014 - INFO - Threshold 0.70 -> Prec: 0.9523 | Rec: 0.3432 | F-0.5: 0.7028
+2026-03-27 12:07:27,024 - INFO - Threshold 0.72 -> Prec: 0.9567 | Rec: 0.3212 | F-0.5: 0.6855
+2026-03-27 12:07:27,034 - INFO - Threshold 0.74 -> Prec: 0.9662 | Rec: 0.2797 | F-0.5: 0.6481
+2026-03-27 12:07:27,044 - INFO - Threshold 0.76 -> Prec: 0.9728 | Rec: 0.2466 | F-0.5: 0.6122
+2026-03-27 12:07:27,054 - INFO - Threshold 0.78 -> Prec: 0.9786 | Rec: 0.2210 | F-0.5: 0.5806
+2026-03-27 12:07:27,064 - INFO - Threshold 0.80 -> Prec: 0.9814 | Rec: 0.2014 | F-0.5: 0.5530
+2026-03-27 12:07:27,074 - INFO - Threshold 0.82 -> Prec: 0.9837 | Rec: 0.1786 | F-0.5: 0.5172
+2026-03-27 12:07:27,084 - INFO - Threshold 0.84 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-27 12:07:27,093 - INFO - Threshold 0.86 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-27 12:07:27,103 - INFO - Threshold 0.88 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-27 12:07:27,113 - INFO - Threshold 0.90 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-27 12:07:27,123 - INFO - Threshold 0.92 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-27 12:07:27,132 - INFO - Threshold 0.94 -> Prec: 0.0000 | Rec: 0.0000 | F-0.5: 0.0000
+2026-03-27 12:07:27,132 - INFO - 🚀 Melhor Threshold Automático Escolhido (F-0.5 Máximo): 0.50 (F: 0.7909)
+2026-03-27 12:07:27,139 - INFO - === Performance Final do XGBoost Auditor (Threshold: 0.50) ===
+2026-03-27 12:07:27,140 - INFO - Accuracy: 0.6381 | F1-Score (Acertos): 0.6789 | ROC-AUC: 0.7551
+2026-03-27 12:07:27,147 - INFO - Relatório de Classificação:
+2026-03-27 12:07:27,147 - INFO -               precision    recall  f1-score   support
+2026-03-27 12:07:27,148 - INFO -     ERRO (0)       0.45      0.84      0.59      6054
+2026-03-27 12:07:27,148 - INFO -   ACERTO (1)       0.89      0.55      0.68     13895
+2026-03-27 12:07:27,148 - INFO -     accuracy                           0.64     19949
+2026-03-27 12:07:27,148 - INFO -    macro avg       0.67      0.70      0.63     19949
+2026-03-27 12:07:27,148 - INFO - weighted avg       0.76      0.64      0.65     19949
+2026-03-27 12:07:27,149 - INFO - Feature Importance (Top 10):
+2026-03-27 12:07:27,149 - INFO -   spec_prob_neu       : 0.7723
+2026-03-27 12:07:27,149 - INFO -   spec_prob_sell      : 0.0718
+2026-03-27 12:07:27,149 - INFO -   spec_prob_buy       : 0.0397
+2026-03-27 12:07:27,149 - INFO -   vol_1h              : 0.0095
+2026-03-27 12:07:27,149 - INFO -   atr_norm            : 0.0090
+2026-03-27 12:07:27,149 - INFO -   mfi_14              : 0.0088
+2026-03-27 12:07:27,149 - INFO -   book_skew_bid       : 0.0086
+2026-03-27 12:07:27,150 - INFO -   base_prob_sell      : 0.0081
+2026-03-27 12:07:27,150 - INFO -   rsi_14              : 0.0079
+2026-03-27 12:07:27,150 - INFO -   base_prob_neu       : 0.0075
+2026-03-27 12:07:27,150 - INFO - 2026-03-27 12:07:27,149 - INFO -
+2026-03-27 12:07:27,150 - INFO - === Output Quádruplo Final (Amostra do Val Set) ===
+2026-03-27 12:07:27,151 - INFO - 🎯 [Label: NEUTRAL | Score_DNN: 0.55 | Status_XGB: Executa     | Proba_XGBoost: 0.63]  --> Realidade: Acertou
+2026-03-27 12:07:27,152 - INFO - 🎯 [Label: NEUTRAL | Score_DNN: 0.52 | Status_XGB: Executa     | Proba_XGBoost: 0.60]  --> Realidade: Acertou
+2026-03-27 12:07:27,152 - INFO - 🎯 [Label: NEUTRAL | Score_DNN: 0.66 | Status_XGB: Executa     | Proba_XGBoost: 0.77]  --> Realidade: Acertou
+2026-03-27 12:07:27,152 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.59 | Status_XGB: Executa     | Proba_XGBoost: 0.50]  --> Realidade: Acertou
+2026-03-27 12:07:27,152 - INFO - 🎯 [Label: NEUTRAL | Score_DNN: 0.58 | Status_XGB: Executa     | Proba_XGBoost: 0.69]  --> Realidade: Acertou
+2026-03-27 12:07:27,153 - INFO - 🎯 [Label: NEUTRAL | Score_DNN: 0.71 | Status_XGB: Executa     | Proba_XGBoost: 0.83]  --> Realidade: Acertou
+2026-03-27 12:07:27,153 - INFO - 🎯 [Label: BUY     | Score_DNN: 0.54 | Status_XGB: Nao_Executa | Proba_XGBoost: 0.45]  --> Realidade: Acertou
+2026-03-27 12:07:27,153 - INFO - 🎯 [Label: SELL    | Score_DNN: 0.49 | Status_XGB: Nao_Executa | Proba_XGBoost: 0.42]  --> Realidade: Acertou
+2026-03-27 12:07:27,153 - INFO - 🎯 [Label: BUY     | Score_DNN: 0.47 | Status_XGB: Nao_Executa | Proba_XGBoost: 0.36]  --> Realidade: Acertou
+2026-03-27 12:07:27,154 - INFO - 🎯 [Label: BUY     | Score_DNN: 0.49 | Status_XGB: Nao_Executa | Proba_XGBoost: 0.36]  --> Realidade: Errou
+2026-03-27 12:07:27,154 - INFO - 2026-03-27 12:07:27,154 - INFO -
+2026-03-27 12:07:27,188 - INFO - 🤖 Modelo XGBoost Auditor Salvo: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/AUDITOR/auditor_xgboost.json
+2026-03-27 12:07:27,196 - INFO - ⚙️ Configurações do Auditor (Threshold) salvas em: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/AUDITOR/auditor_config.json
+2026-03-27 12:07:27,217 - INFO - 💾 Scaler XGBoost Auditor Salvo: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/AUDITOR/scaler_auditor.pkl
+2026-03-27 12:07:27,222 - INFO - 📤 [AUDIT UPLOAD] Stage=AUDITOR → drive:PROJETOS/RESULTADOS/AUDITORIA/AUDITOR
+2026-03-27 12:07:32,058 - INFO -   ✅ Uploaded logs/train_xgboost → drive:PROJETOS/RESULTADOS/AUDITORIA/AUDITOR/train_xgboost
+2026-03-27 12:07:36,961 - INFO -   ✅ Uploaded logs/auditor_preprocessing → drive:PROJETOS/RESULTADOS/AUDITORIA/AUDITOR/auditor_preprocessing
+2026-03-27 12:07:41,960 - INFO -   ✅ Uploaded logs/auditor_labelling → drive:PROJETOS/RESULTADOS/AUDITORIA/AUDITOR/auditor_labelling
+2026-03-27 12:07:41,960 - INFO - 📤 [AUDIT UPLOAD] AUDITOR complete.
+2026-03-27 12:07:42,632 - INFO - [OK] FASE CONCLUIDA: Auditor XGBoost (Dynamic Thresholding)
+2026-03-27 12:07:42,632 - INFO - [CLEAN] Initiating deep memory sweep (gc.collect and torch.cuda.empty_cache)...
+2026-03-27 12:07:42,685 - INFO -   -> CUDA VRAM cache cleared.
+2026-03-27 12:07:42,685 - INFO - ============================================================
+2026-03-27 12:07:42,686 - INFO - [HEALTH] INICIANDO AVALIACAO DE SAUDE (QA) OOF
+2026-03-27 12:07:42,686 - INFO - ============================================================
+2026-03-27 12:07:42,686 - INFO - [START] INICIANDO FASE: Health QA Generation (Target Balance & NaNs)
+2026-03-27 12:07:42,687 - INFO - ============================================================
+2026-03-27 12:07:49,749 - INFO - ✅ QA Log gerado: logs/QA/base_labelling_health_QA.log
+2026-03-27 12:07:50,319 - INFO - ✅ QA Log gerado: logs/QA/specialized_labelling_health_QA.log
+2026-03-27 12:07:50,422 - INFO - ✅ QA Log gerado: logs/QA/auditor_final_health_QA.log
+2026-03-27 12:07:50,620 - INFO - [OK] FASE CONCLUIDA: Health QA Generation (Target Balance & NaNs)
+2026-03-27 12:07:50,620 - INFO - ============================================================
+2026-03-27 12:07:50,621 - INFO - [TRANSFER] INICIANDO TRANSFERENCIA INTEGRAL (QA LOGS E MODELOS)

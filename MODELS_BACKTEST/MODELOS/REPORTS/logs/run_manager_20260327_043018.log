@@ -1,0 +1,530 @@
+﻿2026-03-27 04:30:18,024 - INFO - 
+📝 LOGGING INITIALIZED (UTF-8-SIG): logs/run_manager/run_manager_20260327_043018.log
+2026-03-27 04:30:18,025 - INFO - ============================================================
+2026-03-27 04:30:18,025 - INFO - [START] INICIANDO NOVA SESSAO DO PIPELINE: 2026-03-27 04:30:18
+2026-03-27 04:30:18,025 - INFO - ============================================================
+2026-03-27 04:30:18,096 - INFO - ============================================================
+2026-03-27 04:30:18,096 - INFO - [START] INICIANDO FASE: Foundation Optuna (400 Trials | 10 Epochs | EARLY STOP: 4)
+2026-03-27 04:30:18,097 - INFO - ============================================================
+2026-03-27 04:30:42,570 - INFO - 📁 DYNAMIC DATA PATHS: Train=data/L2/labelled/train | Val=data/L2/labelled/val
+2026-03-27 04:30:42,571 - INFO - 📐 Fitting Global Scaler (Smart Sampler: 100k rows)...
+2026-03-27 04:30:45,480 - INFO - 📊 Global Scaler initialized on 4,329,177 representative rows.
+2026-03-27 04:30:45,494 - INFO - 💾 Scaler saved properly to: /workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS/BASE_MODEL/scaler_foundation.pkl
+2026-03-27 04:30:45,907 - INFO - FocalLoss alpha: DYNAMIC RANGE active anchor points: [S:1.31, N:0.72, B:1.18]
+2026-03-27 04:30:45,907 - INFO - Loss: FocalLossWithSmoothing | fallback_gamma=OPTUNA_DINAMICO | fallback_smoothing=OPTUNA_DINAMICO | SniperLoss=ENABLED
+2026-03-27 04:30:45,920 - INFO - /workspace/QuantGod_Cloud_TCNLSTM/venv_gpu/lib/python3.11/site-packages/optuna/_experimental.py:33: ExperimentalWarning: Argument ``multivariate`` is an experimental feature. The interface can change in the future.
+2026-03-27 04:30:45,921 - INFO -   optuna_warn(
+2026-03-27 04:30:45,921 - INFO - Sampler: TPE (startup=100, multivariate=True)
+2026-03-27 04:30:45,921 - INFO - Pruner: Median (startup=1, warmup=0)
+2026-03-27 04:30:50,114 - INFO - Using an existing study with name 'QUANTGOD_RECON_V009' instead of creating a new one.
+2026-03-27 04:30:50,737 - INFO - Resuming study. Macro Record found: 0.5050
+2026-03-27 04:30:50,738 - INFO - Resuming study. Dir Record found: 0.5106
+2026-03-27 04:30:50,739 - INFO - Starting 400 trials | Metric: MAX(MIN(Sell, Neu, Buy)) | Timeout: 172800s
+2026-03-27 04:30:51,530 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 04:31:39,488 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 04:31:39,490 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 04:34:36,809 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 04:34:36,810 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 04:34:36,857 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 04:34:48,711 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 04:34:48,711 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 04:35:39,457 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 04:35:39,458 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 04:35:40,301 - INFO - Trial 404 START | tcn=512, lstm=256, layers=3, batch=1024, seq=192 | RFE=30 | loss=ASYM (g_s=2.23, g_n=0.20, g_b=0.83) | alpha=[1.25, 0.54, 1.24], smooth=0.28
+2026-03-27 04:38:41,753 - INFO - T404 E1/10 | [OK] | L: 0.59527474/0.59402352 | F1 M MIN: 0.00029324 D: 0.27429601 | [S/N/B]: [0.0003/0.7747/0.5483] | LR: 0.00119557
+2026-03-27 04:41:23,123 - INFO - T404 E2/10 | [WARN] ZERO_PENALTY | L: 0.57447897/0.58284208 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8275/0.5685] | LR: 0.00110853
+2026-03-27 04:44:03,983 - INFO - T404 E3/10 | [OK] | L: 0.56902077/0.57988923 | F1 M MIN: 0.00432323 D: 0.28557377 | [S/N/B]: [0.0043/0.8179/0.5668] | LR: 0.00097296
+2026-03-27 04:46:45,953 - INFO - T404 E4/10 | [OK] | L: 0.56633234/0.58201062 | F1 M MIN: 0.03516663 D: 0.29763042 | [S/N/B]: [0.0352/0.7993/0.5601] | LR: 0.00080214
+2026-03-27 04:49:27,193 - INFO - T404 E5/10 | [OK] | L: 0.56427335/0.58223341 | F1 M MIN: 0.42775242 D: 0.44598095 | [S/N/B]: [0.4278/0.7948/0.4642] | LR: 0.00061278
+2026-03-27 04:52:09,366 - INFO - T404 E6/10 | [OK] | L: 0.56092933/0.57588475 | F1 M MIN: 0.24105306 D: 0.40348428 | [S/N/B]: [0.2411/0.8167/0.5659] | LR: 0.00042342
+2026-03-27 04:54:51,572 - INFO - T404 E7/10 | [OK] | L: 0.55714884/0.57447716 | F1 M MIN: 0.31951214 D: 0.43586594 | [S/N/B]: [0.3195/0.8096/0.5522] | LR: 0.00025260
+2026-03-27 04:57:33,382 - INFO - T404 E8/10 | [OK] | L: 0.55404481/0.57404529 | F1 M MIN: 0.31678554 D: 0.43482943 | [S/N/B]: [0.3168/0.8086/0.5529] | LR: 0.00011703
+2026-03-27 04:57:33,479 - INFO - Trial 404 pruned by Optuna at epoch 8
+2026-03-27 04:57:33,582 - INFO - Trial 404 pruned.
+2026-03-27 04:57:34,191 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 04:58:22,670 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 04:58:22,671 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 05:01:15,250 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 05:01:15,251 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 05:01:15,352 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 05:01:27,789 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 05:01:27,789 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 05:02:19,281 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 05:02:19,282 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 05:02:19,646 - INFO - Trial 405 START | tcn=128, lstm=256, layers=2, batch=512, seq=256 | RFE=30 | loss=ASYM (g_s=1.65, g_n=1.48, g_b=1.86) | alpha=[0.99, 0.78, 1.24], smooth=0.30
+2026-03-27 05:03:25,176 - INFO - T405 E1/10 | [WARN] ZERO_PENALTY | L: 0.44941025/0.41404879 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8252/0.5640] | LR: 0.00079406
+2026-03-27 05:04:31,677 - INFO - T405 E2/10 | [WARN] ZERO_PENALTY | L: 0.42842927/0.40838732 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8299/0.5665] | LR: 0.00073625
+2026-03-27 05:05:38,304 - INFO - T405 E3/10 | [OK] | L: 0.42226894/0.40394237 | F1 M MIN: 0.18962747 D: 0.37536456 | [S/N/B]: [0.1896/0.8506/0.5611] | LR: 0.00064621
+2026-03-27 05:06:45,328 - INFO - T405 E4/10 | [OK] | L: 0.41731572/0.39741273 | F1 M MIN: 0.35743294 D: 0.45518747 | [S/N/B]: [0.3574/0.8519/0.5529] | LR: 0.00053276
+2026-03-27 05:07:52,300 - INFO - T405 E5/10 | [OK] | L: 0.41330243/0.39402968 | F1 M MIN: 0.23302162 D: 0.40710515 | [S/N/B]: [0.2330/0.8571/0.5812] | LR: 0.00040699
+2026-03-27 05:08:59,304 - INFO - T405 E6/10 | [OK] | L: 0.41008433/0.39219432 | F1 M MIN: 0.33317258 D: 0.45337691 | [S/N/B]: [0.3332/0.8627/0.5736] | LR: 0.00028122
+2026-03-27 05:08:59,383 - INFO - Trial 405 pruned by Optuna at epoch 6
+2026-03-27 05:08:59,474 - INFO - Trial 405 pruned.
+2026-03-27 05:09:00,251 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 05:09:48,226 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 05:09:48,227 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 05:12:34,596 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 05:12:34,597 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 05:12:34,645 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 05:12:46,677 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 05:12:46,677 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 05:13:36,765 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 05:13:36,766 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 05:13:37,116 - INFO - Trial 406 START | tcn=512, lstm=256, layers=2, batch=1024, seq=96 | RFE=30 | loss=ASYM (g_s=0.66, g_n=0.40, g_b=3.42) | alpha=[1.17, 0.59, 1.37], smooth=0.28
+2026-03-27 05:14:41,446 - INFO - T406 E1/10 | [OK] | L: 0.56808875/0.56448302 | F1 M MIN: 0.13597258 D: 0.36624331 | [S/N/B]: [0.5965/0.7569/0.1360] | LR: 0.00148093
+2026-03-27 05:15:46,475 - INFO - T406 E2/10 | [OK] | L: 0.54602385/0.55192732 | F1 M MIN: 0.11433614 D: 0.35933125 | [S/N/B]: [0.6043/0.7929/0.1143] | LR: 0.00137311
+2026-03-27 05:16:51,661 - INFO - T406 E3/10 | [OK] | L: 0.54068033/0.54511905 | F1 M MIN: 0.10281368 D: 0.35398727 | [S/N/B]: [0.6052/0.8314/0.1028] | LR: 0.00120519
+2026-03-27 05:17:57,024 - INFO - T406 E4/10 | [OK] | L: 0.53817979/0.54526003 | F1 M MIN: 0.14331047 D: 0.37580000 | [S/N/B]: [0.6083/0.8138/0.1433] | LR: 0.00099359
+2026-03-27 05:19:02,540 - INFO - T406 E5/10 | [OK] | L: 0.53606043/0.54558736 | F1 M MIN: 0.09239592 D: 0.33960476 | [S/N/B]: [0.5868/0.8180/0.0924] | LR: 0.00075904
+2026-03-27 05:19:02,625 - INFO - Trial 406 pruned by Optuna at epoch 5
+2026-03-27 05:19:02,715 - INFO - Trial 406 pruned.
+2026-03-27 05:19:03,322 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 05:19:50,947 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 05:19:50,948 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 05:22:42,447 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 05:22:42,448 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 05:22:42,536 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 05:22:54,403 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 05:22:54,404 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 05:23:47,380 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 05:23:47,381 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 05:23:47,735 - INFO - Trial 407 START | tcn=256, lstm=128, layers=2, batch=512, seq=256 | RFE=30 | loss=ASYM (g_s=0.68, g_n=0.99, g_b=1.96) | alpha=[1.32, 1.00, 1.27], smooth=0.22
+2026-03-27 05:25:11,997 - INFO - T407 E1/10 | [OK] | L: 0.71957587/0.64837254 | F1 M MIN: 0.00409686 D: 0.30272580 | [S/N/B]: [0.6014/0.8673/0.0041] | LR: 0.00061087
+2026-03-27 05:26:37,327 - INFO - T407 E2/10 | [OK] | L: 0.68475535/0.63953391 | F1 M MIN: 0.00805165 D: 0.30749265 | [S/N/B]: [0.6069/0.8767/0.0081] | LR: 0.00056640
+2026-03-27 05:28:02,522 - INFO - T407 E3/10 | [OK] | L: 0.67676276/0.63907796 | F1 M MIN: 0.02008639 D: 0.31149580 | [S/N/B]: [0.6029/0.8727/0.0201] | LR: 0.00049713
+2026-03-27 05:29:27,906 - INFO - T407 E4/10 | [OK] | L: 0.67273910/0.62866868 | F1 M MIN: 0.07363760 D: 0.34118720 | [S/N/B]: [0.6087/0.8857/0.0736] | LR: 0.00040985
+2026-03-27 05:30:53,021 - INFO - T407 E5/10 | [OK] | L: 0.66874592/0.62900944 | F1 M MIN: 0.22525558 D: 0.41028415 | [S/N/B]: [0.5953/0.8832/0.2253] | LR: 0.00031310
+2026-03-27 05:30:53,118 - INFO - Trial 407 pruned by Optuna at epoch 5
+2026-03-27 05:30:53,212 - INFO - Trial 407 pruned.
+2026-03-27 05:30:53,853 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 05:31:43,244 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 05:31:43,245 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 05:34:31,546 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 05:34:31,547 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 05:34:31,596 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 05:34:43,489 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 05:34:43,489 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 05:35:34,346 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 05:35:34,347 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 05:35:34,690 - INFO - Trial 408 START | tcn=256, lstm=256, layers=3, batch=512, seq=144 | RFE=30 | loss=ASYM (g_s=0.87, g_n=1.34, g_b=2.35) | alpha=[1.06, 0.76, 1.30], smooth=0.29
+2026-03-27 05:36:43,023 - INFO - T408 E1/10 | [WARN] ZERO_PENALTY | L: 0.51935392/0.48416211 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8161/0.5623] | LR: 0.00181742
+2026-03-27 05:37:52,098 - INFO - T408 E2/10 | [WARN] ZERO_PENALTY | L: 0.50102483/0.46528657 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8688/0.5887] | LR: 0.00168511
+2026-03-27 05:39:01,502 - INFO - T408 E3/10 | [WARN] ZERO_PENALTY | L: 0.49651615/0.46708674 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8456/0.5757] | LR: 0.00147903
+2026-03-27 05:40:11,005 - INFO - T408 E4/10 | [OK] | L: 0.49403835/0.46652807 | F1 M MIN: 0.00007281 D: 0.28840425 | [S/N/B]: [0.0001/0.8468/0.5767] | LR: 0.00121936
+2026-03-27 05:41:20,596 - INFO - T408 E5/10 | [WARN] ZERO_PENALTY | L: 0.49203743/0.46374814 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8460/0.5759] | LR: 0.00093150
+2026-03-27 05:41:20,679 - INFO - Trial 408 pruned by Optuna at epoch 5
+2026-03-27 05:41:20,772 - INFO - Trial 408 pruned.
+2026-03-27 05:41:21,400 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 05:42:08,708 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 05:42:08,710 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 05:44:56,944 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 05:44:56,945 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 05:44:57,027 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 05:45:08,870 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 05:45:08,870 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 05:45:58,339 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 05:45:58,340 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 05:45:58,687 - INFO - Trial 409 START | tcn=256, lstm=256, layers=2, batch=512, seq=144 | RFE=30 | loss=ASYM (g_s=1.25, g_n=1.07, g_b=2.28) | alpha=[1.20, 0.77, 1.59], smooth=0.29
+2026-03-27 05:46:58,718 - INFO - T409 E1/10 | [WARN] ZERO_PENALTY | L: 0.63560712/0.59832573 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.7509/0.5395] | LR: 0.00089275
+2026-03-27 05:47:59,587 - INFO - T409 E2/10 | [WARN] ZERO_PENALTY | L: 0.61021571/0.58648180 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8127/0.5629] | LR: 0.00082776
+2026-03-27 05:49:00,702 - INFO - T409 E3/10 | [OK] | L: 0.60405834/0.58472647 | F1 M MIN: 0.19073457 D: 0.36991893 | [S/N/B]: [0.1907/0.7968/0.5491] | LR: 0.00072653
+2026-03-27 05:50:02,108 - INFO - T409 E4/10 | [OK] | L: 0.59891574/0.57964686 | F1 M MIN: 0.35053464 D: 0.44443577 | [S/N/B]: [0.3505/0.8330/0.5383] | LR: 0.00059897
+2026-03-27 05:51:03,321 - INFO - T409 E5/10 | [OK] | L: 0.59500345/0.57814881 | F1 M MIN: 0.31368984 D: 0.42940032 | [S/N/B]: [0.3137/0.8217/0.5451] | LR: 0.00045757
+2026-03-27 05:52:04,643 - INFO - T409 E6/10 | [OK] | L: 0.59175674/0.57451919 | F1 M MIN: 0.30494089 D: 0.43140406 | [S/N/B]: [0.3049/0.8336/0.5579] | LR: 0.00031617
+2026-03-27 05:52:04,700 - INFO - Trial 409 pruned by Optuna at epoch 6
+2026-03-27 05:52:04,773 - INFO - Trial 409 pruned.
+2026-03-27 05:52:05,387 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 05:52:52,572 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 05:52:52,573 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 05:55:47,956 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 05:55:47,958 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 05:55:48,014 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 05:55:59,829 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 05:55:59,829 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 05:56:50,512 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 05:56:50,513 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 05:56:50,911 - INFO - Trial 410 START | tcn=512, lstm=256, layers=2, batch=1024, seq=256 | RFE=30 | loss=ASYM (g_s=0.56, g_n=0.53, g_b=2.62) | alpha=[1.39, 0.98, 1.60], smooth=0.26
+2026-03-27 06:00:00,195 - INFO - T410 E1/10 | [OK] | L: 0.87842657/0.84029494 | F1 M MIN: 0.19459215 D: 0.39795770 | [S/N/B]: [0.6013/0.8319/0.1946] | LR: 0.00094934
+2026-03-27 06:03:10,909 - INFO - T410 E2/10 | [OK] | L: 0.84168891/0.81952083 | F1 M MIN: 0.14014349 D: 0.35530440 | [S/N/B]: [0.1401/0.8617/0.5705] | LR: 0.00088022
+2026-03-27 06:06:21,606 - INFO - T410 E3/10 | [OK] | L: 0.83351592/0.81997533 | F1 M MIN: 0.28295989 D: 0.41475574 | [S/N/B]: [0.2830/0.8516/0.5466] | LR: 0.00077258
+2026-03-27 06:09:32,624 - INFO - T410 E4/10 | [OK] | L: 0.82641570/0.81189978 | F1 M MIN: 0.46938990 D: 0.48697314 | [S/N/B]: [0.5046/0.8599/0.4694] | LR: 0.00063694
+2026-03-27 06:12:44,093 - INFO - T410 E5/10 | [OK] | L: 0.81856739/0.80375059 | F1 M MIN: 0.46836733 D: 0.49696273 | [S/N/B]: [0.4684/0.8649/0.5256] | LR: 0.00048658
+2026-03-27 06:15:55,261 - INFO - T410 E6/10 | [OK] | L: 0.81199306/0.80588036 | F1 M MIN: 0.49881592 D: 0.50550044 | [S/N/B]: [0.4988/0.8560/0.5122] | LR: 0.00033622
+2026-03-27 06:19:07,098 - INFO - T410 E7/10 | [OK] | L: 0.80660969/0.80337058 | F1 M MIN: 0.42101169 D: 0.48891690 | [S/N/B]: [0.4210/0.8576/0.5568] | LR: 0.00020057
+2026-03-27 06:22:18,883 - INFO - T410 E8/10 | [OK] | L: 0.80124767/0.80537271 | F1 M MIN: 0.50523081 D: 0.50610275 | [S/N/B]: [0.5052/0.8545/0.5070] | LR: 0.00009293
+2026-03-27 06:22:18,937 - INFO - [BEST MACRO]  Trial 410 | Global F1 M MIN record: 0.50523081 (prev: 0.50503720) -> saved best_tcn_lstm.pt
+2026-03-27 06:25:30,503 - INFO - T410 E9/10 | [OK] | L: 0.79662287/0.80498889 | F1 M MIN: 0.47986044 D: 0.50285515 | [S/N/B]: [0.4799/0.8542/0.5258] | LR: 0.00002381
+2026-03-27 06:28:42,469 - INFO - T410 E10/10 | [OK] | L: 0.79365288/0.80461645 | F1 M MIN: 0.49509592 D: 0.50592537 | [S/N/B]: [0.4951/0.8551/0.5168] | LR: 0.00000000
+2026-03-27 06:28:42,871 - INFO - Trial 410 finished with value: 0.5052308142512254 and parameters: {'tcn_channels': 512, 'lstm_hidden': 256, 'num_lstm_layers': 2, 'batch_size': 1024, 'dropout': 0.22682851937901982, 'seq_len': 256, 'lr': 0.0009731502066098561, 'weight_decay': 0.002369587373431665, 'base_alpha_sell': 1.38934227389553, 'base_alpha_neutral': 0.9833702220947678, 'base_alpha_buy': 1.5957216185859473, 'base_loss_gamma': 3.7917991082260927, 'base_loss_smoothing': 0.263981876825091, 'asym_gamma_sell': 0.5588841916298334, 'asym_gamma_neu': 0.5334396826460185, 'asym_gamma_buy': 2.6218006256277238}. Best is trial 410 with value: 0.5052308142512254.
+2026-03-27 06:28:43,378 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 06:29:32,184 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 06:29:32,185 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 06:32:28,114 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 06:32:28,116 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 06:32:28,157 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 06:32:40,835 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 06:32:40,836 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 06:33:34,722 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 06:33:34,722 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 06:33:35,074 - INFO - Trial 411 START | tcn=512, lstm=256, layers=2, batch=1024, seq=256 | RFE=30 | loss=ASYM (g_s=1.66, g_n=0.13, g_b=3.70) | alpha=[0.86, 0.96, 1.43], smooth=0.22
+2026-03-27 06:36:44,539 - INFO - T411 E1/10 | [WARN] ZERO_PENALTY | L: 0.49214461/0.53010158 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8468/0.5772] | LR: 0.00093306
+2026-03-27 06:39:55,593 - INFO - T411 E2/10 | [WARN] ZERO_PENALTY | L: 0.46083083/0.51046451 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8780/0.5950] | LR: 0.00086514
+2026-03-27 06:43:06,280 - INFO - T411 E3/10 | [WARN] ZERO_PENALTY | L: 0.45467245/0.50910873 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8768/0.5943] | LR: 0.00075934
+2026-03-27 06:46:17,162 - INFO - T411 E4/10 | [WARN] ZERO_PENALTY | L: 0.45089788/0.50131215 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8851/0.6003] | LR: 0.00062602
+2026-03-27 06:46:17,231 - INFO - Trial 411 stopped early due to patience limit (4 epochs without improvement)
+2026-03-27 06:46:18,176 - INFO - Trial 411 finished with value: 0.0 and parameters: {'tcn_channels': 512, 'lstm_hidden': 256, 'num_lstm_layers': 2, 'batch_size': 1024, 'dropout': 0.24551564147690635, 'seq_len': 256, 'lr': 0.0009564713689657761, 'weight_decay': 0.0017413818319016526, 'base_alpha_sell': 0.8575125448941568, 'base_alpha_neutral': 0.9587096622030077, 'base_alpha_buy': 1.4296102318277344, 'base_loss_gamma': 4.1353149217153415, 'base_loss_smoothing': 0.2177781417844996, 'asym_gamma_sell': 1.6601984196575632, 'asym_gamma_neu': 0.1347859677868941, 'asym_gamma_buy': 3.7046878330886353}. Best is trial 410 with value: 0.5052308142512254.
+2026-03-27 06:46:18,700 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 06:47:07,399 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 06:47:07,400 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 06:50:07,855 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 06:50:07,856 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 06:50:07,901 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 06:50:19,969 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 06:50:19,969 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 06:51:12,208 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 06:51:12,210 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 06:51:12,558 - INFO - Trial 412 START | tcn=256, lstm=256, layers=2, batch=512, seq=256 | RFE=30 | loss=ASYM (g_s=1.59, g_n=0.80, g_b=3.07) | alpha=[1.41, 0.81, 1.26], smooth=0.33
+2026-03-27 06:52:55,033 - INFO - T412 E1/10 | [WARN] ZERO_PENALTY | L: 0.58028434/0.57330473 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.5806/0.8321/0.0000] | LR: 0.00089647
+2026-03-27 06:54:38,735 - INFO - T412 E2/10 | [OK] | L: 0.55678189/0.56671760 | F1 M MIN: 0.00014921 D: 0.29282161 | [S/N/B]: [0.5855/0.8420/0.0001] | LR: 0.00083121
+2026-03-27 06:56:22,738 - INFO - T412 E3/10 | [OK] | L: 0.55153458/0.56433803 | F1 M MIN: 0.07753143 D: 0.33099775 | [S/N/B]: [0.5845/0.8378/0.0775] | LR: 0.00072956
+2026-03-27 06:58:07,011 - INFO - T412 E4/10 | [OK] | L: 0.54662305/0.55758674 | F1 M MIN: 0.15983997 D: 0.37808382 | [S/N/B]: [0.5963/0.8546/0.1598] | LR: 0.00060147
+2026-03-27 06:59:51,050 - INFO - T412 E5/10 | [OK] | L: 0.54116954/0.55756634 | F1 M MIN: 0.21127479 D: 0.40133705 | [S/N/B]: [0.5914/0.8425/0.2113] | LR: 0.00045948
+2026-03-27 06:59:51,154 - INFO - Trial 412 pruned by Optuna at epoch 5
+2026-03-27 06:59:51,246 - INFO - Trial 412 pruned.
+2026-03-27 06:59:51,972 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 07:00:39,848 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 07:00:39,849 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 07:03:33,092 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 07:03:33,093 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 07:03:33,186 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 07:03:45,070 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 07:03:45,071 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 07:04:39,429 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 07:04:39,429 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 07:04:39,762 - INFO - Trial 413 START | tcn=512, lstm=256, layers=2, batch=512, seq=96 | RFE=30 | loss=ASYM (g_s=1.22, g_n=0.75, g_b=2.77) | alpha=[1.38, 0.49, 1.62], smooth=0.22
+2026-03-27 07:05:46,030 - INFO - T413 E1/10 | [WARN] ZERO_PENALTY | L: 0.57167956/0.53520473 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.6687/0.5147] | LR: 0.00109014
+2026-03-27 07:06:53,088 - INFO - T413 E2/10 | [OK] | L: 0.54924936/0.52810455 | F1 M MIN: 0.41637409 D: 0.42678048 | [S/N/B]: [0.4372/0.6908/0.4164] | LR: 0.00101077
+2026-03-27 07:08:00,105 - INFO - T413 E3/10 | [OK] | L: 0.54356123/0.52040327 | F1 M MIN: 0.34372370 D: 0.43904156 | [S/N/B]: [0.5344/0.7195/0.3437] | LR: 0.00088716
+2026-03-27 07:09:07,501 - INFO - T413 E4/10 | [OK] | L: 0.53914057/0.51673889 | F1 M MIN: 0.20503847 D: 0.36622454 | [S/N/B]: [0.2050/0.7434/0.5274] | LR: 0.00073140
+2026-03-27 07:10:14,992 - INFO - T413 E5/10 | [OK] | L: 0.53555190/0.51872633 | F1 M MIN: 0.34411036 D: 0.42119155 | [S/N/B]: [0.3441/0.7163/0.4983] | LR: 0.00055874
+2026-03-27 07:11:22,423 - INFO - T413 E6/10 | [OK] | L: 0.53289095/0.51545125 | F1 M MIN: 0.36926033 D: 0.43263730 | [S/N/B]: [0.3693/0.7255/0.4960] | LR: 0.00038608
+2026-03-27 07:11:22,451 - INFO - Trial 413 stopped early due to patience limit (4 epochs without improvement)
+2026-03-27 07:11:22,585 - INFO - Trial 413 finished with value: 0.416374094270561 and parameters: {'tcn_channels': 512, 'lstm_hidden': 256, 'num_lstm_layers': 2, 'batch_size': 512, 'dropout': 0.3533648849540732, 'seq_len': 96, 'lr': 0.0011174821906758503, 'weight_decay': 0.007464750643095593, 'base_alpha_sell': 1.3818399131791226, 'base_alpha_neutral': 0.4942740385210701, 'base_alpha_buy': 1.6218522131315491, 'base_loss_gamma': 0.6860638686974085, 'base_loss_smoothing': 0.21870783929345583, 'asym_gamma_sell': 1.2214780127285962, 'asym_gamma_neu': 0.748104587484587, 'asym_gamma_buy': 2.7690300884238015}. Best is trial 410 with value: 0.5052308142512254.
+2026-03-27 07:11:23,082 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 07:12:12,418 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 07:12:12,419 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 07:15:09,881 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 07:15:09,883 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 07:15:10,001 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 07:15:22,150 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 07:15:22,150 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 07:16:14,357 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 07:16:14,358 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 07:16:14,682 - INFO - Trial 414 START | tcn=64, lstm=256, layers=2, batch=512, seq=144 | RFE=30 | loss=ASYM (g_s=0.64, g_n=0.86, g_b=0.77) | alpha=[1.42, 0.51, 1.14], smooth=0.30
+2026-03-27 07:16:58,625 - INFO - T414 E1/10 | [WARN] ZERO_PENALTY | L: 0.68398511/0.62051379 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.5217/0.6518/0.0000] | LR: 0.00152365
+2026-03-27 07:17:42,520 - INFO - T414 E2/10 | [WARN] ZERO_PENALTY | L: 0.66532017/0.60735058 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.5565/0.7698/0.0000] | LR: 0.00141273
+2026-03-27 07:18:27,001 - INFO - T414 E3/10 | [OK] | L: 0.66043040/0.61084500 | F1 M MIN: 0.00059102 D: 0.26631807 | [S/N/B]: [0.5320/0.6883/0.0006] | LR: 0.00123996
+2026-03-27 07:19:11,637 - INFO - T414 E4/10 | [OK] | L: 0.65806892/0.60711225 | F1 M MIN: 0.02283402 D: 0.28147578 | [S/N/B]: [0.5401/0.7193/0.0228] | LR: 0.00102226
+2026-03-27 07:19:55,621 - INFO - T414 E5/10 | [OK] | L: 0.65492019/0.60181132 | F1 M MIN: 0.22105850 D: 0.38489195 | [S/N/B]: [0.5487/0.7552/0.2211] | LR: 0.00078094
+2026-03-27 07:19:55,719 - INFO - Trial 414 pruned by Optuna at epoch 5
+2026-03-27 07:19:55,783 - INFO - Trial 414 pruned.
+2026-03-27 07:19:56,372 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 07:20:44,072 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 07:20:44,074 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 07:23:37,595 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 07:23:37,596 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 07:23:37,730 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 07:23:50,318 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 07:23:50,319 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 07:24:44,835 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 07:24:44,837 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 07:24:45,198 - INFO - Trial 415 START | tcn=256, lstm=256, layers=2, batch=512, seq=144 | RFE=30 | loss=ASYM (g_s=2.35, g_n=1.38, g_b=0.77) | alpha=[0.90, 0.65, 1.30], smooth=0.32
+2026-03-27 07:25:45,495 - INFO - T415 E1/10 | [WARN] ZERO_PENALTY | L: 0.45260654/0.42110404 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.7412/0.5342] | LR: 0.00036543
+2026-03-27 07:26:46,397 - INFO - T415 E2/10 | [WARN] ZERO_PENALTY | L: 0.43374110/0.41209925 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.7595/0.5420] | LR: 0.00033882
+2026-03-27 07:27:47,496 - INFO - T415 E3/10 | [OK] | L: 0.42977671/0.40644364 | F1 M MIN: 0.00043530 D: 0.27649761 | [S/N/B]: [0.0004/0.7905/0.5526] | LR: 0.00029739
+2026-03-27 07:28:48,907 - INFO - T415 E4/10 | [OK] | L: 0.42646749/0.40507162 | F1 M MIN: 0.00777594 D: 0.28187962 | [S/N/B]: [0.0078/0.7966/0.5560] | LR: 0.00024518
+2026-03-27 07:29:50,329 - INFO - T415 E5/10 | [OK] | L: 0.42388475/0.40485592 | F1 M MIN: 0.04250435 D: 0.29786619 | [S/N/B]: [0.0425/0.7879/0.5532] | LR: 0.00018730
+2026-03-27 07:29:50,451 - INFO - Trial 415 pruned by Optuna at epoch 5
+2026-03-27 07:29:50,554 - INFO - Trial 415 pruned.
+2026-03-27 07:29:51,186 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 07:30:40,393 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 07:30:40,394 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 07:33:41,400 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 07:33:41,401 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 07:33:41,537 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 07:33:54,982 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 07:33:54,983 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 07:34:48,610 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 07:34:48,612 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 07:34:48,945 - INFO - Trial 416 START | tcn=64, lstm=256, layers=2, batch=2048, seq=256 | RFE=30 | loss=ASYM (g_s=2.06, g_n=1.01, g_b=1.80) | alpha=[1.79, 0.89, 1.54], smooth=0.30
+2026-03-27 07:35:38,215 - INFO - T416 E1/10 | [WARN] ZERO_PENALTY | L: 0.86563043/0.82162646 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.5397/0.7435/0.0000] | LR: 0.00156338
+2026-03-27 07:36:28,182 - INFO - T416 E2/10 | [WARN] ZERO_PENALTY | L: 0.82298576/0.79592141 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.5595/0.7953/0.0000] | LR: 0.00144956
+2026-03-27 07:37:18,302 - INFO - T416 E3/10 | [OK] | L: 0.81342958/0.79120296 | F1 M MIN: 0.00043969 D: 0.28014376 | [S/N/B]: [0.5598/0.7958/0.0004] | LR: 0.00127229
+2026-03-27 07:38:08,600 - INFO - T416 E4/10 | [OK] | L: 0.80660797/0.78797042 | F1 M MIN: 0.00335901 D: 0.28239366 | [S/N/B]: [0.5614/0.7990/0.0034] | LR: 0.00104891
+2026-03-27 07:38:58,941 - INFO - T416 E5/10 | [OK] | L: 0.80255175/0.77806564 | F1 M MIN: 0.15176118 D: 0.36271626 | [S/N/B]: [0.5737/0.8302/0.1518] | LR: 0.00080130
+2026-03-27 07:38:59,075 - INFO - Trial 416 pruned by Optuna at epoch 5
+2026-03-27 07:38:59,183 - INFO - Trial 416 pruned.
+2026-03-27 07:38:59,854 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 07:39:48,343 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 07:39:48,344 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 07:42:50,408 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 07:42:50,411 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 07:42:50,549 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 07:43:02,645 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 07:43:02,645 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 07:43:58,243 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 07:43:58,244 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 07:43:58,634 - INFO - Trial 417 START | tcn=512, lstm=128, layers=2, batch=1024, seq=256 | RFE=30 | loss=ASYM (g_s=1.00, g_n=1.08, g_b=3.24) | alpha=[1.42, 0.97, 1.54], smooth=0.24
+2026-03-27 07:46:47,162 - INFO - T417 E1/10 | [OK] | L: 0.72005650/0.66395558 | F1 M MIN: 0.19304263 D: 0.39768132 | [S/N/B]: [0.6023/0.8496/0.1930] | LR: 0.00096197
+2026-03-27 07:49:37,238 - INFO - T417 E2/10 | [OK] | L: 0.68266538/0.65673746 | F1 M MIN: 0.12492758 D: 0.36838750 | [S/N/B]: [0.6118/0.8547/0.1249] | LR: 0.00089194
+2026-03-27 07:52:27,165 - INFO - T417 E3/10 | [OK] | L: 0.67479535/0.64493722 | F1 M MIN: 0.38097131 D: 0.45812663 | [S/N/B]: [0.5353/0.8713/0.3810] | LR: 0.00078286
+2026-03-27 07:55:17,340 - INFO - T417 E4/10 | [OK] | L: 0.67044760/0.64572511 | F1 M MIN: 0.27357933 D: 0.43169702 | [S/N/B]: [0.5898/0.8638/0.2736] | LR: 0.00064541
+2026-03-27 07:58:07,432 - INFO - T417 E5/10 | [OK] | L: 0.66464400/0.63650621 | F1 M MIN: 0.42938584 D: 0.49301478 | [S/N/B]: [0.5566/0.8656/0.4294] | LR: 0.00049305
+2026-03-27 08:00:58,331 - INFO - T417 E6/10 | [OK] | L: 0.65771219/0.63574460 | F1 M MIN: 0.45966481 D: 0.50015246 | [S/N/B]: [0.5406/0.8602/0.4597] | LR: 0.00034069
+2026-03-27 08:03:48,499 - INFO - T417 E7/10 | [OK] | L: 0.65250291/0.63571809 | F1 M MIN: 0.41041779 D: 0.49246298 | [S/N/B]: [0.5745/0.8568/0.4104] | LR: 0.00020324
+2026-03-27 08:06:39,416 - INFO - T417 E8/10 | [OK] | L: 0.64803203/0.63358536 | F1 M MIN: 0.45394375 D: 0.50520218 | [S/N/B]: [0.5565/0.8599/0.4539] | LR: 0.00009416
+2026-03-27 08:09:30,240 - INFO - T417 E9/10 | [OK] | L: 0.64487649/0.63229701 | F1 M MIN: 0.42778525 D: 0.49837606 | [S/N/B]: [0.5690/0.8616/0.4278] | LR: 0.00002413
+2026-03-27 08:12:20,609 - INFO - T417 E10/10 | [OK] | L: 0.64275719/0.63193477 | F1 M MIN: 0.44051774 D: 0.50207632 | [S/N/B]: [0.5636/0.8628/0.4405] | LR: 0.00000000
+2026-03-27 08:12:20,652 - INFO - Trial 417 stopped early due to patience limit (4 epochs without improvement)
+2026-03-27 08:12:20,890 - INFO - Trial 417 finished with value: 0.45966480858031167 and parameters: {'tcn_channels': 512, 'lstm_hidden': 128, 'num_lstm_layers': 2, 'batch_size': 1024, 'dropout': 0.27459664991920285, 'seq_len': 256, 'lr': 0.0009861040850502156, 'weight_decay': 0.0012275908557606398, 'base_alpha_sell': 1.423055029267231, 'base_alpha_neutral': 0.9713882264245746, 'base_alpha_buy': 1.542031961108506, 'base_loss_gamma': 4.607805559458573, 'base_loss_smoothing': 0.23650864284867315, 'asym_gamma_sell': 0.9966326416023111, 'asym_gamma_neu': 1.084031443634796, 'asym_gamma_buy': 3.2449452704961397}. Best is trial 410 with value: 0.5052308142512254.
+2026-03-27 08:12:21,447 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 08:13:11,057 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 08:13:11,059 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 08:16:13,227 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 08:16:13,228 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 08:16:13,287 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 08:16:26,356 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 08:16:26,357 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 08:17:22,335 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 08:17:22,336 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 08:17:22,682 - INFO - Trial 418 START | tcn=128, lstm=256, layers=2, batch=1024, seq=256 | RFE=30 | loss=ASYM (g_s=1.13, g_n=0.66, g_b=4.20) | alpha=[1.76, 1.04, 1.52], smooth=0.26
+2026-03-27 08:18:28,473 - INFO - T418 E1/10 | [WARN] ZERO_PENALTY | L: 0.85478559/0.81992548 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.5764/0.8284/0.0000] | LR: 0.00046339
+2026-03-27 08:19:35,758 - INFO - T418 E2/10 | [OK] | L: 0.80308046/0.80333640 | F1 M MIN: 0.00007332 D: 0.29061397 | [S/N/B]: [0.5812/0.8360/0.0001] | LR: 0.00042966
+2026-03-27 08:20:43,084 - INFO - T418 E3/10 | [OK] | L: 0.79078906/0.79543382 | F1 M MIN: 0.00589091 D: 0.29542044 | [S/N/B]: [0.5849/0.8417/0.0059] | LR: 0.00037711
+2026-03-27 08:21:50,414 - INFO - T418 E4/10 | [OK] | L: 0.78396514/0.79176759 | F1 M MIN: 0.00980499 D: 0.29757667 | [S/N/B]: [0.5853/0.8452/0.0098] | LR: 0.00031090
+2026-03-27 08:22:58,183 - INFO - T418 E5/10 | [OK] | L: 0.77925896/0.78349814 | F1 M MIN: 0.08087967 D: 0.33912031 | [S/N/B]: [0.5974/0.8599/0.0809] | LR: 0.00023751
+2026-03-27 08:22:58,316 - INFO - Trial 418 pruned by Optuna at epoch 5
+2026-03-27 08:22:58,413 - INFO - Trial 418 pruned.
+2026-03-27 08:22:59,143 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 08:23:49,925 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 08:23:49,926 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 08:26:54,778 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 08:26:54,779 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 08:26:54,824 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 08:27:07,569 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 08:27:07,569 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 08:28:03,586 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 08:28:03,587 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 08:28:03,973 - INFO - Trial 419 START | tcn=512, lstm=256, layers=2, batch=512, seq=256 | RFE=30 | loss=ASYM (g_s=1.76, g_n=0.17, g_b=3.87) | alpha=[1.27, 0.81, 1.67], smooth=0.29
+2026-03-27 08:31:12,659 - INFO - T419 E1/10 | [OK] | L: 0.65743179/0.69643957 | F1 M MIN: 0.00014502 D: 0.27498804 | [S/N/B]: [0.0001/0.7818/0.5498] | LR: 0.00072079
+2026-03-27 08:34:23,225 - INFO - T419 E2/10 | [OK] | L: 0.63322159/0.68731111 | F1 M MIN: 0.00274894 D: 0.27829589 | [S/N/B]: [0.0027/0.7905/0.5538] | LR: 0.00066832
+2026-03-27 08:37:34,076 - INFO - T419 E3/10 | [OK] | L: 0.62662572/0.67904648 | F1 M MIN: 0.38153904 D: 0.45371060 | [S/N/B]: [0.3815/0.8140/0.5259] | LR: 0.00058659
+2026-03-27 08:40:45,213 - INFO - T419 E4/10 | [OK] | L: 0.62042293/0.67622819 | F1 M MIN: 0.43139325 D: 0.47417980 | [S/N/B]: [0.4314/0.8219/0.5170] | LR: 0.00048360
+2026-03-27 08:43:56,247 - INFO - T419 E5/10 | [OK] | L: 0.61530429/0.66741570 | F1 M MIN: 0.37337955 D: 0.46362572 | [S/N/B]: [0.3734/0.8338/0.5539] | LR: 0.00036944
+2026-03-27 08:47:07,417 - INFO - T419 E6/10 | [OK] | L: 0.61106024/0.66567170 | F1 M MIN: 0.30472634 D: 0.43682914 | [S/N/B]: [0.3047/0.8357/0.5689] | LR: 0.00025527
+2026-03-27 08:50:18,567 - INFO - T419 E7/10 | [OK] | L: 0.60746343/0.66644987 | F1 M MIN: 0.39564770 D: 0.47193312 | [S/N/B]: [0.3956/0.8319/0.5482] | LR: 0.00015229
+2026-03-27 08:53:29,814 - INFO - T419 E8/10 | [OK] | L: 0.60433675/0.66768380 | F1 M MIN: 0.38513884 D: 0.46621924 | [S/N/B]: [0.3851/0.8148/0.5473] | LR: 0.00007056
+2026-03-27 08:53:29,857 - INFO - Trial 419 stopped early due to patience limit (4 epochs without improvement)
+2026-03-27 08:53:30,094 - INFO - Trial 419 finished with value: 0.4313932479343876 and parameters: {'tcn_channels': 512, 'lstm_hidden': 256, 'num_lstm_layers': 2, 'batch_size': 512, 'dropout': 0.28773842659396015, 'seq_len': 256, 'lr': 0.0007388719886328501, 'weight_decay': 0.001095915870230309, 'base_alpha_sell': 1.2713804038596543, 'base_alpha_neutral': 0.8127970953315343, 'base_alpha_buy': 1.6714136508224005, 'base_loss_gamma': 0.837445739089117, 'base_loss_smoothing': 0.2885318714424552, 'asym_gamma_sell': 1.7621653497523015, 'asym_gamma_neu': 0.17163195675591547, 'asym_gamma_buy': 3.8668962375852542}. Best is trial 410 with value: 0.5052308142512254.
+2026-03-27 08:53:30,644 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 08:54:27,459 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 08:54:27,467 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 08:57:44,781 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 08:57:44,782 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 08:57:44,919 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 08:57:58,434 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 08:57:58,435 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 08:58:54,777 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 08:58:54,778 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 08:58:55,171 - INFO - Trial 420 START | tcn=512, lstm=256, layers=2, batch=1024, seq=256 | RFE=30 | loss=ASYM (g_s=0.57, g_n=0.10, g_b=2.55) | alpha=[1.52, 1.05, 1.28], smooth=0.16
+2026-03-27 09:02:04,809 - INFO - T420 E1/10 | [OK] | L: 0.82975437/0.81144837 | F1 M MIN: 0.00029502 D: 0.29017006 | [S/N/B]: [0.5800/0.8369/0.0003] | LR: 0.00051824
+2026-03-27 09:05:16,070 - INFO - T420 E2/10 | [OK] | L: 0.77758349/0.78869544 | F1 M MIN: 0.00388264 D: 0.29737469 | [S/N/B]: [0.5909/0.8594/0.0039] | LR: 0.00048051
+2026-03-27 09:08:27,272 - INFO - T420 E3/10 | [OK] | L: 0.76751469/0.77293617 | F1 M MIN: 0.00575907 D: 0.30138536 | [S/N/B]: [0.5970/0.8677/0.0058] | LR: 0.00042175
+2026-03-27 09:11:38,480 - INFO - T420 E4/10 | [OK] | L: 0.76158264/0.76700477 | F1 M MIN: 0.08022299 D: 0.33929003 | [S/N/B]: [0.5984/0.8717/0.0802] | LR: 0.00034770
+2026-03-27 09:14:50,552 - INFO - T420 E5/10 | [OK] | L: 0.75569512/0.76830993 | F1 M MIN: 0.17797718 D: 0.38417252 | [S/N/B]: [0.5904/0.8654/0.1780] | LR: 0.00026562
+2026-03-27 09:14:50,694 - INFO - Trial 420 pruned by Optuna at epoch 5
+2026-03-27 09:14:50,811 - INFO - Trial 420 pruned.
+2026-03-27 09:14:51,492 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 09:15:41,504 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 09:15:41,510 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 09:18:45,998 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 09:18:45,999 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 09:18:46,083 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 09:18:59,062 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 09:18:59,063 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 09:19:54,751 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 09:19:54,752 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 09:19:55,165 - INFO - Trial 421 START | tcn=256, lstm=64, layers=2, batch=512, seq=144 | RFE=30 | loss=ASYM (g_s=1.35, g_n=1.23, g_b=1.52) | alpha=[1.03, 0.73, 1.19], smooth=0.31
+2026-03-27 09:20:42,696 - INFO - T421 E1/10 | [WARN] ZERO_PENALTY | L: 0.49965406/0.46161549 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8346/0.5732] | LR: 0.00188222
+2026-03-27 09:21:30,613 - INFO - T421 E2/10 | [WARN] ZERO_PENALTY | L: 0.48090315/0.45436777 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8353/0.5738] | LR: 0.00174519
+2026-03-27 09:22:18,596 - INFO - T421 E3/10 | [WARN] ZERO_PENALTY | L: 0.47622765/0.45289638 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8427/0.5772] | LR: 0.00153176
+2026-03-27 09:23:06,798 - INFO - T421 E4/10 | [WARN] ZERO_PENALTY | L: 0.47381488/0.45008426 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8439/0.5782] | LR: 0.00126283
+2026-03-27 09:23:06,854 - INFO - Trial 421 stopped early due to patience limit (4 epochs without improvement)
+2026-03-27 09:23:07,032 - INFO - Trial 421 finished with value: 0.0 and parameters: {'tcn_channels': 256, 'lstm_hidden': 64, 'num_lstm_layers': 2, 'batch_size': 512, 'dropout': 0.38997241640789637, 'seq_len': 144, 'lr': 0.0019294320983952588, 'weight_decay': 0.004335153561202766, 'base_alpha_sell': 1.0261743890644635, 'base_alpha_neutral': 0.7332029299203661, 'base_alpha_buy': 1.1873857552181009, 'base_loss_gamma': 3.2540167075518296, 'base_loss_smoothing': 0.3056760804796403, 'asym_gamma_sell': 1.3503340935917985, 'asym_gamma_neu': 1.2300230688522211, 'asym_gamma_buy': 1.5200473769505836}. Best is trial 410 with value: 0.5052308142512254.
+2026-03-27 09:23:07,523 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 09:23:56,590 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 09:23:56,591 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 09:27:03,414 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 09:27:03,415 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 09:27:03,524 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 09:27:16,273 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 09:27:16,273 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 09:28:10,726 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 09:28:10,727 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 09:28:11,131 - INFO - Trial 422 START | tcn=512, lstm=256, layers=3, batch=1024, seq=256 | RFE=30 | loss=ASYM (g_s=0.85, g_n=0.90, g_b=1.78) | alpha=[1.16, 0.97, 1.66], smooth=0.27
+2026-03-27 09:31:33,542 - INFO - T422 E1/10 | [WARN] ZERO_PENALTY | L: 0.80506663/0.74853842 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8219/0.5607] | LR: 0.00057643
+2026-03-27 09:34:57,633 - INFO - T422 E2/10 | [WARN] ZERO_PENALTY | L: 0.76652849/0.73551200 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8390/0.5697] | LR: 0.00053446
+2026-03-27 09:38:21,607 - INFO - T422 E3/10 | [WARN] ZERO_PENALTY | L: 0.75931017/0.72706238 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8543/0.5776] | LR: 0.00046910
+2026-03-27 09:41:46,011 - INFO - T422 E4/10 | [OK] | L: 0.75348702/0.72600658 | F1 M MIN: 0.00180597 D: 0.28717369 | [S/N/B]: [0.0018/0.8437/0.5725] | LR: 0.00038674
+2026-03-27 09:45:10,844 - INFO - T422 E5/10 | [OK] | L: 0.74855973/0.72944936 | F1 M MIN: 0.30348309 D: 0.42388278 | [S/N/B]: [0.3035/0.8414/0.5443] | LR: 0.00029544
+2026-03-27 09:45:10,998 - INFO - Trial 422 pruned by Optuna at epoch 5
+2026-03-27 09:45:11,127 - INFO - Trial 422 pruned.
+2026-03-27 09:45:11,824 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 09:46:01,744 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 09:46:01,745 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 09:49:09,328 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 09:49:09,330 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 09:49:09,375 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 09:49:22,001 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 09:49:22,001 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 09:50:17,410 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 09:50:17,411 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 09:50:17,762 - INFO - Trial 423 START | tcn=256, lstm=256, layers=2, batch=512, seq=144 | RFE=30 | loss=ASYM (g_s=1.25, g_n=1.50, g_b=1.34) | alpha=[1.22, 0.83, 1.26], smooth=0.33
+2026-03-27 09:51:18,111 - INFO - T423 E1/10 | [OK] | L: 0.62526707/0.57351598 | F1 M MIN: 0.13325529 D: 0.36952064 | [S/N/B]: [0.6058/0.8300/0.1333] | LR: 0.00116460
+2026-03-27 09:52:19,300 - INFO - T423 E2/10 | [OK] | L: 0.60638076/0.56759428 | F1 M MIN: 0.19105072 D: 0.37023978 | [S/N/B]: [0.1911/0.8352/0.5494] | LR: 0.00107981
+2026-03-27 09:53:20,800 - INFO - T423 E3/10 | [OK] | L: 0.60174554/0.56193095 | F1 M MIN: 0.43938149 D: 0.45491040 | [S/N/B]: [0.4704/0.8520/0.4394] | LR: 0.00094776
+2026-03-27 09:54:22,509 - INFO - T423 E4/10 | [OK] | L: 0.59867853/0.55773303 | F1 M MIN: 0.41179250 D: 0.46282429 | [S/N/B]: [0.4118/0.8558/0.5139] | LR: 0.00078136
+2026-03-27 09:55:24,048 - INFO - T423 E5/10 | [OK] | L: 0.59459443/0.55566282 | F1 M MIN: 0.45615876 D: 0.48096596 | [S/N/B]: [0.5058/0.8475/0.4562] | LR: 0.00059691
+2026-03-27 09:56:25,794 - INFO - T423 E6/10 | [OK] | L: 0.59120923/0.55277217 | F1 M MIN: 0.48712556 D: 0.48715433 | [S/N/B]: [0.4871/0.8571/0.4872] | LR: 0.00041245
+2026-03-27 09:57:27,519 - INFO - T423 E7/10 | [OK] | L: 0.58861801/0.55308013 | F1 M MIN: 0.41996681 D: 0.47928885 | [S/N/B]: [0.5386/0.8597/0.4200] | LR: 0.00024605
+2026-03-27 09:58:29,122 - INFO - T423 E8/10 | [OK] | L: 0.58616515/0.55319049 | F1 M MIN: 0.47196948 D: 0.48845289 | [S/N/B]: [0.5049/0.8481/0.4720] | LR: 0.00011400
+2026-03-27 09:59:30,621 - INFO - T423 E9/10 | [OK] | L: 0.58405040/0.55151361 | F1 M MIN: 0.45449675 D: 0.48985965 | [S/N/B]: [0.5252/0.8578/0.4545] | LR: 0.00002921
+2026-03-27 10:00:32,446 - INFO - T423 E10/10 | [OK] | L: 0.58263208/0.55251782 | F1 M MIN: 0.47502712 D: 0.48951266 | [S/N/B]: [0.5040/0.8521/0.4750] | LR: 0.00000000
+2026-03-27 10:00:32,487 - INFO - Trial 423 stopped early due to patience limit (4 epochs without improvement)
+2026-03-27 10:00:32,724 - INFO - Trial 423 finished with value: 0.48712556331183177 and parameters: {'tcn_channels': 256, 'lstm_hidden': 256, 'num_lstm_layers': 2, 'batch_size': 512, 'dropout': 0.33508601363699914, 'seq_len': 144, 'lr': 0.0011938115253610924, 'weight_decay': 0.003820406325305281, 'base_alpha_sell': 1.224785291215158, 'base_alpha_neutral': 0.8267873573449962, 'base_alpha_buy': 1.2553382039453338, 'base_loss_gamma': 1.8853017419335725, 'base_loss_smoothing': 0.3346076784962133, 'asym_gamma_sell': 1.2503240619236502, 'asym_gamma_neu': 1.4970614426773947, 'asym_gamma_buy': 1.3436001489778233}. Best is trial 410 with value: 0.5052308142512254.
+2026-03-27 10:00:33,288 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 10:01:23,652 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 10:01:23,653 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 10:04:26,444 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 10:04:26,445 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 10:04:26,500 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 10:04:39,113 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 10:04:39,114 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 10:05:34,575 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 10:05:34,576 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 10:05:34,947 - INFO - Trial 424 START | tcn=256, lstm=256, layers=2, batch=512, seq=96 | RFE=30 | loss=ASYM (g_s=0.97, g_n=1.20, g_b=1.06) | alpha=[1.10, 0.99, 0.85], smooth=0.34
+2026-03-27 10:06:18,802 - INFO - T424 E1/10 | [WARN] ZERO_PENALTY | L: 0.57303087/0.52693350 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.6060/0.8737/0.0000] | LR: 0.00118721
+2026-03-27 10:07:02,592 - INFO - T424 E2/10 | [WARN] ZERO_PENALTY | L: 0.55434625/0.52316187 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.6115/0.8831/0.0000] | LR: 0.00110077
+2026-03-27 10:07:47,118 - INFO - T424 E3/10 | [OK] | L: 0.55065194/0.51785495 | F1 M MIN: 0.00088672 D: 0.30775552 | [S/N/B]: [0.6146/0.8869/0.0009] | LR: 0.00096616
+2026-03-27 10:08:30,343 - INFO - T424 E4/10 | [OK] | L: 0.54860666/0.51963226 | F1 M MIN: 0.00014790 D: 0.30709959 | [S/N/B]: [0.6141/0.8871/0.0001] | LR: 0.00079653
+2026-03-27 10:09:14,601 - INFO - T424 E5/10 | [OK] | L: 0.54624810/0.51967906 | F1 M MIN: 0.00066519 D: 0.30610972 | [S/N/B]: [0.6116/0.8842/0.0007] | LR: 0.00060849
+2026-03-27 10:09:14,698 - INFO - Trial 424 pruned by Optuna at epoch 5
+2026-03-27 10:09:14,798 - INFO - Trial 424 pruned.
+2026-03-27 10:09:15,547 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 10:10:06,644 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 10:10:06,645 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 10:13:09,105 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 10:13:09,109 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 10:13:09,197 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 10:13:21,752 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 10:13:21,752 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 10:14:16,711 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 10:14:16,712 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 10:14:17,085 - INFO - Trial 425 START | tcn=256, lstm=32, layers=2, batch=1024, seq=144 | RFE=30 | loss=ASYM (g_s=0.65, g_n=1.75, g_b=1.84) | alpha=[1.19, 0.63, 1.07], smooth=0.23
+2026-03-27 10:15:03,719 - INFO - T425 E1/10 | [WARN] ZERO_PENALTY | L: 0.50635657/0.43062607 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.5309/0.7015/0.0000] | LR: 0.00066992
+2026-03-27 10:15:50,597 - INFO - T425 E2/10 | [WARN] ZERO_PENALTY | L: 0.47261301/0.41249164 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.5621/0.7907/0.0000] | LR: 0.00062114
+2026-03-27 10:16:37,496 - INFO - T425 E3/10 | [WARN] ZERO_PENALTY | L: 0.46619792/0.41227113 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.5579/0.7798/0.0000] | LR: 0.00054518
+2026-03-27 10:17:24,496 - INFO - T425 E4/10 | [WARN] ZERO_PENALTY | L: 0.46226032/0.40776571 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.5619/0.7887/0.0000] | LR: 0.00044946
+2026-03-27 10:17:24,563 - INFO - Trial 425 stopped early due to patience limit (4 epochs without improvement)
+2026-03-27 10:17:24,762 - INFO - Trial 425 finished with value: 0.0 and parameters: {'tcn_channels': 256, 'lstm_hidden': 32, 'num_lstm_layers': 2, 'batch_size': 1024, 'dropout': 0.5475626695696376, 'seq_len': 144, 'lr': 0.0006867202502259543, 'weight_decay': 0.010838020120663126, 'base_alpha_sell': 1.189911068936481, 'base_alpha_neutral': 0.6314448458059885, 'base_alpha_buy': 1.0692508107772183, 'base_loss_gamma': 3.533952193052756, 'base_loss_smoothing': 0.23230665324691407, 'asym_gamma_sell': 0.646584938319553, 'asym_gamma_neu': 1.7476927780424074, 'asym_gamma_buy': 1.8361438013684916}. Best is trial 410 with value: 0.5052308142512254.
+2026-03-27 10:17:25,323 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 10:18:15,393 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 10:18:15,394 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 10:21:20,111 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 10:21:20,113 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 10:21:20,157 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 10:21:32,716 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 10:21:32,717 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 10:22:28,818 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 10:22:28,819 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 10:22:29,256 - INFO - Trial 426 START | tcn=512, lstm=32, layers=2, batch=512, seq=144 | RFE=30 | loss=ASYM (g_s=1.17, g_n=1.37, g_b=1.22) | alpha=[1.09, 0.72, 1.31], smooth=0.32
+2026-03-27 10:24:00,179 - INFO - T426 E1/10 | [WARN] ZERO_PENALTY | L: 0.60152788/0.54145916 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.7785/0.5445] | LR: 0.00091231
+2026-03-27 10:25:32,281 - INFO - T426 E2/10 | [WARN] ZERO_PENALTY | L: 0.57694694/0.53238702 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.7987/0.5525] | LR: 0.00084590
+2026-03-27 10:27:04,389 - INFO - T426 E3/10 | [WARN] ZERO_PENALTY | L: 0.57012788/0.52761303 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8018/0.5545] | LR: 0.00074245
+2026-03-27 10:28:36,702 - INFO - T426 E4/10 | [WARN] ZERO_PENALTY | L: 0.56736230/0.52454222 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8242/0.5638] | LR: 0.00061210
+2026-03-27 10:28:36,769 - INFO - Trial 426 stopped early due to patience limit (4 epochs without improvement)
+2026-03-27 10:28:36,971 - INFO - Trial 426 finished with value: 0.0 and parameters: {'tcn_channels': 512, 'lstm_hidden': 32, 'num_lstm_layers': 2, 'batch_size': 512, 'dropout': 0.31166278188083074, 'seq_len': 144, 'lr': 0.0009352006444851265, 'weight_decay': 0.004323374038934282, 'base_alpha_sell': 1.0886153458746177, 'base_alpha_neutral': 0.721417840427134, 'base_alpha_buy': 1.3105264957316287, 'base_loss_gamma': 3.851712264239662, 'base_loss_smoothing': 0.3248228483965434, 'asym_gamma_sell': 1.1675067312682539, 'asym_gamma_neu': 1.3745453311733349, 'asym_gamma_buy': 1.215493655317413}. Best is trial 410 with value: 0.5052308142512254.
+2026-03-27 10:28:37,567 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 10:29:28,411 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 10:29:28,412 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 10:32:35,866 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 10:32:35,867 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 10:32:35,957 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 10:32:48,397 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 10:32:48,397 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 10:33:42,871 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 10:33:42,872 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 10:33:43,232 - INFO - Trial 427 START | tcn=512, lstm=256, layers=3, batch=512, seq=144 | RFE=30 | loss=ASYM (g_s=1.67, g_n=1.40, g_b=1.15) | alpha=[1.24, 0.87, 0.97], smooth=0.30
+2026-03-27 10:35:36,605 - INFO - T427 E1/10 | [WARN] ZERO_PENALTY | L: 0.52805756/0.48230976 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.5935/0.8540/0.0000] | LR: 0.00155353
+2026-03-27 10:37:31,362 - INFO - T427 E2/10 | [WARN] ZERO_PENALTY | L: 0.50740201/0.48057397 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.5927/0.8561/0.0000] | LR: 0.00144043
+2026-03-27 10:39:26,247 - INFO - T427 E3/10 | [WARN] ZERO_PENALTY | L: 0.50322150/0.47280175 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.6008/0.8680/0.0000] | LR: 0.00126428
+2026-03-27 10:41:21,173 - INFO - T427 E4/10 | [WARN] ZERO_PENALTY | L: 0.50023107/0.47734153 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.5916/0.8524/0.0000] | LR: 0.00104231
+2026-03-27 10:41:21,264 - INFO - Trial 427 stopped early due to patience limit (4 epochs without improvement)
+2026-03-27 10:41:21,566 - INFO - Trial 427 finished with value: 0.0 and parameters: {'tcn_channels': 512, 'lstm_hidden': 256, 'num_lstm_layers': 3, 'batch_size': 512, 'dropout': 0.2885647298478749, 'seq_len': 144, 'lr': 0.001592504711341201, 'weight_decay': 0.0027174885561345357, 'base_alpha_sell': 1.2439681769573374, 'base_alpha_neutral': 0.8679942836104216, 'base_alpha_buy': 0.9690395509022199, 'base_loss_gamma': 3.1965357803845493, 'base_loss_smoothing': 0.3037394334273769, 'asym_gamma_sell': 1.6680769716603074, 'asym_gamma_neu': 1.396966022276055, 'asym_gamma_buy': 1.1492829059064325}. Best is trial 410 with value: 0.5052308142512254.
+2026-03-27 10:41:22,317 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 10:42:16,877 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 10:42:16,878 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 10:45:37,363 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 10:45:37,364 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 10:45:37,504 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 10:45:50,569 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 10:45:50,569 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 10:46:55,311 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 10:46:55,312 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 10:46:55,643 - INFO - Trial 428 START | tcn=256, lstm=256, layers=2, batch=512, seq=192 | RFE=30 | loss=ASYM (g_s=0.84, g_n=1.81, g_b=1.24) | alpha=[1.53, 0.65, 1.12], smooth=0.26
+2026-03-27 10:48:18,067 - INFO - T428 E1/10 | [OK] | L: 0.61338998/0.52894213 | F1 M MIN: 0.00029213 D: 0.26911433 | [S/N/B]: [0.5379/0.7302/0.0003] | LR: 0.00072888
+2026-03-27 10:49:42,612 - INFO - T428 E2/10 | [OK] | L: 0.59116220/0.52453863 | F1 M MIN: 0.00021912 D: 0.27185967 | [S/N/B]: [0.5435/0.7476/0.0002] | LR: 0.00067581
+2026-03-27 10:51:06,815 - INFO - T428 E3/10 | [OK] | L: 0.58702267/0.52056564 | F1 M MIN: 0.01228590 D: 0.27959295 | [S/N/B]: [0.5469/0.7563/0.0123] | LR: 0.00059316
+2026-03-27 10:52:31,226 - INFO - T428 E4/10 | [OK] | L: 0.58323215/0.51717821 | F1 M MIN: 0.12003676 D: 0.33762457 | [S/N/B]: [0.5552/0.7608/0.1200] | LR: 0.00048902
+2026-03-27 10:53:55,496 - INFO - T428 E5/10 | [OK] | L: 0.57738709/0.51344838 | F1 M MIN: 0.15917316 D: 0.35677329 | [S/N/B]: [0.5544/0.7525/0.1592] | LR: 0.00037358
+2026-03-27 10:53:55,630 - INFO - Trial 428 pruned by Optuna at epoch 5
+2026-03-27 10:53:55,761 - INFO - Trial 428 pruned.
+2026-03-27 10:53:56,446 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 10:54:45,412 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 10:54:45,414 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 10:57:57,411 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 10:57:57,413 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 10:57:57,499 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 10:58:10,552 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 10:58:10,553 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 10:59:07,598 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 10:59:07,599 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 10:59:08,228 - INFO - Trial 429 START | tcn=256, lstm=256, layers=2, batch=512, seq=144 | RFE=30 | loss=ASYM (g_s=2.28, g_n=1.69, g_b=0.92) | alpha=[1.09, 0.67, 1.13], smooth=0.31
+2026-03-27 11:00:08,494 - INFO - T429 E1/10 | [WARN] ZERO_PENALTY | L: 0.44039678/0.39567777 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8203/0.5631] | LR: 0.00143738
+2026-03-27 11:01:09,518 - INFO - T429 E2/10 | [WARN] ZERO_PENALTY | L: 0.42521286/0.39281793 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.8182/0.5622] | LR: 0.00133273
+2026-03-27 11:02:10,630 - INFO - T429 E3/10 | [OK] | L: 0.42174329/0.38863585 | F1 M MIN: 0.00021856 D: 0.28444047 | [S/N/B]: [0.0002/0.8317/0.5687] | LR: 0.00116975
+2026-03-27 11:03:12,022 - INFO - T429 E4/10 | [OK] | L: 0.41857963/0.38649485 | F1 M MIN: 0.35398819 D: 0.44333367 | [S/N/B]: [0.3540/0.8235/0.5327] | LR: 0.00096437
+2026-03-27 11:04:13,497 - INFO - T429 E5/10 | [OK] | L: 0.41550031/0.38534852 | F1 M MIN: 0.23825924 D: 0.40405519 | [S/N/B]: [0.2383/0.8279/0.5699] | LR: 0.00073672
+2026-03-27 11:05:15,026 - INFO - T429 E6/10 | [OK] | L: 0.41300166/0.38283529 | F1 M MIN: 0.37646405 D: 0.46210211 | [S/N/B]: [0.3765/0.8384/0.5477] | LR: 0.00050906
+2026-03-27 11:05:15,140 - INFO - Trial 429 pruned by Optuna at epoch 6
+2026-03-27 11:05:15,232 - INFO - Trial 429 pruned.
+2026-03-27 11:05:15,921 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 11:06:06,602 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 11:06:06,609 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...
+2026-03-27 11:10:00,695 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed and PRE-LOADED.
+2026-03-27 11:10:00,697 - INFO - ✅ RAM-Safe Streaming Dataset: 500,000 sequences indexed (Mode: Lightning).
+2026-03-27 11:10:00,829 - INFO - 🔍 RAM-Safe Streaming Scan (Val): 274 arquivos...
+2026-03-27 11:10:14,482 - INFO - ✂️ Double-Chunking (Val): Expondo fatias de 100,000 amostras aleatórias.
+2026-03-27 11:10:14,482 - INFO - 🚀 Pre-loading 100,000 samples into RAM (Lightning Mode)...
+2026-03-27 11:11:21,998 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed and PRE-LOADED.
+2026-03-27 11:11:21,999 - INFO - ✅ RAM-Safe Streaming Dataset: 100,000 sequences indexed (Mode: Lightning).
+2026-03-27 11:11:22,379 - INFO - Trial 430 START | tcn=512, lstm=128, layers=3, batch=2048, seq=256 | RFE=30 | loss=ASYM (g_s=1.59, g_n=1.11, g_b=2.08) | alpha=[0.95, 0.59, 1.49], smooth=0.33
+2026-03-27 11:14:15,230 - INFO - T430 E1/10 | [WARN] ZERO_PENALTY | L: 0.46964976/0.43387496 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.7020/0.5234] | LR: 0.00073418
+2026-03-27 11:17:10,053 - INFO - T430 E2/10 | [WARN] ZERO_PENALTY | L: 0.44059499/0.42453163 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.7678/0.5448] | LR: 0.00068073
+2026-03-27 11:20:04,679 - INFO - T430 E3/10 | [WARN] ZERO_PENALTY | L: 0.43444922/0.42474640 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.7146/0.5295] | LR: 0.00059748
+2026-03-27 11:22:59,676 - INFO - T430 E4/10 | [WARN] ZERO_PENALTY | L: 0.43083797/0.42113809 | F1 M MIN: 0.00000000 D: 0.00000000 | [S/N/B]: [0.0000/0.7433/0.5382] | LR: 0.00049258
+2026-03-27 11:22:59,748 - INFO - Trial 430 stopped early due to patience limit (4 epochs without improvement)
+2026-03-27 11:23:00,684 - INFO - Trial 430 finished with value: 0.0 and parameters: {'tcn_channels': 512, 'lstm_hidden': 128, 'num_lstm_layers': 3, 'batch_size': 2048, 'dropout': 0.3657550221444844, 'seq_len': 256, 'lr': 0.0007525926244656182, 'weight_decay': 0.0007759613065142884, 'base_alpha_sell': 0.9479951696247148, 'base_alpha_neutral': 0.5852119540488938, 'base_alpha_buy': 1.4893736073716182, 'base_loss_gamma': 0.9722563685048161, 'base_loss_smoothing': 0.33312351608495966, 'asym_gamma_sell': 1.5881745814808617, 'asym_gamma_neu': 1.1109115659765487, 'asym_gamma_buy': 2.083289928898731}. Best is trial 410 with value: 0.5052308142512254.
+2026-03-27 11:23:01,219 - INFO - 🔍 RAM-Safe Streaming Scan (Treino): 878 arquivos...
+2026-03-27 11:23:51,741 - INFO - ✂️ Double-Chunking (Treino): Expondo fatias de 500,000 amostras aleatórias.
+2026-03-27 11:23:51,743 - INFO - 🚀 Pre-loading 500,000 samples into RAM (Lightning Mode)...

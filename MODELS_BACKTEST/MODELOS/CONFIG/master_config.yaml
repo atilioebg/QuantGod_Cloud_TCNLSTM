@@ -1,0 +1,435 @@
+# =============================================================================
+# MASTER CONFIGURATION — Painel de Controle Único do QuantGod TCN+LSTM Pipeline
+# =============================================================================
+# Cada seção agrupa parâmetros por responsabilidade funcional.
+# Os comentários descrevem o efeito real de cada valor e seu impacto no pipeline.
+# =============================================================================
+
+pipeline_paths:
+
+  # ── [FONTES CLOUD TESTE] Caminhos via rclone drive:PROJETOS_TEST/ ──────────────
+  raw_l2_source:      "drive:PROJETOS/BTC_USDT_L2_2023_2026"
+  raw_trades_source:  "drive:PROJETOS/BTC_USDT_L2_TRADE_2023_2026"
+  drive_results_root: "drive:PROJETOS/RESULTADOS"            # Destino de todos os uploads. Sufixo de sessão calculado por get_drive_session_path().
+  session_timestamp:  "2026_03_21" #null                          # Definido dinamicamente se null.
+
+  # ── [DADOS LOCAIS] Diretório Raíz `data/L2/` ───────────────────────────
+  local_data_root:   "data/L2"          # Raíz de todos os estágios de dados. Subpastas derivadas daqui.
+  temp_raw_dir:      "temp_raw"          # Downloads temporários. Limpo automaticamente após ETL.
+  pre_processed_dir: "pre_processed"    # Saída do ETL. Parquets sem label (input do run_labelling.py).
+  labelled_dir:      "labelled"         # Saída do Labelling. Contém coluna 'target'. Input do split_dataset.py.
+  fused_dataset_dir:   "data/auditor/dataset_fused"  # Logits (Base+Spec) + Contexto fundidos. Input do train_xgboost.py.
+  auditor_context_dir: "data/auditor/context"        # Features de contexto brutas (RSI, ATR, VWAP, etc).
+  auditor_oof_dir:     "SPECIALIST"                  # Onde o run_kfold_specialist.py salva o full_oof.parquet.
+
+  # ── [MODELOS] Checkpoints PyTorch e Scalers ────────────────────────────
+  # Caminhos relativos à pasta da sessão (resolvidos por get_drive_session_path).
+  best_tcn_lstm_model:     "BASE_MODEL/best_tcn_lstm.pt"      # Vencedor em F1 Macro. Selecionado pelo run_manager se use_best_f1_dir=false.
+  best_tcn_lstm_dir_model: "BASE_MODEL/best_tcn_lstm_dir.pt"  # Vencedor em F1 Direcional (Buy+Sell). Preferído para o Especialista.
+  scaler_foundation:       "BASE_MODEL/scaler_foundation.pkl" # Scaler fitado no treino Foundation. Obrigatório para inferência.
+
+  # ── [MODELOS] Auditor XGBoost ───────────────────────────────────────
+  auditor_model:  "AUDITOR/auditor_xgboost.json"  # Modelo XGBoost (Juiz). Produz meta-label 0/1 (Veto/Aprovado).
+  scaler_auditor: "AUDITOR/scaler_auditor.pkl"    # Scaler das features de contexto do Auditor.
+
+  # ── [INFRA] Optuna e Logs ──────────────────────────────────────────
+  db_path:            "sqlite:///optuna_finetune.db" # Banco SQLite do Optuna. Persistêt entre runs (permite continuar um estudo).
+  local_logs_root:    "logs"         # Raíz de todos os logs. Subpastas por fase (QA/, kfold_specialist/, etc).
+  local_reports_root: "docs/reports" # Relatórios de qualidade de dados (data_quality_report.json).
+  
+naming_conventions:
+  # ── [LOGS E SUFIXOS] ──────────────────────────────────────────────
+  labelling_log_prefix: "labelling"
+  # Template dinâmico para o log do labelling. Variáveis: {pt}, {sl}, {h}, {s}
+  labelling_suffix_template: "PT_{pt:.1f}_SL_{sl:.1f}_H_{h}min_S_{s}"
+
+  # ── [CHECKPOINTS] ────────────────────────────────────────────────
+  best_params_file:      "best_params.json"
+  best_dir_params_file:  "best_dir_params.json"
+  auditor_config_file:   "auditor_config.json"
+  oof_parquet_file:      "full_oof.parquet"
+  fused_parquet_file:    "fused_auditor.parquet"
+  trading_journal_file:  "trading_journal.csv"
+
+
+pipeline_control:
+  # ── [CONTROLE] Flags Globais do run_manager.py ───────────────────────
+  # run_manager.py lê estas flags antes de cada fase.
+  force_full_retrain: true   # true → sempre re-executa cada fase. false → checa checkpoint (arquivo de saída) e pula se já existir.
+  skip_qa_on_failure: false  # false → se uma fase falhar, o pipeline aborta (sys.exit(1)). true → ignora falha e continua.
+  retention_policy: "keep_all"  # Política de logs. 'keep_all' = nunca sobrescreve logs antigos cegamente.
+  gpu_memory_management: true   # true → chama gc.collect() + torch.cuda.empty_cache() entre fases. Evita spike de VRAM ao carregar novo modelo.
+
+
+# ── [EXECUÇÃO] Paper Trading e Inferência em Tempo Real ──────────────────
+execution:
+  # ── [MODELOS] Caminho para Paper Trading ──────────────────────────────
+  # Caminho LOCAL e FIXO para a pasta MODELOS do paper trading.
+  # Relativo à raiz do projeto. Ao mudar de sessão, atualize APENAS este campo.
+  # Substitui a resolução dinâmica de get_drive_session_path() na inferência.
+  models_local_dir: "" # TODO: Add path to the models folder
+
+  # ── [AUDITOR] Threshold de Segurança ───────────────────────────────
+  # Define a confiança mínima que o Auditor deve ter para aprovar um sinal.
+  manual_security_threshold: 0.80   # Threshold fixo (0.0-1.0). Usado quando dynamic_security_threshold=false.
+  dynamic_security_threshold: true  # true → carrega o limiar ótimo calculado na curva F-Beta do auditor_config.json.
+
+
+pre_processing:
+  etl:
+    # ── [L2 ORDERBOOK] Configurações de Captura ────────────────────────────────
+    levels: 200                   # Profundidade do livro capturada. Bybit fornece até 500. Diminuir → menos RAM, perder liquidez profunda.
+    sampling_ms: 1000             # Frequência de snapshot do book em ms. 1000ms = 1 captura/segundo antes do resample.
+    flow_depth: 5                 # Top-N níveis usados para OFI, Slope e RDI. Valores acima de 10 capturam ruído, não sinal.
+
+    # ── [AMOSTRAGEM] Modo e Limiares de Eventos ───────────────────────────────
+    # Define qual estratégia monta as barras que a TCN-LSTM vai ver.
+    # Recomendado: 'both' — CUSUM define atividade direcional, Trigger garante IID.
+    #   'trigger' → Lógica atual (Dollar/Tick/OFI/Time). Padrão seguro para backtests rápidos.
+    #   'cusum'   → Somente Filtro CUSUM Simétrico de De Prado. Gera menos barras, mais limpas.
+    #   'both'    → CUSUM define janelas de interesse; Trigger constrói barras IID dentro delas.
+    sampling_mode: "both"
+
+    # ── [AMOSTRAGEM] Limiares dos Trigger Bars ────────────────────────────────
+    # Lidos em todos os modos ('trigger', 'both'). Cada limiar define um gatilho independente:
+    # uma nova barra é aberta quando QUALQUER UM deles é ultrapassado (União de eventos).
+    dollar_threshold_usd: 500000.0  # Dollar Bar: Aumentado para 500k para 2023 (evita explosão de barras).
+    tick_threshold: 5000            # Tick Bar: Aumentado para 5k trades.
+    information_threshold_ofi: 100.0 # Information Bar: Aumentado para 100 unidades.
+
+    # ── [AMOSTRAGEM] Parâmetros do Filtro CUSUM ──────────────────────────────
+    # Lidos quando sampling_mode != 'trigger'. Implementação: _cusum_loop() em event_sampler.py.
+    # O limiar h é calculado dinamicamente: h = cusum_h_factor * ewma_std(log_ret, span=cusum_vol_span)
+    # Projetado para ser Numba-ready (@njit): loop sequencial em NumPy puro, zero objetos Python.
+    adaptive_h: true      # [AFML Cap.3] true: h dinâmico por volatilidade EWMA | false: h estático (não recomendado).
+    cusum_h_factor: 2.2   # Ajustado para 2.2 (mais seletivo para 2023).
+    cusum_vol_span: &vol_span 144 # Janela de 1 dia em escala de 10min (estável para BTC).
+
+    # ── [ISLAND SPLIT] Gestão de Continuidade Temporal ───────────────────────
+    # Gap temporal acima deste valor → novo island_id (impede que a barra engula horas de silêncio).
+    island_gap_minutes: 5.0        # [min] Limiar de Hard Reset de ilha. Menor → ilhas mais curtas, mais robustas.
+    gap_fragment_threshold_min: 30 # [min] Gap que aciona interpolação antes do Hard Reset. Menor = mais cicatrizes.
+    healing:
+      max_gap_minutes: 5           # [min] Gaps <= 5min são curados por interpolação linear. Acima → mantidos sem cura.
+
+    # ── [RESAMPLE] Base para Feature Engineering ──────────────────────────────
+    # Define a frequência das barras APÓS a amostragem event-driven.
+    # IMPACTO: alterar é seguro — todas as janelas abaixo são em MINUTOS REAIS e convertidas automaticamente.
+    resample_freq: "5min"          # '1min' (~288 barras/dia) ou '5min' (~1440 barras/dia no modo time-bar).
+
+    # ── [FEATURES DERIVADAS] Janelas em Minutos Reais ─────────────────────────
+    # O ETL calcula: n_barras = janela_min / resample_freq_min. Alterar resample_freq não quebra o significado econômico.
+    spread_zscore_window_min: 60  # [min] Z-Score do spread: stress de liquidez e squeeze de mercado.
+    vpin_window_min: &horizon 15     # [min] Toxicidade: JANELA ANCORA.
+    delta_short_min: 5            # [min] Lookback curto: choques e gatilhos de microestrutura.
+    delta_long_min: 30            # [min] Lookback longo: drift de preço e contexto de momentum.
+
+    # ── [PROFUNDIDADE DO LIVRO] Métricas de Estrutura ─────────────────────────
+    book_asymmetry_depth: 5       # Número de níveis para Book Asymmetry V5: log(Σbids_N / Σasks_N).
+    deep_book_start: 50           # Nível de início da janela 'profunda' para Deep-to-Front Ratio.
+    convexity_near_end: 10        # Limite superior dos níveis 'perto' para Book Convexity (L1–L10 vs L11–L20).
+    convexity_far_end: 20         # Limite superior dos níveis 'longe' para Book Convexity.
+
+    # ── [CLIPPING] Proteção de Gradiente contra Outliers ──────────────────────
+    # Winsorização suave aplicada APÓS o feature engineering, ANTES de salvar o Parquet.
+    clipping:
+      enabled: true                        # Ativa Soft-Clipping. Desativar pode explodir gradientes em news spikes.
+      p99_multiplier: 15                   # Aumentado para 15x para ser menos agressivo na poda de volatilidade real.
+      noise_floor: 0.0000001               # P99 abaixo deste piso → usa fallback de 100x mediana (evita poda de features de escala micro).
+      target_columns:                      # Colunas afetadas. Não incluir OHLC ou features normalizadas.
+        - kyle_lambda
+        - vpin_min15
+        - max_spread
+        - pressure_ratio
+        - bid_convexity
+        - ask_convexity
+        - ofi
+        - ofi_delta_5
+        - ofi_delta_30
+        - bid_deep_ratio
+        - ask_deep_ratio
+        - bid_convexity
+        - ask_convexity
+        - book_asymmetry_v5
+        - pressure_ratio
+
+    # ── [AUDITORIA] Relatório de Qualidade do ETL ─────────────────────────────
+    audit:
+      generate_report: true        # Gera docs/reports/data_quality_report.json com métricas de clipping, ilhas e gaps.
+
+    # ── [SCALE GUARD] Resiliência Multi-Ano (2023-2026) ───────────────────────
+    # Arquivos de 2024/2025 são muito mais densos (>700MB) que os de 2023.
+    # O redutor (multiplier) é aplicado sobre o max_workers definido abaixo.
+    start_year: 2026           # Ano inicial para processamento.
+    end_year: 2026             # Ano final para processamento.
+    export_compression: "snappy" # Algoritmo de compressão dos parquets.
+    
+    # CPU usada no ETL AMD EPYC 9654 96-Core Processor
+    # 32 vCPUs - 256 GB RAM
+    scale_guard:
+      enabled: true
+      thresholds:              # Fator de escala por ano (1.0 = 100% de max_workers)
+        2023: 0.5              # 32 -> 16 workers
+        2024: 0.25             # 32 -> 8 workers
+        2025: 0.1875           # 32 -> 6 workers
+        2026: 0.0625           # 32 -> 2 workers
+
+    use_dynamic_workers: false 
+    max_workers: 32            # Base de workers para o cálculo do redutor.
+  labelling:
+    # ── [TRIPLE BARRIER] Parâmetros do Motor Prado-IID ─────────────────────
+    # run_labelling.py usa estes parâmetros para construir as 3 barreiras.
+    # A barreira ativa é: TP = close + (vol_ewma * pt_multiplier) | SL = close - (vol_ewma * sl_multiplier)
+    # O label é determinado por QUAL barreira o preço toca primeiro.
+    horizon_minutes: *horizon # [min] Barreira Vertical (Sincronizado).
+    use_first_touch: true # [AFML Cap.3] true: resolve ambiguidade TP/SL pelo tempo | false: desativa lógica AFML.
+    
+    # ── [ESTRATÉGIA DE ALVO EM BPS] ────────────────────────────────────
+    # Se pt_multiplier/sl_multiplier forem null, o código calcula via: multiplier = target_bps / current_vol.
+    target_bps_tp: 20     # Alvo de Lucro (Lucro Esperado: 0.20%)
+    target_bps_sl: 10     # Alvo de Stop (Stop Loss: 0.10%)
+    
+    pt_multiplier: 0.65   # Calculado p/ BTC (0.2% / 0.3% vol). Se null, usa target_bps_tp.
+    sl_multiplier: 0.33   # Calculado p/ BTC (0.1% / 0.3% vol). Se null, usa target_bps_sl.
+    vol_span: *vol_span   # Sincronizado dinamicamente com cusum_vol_span.
+
+    # ── [WORKERS] Paralelismo do Labelling ────────────────────────────
+    use_dynamic_workers: false 
+    max_workers: 16             
+    split:
+      # ── [CONTROLE AFML] ──────────────────────────────────────────────
+      split_by_bars: true   # [AFML Cap.7] true: split exato por n_observações | false: split por n_arquivos (antigo).
+      
+      # ── [SPLIT CRONOLÓGICO] Proteção contra Look-Ahead Bias ──────────────
+      # O split é SEMPRE feito em ordem cronológica (sem shuffle).
+      base:
+        train_ratio: 0.80  # Ajustado para 0.55 no teste local (para termos val_files com 2 fragmentos)
+        val_ratio: 0.20    # 45% mais recentes
+      auditor:
+        train_ratio: 0.80  # 80% dos OOF logits para treino do Auditor XGBoost.
+        val_ratio: 0.20    # 20% para threshold calibration do Auditor.
+      embargo_minutes: 15  # [AFML Cap.7] Janela de silêncio após o purge gap: remove do início do val.
+
+  kfold:
+    # ── [K-FOLD OOF] Especialista Sem Vazamento ────────────────────────
+    # enabled=true é OBRIGATÓRIO para o Auditor: gera sinais Out-of-Fold sem vazamento temporal.
+    # enabled=false usa run_specialization.py legado (Holdout simples 80/20).
+    enabled: true          # Liga K-Fold Blocked no Especialista (run_kfold_specialist.py).
+    n_splits: 5            # Número de folds. Cada fold cobre ~20% dos dados de val da Foundation.
+    purge_minutes: 0       # 0 → usa horizon_minutes automaticamente como purge. Garante gap entre train e test.
+    specialist_epochs: 30 # Épocas por fold para refinamento balanceado (evita overfit do fold).
+    use_best_foundation_arch: true  # true → reutiliza best_params.json (sem re-otimizar Optuna por fold). Economiza GPU.
+    oof_output_dir: "SPECIALIST"    # Pasta onde full_oof.parquet é salvo. Lida por auditor_labelling.py.
+
+  # ── [TRAINING OPTIMIZATION] Alta Performance & Big Data ───────────────────
+  training_optimization:
+    use_amp: true                # Ativa FP16 (RTX Tensor Cores). Reduz VRAM e acelera treino.
+    
+    # Gradient Accumulation (Batches virtuais gigantes com VRAM pequena)
+    use_gradient_accumulation: true
+    accumulation_steps: 4        # Multiplica o batch_size efetivo. Ex: 512 * 4 = 2048.
+    
+    # Epoch-Chunking (Varredura Global Rápida no Optuna)
+    use_epoch_chunking: true
+    samples_per_epoch: 500000     # [PRODUÇÃO] Satura até 6GB VRAM por epoch na RTX A4500.
+    samples_per_val_epoch: 100000 # Escala massiva para validação profunda no fluxo Optuna.
+
+    # ── [LIGHTNING MODE] Pré-Carregamento em RAM (Solução de Gargalo de I/O) ────
+    # Diferença: O modo Lazy lê do NVMe toda vez que a GPU pede um tensor. Lento e trava a VRAM em 0%.
+    # O Lightning Mode embute tudo na RAM do servidor de uma vez, permitindo batches ultra-velocidade.
+    # Calcule sua RAM: 1.500.000 amostras com 96 seq_len pesam cerca de ~16GB de RAM na CPU.
+    lightning_mode_max_samples: 1500000
+    
+    # Non-Event Subsampling (Equilíbrio de Classes)
+    use_class_subsampling: true
+    subsample_class_target: 1    # Classe Neutra (Protocolo Prado).
+    subsample_keep_ratio: 0.5    # 50% * 50% = ~25% (Equilíbrio perfeito 1/3 para Buy/Sell/Neu)
+
+model:
+  # ── [TCN-LSTM] Configuração do Modelo Base ──────────────────────────
+  # ATENÇÃO: num_features DEVE bater com o len(feature_names) abaixo.
+  # Se adicionar ou remover features, atualize os dois campos.
+  num_features: 30  # Dimensão do vetor de entrada. 9 Aggregated + 21 Dynamic (Sniper).
+  num_classes: 3    # Saída do modelo: 3 classes → SELL(0), NEUTRAL(1), BUY(2).
+
+  # ── [AUDITOR XGBOOST] Configuração do Juiz ─────────────────────────
+  # O Auditor é um meta-modelo que decide se a predição da TCN-LSTM é confiável.
+  # Recebe: logits do Base + logits do Specialist + 14 alpha sensors de contexto.
+  auditor:
+    num_features: 20           # 6 logits (Base+Spec) + 14 alpha sensors. Deve bater com auditor_features abaixo.
+    num_classes: 2             # Binario: 0=Veto (sinal falão), 1=Aprovado (sinal confiável).
+    use_dynamic_threshold: true   # true → busca limiar F-Beta(0.5) na curva PR do val set. false → usa manual_threshold.
+    manual_threshold: 0.68        # Fallback: confiança mínima do Auditor pra aprovar. 0.68 = modo Balanced Sniper.
+    params:                    # Hiperparâmetros base do XGBoost (sobrescritos pelo HPO se auditor.enabled=true).
+      n_estimators: 500        # Rounds de boosting. O HPO vai explorar [100, 500, 1000].
+      max_depth: 6             # Profundidade máxima das árvores. Sweet spot: 4-6.
+      learning_rate: 0.05      # Shrinkage. Baixo = mais árvores necessárias, mais robusto.
+      subsample: 0.8           # 80% das observações por árvore (anti-overfit).
+      colsample_bytree: 0.8    # 80% das features por árvore.
+      reg_alpha: 0.1           # L1 Regularização (Lasso). Esparse features irrelevantes.
+      reg_lambda: 1.0          # L2 Regularização (Ridge). Penaliza pesos grandes.
+
+  # ── [FEATURES] Nomes das Colunas de Entrada (TCN-LSTM Base) ────────────
+  # Ordem e nomes DEVEM ser idênticos ao output do apply_zscore() em transform.py.
+  # Sufixos numericãos refletem MINUTOS REAIS (delta_short_min=5, delta_long_min=30).
+  feature_names:
+    # --- Aggregated Features (9) ---
+    - body                                                        # Corpo da vela: log(close/open)
+    - upper_wick                                                  # Sombra superior normalizada
+    - lower_wick                                                  # Sombra inferior normalizada
+    - log_ret_close                                               # Retorno logarítmico: log(close/prev_close)
+    - volatility                                                  # Volatilidade intra-minuto
+    - max_spread                                                  # Spread máximo
+    - mean_obi                                                    # Order Book Imbalance (Top 1)
+    - mean_deep_obi                                               # Order Book Imbalance Profundo (L5)
+    - log_volume                                                  # Proxy de Volume (log messages)
+    
+    # --- Dynamic/Sniper Features (21) — nomes em MINUTOS REAIS ---
+    - ofi                                                         # Order Flow Imbalance (L0)
+    - ofi_delta_5                                                 # Gatilho de Fluxo: delta_short_min=5min (ETL v4.3)
+    - ofi_delta_30                                                # Aceleração de Fluxo: delta_long_min=30min (ETL v4.3)
+    - micro_price_momentum                                        # Momentum Acumulado Micro-Price
+    - micro_price_delta_5                                         # Gatilho de Preço Real: delta_short_min=5min
+    - micro_price_delta_30                                        # Drift de Preço Real: delta_long_min=30min
+    - bid_rdi                                                     # Relative Depth Imbalance (Bid)
+    - bid_rdi_delta_5                                             # Choque de Profundidade Bid: 5min
+    - bid_rdi_delta_30                                            # Contexto de Profundidade Bid: 30min
+    - ask_rdi                                                     # Relative Depth Imbalance (Ask)
+    - ask_rdi_delta_5                                             # Choque de Profundidade Ask: 5min
+    - ask_rdi_delta_30                                            # Contexto de Profundidade Ask: 30min
+    - spread_zscore_60                                            # Spread Relativo: spread_zscore_window_min=60min
+    - vpin_min15                                                  # Toxicidade de Volume: vpin_window_min (Sincronizado)
+    - kyle_lambda                                                 # Kyle's Lambda (Price resistance to flow)
+    - bid_deep_ratio                                              # Liquidez Profunda Bid
+    - ask_deep_ratio                                              # Liquidez Profunda Ask
+    - bid_convexity                                               # Convexidade do Livro Bid
+    - ask_convexity                                               # Convexidade do Livro Ask
+    - book_asymmetry_v5                                           # Assimetria Logarítmica de Profundidade
+    - pressure_ratio                                              # Aceleração de Desequilíbrio (OBI Velocity)
+  auditor_features:
+    - base_prob_sell                                              # Logits convertidos Base Model (Sell)
+    - base_prob_neu                                               # Logits convertidos Base Model (Neutral)
+    - base_prob_buy                                               # Logits convertidos Base Model (Buy)
+    - spec_prob_sell                                              # Logits convertidos Specialist Model (Sell)
+    - spec_prob_neu                                               # Logits convertidos Specialist Model (Neutral)
+    - spec_prob_buy                                               # Logits convertidos Specialist Model (Buy)
+    - ema_trend                                                   # Sinal de Regressão da EMA Cross (8, 21)
+    - ema_cross_dist                                              # Distância percentual do preço em relação ao cruzamento
+    - bb_pct                                                      # Bollinger Bands Width Percentage
+    - rsi_14                                                      # Relative Strength Index (Período 14)
+    - stoch_14                                                    # Oscilador Estocástico (Período 14)
+    - atr_norm                                                    # Average True Range (Normalized)
+    - vol_1h                                                      # Sumatório do Volume na última hora
+    - vol_zscore_1h                                               # Z-Score Direcional do volume de 1h
+    - delta_vol_24h                                               # Deriva/Percentual da Aceleração do volume em 24h
+    - adx_14                                                      # Average Directional Index (Tendência Forte/Fraca)
+    - vwap_zscore                                                 # Distância percentual Z-Scoreizada do Preço em relação à VWAP
+    - mfi_14                                                      # Money Flow Index (Absorção e Divergência de Volume)
+    - book_skew_bid                                               # Assimetria (Skewness) do Order Book nas ordens de Compra
+    - book_skew_ask                                               # Assimetria (Skewness) do Order Book nas ordens de Venda
+
+training:
+  # ── [FOUNDATION WEIGHTS] Matriz de Decisão de Pesos da FocalLoss ────────────
+  # Combinando as 4 flags abaixo, o pipeline decide como calcular os class_weights.
+  # Ordem de precedência: optimize > auto > manual.
+  # [TRUE  + TRUE ] = Optuna busca os pesos ótimos (ignora scikit-learn e manual).
+  # [FALSE + TRUE ] = Idêntico ao [TRUE+TRUE]: Optuna é ativado quando optimize=true.
+  # [TRUE  + FALSE] = Scikit-learn calcula baseado na distribuição real de classes.
+  # [FALSE + FALSE] = Hardcoded: usa exatamente base_class_weights abaixo.
+  foundation_weights:
+    # ── [CLASS WEIGHTS] Balanceação das Classes ──────────────────────
+    base_use_auto_class_weights: true    # [AUTO-ALPHA] sklearn 'balanced': calcula 1/freq por classe. Aumenta SELL/BUY.
+    base_optimize_class_weights: true    # [HPO-ALPHA] Optuna explora pesos no espaço de busca. Precedência sobre auto.
+    base_use_dynamic_range_optuna: true  # [ANCHOR-RANGE] Espaço de busca ancorado na freq real. Evita pesos absurdos.
+    base_class_weights: [1.32, 0.40, 1.30]  # [FALLBACK] Pesos manuais [SELL, NEU, BUY]. Só usado se auto=false e optimize=false.
+
+    # ── [FOCAL LOSS] Gamma e Smoothing ─────────────────────────────
+    base_optimize_gamma: true   # [HPO-GAMMA] Optuna busca gamma ideal. Gamma alto foca em erros persistentes.
+    base_gamma: 2.0             # [FOCUS] Gamma base da Focal Loss. 1.0 ≈ CE, 5.0 = foco extremo.
+    base_optimize_smoothing: true # [HPO-SMOOTH] Optuna busca taxa de suavização de labels.
+    base_smoothing: 0.1           # [REGULARIZE] 10% da probabilidade distribuida entre as outras classes (anti-overconfidence).
+
+    # ── [SNIPER LOSS] Punição por Inversão de Sinal ───────────────────
+    base_use_sniper_loss: true   # [DIRECTIONAL-GUARD] Punição extra se prever BUY quando era SELL (inversão grave).
+    base_sniper_weight: 3.0      # [PENALTY-SCALE] Multiplicador. 3.0 = inversão custa 3x mais que erro neutro.
+    base_use_min_f1_optimization: true  # [RANKING] Optuna maximiza o PIOR F1 entre as 3 classes. Impede negligênciar minorias.
+  specialization_weights:
+    # ── [WORKFLOW] Controle de Fases (lidas pelo run_manager.py) ───────────
+    run_specialized_after: true   # true → roda Especialista (K-Fold OOF) após Foundation.
+    run_auditor_after: true       # true → roda Auditor XGBoost após Especialista gerar OOF.
+    use_best_f1_dir: true         # true → Specialist usa Foundation vencedor em F1 Direcional; false → usa F1 Macro.
+
+    # ── [SNIPER WEIGHTS] Pesos do Especialista (mesma matriz da Foundation) ────
+    # O K-Fold Especialista herda os pesos genéticos do Foundation via best_params.json.
+
+optimization:
+  # ── [OPTUNA] Configuração do Estudo HPO ───────────────────────────────────
+  # O estudo persiste no SQLite (db_path). Interromper e retomar é seguro.
+  study_name: "QUANTGOD_RECON_V009" # Nome para rodada real e profunda
+  n_trials: 400                     # [PRODUÇÃO] 400 Trials maciços.
+  timeout: 172800                 # Teto de 48h.
+
+  # ── [SAMPLER] Algoritmo de Busca ───────────────────────────────────────────
+  sampler:
+    sampler_type: "tpe"
+    n_startup_trials: 100        # Ativa TPE imediatamente após o trial 1.
+    multivariate: true
+
+  # ── [PRUNER] Corte Antecipado de Trials Ruins ─────────────────────────────
+  pruner:
+    pruner_type: "median"        # Median é mais estável para o teste rápido.
+    n_startup_trials: 1
+    n_warmup_steps: 0
+
+  # ── [FEATURE SELECTION] RFE via Optuna ────────────────────────────────────
+  use_rfe: true  # true → Optuna escolhe quais features usar (RFE). false → usa todas as feature_names.
+
+  # ── [MÉTRICAS] Função Objetivo ────────────────────────────────────────────
+  loss_type: "asymmetric"          # 'focal' = foca em erros difíceis. 'asymmetric' = pesa sinais falsos (melhor p/ trading).
+  base_metric: "f1_macro"          # Foundation: maximiza F1 Macro global (equidade entre as 3 classes).
+  specialized_metric: "sniper_score"  # Especialista: métrica híbrida = dir*0.7 + macro*0.3.
+  sniper_weights:
+    dir: 0.7    # Peso da métrica Direcional (F1 de BUY+SELL). Dominante: modelo prioriza acertar lado.
+    macro: 0.3  # Peso da métrica Macro. Termostato anti-overfitting (impede buy-only).
+  run_feature_importance_after: true  # Gera e salva importância das features ao fim da Foundation.
+
+  # ── [AUDITOR HPO] Busca Hiperparâmetros do Juiz XGBoost ──────────────────
+  auditor:
+    enabled: true    # true → HPO do Auditor via Optuna antes do treino final (70 trials, ~15min).
+    n_trials: 100     # [PRODUÇÃO] 100 trials para otimizar o Juiz Auditor.
+    search_space:
+      max_depth: [3, 6]      # Profundidade das árvores (Sweet spot AFML: 4-6).
+      learning_rate: [0.01, 0.1]          # Shrinkage. Float range [min, max].
+      n_estimators: [100, 1000]      # Rounds de boosting para busca exaustiva.
+      subsample: [0.6, 1.0]              # Fração de amostras por árvore (anti-overfit).
+      colsample_bytree: [0.6, 1.0]       # Fração de features por árvore.
+      reg_alpha: [0.0, 1.0]              # L1 Regularização (Lasso). Esparsa features inúteis.
+      reg_lambda: [1.0, 5.0]             # L2 Regularização (Ridge). Penaliza pesos grandes.
+
+  # ── [DYNAMIC RANGE] Espaço de Busca Ancorado ─────────────────────────────
+  dynamic_range_config:
+    range_multiplier: 0.5   # Limites = [centro * 0.5, centro * 1.5]. Evita busca em regiões absurdas.
+    min_floor_alpha: 0.05   # Piso mínimo para alpha (evita busca em alpha <= 0, que é inválido).
+
+  # ── [SEARCH SPACE] Hiperparâmetros da TCN-LSTM ────────────────────────────
+  search_space:
+    tcn_channels:    [64, 128, 256, 512]     # Extremo paralelismo 1D na A4500 (20GB). Categórico.
+    lstm_hidden:     [32, 64, 128, 256]      # Massiva memória direcional (tendências longas). Categórico.
+    num_lstm_layers: [2, 5]                  # Profundidade sniper colossal. (Intervalo Int: 2 a 5).
+    lr:              [0.00005, 0.002]        # LR mais refinada para estabilização de arquiteturas gigantes.
+    weight_decay:    [0.0001, 0.015]         # Regularização L2 robusta.
+    batch_size:      [512, 1024, 2048]       # Despejo brutal na VRAM. Categórico.
+    seq_len:         [96, 144, 192, 256]     # Visão oceânica do Order Book. Categórico.
+    dropout:         [0.2, 0.55]             # Estabilidade contra a memorização.
+    asym_gamma_sell: [0.5, 5.0]
+    asym_gamma_neu:  [0.1, 2.0]
+    asym_gamma_buy:  [0.5, 5.0]
+
+    epochs: 10                    # [PRODUÇÃO] Treino base profundo para garantir convergência na busca.
+    early_stopping_patience: 4    # Paciência rígida, mata genéticas lixo rápido.
+
+    # ── [FOCAL LOSS SEARCH] Foundation (Base Model) ─────────────────────────
+    base_loss_gamma:     [0.5, 5.0]    # Gamma. <1.0 ≈ CrossEntropy. 5.0 = foco extremo em erros difíceis.
+    base_loss_smoothing: [0.001, 0.35] # Label Smoothing. >0.5 faz o modelo esquecer o alvo.
+    base_alpha_side:     [1.0, 20.0]   # Peso para Buy/Sell. Até 20x mais que neutro.
+    base_alpha_neutral:  [0.001, 1.0]  # Peso do Neutro. Sempre <= 1.0 para ser esmagado pelos sinais.
