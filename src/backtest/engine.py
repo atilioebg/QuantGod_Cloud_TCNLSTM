@@ -152,12 +152,17 @@ class BacktestEngine:
 
 def run_full_backtest():
     import yaml
-    config_path = PROJECT_ROOT / "src/backtest/backtest_config.yaml"
+    PROJECT_ROOT = Path(__file__).parent.parent.parent
+    # Detect environment: Cloud (/workspace) vs Local
+    CLOUD_CONFIG = PROJECT_ROOT / "src" / "backtest" / "backtest_config_cloud.yaml"
+    LOCAL_CONFIG = PROJECT_ROOT / "src" / "backtest" / "backtest_config.yaml"
+
+    CONFIG_PATH = CLOUD_CONFIG if CLOUD_CONFIG.exists() and "/workspace" in str(PROJECT_ROOT) else LOCAL_CONFIG
     master_config_path = PROJECT_ROOT / "src/cloud/base_model/configs/master_config.yaml"
     
     with open(master_config_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
-    with open(config_path, 'r', encoding='utf-8') as f:
+    with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
         bt_config = yaml.safe_load(f)
     config['pipeline_paths'].update(bt_config['pipeline_paths'])
     
