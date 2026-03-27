@@ -5,8 +5,8 @@
 pipeline_paths:
   # Caminhos relativos ao PROJECT_ROOT (/workspace/QuantGod_Cloud_TCNLSTM)
   local_data_root: "data/backtest/L2"
-  raw_zip_dir: "PROJETOS/BACKTEST/BTC_USDT_L2_2023_2026/btcusdt_L2_2026"
-  raw_trades_dir: "PROJETOS/BACKTEST/BTC_USDT_L2_TRADE_2023_2026/btcusdt_L2_trade_2026"
+  raw_zip_dir: "/workspace/PROJETOS/BACKTEST/BTC_USDT_L2_2023_2026/btcusdt_L2_2026"
+  raw_trades_dir: "/workspace/PROJETOS/BACKTEST/BTC_USDT_L2_TRADE_2023_2026/btcusdt_L2_trade_2026"
   pre_processed_dir: "data/backtest/L2/pre_processed"
   labelled_dir: "data/backtest/L2/labelled"
   
