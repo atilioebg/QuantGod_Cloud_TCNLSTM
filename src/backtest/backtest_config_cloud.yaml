@@ -25,8 +25,8 @@ pipeline_paths:
 execution:
   # Obriga o InferenceService a usar nossa pasta baixada
   models_local_dir: "MODELS_BACKTEST/MODELOS"
-  dynamic_security_threshold: true
-  manual_security_threshold: 0.80
+  dynamic_security_threshold: false
+  manual_security_threshold: 0.975
 
 # Simulation Config
 simulation:

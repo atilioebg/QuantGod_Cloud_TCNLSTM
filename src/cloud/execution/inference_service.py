@@ -69,8 +69,10 @@ class InferenceService:
     def _load_auditor_threshold(self) -> float:
         """Determines the threshold based on config (dynamic vs manual)."""
         exec_cfg = self.config.get('execution', {})
-        # Pull from model.auditor.manual_threshold (0.68)
-        manual_val = self.config.get('model', {}).get('auditor', {}).get('manual_threshold', 0.68)
+        # Pull from manual_security_threshold (backtest) or model.auditor.manual_threshold (0.68)
+        manual_val = exec_cfg.get('manual_security_threshold')
+        if manual_val is None:
+            manual_val = self.config.get('model', {}).get('auditor', {}).get('manual_threshold', 0.68)
         
         if exec_cfg.get('dynamic_security_threshold', True):
             # Try to find auditor_config.json in the same folder as the model
