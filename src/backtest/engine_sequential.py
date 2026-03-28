@@ -14,11 +14,30 @@ logger = logging.getLogger(__name__)
 
 class SequentialBacktestEngine:
     def __init__(self, config_path: str):
-        with open(config_path, 'r') as f:
+        # Merge master_config with the provided backtest config
+        project_root = Path(__file__).parents[2]
+        master_path = project_root / "src" / "cloud" / "base_model" / "configs" / "master_config.yaml"
+        
+        with open(master_path, 'r') as f:
             self.config = yaml.safe_load(f)
             
+        with open(config_path, 'r') as f:
+            backtest_cfg = yaml.safe_load(f)
+            
+        # Recursive merge of backtest_cfg into self.config
+        self._merge_configs(self.config, backtest_cfg)
+            
         self.inference = InferenceService(self.config)
-        self.project_root = Path(self.config.get('project_root', '.'))
+        self._project_root = Path(self.config.get('project_root', '.'))
+        if not self._project_root.is_absolute():
+            self._project_root = (project_root / self._project_root).resolve()
+
+    def _merge_configs(self, base, overlay):
+        for k, v in overlay.items():
+            if k in base and isinstance(base[k], dict) and isinstance(v, dict):
+                self._merge_configs(base[k], v)
+            else:
+                base[k] = v
         
         # Simulation Parameters
         sim_cfg = self.config.get('simulation', {})
