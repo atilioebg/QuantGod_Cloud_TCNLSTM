@@ -7,6 +7,7 @@ import json
 import gc
 from pathlib import Path
 from tqdm import tqdm
+from src.cloud.base_model.utils.path_utils import get_labelled_dir
 from src.cloud.execution.inference_service import InferenceService
 
 # Configuração de Logs
@@ -48,8 +49,9 @@ class SequentialBacktestEngineV2:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def run_sequential_backtest(self):
-        data_dir = Path(self.config['pipeline_paths']['labelled_dir'])
-        parquet_files = sorted(list(data_dir.glob("*.parquet")))
+        data_dir = Path(get_labelled_dir(self.config))
+        # Busca recursiva para encontrar parquets em subpastas (val/train)
+        parquet_files = sorted(list(data_dir.rglob("*.parquet")))
 
         # [VERIFICAÇÃO V2.4] Apenas o dia 21 para validação da escala Twin
         parquet_files = [f for f in parquet_files if "2026-03-21" in f.name]
