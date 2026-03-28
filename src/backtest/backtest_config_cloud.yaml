@@ -8,16 +8,29 @@ model:
     manual_threshold: 0.5
 
 
+# ── [DNA DO MODELO] Configuração de Paridade com Treino ──────────────
+pre_processing:
+  etl:
+    dollar_threshold_usd: 500000.0
+    tick_threshold: 5000
+    information_threshold_ofi: 100.0
+    cusum_vol_span: 144
+    cusum_h_factor: 2.2
+  labelling:
+    pt_multiplier: 0.65
+    sl_multiplier: 0.33
+    horizon_minutes: 15
+
 # Paths Config
 pipeline_paths:
-  # Caminhos Absolutos BASEADOS no find realizado na nuvem
   local_data_root: "data/backtest/L2"
   raw_zip_dir: "data/backtest/L2/raw_zip"
   raw_trades_dir: "data/backtest/L2/raw_trades"
   pre_processed_dir: "data/backtest/L2/pre_processed"
   labelled_dir: "data/backtest/L2/labelled"
+  session_timestamp: "2026_03_21"
   
-  # Model Assets (Apontando para a 'Fonte da Verdade' do find)
+  # Model Assets (Champion 2026_03_21)
   best_tcn_lstm_model: "BASE_MODEL/best_tcn_lstm.pt"
   auditor_model:       "AUDITOR/auditor_xgboost.json"
   scaler_foundation:   "BASE_MODEL/scaler_foundation.pkl"
@@ -29,8 +42,9 @@ pipeline_paths:
 
 # ── [EXECUÇÃO] Configuração do Motor de Inferência ──────────────────
 execution:
-  # Caminho literal da sua pasta de resultados para evitar erros de subpastas aninhadas
-  models_local_dir: "/workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS"
+  # Usar o formato virtual nativo do projeto. O InferenceService resolverá isso localmente.
+  # O sufixo da pasta Resultados será calculado automaticamente via pre_processing.
+  models_local_dir: "drive:PROJETOS/RESULTADOS"
   dynamic_security_threshold: false
   manual_security_threshold: 0.50
 

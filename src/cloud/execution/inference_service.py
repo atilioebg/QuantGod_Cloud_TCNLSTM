@@ -53,21 +53,30 @@ class InferenceService:
         logger.info(f"🛡️ Active Auditor Threshold: {self.threshold:.4f}")
 
     def _get_models_dir(self) -> Path:
-        """Helper to resolve the models directory from config or fallback to project root."""
+        """Dynamically resolve models directory using project's native path_utils logic."""
+        from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_project
+        
         explicit = self.config.get('execution', {}).get('models_local_dir')
         
-        if explicit:
-            p = Path(explicit)
-            # Se o caminho for relativo, ancora no project_root
-            if not p.is_absolute():
-                p = self._project_root / p
-            
+        if explicit and "drive:" in str(explicit):
+            # Usar a lógica nativa para converter caminho virtual em local da nuvem
+            base_dir = get_drive_session_path("MODELOS", self.config)
+            p = resolve_local_project(base_dir, self._project_root)
             if p.exists():
+                logger.info(f"📁 [V3.0 Native] Resolved models directory: {p}")
                 return p.resolve()
             else:
-                logger.warning(f"⚠️ Configured models_local_dir does not exist: {p}")
+                logger.warning(f"⚠️ Native path resolution failed to find directory: {p}")
         
-        return self._project_root # Global fallback
+        # Fallback para caminho literal ou raiz do projeto
+        if explicit:
+            p = Path(explicit)
+            if not p.is_absolute():
+                p = self._project_root / p
+            if p.exists():
+                return p.resolve()
+        
+        return self._project_root
         # Fallback: dynamic resolution
         from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_project
         base_dir = get_drive_session_path("MODELOS", self.config)
@@ -103,9 +112,20 @@ class InferenceService:
         return float(manual_val)
 
     def _load_best_params(self) -> Dict[str, Any]:
-        """Loads the best hyperparameters found by Optuna."""
+        """Loads the best hyperparameters using native project logic or fallbacks."""
+        from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_project
+        
         paths = []
-        # 1. Explicit models_local_dir from config (most reliable)
+        # 1. Native Dynamic Resolution (Priority V3.0)
+        try:
+            base_dir = get_drive_session_path("MODELOS", self.config)
+            p_base = resolve_local_project(base_dir, self._project_root)
+            p_json = p_base / "CONFIG" / "best_params.json"
+            paths.append(p_json)
+        except Exception:
+            pass
+            
+        # 2. Explicit models_local_dir from config
         explicit = self.config.get('execution', {}).get('models_local_dir')
         if explicit:
             p_base = Path(explicit)
@@ -113,16 +133,7 @@ class InferenceService:
                 p_base = self._project_root / p_base
             p_json = p_base / "CONFIG" / "best_params.json"
             paths.append(p_json.resolve())
-        else:
-            model_path_cfg = self.config.get('pipeline_paths', {}).get('best_tcn_lstm_model')
-            if model_path_cfg:
-                from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_project
-                base_dir = get_drive_session_path("MODELOS", self.config)
-                base_path = resolve_local_project(base_dir, self._project_root)
-                p_model = base_path / model_path_cfg
-                p_json = p_model.parent.parent / "CONFIG" / "best_params.json"
-                paths.append(p_json)
-        
+            
         # 3. Final Fallback: production default path
         paths.append(self._project_root / "src/cloud/base_model/otimizacao/best_params.json")
         

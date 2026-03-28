@@ -23,28 +23,9 @@ class SequentialBacktestEngineV2:
         
         self.simulation_cfg = backtest_cfg['simulation']
         
-        # 3. Forçar Sincronia de Segurança (Threshold 0.50)
-        # Injetamos o threshold de auditoria do backtest diretamente no config que o InferenceService vai ler
-        exec_cfg = self.config.get('execution', {})
-        conf_models_dir = exec_cfg.get('models_local_dir', 'MODELS_BACKTEST/MODELOS')
-        
-        # [DEBUG CRÍTICO] Verificar se o diretório configurado realmente existe na nuvem
-        models_dir = Path(conf_models_dir).resolve()
-        if not models_dir.exists():
-            logger.error(f"❌ CRITICAL ERROR: models_local_dir NOT FOUND: {models_dir}")
-            # Tentar um fallback inteligente para a pasta do find
-            find_fallback = Path("/workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS")
-            if find_fallback.exists():
-                logger.info(f"🔄 Recovering using find_fallback: {find_fallback}")
-                models_dir = find_fallback
-        
-        logger.info(f"📁 [V2.10 Twin] Active models directory: {models_dir}")
-        self.config['execution'] = exec_cfg
-        self.config['execution']['models_local_dir'] = str(models_dir)
-        self.config['execution']['manual_security_threshold'] = self.simulation_cfg['auditor_threshold']
-        self.config['execution']['dynamic_security_threshold'] = False
-        
-        # Inicializar Serviço de Inferência
+        # 2. Inicializar Serviço de Inferência (Resolução de Caminhos V3.0 Nativa)
+        # O InferenceService agora usa path_utils.py para encontrar a pasta de modelos
+        # baseando-se no DNA definido no backtest_config_cloud.yaml
         self.inference = InferenceService(self.config)
         
         # 3. Parâmetros da Simulação
