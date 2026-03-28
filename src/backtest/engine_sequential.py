@@ -112,14 +112,17 @@ class SequentialBacktestEngine:
                      logger.error(f"Available columns: {df.columns.tolist()[:30]}...")
                      return
 
-                batch_results = self.inference.predict_batch(X_base, X_context)
-            except KeyError as e:
-                logger.error(f"❌ Missing feature in dataframe: {e}")
-                logger.error(f"Available columns: {df.columns.tolist()[:30]}...")
-                return
+            batch_results = self.inference.predict_batch(X_base, X_context)
             
             signals = batch_results['signals'] # 0=SELL, 1=NEUTRAL, 2=BUY
             scores = batch_results['auditor_scores']
+            
+            # Diagnostic Info
+            n_buy = (signals == 2).sum()
+            n_sell = (signals == 0).sum()
+            max_score = scores.max() if len(scores) > 0 else 0
+            logger.info(f"📊 Day {day_file.stem} Results: Max Auditor Score: {max_score:.4f} | Signals: BUY={n_buy}, SELL={n_sell}")
+            
             timestamps = df['ts'].values
             prices = df['close'].values
             targets = df['target'].values
