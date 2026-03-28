@@ -71,7 +71,7 @@ class SequentialBacktestEngine:
             df = pd.read_parquet(pf)
             
             # Use columns expected by engine
-            base_features = self.inference.arch_params['feature_columns']
+            base_features = self.config['model']['feature_names']
             # Simplification: we expect context features to be handled or empty if not in model
             context_features = [c for c in df.columns if c.startswith('alpha_')]
             
