@@ -26,27 +26,52 @@ class InferenceService:
         self._project_root = Path(__file__).parents[3]
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
-        # --- 1. Resolve Paths (Anchored in V3.1 Native Logic) ---
+        # --- 1. Path Audit Report (V3.4 Debug) ---
+        from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_project
+        virtual_path = get_drive_session_path("MODELOS", self.config)
+        resolved_path = resolve_local_project(virtual_path, self._project_root)
+        
+        logger.info(f"🔍 [V3.4 Audit] Project Root: {self._project_root}")
+        logger.info(f"🔍 [V3.4 Audit] Virtual Path: {virtual_path}")
+        logger.info(f"🔍 [V3.4 Audit] Resolved Local: {resolved_path}")
+        logger.info(f"🔍 [V3.4 Audit] Directory Exists? {resolved_path.exists()}")
+        
+        # --- 2. Resolve & Lock Paths ---
         self.base_path = self._get_models_dir()
         self.arch_params = self._load_best_params()
         
-        # Extract metadata from arch_params
+        logger.info(f"🎯 [V3.4 Final] Using Base Anchor: {self.base_path}")
+        
+        # Extract metadata
         self.num_features = int(self.arch_params.get('num_features', 97))
         self.seq_len = self.arch_params.get('seq_len', config['optimization'].get('seq_len', 60))
-        self.num_classes = 3 # Sell, Neutral, Buy
+        self.num_classes = 3
         
         # ── Layer 1: Foundation ──────────────────────────────────────────────
-        models_dir = self._get_models_dir()
-        foundation_path = models_dir / self.config['pipeline_paths']['best_tcn_lstm_model']
+        foundation_path = self.config.get('pipeline_paths', {}).get('best_tcn_lstm_model', 'BASE_MODEL/best_tcn_lstm.pt')
         self.foundation_model = self._load_tcn_lstm(str(foundation_path))
-        self.scaler_foundation = self._load_foundation_scaler()
         
-        # ── Layer 2: Specialist Ensemble ─────────────────────────────────────
-        # Now returns a list of (model, scaler) tuples
+        # ── Layer 2: Auditor (XGB) ───────────────────────────────────────────
+        auditor_path = self.config.get('pipeline_paths', {}).get('auditor_model', 'AUDITOR/auditor_xgboost.json')
+        self.auditor = xgb.Booster()
+        self.auditor.load_model(str(self.base_path / auditor_path if not Path(auditor_path).is_absolute() else auditor_path))
+        
+        # ── Layer 3: Scalers ──────────────────────────────────────────────────
+        scaler_foundation_path = self.config.get('pipeline_paths', {}).get('scaler_foundation', 'BASE_MODEL/scaler_foundation.pkl')
+        scaler_auditor_path = self.config.get('pipeline_paths', {}).get('scaler_auditor', 'AUDITOR/scaler_auditor.pkl')
+        
+        def _load_p(rel_p):
+            p = Path(rel_p)
+            abs_p = self.base_path / p if not p.is_absolute() else p
+            with open(abs_p, 'rb') as f:
+                return pickle.load(f)
+
+        self.scaler_foundation = _load_p(scaler_foundation_path)
+        self.scaler_auditor = _load_p(scaler_auditor_path)
+             
+        # ── Layer 4: Specialists (K-Fold) ─────────────────────────────────────
         self.specialist_pairs = self._load_kfold_specialists()
         
-        # ── Layer 3: Auditor ──────────────────────────────────────────────────
-        self.auditor_model = self._load_auditor()
         self.threshold = self._load_auditor_threshold()
         self.scaler_auditor = self._load_auditor_scaler()
         
