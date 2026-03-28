@@ -43,10 +43,14 @@ pipeline_paths:
 # ── [EXECUÇÃO] Configuração do Motor de Inferência ──────────────────
 execution:
   # Usar o formato virtual nativo do projeto. O InferenceService resolverá isso localmente.
-  # O sufixo da pasta Resultados será calculado automaticamente via pre_processing.
   models_local_dir: "drive:PROJETOS/RESULTADOS"
   dynamic_security_threshold: false
   manual_security_threshold: 0.50
+  
+  # [FORÇA BRUTA] Sobrescrever DNA do JSON se houver Size Mismatch (512 Canais)
+  architecture_override:
+    tcn_channels: 512
+    lstm_hidden: 512
 
 # Simulation Config
 simulation:
