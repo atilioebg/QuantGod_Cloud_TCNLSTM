@@ -19,7 +19,7 @@ pipeline_paths:
   
   # Model Assets (Champion 2026_03_21) - Production Tree Parity
   # Estes caminhos são relativos ao models_local_dir definido abaixo
-  best_tcn_lstm_model: "BASE_MODEL/best_tcn_lstm_dir.pt"
+  best_tcn_lstm_model: "BASE_MODEL/best_tcn_lstm.pt"
   auditor_model:       "AUDITOR/auditor_xgboost.json"
   scaler_foundation:   "BASE_MODEL/scaler_foundation.pkl"
   scaler_auditor:      "AUDITOR/scaler_auditor.pkl"
