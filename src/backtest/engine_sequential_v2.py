@@ -63,6 +63,9 @@ class SequentialBacktestEngineV2:
         data_dir = Path(self.config['pipeline_paths']['labelled_dir'])
         parquet_files = sorted(list(data_dir.glob("*.parquet")))
         
+        # Filtro definitivo da lista de arquivos solicitado pelo usuário (pular dia 13)
+        parquet_files = [f for f in parquet_files if "2026-03-13" not in f.name]
+        
         if not parquet_files:
             logger.error(f"❌ No parquet files found in {data_dir}")
             return
@@ -75,8 +78,6 @@ class SequentialBacktestEngineV2:
         busy_until = 0 
         
         for pf in tqdm(parquet_files, desc="📅 Simulation Progress"):
-            if "2026-03-13" in pf.name:
-                continue
             df = pd.read_parquet(pf)
             
             # Feature extraction (same as v1 for consistency)
