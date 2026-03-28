@@ -122,10 +122,19 @@ class SequentialBacktestEngine:
             scores = batch_results['auditor_scores']
             
             # Diagnostic Info
-            n_buy = (signals == 2).sum()
-            n_sell = (signals == 0).sum()
+            directions_idx = np.argmax(batch_results.get('probs_specialist', np.zeros((len(signals), 3))), axis=1)
+            n_raw_buy = (directions_idx == 2).sum()
+            n_raw_sell = (directions_idx == 0).sum()
+            n_raw_neu = (directions_idx == 1).sum()
+            
+            n_final_buy = (signals == 2).sum()
+            n_final_sell = (signals == 0).sum()
             max_score = scores.max() if len(scores) > 0 else 0
-            logger.info(f"📊 Day {pf.stem} Results: Max Auditor Score: {max_score:.4f} | Signals: BUY={n_buy}, SELL={n_sell}")
+            
+            logger.info(f"📊 Day {pf.stem} Stats:")
+            logger.info(f"   - Max Auditor Score: {max_score:.4f}")
+            logger.info(f"   - Raw Specialist: BUY={n_raw_buy}, SELL={n_raw_sell}, NEUTRAL={n_raw_neu}")
+            logger.info(f"   - Final (Audited): BUY={n_final_buy}, SELL={n_final_sell}")
             
             timestamps = df['ts'].values
             prices = df['close'].values
