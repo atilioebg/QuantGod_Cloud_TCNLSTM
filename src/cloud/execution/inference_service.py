@@ -181,27 +181,14 @@ class InferenceService:
         raise FileNotFoundError("Critical model architecture configuration (best_params.json) is missing.")
 
     def _load_tcn_lstm(self, model_path: str) -> Hybrid_TCN_LSTM:
-        # Load hyperparams strictly from the global arch_params (Shared Identity)
+        """Loads weights and dynamically adjusts architecture if there's a mismatch (V3.7)."""
         p = Path(model_path)
         if not p.is_absolute():
-            # Use the dynamically resolved base_path (V3.1 Fix)
             p = self.base_path / p
             
         if not p.exists():
             logger.error(f"❌ Model file not found: {p}")
             raise FileNotFoundError(f"Model file not found: {p}")
-
-        try:
-            model = Hybrid_TCN_LSTM(
-                num_features=self.num_features,
-                seq_len=self.arch_params.get('seq_len', self.seq_len),
-                tcn_channels=int(self.arch_params['tcn_channels']),
-                lstm_hidden=int(self.arch_params['lstm_hidden']),
-                num_lstm_layers=int(self.arch_params['num_lstm_layers']),
-                num_classes=self.num_classes,
-                dropout=float(self.arch_params.get('dropout', 0.3))
-            ).to(self.device)
-        except KeyError as e:
             logger.error(f"❌ Missing required architecture parameter: {e}")
             raise KeyError(f"Missing required architecture parameter in best_params.json: {e}")
         
