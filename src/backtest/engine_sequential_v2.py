@@ -23,9 +23,11 @@ class SequentialBacktestEngineV2:
         
         self.simulation_cfg = backtest_cfg['simulation']
         
-        # 2. Configurar o InferenceService (Confiança total na paridade de arquivos)
-        models_dir = Path(self.simulation_cfg.get('models_local_dir', 'MODELS_BACKTEST/MODELOS'))
-        self.config['execution'] = self.config.get('execution', {})
+        # 3. Forçar Sincronia de Segurança (Threshold 0.50)
+        # Injetamos o threshold de auditoria do backtest diretamente no config que o InferenceService vai ler
+        exec_cfg = self.config.get('execution', {})
+        models_dir = Path(exec_cfg.get('models_local_dir', 'MODELS_BACKTEST/MODELOS'))
+        self.config['execution'] = exec_cfg
         self.config['execution']['models_local_dir'] = str(models_dir)
         self.config['execution']['manual_security_threshold'] = self.simulation_cfg['auditor_threshold']
         self.config['execution']['dynamic_security_threshold'] = False
