@@ -125,7 +125,7 @@ class SequentialBacktestEngine:
             n_buy = (signals == 2).sum()
             n_sell = (signals == 0).sum()
             max_score = scores.max() if len(scores) > 0 else 0
-            logger.info(f"📊 Day {day_file.stem} Results: Max Auditor Score: {max_score:.4f} | Signals: BUY={n_buy}, SELL={n_sell}")
+            logger.info(f"📊 Day {pf.stem} Results: Max Auditor Score: {max_score:.4f} | Signals: BUY={n_buy}, SELL={n_sell}")
             
             timestamps = df['ts'].values
             prices = df['close'].values
