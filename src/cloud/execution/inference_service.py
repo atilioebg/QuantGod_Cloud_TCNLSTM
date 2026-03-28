@@ -132,29 +132,47 @@ class InferenceService:
         raise FileNotFoundError("Critical model architecture configuration (best_params.json) is missing.")
 
     def _load_tcn_lstm(self, model_path: str) -> Hybrid_TCN_LSTM:
-        # Resolve hyperparams strictly from arch_params
-        project_root = Path(__file__).parents[3]
+        # Resolve hyperparams strictly from local config if available, else fallback
         p = Path(model_path)
         if not p.is_absolute():
-            p = project_root / p
+            p = self._project_root / p
             
         if not p.exists():
             logger.error(f"❌ Model file not found: {p}")
             raise FileNotFoundError(f"Model file not found: {p}")
 
+        # --- [DINÂMICO] Buscar config local para este modelo specifico ---
+        # Tenta: pasta_do_modelo/../CONFIG/best_params.json (Stucture do Champion)
+        # Ou: pasta_do_modelo/best_params.json
+        local_json = p.parent.parent / "CONFIG" / "best_params.json"
+        alt_json = p.parent / "best_params.json"
+        
+        chosen_params = self.arch_params # Fallback default
+        
+        if local_json.exists():
+            with open(local_json, 'r') as f:
+                chosen_params = json.load(f)
+            # logger.info(f"🧬 Local architecture loaded for {p.name} from {local_json}")
+        elif alt_json.exists():
+            with open(alt_json, 'r') as f:
+                chosen_params = json.load(f)
+            # logger.info(f"🧬 Local architecture loaded for {p.name} from {alt_json}")
+        else:
+            logger.warning(f"⚠️ No local best_params.json found for {p.name}. Using global fallback.")
+
         try:
             model = Hybrid_TCN_LSTM(
                 num_features=self.num_features,
-                seq_len=self.seq_len,
-                tcn_channels=int(self.arch_params['tcn_channels']),
-                lstm_hidden=int(self.arch_params['lstm_hidden']),
-                num_lstm_layers=int(self.arch_params['num_lstm_layers']),
+                seq_len=chosen_params.get('seq_len', self.seq_len),
+                tcn_channels=int(chosen_params['tcn_channels']),
+                lstm_hidden=int(chosen_params['lstm_hidden']),
+                num_lstm_layers=int(chosen_params['num_lstm_layers']),
                 num_classes=self.num_classes,
-                dropout=float(self.arch_params.get('dropout', 0.3))
+                dropout=float(chosen_params.get('dropout', 0.3))
             ).to(self.device)
         except KeyError as e:
-            logger.error(f"❌ Missing required architecture parameter in JSON: {e}")
-            raise KeyError(f"Missing required architecture parameter in best_params.json: {e}")
+            logger.error(f"❌ Missing required architecture parameter for {p.name}: {e}")
+            raise KeyError(f"Missing required architecture parameter for {p.name}: {e}")
         
         state_dict = torch.load(p, map_location=self.device)
         model.load_state_dict(state_dict)
