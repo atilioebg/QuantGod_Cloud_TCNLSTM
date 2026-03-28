@@ -53,14 +53,21 @@ class InferenceService:
         logger.info(f"🛡️ Active Auditor Threshold: {self.threshold:.4f}")
 
     def _get_models_dir(self) -> Path:
-        """Returns the Path to the MODELOS directory.
-        Priority: config[execution][models_local_dir] (explicit) > dynamic resolution via Drive path.
-        """
+        """Helper to resolve the models directory from config or fallback to project root."""
         explicit = self.config.get('execution', {}).get('models_local_dir')
+        
         if explicit:
-            p = self._project_root / explicit
-            logger.info(f"📂 Using explicit models_local_dir: {p}")
-            return p
+            p = Path(explicit)
+            # Se o caminho for relativo, ancora no project_root
+            if not p.is_absolute():
+                p = self._project_root / p
+            
+            if p.exists():
+                return p.resolve()
+            else:
+                logger.warning(f"⚠️ Configured models_local_dir does not exist: {p}")
+        
+        return self._project_root # Global fallback
         # Fallback: dynamic resolution
         from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_project
         base_dir = get_drive_session_path("MODELOS", self.config)
