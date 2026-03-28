@@ -55,7 +55,7 @@ naming_conventions:
 pipeline_control:
   # ── [CONTROLE] Flags Globais do run_manager.py ───────────────────────
   # run_manager.py lê estas flags antes de cada fase.
-  force_full_retrain: true   # true → sempre re-executa cada fase. false → checa checkpoint (arquivo de saída) e pula se já existir.
+  force_full_retrain: false   # false → checa checkpoint (arquivo de saída) e pula se já existir.
   skip_qa_on_failure: false  # false → se uma fase falhar, o pipeline aborta (sys.exit(1)). true → ignora falha e continua.
   retention_policy: "keep_all"  # Política de logs. 'keep_all' = nunca sobrescreve logs antigos cegamente.
   gpu_memory_management: true   # true → chama gc.collect() + torch.cuda.empty_cache() entre fases. Evita spike de VRAM ao carregar novo modelo.
