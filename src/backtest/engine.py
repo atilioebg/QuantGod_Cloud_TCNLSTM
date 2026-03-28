@@ -49,6 +49,13 @@ class BacktestEngine:
         # We simulate the decision bar by bar to respect the Sequential nature
         # (Though we could batch the neural layers, let's keep it simple and accurate first)
         
+        # Prepare data for faster access
+        X_base = df[base_features].values
+        X_context = df[context_features].values
+        Y_target = df['target'].values
+        timestamps = df['ts'].values
+        prices = df['close'].values
+        
         # ── Batch Prediction (The Speed Boost) ──
         logger.info(f"🧠 Calculating {len(X_base)} windows in Batch Mode...")
         
