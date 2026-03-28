@@ -211,13 +211,25 @@ class InferenceService:
                 instance_params['lstm_hidden'] = detected_hidden
 
         # 2. Build model with corrected blueprint
-        instance_params.pop('num_features', None)
-        instance_params.pop('num_classes', None)
+        # We must filter ONLY architecture-related params for the constructor
+        valid_arch_keys = [
+            'tcn_channels', 'lstm_hidden', 'num_lstm_layers', 
+            'seq_len', 'dropout', 'kernel_size'
+        ]
+        filtered_params = {k: v for k, v in instance_params.items() if k in valid_arch_keys}
         
+        # Ensure correct types for architecture
+        for k in ['tcn_channels', 'lstm_hidden', 'num_lstm_layers', 'seq_len']:
+            if k in filtered_params:
+                filtered_params[k] = int(float(filtered_params[k]))
+        
+        if 'dropout' in filtered_params:
+            filtered_params['dropout'] = float(filtered_params['dropout'])
+
         model = Hybrid_TCN_LSTM(
             num_features=self.num_features,
             num_classes=self.num_classes,
-            **instance_params
+            **filtered_params
         ).to(self.device)
         
         # 3. Load adjusted state dict
