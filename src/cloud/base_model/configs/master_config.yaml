@@ -11,7 +11,7 @@ pipeline_paths:
   raw_l2_source:      "drive:PROJETOS/BTC_USDT_L2_2023_2026"
   raw_trades_source:  "drive:PROJETOS/BTC_USDT_L2_TRADE_2023_2026"
   drive_results_root: "drive:PROJETOS/RESULTADOS"            # Destino de todos os uploads. Sufixo de sessão calculado por get_drive_session_path().
-  session_timestamp:  "2026_03_21" #null                          # Definido dinamicamente se null.
+  session_timestamp:  "2026_03_28" #null                          # Definido dinamicamente se null.
 
   # ── [DADOS LOCAIS] Diretório Raíz `data/L2/` ───────────────────────────
   local_data_root:   "data/L2"          # Raíz de todos os estágios de dados. Subpastas derivadas daqui.
@@ -33,7 +33,7 @@ pipeline_paths:
   scaler_auditor: "AUDITOR/scaler_auditor.pkl"    # Scaler das features de contexto do Auditor.
 
   # ── [INFRA] Optuna e Logs ──────────────────────────────────────────
-  db_path:            "sqlite:///optuna_finetune.db" # Banco SQLite do Optuna. Persistêt entre runs (permite continuar um estudo).
+  db_path:            "sqlite:///optuna_prod_256.db" # Banco SQLite do Optuna. Persistêt entre runs (permite continuar um estudo).
   local_logs_root:    "logs"         # Raíz de todos os logs. Subpastas por fase (QA/, kfold_specialist/, etc).
   local_reports_root: "docs/reports" # Relatórios de qualidade de dados (data_quality_report.json).
   
@@ -338,10 +338,10 @@ training:
   # [FALSE + FALSE] = Hardcoded: usa exatamente base_class_weights abaixo.
   foundation_weights:
     # ── [CLASS WEIGHTS] Balanceação das Classes ──────────────────────
-    base_use_auto_class_weights: true    # [AUTO-ALPHA] sklearn 'balanced': calcula 1/freq por classe. Aumenta SELL/BUY.
-    base_optimize_class_weights: true    # [HPO-ALPHA] Optuna explora pesos no espaço de busca. Precedência sobre auto.
-    base_use_dynamic_range_optuna: true  # [ANCHOR-RANGE] Espaço de busca ancorado na freq real. Evita pesos absurdos.
-    base_class_weights: [1.32, 0.40, 1.30]  # [FALLBACK] Pesos manuais [SELL, NEU, BUY]. Só usado se auto=false e optimize=false.
+    base_use_auto_class_weights: false    # [AUTO-ALPHA] desativado para usar pesos fixos do Trial 384.
+    base_optimize_class_weights: false    # [HPO-ALPHA] desativado para produção.
+    base_use_dynamic_range_optuna: false  # [ANCHOR-RANGE] desativado para produção.
+    base_class_weights: [1.14382830, 1.02571141, 1.39259954]  # Pesos exatos do Trial 384.
 
     # ── [FOCAL LOSS] Gamma e Smoothing ─────────────────────────────
     base_optimize_gamma: true   # [HPO-GAMMA] Optuna busca gamma ideal. Gamma alto foca em erros persistentes.
@@ -365,9 +365,9 @@ training:
 optimization:
   # ── [OPTUNA] Configuração do Estudo HPO ───────────────────────────────────
   # O estudo persiste no SQLite (db_path). Interromper e retomar é seguro.
-  study_name: "QUANTGOD_RECON_V009" # Nome para rodada real e profunda
-  n_trials: 400                     # [PRODUÇÃO] 400 Trials maciços.
-  timeout: 172800                 # Teto de 48h.
+  study_name: "QUANTGOD_FINAL_256_PROD" # Estudo único de produção
+  n_trials: 1                     # Apenas 1 trial com arquitetura fixa.
+  timeout: 36000                 # Teto de 10h para o treino estendido.
 
   # ── [SAMPLER] Algoritmo de Busca ───────────────────────────────────────────
   sampler:
@@ -413,23 +413,23 @@ optimization:
 
   # ── [SEARCH SPACE] Hiperparâmetros da TCN-LSTM ────────────────────────────
   search_space:
-    tcn_channels:    [64, 128, 256, 512]     # Extremo paralelismo 1D na A4500 (20GB). Categórico.
-    lstm_hidden:     [32, 64, 128, 256]      # Massiva memória direcional (tendências longas). Categórico.
-    num_lstm_layers: [2, 5]                  # Profundidade sniper colossal. (Intervalo Int: 2 a 5).
-    lr:              [0.00005, 0.002]        # LR mais refinada para estabilização de arquiteturas gigantes.
-    weight_decay:    [0.0001, 0.015]         # Regularização L2 robusta.
-    batch_size:      [512, 1024, 2048]       # Despejo brutal na VRAM. Categórico.
-    seq_len:         [96, 144, 192, 256]     # Visão oceânica do Order Book. Categórico.
-    dropout:         [0.2, 0.55]             # Estabilidade contra a memorização.
-    asym_gamma_sell: [0.5, 5.0]
-    asym_gamma_neu:  [0.1, 2.0]
-    asym_gamma_buy:  [0.5, 5.0]
+    tcn_channels:    [256]                   # Travado no vencedor Trial 384.
+    lstm_hidden:     [256]                   # Travado no vencedor Trial 384.
+    num_lstm_layers: [2, 2]                  # Travado no vencedor Trial 384.
+    lr:              [0.00071226, 0.00071226] # Travado no vencedor Trial 384.
+    weight_decay:    [0.01039999, 0.01039999] # Travado no vencedor Trial 384.
+    batch_size:      [512]                   # Travado no vencedor Trial 384.
+    seq_len:         [256]                   # Travado no vencedor Trial 384.
+    dropout:         [0.27346176, 0.27346176] # Travado no vencedor Trial 384.
+    asym_gamma_sell: [1.75570345, 1.75570345]
+    asym_gamma_neu:  [1.48977280, 1.48977280]
+    asym_gamma_buy:  [3.55890197, 3.55890197]
 
-    epochs: 10                    # [PRODUÇÃO] Treino base profundo para garantir convergência na busca.
+    epochs: 20                    # [PRODUÇÃO] Treino profundo de 20 épocas sugerido pelo usuário.
     early_stopping_patience: 4    # Paciência rígida, mata genéticas lixo rápido.
 
     # ── [FOCAL LOSS SEARCH] Foundation (Base Model) ─────────────────────────
-    base_loss_gamma:     [0.5, 5.0]    # Gamma. <1.0 ≈ CrossEntropy. 5.0 = foco extremo em erros difíceis.
-    base_loss_smoothing: [0.001, 0.35] # Label Smoothing. >0.5 faz o modelo esquecer o alvo.
-    base_alpha_side:     [1.0, 20.0]   # Peso para Buy/Sell. Até 20x mais que neutro.
-    base_alpha_neutral:  [0.001, 1.0]  # Peso do Neutro. Sempre <= 1.0 para ser esmagado pelos sinais.
+    base_loss_gamma:     [3.50560885, 3.50560885] # Travado no vencedor Trial 384.
+    base_loss_smoothing: [0.30769222, 0.30769222] # Travado no vencedor Trial 384.
+    base_alpha_side:     [1.14382830, 1.39259954] # Side weights.
+    base_alpha_neutral:  [1.02571141, 1.02571141] # Neutral weight.
