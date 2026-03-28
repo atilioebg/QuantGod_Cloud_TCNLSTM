@@ -154,7 +154,8 @@ class InferenceService:
         # Load hyperparams strictly from the global arch_params (Shared Identity)
         p = Path(model_path)
         if not p.is_absolute():
-            p = self._project_root / p
+            # Use the dynamically resolved base_path (V3.1 Fix)
+            p = self.base_path / p
             
         if not p.exists():
             logger.error(f"❌ Model file not found: {p}")
@@ -191,11 +192,17 @@ class InferenceService:
                 logger.error(f"⚠️ Failed to load Foundation Scaler: {e}")
         return None
 
-    def _load_kfold_specialists(self) -> List[tuple]:
+    def _load_kfold_specialists(self) -> List[Tuple[Hybrid_TCN_LSTM, Any]]:
+        """Loads all specialist models and their scalers using relative anchors."""
         import joblib
-        # We look for model_fold_k.pt and scaler_fold_k.pkl in the OOF directory
-        oof_path = self.config.get('pipeline_paths', {}).get('auditor_oof_dir', 'SPECIALIST')
-        oof_dir = self._get_models_dir() / oof_path
+        
+        oof_dir_rel = self.config['pipeline_paths'].get('auditor_oof_dir', 'SPECIALIST')
+        # Use our resolved base_path anchor (V3.1 Fix)
+        oof_dir = self.base_path / oof_dir_rel
+        
+        if not oof_dir.exists():
+            logger.warning(f"⚠️ Specialist directory not found: {oof_dir}. Check pipeline_paths[auditor_oof_dir].")
+            return []
             
         pairs = []
         for i in range(5): # Assuming 5 folds
@@ -216,18 +223,6 @@ class InferenceService:
         if not pairs:
             logger.error(f"❌ No Specialist pairs found in {oof_dir}!")
         return pairs
-
-    def _load_auditor(self) -> xgb.Booster:
-        model_path_str = self.config['pipeline_paths'].get('auditor_model', 'AUDITOR/auditor_xgboost.json')
-        model_path = self._get_models_dir() / model_path_str
-            
-        if not model_path.exists():
-             logger.error(f"❌ Auditor model not found at {model_path}")
-             raise FileNotFoundError(f"Auditor model not found at {model_path}")
-             
-        bst = xgb.Booster()
-        bst.load_model(str(model_path))
-        return bst
 
     def _load_auditor_scaler(self) -> Optional[Any]:
         import joblib
