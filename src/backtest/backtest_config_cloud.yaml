@@ -3,7 +3,7 @@
 
 model:
   auditor:
-    # [DNA DO MODELO] Threshold ideal encontrado no Treino (Optuna HPO).
+    # [DNA DO MODELO]  Threshold ideal encontrado no Treino (Optuna HPO).
     # Baseline original do modelo: 0.5 (o antigo 0.975 era erro de cópia do reg_alpha).
     manual_threshold: 0.5
 
