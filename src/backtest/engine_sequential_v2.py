@@ -23,12 +23,30 @@ class SequentialBacktestEngineV2:
         
         self.simulation_cfg = backtest_cfg['simulation']
         
-        # 2. Inicializar Serviço de Inferência (DNA do Modelo)
-        # Sincronizamos o threshold de produção com o de simulação
+        # 2. Localizar e Carregar os Parâmetros da "Anatomia" do Modelo (512 canais)
+        # Forçamos o caminho absoluto baseado no models_local_dir para evitar erros de fallback
+        models_dir = Path(self.simulation_cfg.get('models_local_dir', 'MODELS_BACKTEST/MODELOS'))
+        best_params_path = models_dir / "CONFIG" / "best_params.json"
+        
+        if not best_params_path.exists():
+            # Fallback secundário baseado na estrutura de resultados do usuário
+            best_params_path = Path("src/cloud/base_model/otimizacao/best_params.json")
+            
+        logger.info(f"🧬 [V2.4 Twin] Loading architecture from: {best_params_path}")
+        with open(best_params_path, 'r') as f:
+            self.arch_params = json.load(f)
+            
+        # 3. Forçar Sincronia de Segurança (Threshold 0.50)
+        # Injetamos o threshold de auditoria do backtest diretamente no config que o InferenceService vai ler
+        self.config['execution'] = self.config.get('execution', {})
+        self.config['execution']['models_local_dir'] = str(models_dir)
         self.config['execution']['manual_security_threshold'] = self.simulation_cfg['auditor_threshold']
+        self.config['execution']['dynamic_security_threshold'] = False # Força o nosso manual
+        
+        # Inicializar Serviço de Inferência
         self.inference = InferenceService(self.config)
         
-        # 3. Parâmetros da Simulação
+        # 4. Parâmetros da Simulação
         self.initial_capital = self.simulation_cfg['initial_capital']
         self.balance = self.initial_capital
         self.leverage = self.simulation_cfg['leverage']
