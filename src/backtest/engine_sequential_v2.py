@@ -1,61 +1,50 @@
+import polars as pl
 import pandas as pd
 import numpy as np
-from pathlib import Path
 import yaml
 import logging
-import sys
-from tqdm import tqdm
 import json
-
-# Add project root to sys.path
-project_root = str(Path(__file__).parents[2])
-if project_root not in sys.path:
-    sys.path.append(project_root)
-
+import gc
+from pathlib import Path
+from tqdm import tqdm
 from src.cloud.execution.inference_service import InferenceService
 
-logging.basicConfig(level=logging.INFO)
+# Configuração de Logs
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class SequentialBacktestEngineV2:
-    """
-    High-Fidelity Sequential Backtest Engine.
-    Simulates trades bar-by-bar to find exact exit points instead of relying on pre-calculated labels.
-    """
     def __init__(self, config_path: str):
-        project_root = Path(__file__).parents[2]
-        master_path = project_root / "src" / "cloud" / "base_model" / "configs" / "master_config.yaml"
-        
-        with open(master_path, 'r') as f:
+        # 1. Carregar Configurações
+        with open("src/cloud/base_model/configs/master_config.yaml", 'r') as f:
             self.config = yaml.safe_load(f)
-            
         with open(config_path, 'r') as f:
             backtest_cfg = yaml.safe_load(f)
-            
-        self._merge_configs(self.config, backtest_cfg)
-            
+        
+        self.simulation_cfg = backtest_cfg['simulation']
+        
+        # 2. Inicializar Serviço de Inferência (DNA do Modelo)
+        # Sincronizamos o threshold de produção com o de simulação
+        self.config['execution']['manual_security_threshold'] = self.simulation_cfg['auditor_threshold']
         self.inference = InferenceService(self.config)
-        self._project_root = Path(self.config.get('project_root', '.'))
-        if not self._project_root.is_absolute():
-            self._project_root = (project_root / self._project_root).resolve()
-
-    def _merge_configs(self, base, overlay):
-        for k, v in overlay.items():
-            if k in base and isinstance(base[k], dict) and isinstance(v, dict):
-                self._merge_configs(base[k], v)
-            else:
-                base[k] = v
         
-        sim_cfg = self.config.get('simulation', {})
-        self.initial_capital = sim_cfg.get('initial_capital', 10000)
-        self.fee = sim_cfg.get('trading_fee', 0.0006)
+        # 3. Parâmetros da Simulação
+        self.initial_capital = self.simulation_cfg['initial_capital']
+        self.balance = self.initial_capital
+        self.leverage = self.simulation_cfg['leverage']
+        self.trading_fee = self.simulation_cfg['trading_fee']
+        self.auditor_threshold = self.simulation_cfg['auditor_threshold']
         
-        # Strategy Parameters (Volatility multipliers from master_config/training)
-        self.pt_mult = sim_cfg.get('pt_multiplier', 0.65)
-        self.sl_mult = sim_cfg.get('sl_multiplier', 0.33)
-        self.vol_span = 144 # Fixed to match labelling logic (1 day of 10min context)
-        self.exit_horizon_ms = 15 * 60 * 1000 # 15 minutes
+        # Sincronia de Volatilidade (Prado Multipliers)
+        self.pt_mult = self.simulation_cfg.get('pt_multiplier', 0.65)
+        self.sl_mult = self.simulation_cfg.get('sl_multiplier', 0.33)
+        self.vol_span = self.simulation_cfg.get('vol_span', 144)
         
+        # Horizonte de Saída (Barreira Vertical) - Sincronizado com o Labelling
+        self.exit_horizon_ms = self.simulation_cfg.get('horizon_minutes', 15) * 60 * 1000
+        
+        # Resultados
+        self.trades = []
         self.output_dir = Path(self.config['pipeline_paths']['local_data_root']) / "backtest_results_sequential_v2"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -63,183 +52,192 @@ class SequentialBacktestEngineV2:
         data_dir = Path(self.config['pipeline_paths']['labelled_dir'])
         parquet_files = sorted(list(data_dir.glob("*.parquet")))
 
-        # [VERIFICAÇÃO V2.2] Filtrando apenas o dia 21 sugerido pelo usuário por ser o menor
+        # [VERIFICAÇÃO V2.4] Apenas o dia 21 para validação da escala Twin
         parquet_files = [f for f in parquet_files if "2026-03-21" in f.name]
         
         if not parquet_files:
-            logger.error(f"❌ No parquet files found in {data_dir}")
+            logger.error(f"❌ No labelled parquet files found for Mar 21 in {data_dir}")
             return
 
-        logger.info(f"🚀 [V2] Starting High-Fidelity Backtest on {len(parquet_files)} days...")
+        logger.info(f"🚀 [V2.4 Twin] Starting Event-Driven Backtest on {len(parquet_files)} day(s)...")
         
-        balance = self.initial_capital
-        equity_curve = []
-        all_trades = []
-        busy_until = 0 
-        
-        for pf in tqdm(parquet_files, desc="📅 Simulation Progress"):
-            df = pd.read_parquet(pf)
+        for pf in tqdm(parquet_files, desc="Processing Days"):
+            self.execute_single_parquet(pf)
+
+    def execute_single_parquet(self, pf: Path):
+        try:
+            # Polars para leitura rápida, Pandas para o loop complexo
+            df = pl.read_parquet(pf).to_pandas()
             
-            # Feature extraction (same as v1 for consistency)
-            base_features = self.config['model']['feature_names']
-            context_features = [
-                'ema_trend', 'ema_cross_dist', 'bb_pct', 'rsi_14', 'stoch_14', 
-                'atr_norm', 'vol_1h', 'vol_zscore_1h', 'delta_vol_24h',
-                'adx_14', 'vwap_zscore', 'mfi_14', 'book_skew_bid', 'book_skew_ask'
-            ]
-            
-            final_context_cols = []
-            for f in context_features:
-                if f in df.columns: final_context_cols.append(f)
-                elif f"alpha_{f}" in df.columns: final_context_cols.append(f"alpha_{f}")
-            
-            try:
-                X_base = df[base_features].values
-                X_context = df[final_context_cols].values
-                batch_results = self.inference.predict_batch(X_base, X_context)
-            except Exception as e:
-                logger.error(f"❌ Skipping day {pf.stem} due to error: {e}")
-                continue
-            
-            signals = batch_results['signals'] # 0=SELL, 1=NEUTRAL, 2=BUY
-            scores = batch_results['auditor_scores']
-            
-            # Diagnostics
-            directions_idx = np.argmax(batch_results.get('probs_specialist', np.zeros((len(signals), 3))), axis=1)
-            n_final_buy = (signals == 2).sum()
-            n_final_sell = (signals == 0).sum()
-            
-            directional_scores = scores[directions_idx != 1]
-            max_dir_score = directional_scores.max() if len(directional_scores) > 0 else 0
-            logger.info(f"📊 Day {pf.stem} Results: Max Dir Score: {max_dir_score:.4f} | Audited: BUY={n_final_buy}, SELL={n_final_sell}")
-            
+            # --- [V2.4] Preparação de Arrays para Performance ---
             timestamps = df['ts'].values
             prices = df['close'].values
             highs = df['high'].values
             lows = df['low'].values
-
-            # Calculation of Volatility EWMA (Parity with labelling process)
-            log_ret = np.log(pd.Series(prices)).diff()
-            volatility = log_ret.ewm(span=self.vol_span).std().values
             
-            S = self.inference.seq_len
+            # --- [V2.4] Configurações do Twin Event Sampler ---
+            event_cfg = self.simulation_cfg.get('event_sampling', {})
+            dollar_thresh = event_cfg.get('dollar_threshold_usd', 500000.0)
+            tick_thresh   = event_cfg.get('tick_threshold', 5000)
+            ofi_thresh    = event_cfg.get('information_threshold_ofi', 100.0)
+            time_thresh_s = event_cfg.get('resample_freq_min', 5) * 60
             
-            # Step through the day
-            for i in range(len(signals)):
-                idx = i + S - 1
-                curr_ts = timestamps[idx]
+            # --- [V2.4] Estado do Acumulador de Eventos ---
+            acc_dollar, acc_ticks, acc_ofi = 0.0, 0, 0.0
+            last_bar_ts = timestamps[0] / 1000
+            last_bar_price = prices[0]
+            virtual_bar_rets = []
+            
+            # Vol âncora inicial: usamos a do primeiro segundo como fallback até termos 5 barras virtuais
+            anchor_vol = 0.0003 
+            
+            busy_until = 0 # Milissegundos
+            S = self.inference.seq_len # Janela de entrada do modelo
+            
+            # --- LOOP PRINCIPAL SEGUNDO A SEGUNDO ---
+            for idx in range(S, len(df)):
+                curr_price = prices[idx]
+                curr_ts_ms = timestamps[idx]
+                curr_ts_s  = curr_ts_ms / 1000
                 
-                if curr_ts < busy_until:
-                    continue
+                # 1. Acumular Atividade (Twin logic com o Pre-Processamento)
+                # 'bar_usd_volume' e 'ofi' são colunas nativas do parquet labelled
+                acc_dollar += df['bar_usd_volume'].iloc[idx] if 'bar_usd_volume' in df.columns else (df['usd_volume'].iloc[idx] if 'usd_volume' in df.columns else 0)
+                acc_ticks += 1
+                acc_ofi += abs(df['ofi'].iloc[idx]) if 'ofi' in df.columns else 0
+                time_elapsed = curr_ts_s - last_bar_ts
                 
-                sig = signals[i]
-                if sig == 1: # Neutral
-                    continue
+                # Check Trigger de Barra Virtual (Idêntico ao EventSampler)
+                if (acc_dollar >= dollar_thresh or acc_ticks >= tick_thresh or 
+                    acc_ofi >= ofi_thresh or time_elapsed >= time_thresh_s):
                     
-                # APPROVED SIGNAL: Simulate Execution with Dynamic Barriers
-                entry_price = prices[idx]
-                entry_ts = curr_ts
-                curr_vol = volatility[idx]
+                    # Calcula o retorno log entre esta barra virtual e a anterior
+                    v_ret = np.log(curr_price / last_bar_price)
+                    virtual_bar_rets.append(v_ret)
+                    
+                    # Mantemos histórico suficiente para o span (Prado recomenda > 2x span)
+                    if len(virtual_bar_rets) > self.vol_span * 2: 
+                        virtual_bar_rets.pop(0)
+                    
+                    if len(virtual_bar_rets) > 5:
+                        # Cálculo real da Volatilidade de Eventos conforme Labelling
+                        anchor_vol = pd.Series(virtual_bar_rets).ewm(span=self.vol_span).std().iloc[-1]
+                    
+                    # Reset accumulators para a próxima barra virtual
+                    acc_dollar, acc_ticks, acc_ofi = 0.0, 0, 0.0
+                    last_bar_ts, last_bar_price = curr_ts_s, curr_price
+
+                # 2. Lógica de Pulo: se já estamos em um trade, apenas acumulamos dados mas não abrimos outro
+                if curr_ts_ms < busy_until:
+                    continue
+
+                # 3. Inferência do Modelo (InferenceStack: Foundation + Specialists + Auditor)
+                # Passamos o dataframe fatiado com seq_len para a inferência
+                sig, conf = self.inference.predict_batch(df.iloc[idx:idx+1])
+                sig, conf = sig[0], conf[0]
                 
-                # If vol is NaN (start of day), fallback to a reasonable minimum
-                if np.isnan(curr_vol):
-                    curr_vol = np.nanmean(volatility[:100]) if not np.all(np.isnan(volatility[:100])) else 0.0003
-                
-                if sig == 2: # LONG
-                    target_tp = entry_price * np.exp(curr_vol * self.pt_mult)
-                    target_sl = entry_price * np.exp(-curr_vol * self.sl_mult)
-                else: # SHORT
-                    target_tp = entry_price * np.exp(-curr_vol * self.pt_mult) # Sell TP is down
-                    target_sl = entry_price * np.exp(curr_vol * self.sl_mult)  # Sell SL is up
-                
-                # --- TRIPLE BARRIER SEARCH (The realism heart) ---
-                exit_idx = idx + 1
-                outcome = "TIME"
-                exit_price = entry_price
-                
-                while exit_idx < len(prices):
-                    curr_bar_ts = timestamps[exit_idx]
-                    if (curr_bar_ts - entry_ts) > self.exit_horizon_ms:
-                        outcome = "TIME"
-                        exit_price = prices[exit_idx]
-                        break
+                # Auditor aprova o sinal? (Threshold 0.50)
+                if sig in [0, 2] and conf >= self.auditor_threshold:
+                    entry_price = curr_price
+                    entry_ts = curr_ts_ms
+                    
+                    # Barrier Scale Fix: Usamos a anchor_vol (Volatilidade de Eventos)
+                    # Isso dá ao trade o espaço de manobra que ele teve no treino.
+                    curr_vol = max(anchor_vol, 1e-7)
                     
                     if sig == 2: # LONG
-                        if highs[exit_idx] >= target_tp:
-                            outcome = "TP"
-                            exit_price = target_tp # Assume limit fill at TP
-                            break
-                        if lows[exit_idx] <= target_sl:
-                            outcome = "SL"
-                            exit_price = target_sl # Assume exit at SL
-                            break
+                        target_tp = entry_price * np.exp(curr_vol * self.pt_mult)
+                        target_sl = entry_price * np.exp(-curr_vol * self.sl_mult)
                     else: # SHORT
-                        if lows[exit_idx] <= target_tp:
-                            outcome = "TP"
-                            exit_price = target_tp
-                            break
-                        if highs[exit_idx] >= target_sl:
-                            outcome = "SL"
-                            exit_price = target_sl
-                            break
-                    exit_idx += 1
-                
-                # If we reached the end of the day without hitting any barrier
-                if exit_idx >= len(prices):
-                    exit_idx = len(prices) - 1
-                    exit_price = prices[exit_idx]
-                    outcome = "DAY_CLOSE"
-                
-                # --- PNL CALCULATION ---
-                if sig == 2: # Long
-                    trade_return = (exit_price - entry_price) / entry_price
-                else: # Short
-                    trade_return = (entry_price - exit_price) / entry_price
-                
-                pnl_net = trade_return - self.fee
-                balance *= (1 + pnl_net)
-                busy_until = timestamps[exit_idx] # Only free after exit
-                
-                all_trades.append({
-                    "ts_entry": entry_ts,
-                    "ts_exit": timestamps[exit_idx],
-                    "type": "BUY" if sig == 2 else "SELL",
-                    "price_entry": entry_price,
-                    "price_exit": exit_price,
-                    "outcome": outcome,
-                    "pnl_net": pnl_net,
-                    "balance": balance,
-                    "duration_min": (timestamps[exit_idx] - entry_ts) / 60000
-                })
-                
-                equity_curve.append({"ts": timestamps[exit_idx], "balance": balance})
+                        target_tp = entry_price * np.exp(-curr_vol * self.pt_mult)
+                        target_sl = entry_price * np.exp(curr_vol * self.sl_mult)
+                    
+                    # --- [TRIPLE BARRIER SEARCH] ---
+                    # Procuramos segundo a segundo qual barreira será tocada primeiro
+                    exit_idx = idx + 1
+                    outcome = "TIME"
+                    exit_price = entry_price
+                    
+                    while exit_idx < len(prices):
+                        fwd_ts = timestamps[exit_idx]
+                        
+                        # Barreira 1: Vertical (Tempo Limite)
+                        if (fwd_ts - entry_ts) > self.exit_horizon_ms:
+                            outcome = "TIME"; exit_price = prices[exit_idx]; break
+                        
+                        # Barreira 2 e 3: TP e SL (Horizontal)
+                        if sig == 2: # LONG
+                            if highs[exit_idx] >= target_tp:
+                                outcome = "TP"; exit_price = target_tp; break
+                            if lows[exit_idx] <= target_sl:
+                                outcome = "SL"; exit_price = target_sl; break
+                        else: # SHORT
+                            if lows[exit_idx] <= target_tp:
+                                outcome = "TP"; exit_price = target_tp; break
+                            if highs[exit_idx] >= target_sl:
+                                outcome = "SL"; exit_price = target_sl; break
+                        exit_idx += 1
+                    
+                    # Se o dia acabou sem tocar barreiras
+                    if exit_idx >= len(prices):
+                        exit_idx = len(prices) - 1; exit_price = prices[exit_idx]; outcome = "DAY_CLOSE"
+                    
+                    # --- Cálculos do Trade Consolidado ---
+                    trade_return = (exit_price - entry_price) / entry_price if sig == 2 else (entry_price - exit_price) / entry_price
+                    net_return = trade_return - (self.trading_fee * 2) # Fee de compra e venda
+                    
+                    old_balance = self.balance
+                    self.balance *= (1 + net_return * self.leverage)
+                    
+                    duration_min = (timestamps[exit_idx] - entry_ts) / 60000
+                    busy_until = timestamps[exit_idx] # Silêncio até a saída do trade
+                    
+                    self.trades.append({
+                        "entry_ts": pd.to_datetime(entry_ts, unit='ms'),
+                        "exit_ts": pd.to_datetime(timestamps[exit_idx], unit='ms'),
+                        "side": "BUY" if sig == 2 else "SELL",
+                        "entry_price": float(entry_price),
+                        "exit_price": float(exit_price),
+                        "outcome": outcome,
+                        "net_return": float(net_return),
+                        "duration_min": float(duration_min),
+                        "balance": float(self.balance)
+                    })
 
-        # Save & Final Report
-        if all_trades:
-            df_trades = pd.DataFrame(all_trades)
-            df_trades.to_parquet(self.output_dir.parent / "backtest_results_REALISTIC_V2.parquet")
-            self.print_report(df_trades, balance)
-        else:
-            logger.warning("📭 No trades executed in V2 (Realistic) mode.")
+            # Gestão de memória por dia
+            del df
+            gc.collect()
+
+        except Exception as e:
+            logger.error(f"❌ Error processing day {pf.name}: {e}")
 
     def print_report(self, df_trades, final_balance):
-        total_days = (df_trades['ts_entry'].max() - df_trades['ts_entry'].min()) / (1000 * 60 * 60 * 24)
-        wins = df_trades[df_trades['pnl_net'] > 0]
-        losses = df_trades[df_trades['pnl_net'] <= 0]
+        if df_trades.empty:
+            logger.warning("No trades recorded.")
+            return
+
+        total_days = (df_trades['entry_ts'].max() - df_trades['entry_ts'].min()).total_seconds() / (60 * 60 * 24)
+        total_days = max(total_days, 0.1) # Avoid zero division for single day
+        
+        wins = df_trades[df_trades['net_return'] > 0]
         
         report = {
             "initial_capital": self.initial_capital,
             "final_balance": float(final_balance),
             "roi_pct": float((final_balance / self.initial_capital - 1) * 100),
             "total_trades": len(df_trades),
-            "win_rate": len(wins) / len(df_trades) if len(df_trades) > 0 else 0,
+            "win_rate": float(len(wins) / len(df_trades)),
             "avg_duration_min": float(df_trades['duration_min'].mean()),
-            "total_days": float(total_days)
+            "trades_per_day": float(len(df_trades) / total_days)
         }
         
-        logger.info("============== [V2] REALISTIC SEQUENTIAL REPORT ==============")
-        logger.info(json.dumps(report, indent=4))
-        logger.info(f"__ Results saved to data/backtest/L2/backtest_results_REALISTIC_V2.parquet")
+        logger.info("============== [V2.4 Twin] REALISTIC SEQUENTIAL REPORT ==============")
+        print(json.dumps(report, indent=4))
+        
+        # Salva o log detalhado de trades
+        report_path = self.output_dir / "trades_sequential_v2.csv"
+        df_trades.to_csv(report_path, index=False)
+        logger.info(f"✅ Full trade journal saved to {report_path}")
 
 if __name__ == "__main__":
     import os
