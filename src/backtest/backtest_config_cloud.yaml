@@ -1,6 +1,11 @@
 # Backtest Config - Cloud GPU (/workspace)
 # ----------------------------------------
 
+model:
+  auditor:
+    manual_threshold: 0.975
+
+
 # Paths Config
 pipeline_paths:
   # Caminhos relativos ao PROJECT_ROOT (/workspace/QuantGod_Cloud_TCNLSTM)
@@ -33,7 +38,7 @@ simulation:
   initial_capital: 10000
   leverage: 10
   trading_fee: 0.0006
-  auditor_threshold: 0.5  # Confidence minimum for Trade approval
+  auditor_threshold: 0.975  # Confidence minimum for Trade approval
   
 # Processing
 processing:
