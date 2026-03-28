@@ -53,14 +53,21 @@ class SequentialBacktestEngineV2:
         # Busca recursiva para encontrar parquets em subpastas (val/train)
         parquet_files = sorted(list(data_dir.rglob("*.parquet")))
 
-        # [VERIFICAÇÃO V2.4] Apenas o dia 21 para validação da escala Twin
-        parquet_files = [f for f in parquet_files if "2026-03-21" in f.name]
+        # [VERIFICAÇÃO V2.5] Filtro flexível para 21 de Março (hífen ou underscore)
+        target_date_h = "2026-03-21"
+        target_date_u = "2026_03_21"
+        
+        parquet_files = [f for f in parquet_files if target_date_h in f.name or target_date_u in f.name]
         
         if not parquet_files:
-            logger.error(f"❌ No labelled parquet files found for Mar 21 in {data_dir}")
+            logger.error(f"❌ No labelled parquet files found for {target_date_h}/{target_date_u} in {data_dir}")
+            # Diagnóstico: listar o que foi encontrado (primeiros 3) para ajudar o usuário
+            all_found = sorted(list(data_dir.rglob("*.parquet")))[:3]
+            if all_found:
+                logger.info(f"🔍 Filenames found in dir (sample): {[f.name for f in all_found]}")
             return
 
-        logger.info(f"🚀 [V2.4 Twin] Starting Event-Driven Backtest on {len(parquet_files)} day(s)...")
+        logger.info(f"🚀 [V2.5 Twin] Starting Event-Driven Backtest on {len(parquet_files)} day(s)...")
         
         for pf in tqdm(parquet_files, desc="Processing Days"):
             self.execute_single_parquet(pf)
