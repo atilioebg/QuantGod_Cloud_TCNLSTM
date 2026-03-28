@@ -189,10 +189,38 @@ class InferenceService:
         if not p.exists():
             logger.error(f"❌ Model file not found: {p}")
             raise FileNotFoundError(f"Model file not found: {p}")
-            logger.error(f"❌ Missing required architecture parameter: {e}")
-            raise KeyError(f"Missing required architecture parameter in best_params.json: {e}")
-        
+            
+        # 1. Inspect checkpoint for architecture (Self-Healing V3.7)
         state_dict = torch.load(p, map_location=self.device)
+        
+        # We need a copy of arch_params for this specific model instance
+        instance_params = self.arch_params.copy()
+        
+        # Detect TCN Channels
+        if 'tcn.0.causal_conv.conv.weight' in state_dict:
+            detected_tcn = state_dict['tcn.0.causal_conv.conv.weight'].shape[0]
+            if instance_params.get('tcn_channels') != detected_tcn:
+                logger.info(f"🔄 Auto-Detect: Adjusted tcn_channels from {instance_params.get('tcn_channels')} to {detected_tcn}")
+                instance_params['tcn_channels'] = detected_tcn
+        
+        # Detect LSTM Hidden
+        if 'lstm.weight_ih_l0' in state_dict:
+            detected_hidden = state_dict['lstm.weight_ih_l0'].shape[0] // 4
+            if instance_params.get('lstm_hidden') != detected_hidden:
+                logger.info(f"🔄 Auto-Detect: Adjusted lstm_hidden from {instance_params.get('lstm_hidden')} to {detected_hidden}")
+                instance_params['lstm_hidden'] = detected_hidden
+
+        # 2. Build model with corrected blueprint
+        instance_params.pop('num_features', None)
+        instance_params.pop('num_classes', None)
+        
+        model = Hybrid_TCN_LSTM(
+            num_features=self.num_features,
+            num_classes=self.num_classes,
+            **instance_params
+        ).to(self.device)
+        
+        # 3. Load adjusted state dict
         model.load_state_dict(state_dict)
         model.eval()
         return model
