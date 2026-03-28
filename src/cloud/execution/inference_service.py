@@ -87,7 +87,6 @@ class InferenceService:
         self.specialist_pairs = self._load_kfold_specialists()
         
         self.threshold = self._load_auditor_threshold()
-        self.scaler_auditor = self._load_auditor_scaler()
         
         logger.info(f"✅ Full Inference Stack loaded on {self.device}")
         logger.info(f"🛡️ Active Auditor Threshold: {self.threshold:.4f}")
