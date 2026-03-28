@@ -57,28 +57,22 @@ class BacktestEngine:
         prices = df['close'].values
         
         # ── Batch Prediction (The Speed Boost) ──
-        logger.info(f"🧠 Calculating {len(X_base)} windows in Batch Mode...")
+        logger.info(f"🧠 Preparing windows and running batch inference for {len(X_base)} bars...")
         
         # Create sliding windows efficiently using NumPy's stride_tricks
+        from numpy.lib.stride_tricks import sliding_window_view
         S = self.inference.seq_len
-        F = X_base.shape[1]
         
         # Ensure we have enough data for at least one sequence
         if len(X_base) < S:
             logger.warning(f"⚠️ File {file_path.name} is too short for seq_len {S}")
             return []
 
-        # We need windows ending at index S-1 to len(X_base)-1
-        # shape: (N_windows, seq_len, num_features)
-        # We use a simple windowing for now, can be further optimized with as_strided
-        windows = []
-        for i in range(S-1, len(X_base)):
-            windows.append(X_base[i-S+1 : i+1])
-        X_windows = np.array(windows)
+        # Instant vectorized windowing (No copying!)
+        X_windows = sliding_window_view(X_base, window_shape=S, axis=0) # (N-S+1, S, F)
         
         # Context also needs to be aligned with the end of the windows
         X_context_aligned = X_context[S-1:]
-        
         # Run Batch Inference
         batch_results = self.inference.predict_batch(X_windows, X_context_aligned)
         
@@ -90,7 +84,7 @@ class BacktestEngine:
         
         directions_map = {0: "SELL", 1: "NEUTRAL", 2: "BUY"}
         
-        for i in range(len(signals)):
+        for i in tqdm(range(len(signals)), desc="📈 Trade Simulation", leave=False):
             idx = i + S - 1 # Original index in the dataframe
             day_results.append({
                 "ts": timestamps[idx],
