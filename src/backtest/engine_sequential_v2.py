@@ -23,9 +23,8 @@ class SequentialBacktestEngineV2:
         
         self.simulation_cfg = backtest_cfg['simulation']
         
-        # 2. Inicializar Serviço de Inferência (Resolução de Caminhos V3.0 Nativa)
-        # O InferenceService agora usa path_utils.py para encontrar a pasta de modelos
-        # baseando-se no DNA definido no backtest_config_cloud.yaml
+        # 2. Inicializar Serviço de Inferência (Resolução de Caminhos V3.5 Autoritária)
+        # O InferenceService agora trava a âncora diretamente da auditoria
         self.inference = InferenceService(self.config)
         
         # 3. Parâmetros da Simulação

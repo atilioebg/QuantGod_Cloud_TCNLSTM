@@ -36,11 +36,15 @@ class InferenceService:
         logger.info(f"🔍 [V3.4 Audit] Resolved Local: {resolved_path}")
         logger.info(f"🔍 [V3.4 Audit] Directory Exists? {resolved_path.exists()}")
         
-        # --- 2. Resolve & Lock Paths ---
-        self.base_path = self._get_models_dir()
+        # --- 2. Resolve & Lock Paths (V3.5 Authoritative Fix) ---
+        if resolved_path.exists():
+            self.base_path = resolved_path
+            logger.info(f"🎯 [V3.5 Final] Authority Anchor Locked: {self.base_path}")
+        else:
+            logger.warning(f"⚠️ [V3.5] Audit failed. Falling back to project root.")
+            self.base_path = self._project_root
+            
         self.arch_params = self._load_best_params()
-        
-        logger.info(f"🎯 [V3.4 Final] Using Base Anchor: {self.base_path}")
         
         # Extract metadata
         self.num_features = int(self.arch_params.get('num_features', 97))
