@@ -69,8 +69,16 @@ class InferenceService:
         def _load_p(rel_p):
             p = Path(rel_p)
             abs_p = self.base_path / p if not p.is_absolute() else p
-            with open(abs_p, 'rb') as f:
-                return pickle.load(f)
+            if not abs_p.exists():
+                logger.warning(f"⚠️ Scaler not found: {abs_p}")
+                return None
+            try:
+                # Scalers in this project are dumped via joblib
+                return joblib.load(abs_p)
+            except Exception as e:
+                logger.warning(f"⚠️ Joblib load failed for {abs_p}, trying pickle: {e}")
+                with open(abs_p, 'rb') as f:
+                    return pickle.load(f)
 
         self.scaler_foundation = _load_p(scaler_foundation_path)
         self.scaler_auditor = _load_p(scaler_auditor_path)
