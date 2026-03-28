@@ -58,7 +58,7 @@ class BacktestEngine:
         timestamps = df['ts'].values
         prices = df['close'].values
         
-        for i in range(len(df)):
+        for i in tqdm(range(len(df)), desc=f"📈 {file_path.name}", leave=False):
             # 1. Get raw input (Production expects 30 features)
             raw_input = X_base[i].reshape(1, -1)
             context_input = X_context[i].reshape(1, -1)
