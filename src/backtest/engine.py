@@ -69,10 +69,16 @@ class BacktestEngine:
             return []
 
         # Instant vectorized windowing (No copying!)
-        X_windows = sliding_window_view(X_base, window_shape=S, axis=0) # (N-S+1, S, F)
+        # sliding_window_view on (N, F) with window S on axis 0 returns (N-S+1, F, S)
+        # We need (N-S+1, S, F) for the models.
+        X_windows = sliding_window_view(X_base, window_shape=S, axis=0).transpose(0, 2, 1)
         
         # Context also needs to be aligned with the end of the windows
         X_context_aligned = X_context[S-1:]
+        
+        # Clean up to free memory before batch
+        gc.collect()
+        
         # Run Batch Inference
         batch_results = self.inference.predict_batch(X_windows, X_context_aligned)
         
