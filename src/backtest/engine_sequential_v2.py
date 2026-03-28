@@ -50,9 +50,10 @@ class SequentialBacktestEngineV2:
         self.initial_capital = sim_cfg.get('initial_capital', 10000)
         self.fee = sim_cfg.get('trading_fee', 0.0006)
         
-        # Strategy Parameters
-        self.tp_ret = 0.0020  # 20 bps
-        self.sl_ret = 0.0010  # 10 bps
+        # Strategy Parameters (Volatility multipliers from master_config/training)
+        self.pt_mult = sim_cfg.get('pt_multiplier', 0.65)
+        self.sl_mult = sim_cfg.get('sl_multiplier', 0.33)
+        self.vol_span = 144 # Fixed to match labelling logic (1 day of 10min context)
         self.exit_horizon_ms = 15 * 60 * 1000 # 15 minutes
         
         self.output_dir = Path(self.config['pipeline_paths']['local_data_root']) / "backtest_results_sequential_v2"
@@ -113,6 +114,10 @@ class SequentialBacktestEngineV2:
             prices = df['close'].values
             highs = df['high'].values
             lows = df['low'].values
+
+            # Calculation of Volatility EWMA (Parity with labelling process)
+            log_ret = np.log(pd.Series(prices)).diff()
+            volatility = log_ret.ewm(span=self.vol_span).std().values
             
             S = self.inference.seq_len
             
@@ -128,16 +133,21 @@ class SequentialBacktestEngineV2:
                 if sig == 1: # Neutral
                     continue
                     
-                # APPROVED SIGNAL: Simulate Execution
+                # APPROVED SIGNAL: Simulate Execution with Dynamic Barriers
                 entry_price = prices[idx]
                 entry_ts = curr_ts
+                curr_vol = volatility[idx]
+                
+                # If vol is NaN (start of day), fallback to a reasonable minimum
+                if np.isnan(curr_vol):
+                    curr_vol = np.nanmean(volatility[:100]) if not np.all(np.isnan(volatility[:100])) else 0.0003
                 
                 if sig == 2: # LONG
-                    target_tp = entry_price * (1 + self.tp_ret)
-                    target_sl = entry_price * (1 - self.sl_ret)
+                    target_tp = entry_price * np.exp(curr_vol * self.pt_mult)
+                    target_sl = entry_price * np.exp(-curr_vol * self.sl_mult)
                 else: # SHORT
-                    target_tp = entry_price * (1 - self.tp_ret)
-                    target_sl = entry_price * (1 + self.sl_ret)
+                    target_tp = entry_price * np.exp(-curr_vol * self.pt_mult) # Sell TP is down
+                    target_sl = entry_price * np.exp(curr_vol * self.sl_mult)  # Sell SL is up
                 
                 # --- TRIPLE BARRIER SEARCH (The realism heart) ---
                 exit_idx = idx + 1

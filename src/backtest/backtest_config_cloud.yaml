@@ -45,6 +45,11 @@ simulation:
   # [PESQUISA E BACKTEST] Threshold usado apenas pelo motor de SIMULAÇÃO.
   # Permite testar sensibilidade (ex: baixar para 0.60) sem afetar a segurança de produção acima.
   auditor_threshold: 0.68
+
+  # [SINCRONIA COM TREINO] Multiplicadores de Volatilidade Dinâmica (Prado ADR)
+  # Estes valores multiplicam a volatilidade do BTC para definir alvos realistas.
+  pt_multiplier: 0.65
+  sl_multiplier: 0.33
   
 # Processing
 processing:
