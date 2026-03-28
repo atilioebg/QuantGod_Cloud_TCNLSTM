@@ -286,9 +286,9 @@ class InferenceService:
         }
 
     @torch.no_grad()
-    def predict_batch(self, x_base_raw: np.ndarray, x_context_raw: np.ndarray, batch_size: int = 16384) -> Dict[str, np.ndarray]:
+    def predict_batch(self, x_base_raw: np.ndarray, x_context_raw: np.ndarray, batch_size: int = 4096) -> Dict[str, np.ndarray]:
         """
-        TURBO 3.0 INFERENCE - High Density GPU Throughput:
+        TURBO 3.0 INFERENCE - Balanced Stability:
         1. Pre-scaling once (CPU side).
         2. Mixed Precision (AMP FP16) for Tensor Core acceleration.
         3. Contiguous memory copies to minimize PCIe latency.
