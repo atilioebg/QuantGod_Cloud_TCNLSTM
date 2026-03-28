@@ -10,32 +10,29 @@ model:
 
 # Paths Config
 pipeline_paths:
-  # Caminhos relativos ao PROJECT_ROOT (/workspace/QuantGod_Cloud_TCNLSTM)
+  # Caminhos Absolutos BASEADOS no find realizado na nuvem
   local_data_root: "data/backtest/L2"
   raw_zip_dir: "data/backtest/L2/raw_zip"
   raw_trades_dir: "data/backtest/L2/raw_trades"
   pre_processed_dir: "data/backtest/L2/pre_processed"
   labelled_dir: "data/backtest/L2/labelled"
   
-  # Model Assets (Champion 2026_03_21) - Production Tree Parity
-  # Estes caminhos são relativos ao models_local_dir definido abaixo
+  # Model Assets (Apontando para a 'Fonte da Verdade' do find)
   best_tcn_lstm_model: "BASE_MODEL/best_tcn_lstm.pt"
   auditor_model:       "AUDITOR/auditor_xgboost.json"
   scaler_foundation:   "BASE_MODEL/scaler_foundation.pkl"
   scaler_auditor:      "AUDITOR/scaler_auditor.pkl"
-  auditor_oof_dir:     "SPECIALIST" # Localizado dentro de MODELS_BACKTEST/MODELOS/
+  auditor_oof_dir:     "SPECIALIST"
   
   # Reports
   output_dir: "data/backtest/reports"
 
 # ── [EXECUÇÃO] Configuração do Motor de Inferência ──────────────────
 execution:
-  # Obriga o InferenceService a usar nossa pasta baixada
-  models_local_dir: "MODELS_BACKTEST/MODELOS"
+  # Caminho literal da sua pasta de resultados para evitar erros de subpastas aninhadas
+  models_local_dir: "/workspace/QuantGod_Cloud_TCNLSTM/RESULTADOS_PT_065_SL_033_lookahead_15min_DT_5000000_TT_5000_IT_1000_VT_144_CUSUM_22/2026_03_21/MODELOS"
   dynamic_security_threshold: false
-  # [SEGURANÇA OPERACIONAL] Threshold que o robô usará se estiver "Em Operação" (Live Trading).
-  # É a sua "parede de fogo" na conta real para ser mais ou menos agressivo que o treino.
-  manual_security_threshold: 0.68
+  manual_security_threshold: 0.50
 
 # Simulation Config
 simulation:
