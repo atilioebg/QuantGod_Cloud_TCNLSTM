@@ -74,6 +74,8 @@ class SequentialBacktestEngine:
         busy_until = 0 # timestamp ms
         
         for pf in tqdm(parquet_files, desc="📅 Processing Days"):
+            if "2026-03-13" in pf.name:
+                continue
             df = pd.read_parquet(pf)
             
             # Use columns expected by engine

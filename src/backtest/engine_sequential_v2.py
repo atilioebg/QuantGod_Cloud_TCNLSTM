@@ -75,6 +75,8 @@ class SequentialBacktestEngineV2:
         busy_until = 0 
         
         for pf in tqdm(parquet_files, desc="📅 Simulation Progress"):
+            if "2026-03-13" in pf.name:
+                continue
             df = pd.read_parquet(pf)
             
             # Feature extraction (same as v1 for consistency)

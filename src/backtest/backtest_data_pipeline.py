@@ -227,7 +227,7 @@ def sync_drive_data(config):
     rclone_bin = "rclone"
     if os.name == 'nt' and (PROJECT_ROOT / "rclone.exe").exists(): rclone_bin = str((PROJECT_ROOT / "rclone.exe").absolute())
     
-    window_pattern = "*2026-03-{13,14,15,16,17,18,19,20,21,22,23,24,25,26}*"
+    window_pattern = "*2026-03-{14,15,16,17,18,19,20,21,22,23,24,25,26}*"
     sync_jobs = [
         {"remote": "drive:PROJETOS/BACKTEST/BTC_USDT_L2_2023_2026/btcusdt_L2_2026", "local": PROJECT_ROOT / config['pipeline_paths']['raw_zip_dir']},
         {"remote": "drive:PROJETOS/BACKTEST/BTC_USDT_L2_TRADE_2023_2026/btcusdt_L2_trade_2026", "local": PROJECT_ROOT / config['pipeline_paths']['raw_trades_dir']}
