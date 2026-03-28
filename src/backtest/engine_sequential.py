@@ -131,8 +131,13 @@ class SequentialBacktestEngine:
             n_final_sell = (signals == 0).sum()
             max_score = scores.max() if len(scores) > 0 else 0
             
+            # Novo: Log de score máximo apenas para sinais direcionais (BUY ou SELL)
+            directional_scores = scores[directions_idx != 1]
+            max_dir_score = directional_scores.max() if len(directional_scores) > 0 else 0
+            
             logger.info(f"📊 Day {pf.stem} Stats:")
-            logger.info(f"   - Max Auditor Score: {max_score:.4f}")
+            logger.info(f"   - Max Auditor Score (Global): {max_score:.4f}")
+            logger.info(f"   - Max Auditor Score (Directional): {max_dir_score:.4f}")
             logger.info(f"   - Raw Specialist: BUY={n_raw_buy}, SELL={n_raw_sell}, NEUTRAL={n_raw_neu}")
             logger.info(f"   - Final (Audited): BUY={n_final_buy}, SELL={n_final_sell}")
             
