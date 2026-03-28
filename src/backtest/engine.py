@@ -164,36 +164,52 @@ def run_full_backtest():
     engine = BacktestEngine(config)
     labelled_dir = Path(config['pipeline_paths']['local_data_root']) / "labelled"
     files = sorted(list(labelled_dir.glob("*.parquet")))
-    output_path = labelled_dir.parent / "backtest_results.csv"
     
-    # Check for resume or existing
-    if output_path.exists():
-        logger.info(f"💾 Found existing {output_path}. Results will be APPENDED for safety.")
-
+    # Results directory handling
+    results_dir = labelled_dir.parent / "backtest_results"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    
     all_results = []
+    
     for pf in tqdm(files, desc="📅 Full Backtest Pipeline"):
+        day_parquet = results_dir / f"res_{pf.stem}.parquet"
+        
+        # Resume Check
+        if day_parquet.exists():
+            logger.info(f"⏭️ Skipping {pf.name} (Result already exists).")
+            # Load existing if needed for the final report
+            # df_existing = pd.read_parquet(day_parquet)
+            # all_results.extend(df_existing.to_dict('records'))
+            continue
+            
         res = engine.run_backtest_file(pf)
         if res:
-            all_results.extend(res)
-            # Incremental Save (DATA SAFETY)
             df_day = pd.DataFrame(res)
-            file_exists = output_path.exists()
-            df_day.to_csv(output_path, mode='a', index=False, header=not file_exists)
-            logger.info(f"✅ Checkpoint: {pf.name} saved to {output_path.name}")
+            # Save individual day
+            df_day.to_parquet(day_parquet, index=False)
+            logger.info(f"✅ Checkpoint: {day_parquet.name} saved.")
+            all_results.extend(res)
             
         gc.collect()
         torch.cuda.empty_cache()
-        
-    if not all_results:
-        logger.warning("❌ No results generated during backtest.")
+    
+    # Final Consolidation
+    all_parquets = list(results_dir.glob("res_*.parquet"))
+    if not all_parquets:
+        logger.warning("❌ No results found to aggregate.")
         return
 
-    report, df_res = engine.analyze_performance(all_results)
+    logger.info(f"📚 Consolidating {len(all_parquets)} days into final report...")
+    df_combined = pd.concat([pd.read_parquet(p) for p in all_parquets])
+    
+    report, _ = engine.analyze_performance(df_combined.to_dict('records'))
     
     logger.info("============== BACKTEST REPORT ==============")
     logger.info(json.dumps(report, indent=4))
     
-    logger.info(f"🏆 Backtest Complete! Final results aggregated in {output_path}")
+    final_path = labelled_dir.parent / "backtest_results_COMPLETE.parquet"
+    df_combined.to_parquet(final_path, index=False)
+    logger.info(f"🏆 Backtest Complete! Final results in {final_path}")
 
 if __name__ == "__main__":
     run_full_backtest()
