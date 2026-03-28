@@ -112,7 +112,11 @@ class SequentialBacktestEngine:
                      logger.error(f"Available columns: {df.columns.tolist()[:30]}...")
                      return
 
-            batch_results = self.inference.predict_batch(X_base, X_context)
+                batch_results = self.inference.predict_batch(X_base, X_context)
+            except Exception as e:
+                logger.error(f"❌ Error during inference prep: {e}")
+                logger.error(f"Available columns: {df.columns.tolist()[:30]}...")
+                return
             
             signals = batch_results['signals'] # 0=SELL, 1=NEUTRAL, 2=BUY
             scores = batch_results['auditor_scores']
