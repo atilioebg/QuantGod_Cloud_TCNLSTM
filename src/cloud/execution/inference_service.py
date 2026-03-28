@@ -104,13 +104,14 @@ class InferenceService:
 
     def _load_best_params(self) -> Dict[str, Any]:
         """Loads the best hyperparameters found by Optuna."""
-        project_root = Path(__file__).parents[3]
-        
         paths = []
         # 1. Explicit models_local_dir from config (most reliable)
         explicit = self.config.get('execution', {}).get('models_local_dir')
         if explicit:
-            p_json = project_root / explicit / "CONFIG" / "best_params.json"
+            p_base = Path(explicit)
+            if not p_base.is_absolute():
+                p_base = self._project_root / p_base
+            p_json = p_base / "CONFIG" / "best_params.json"
             paths.append(p_json.resolve())
         else:
             model_path_cfg = self.config.get('pipeline_paths', {}).get('best_tcn_lstm_model')
