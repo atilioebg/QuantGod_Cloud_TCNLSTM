@@ -3,9 +3,15 @@ import numpy as np
 from pathlib import Path
 import yaml
 import logging
+import sys
 from tqdm import tqdm
 from datetime import datetime, timedelta
 import json
+
+# Add project root to sys.path
+project_root = str(Path(__file__).parents[2])
+if project_root not in sys.path:
+    sys.path.append(project_root)
 
 from src.cloud.execution.inference_service import InferenceService
 
@@ -72,13 +78,45 @@ class SequentialBacktestEngine:
             
             # Use columns expected by engine
             base_features = self.config['model']['feature_names']
-            # Simplification: we expect context features to be handled or empty if not in model
-            context_features = [c for c in df.columns if c.startswith('alpha_')]
             
-            # Predict whole day at once (GPU optimization)
-            X_base = df[base_features].values
-            X_context = df[context_features].values
-            batch_results = self.inference.predict_batch(X_base, X_context)
+            # Auditor context features (14 technical indicators)
+            context_features = [
+                'ema_trend', 'ema_cross_dist', 'bb_pct', 'rsi_14', 'stoch_14', 
+                'atr_norm', 'vol_1h', 'vol_zscore_1h', 'delta_vol_24h',
+                'adx_14', 'vwap_zscore', 'mfi_14', 'book_skew_bid', 'book_skew_ask'
+            ]
+            
+            # Try to find columns (they might or might not have 'alpha_' prefix)
+            final_context_cols = []
+            for f in context_features:
+                if f in df.columns:
+                    final_context_cols.append(f)
+                elif f"alpha_{f}" in df.columns:
+                    final_context_cols.append(f"alpha_{f}")
+                else:
+                    # If not found, we might have a problem, but let's see what we have
+                    pass
+            
+            if len(final_context_cols) != 14:
+                logger.warning(f"⚠️ expected 14 context features, found {len(final_context_cols)}")
+                # FALLBACK: if we can't find them, use startswith('alpha_') just in case
+                if not final_context_cols:
+                    final_context_cols = [c for c in df.columns if c.startswith('alpha_')]
+            
+            try:
+                X_base = df[base_features].values
+                X_context = df[final_context_cols].values
+                
+                if X_context.shape[1] != 14:
+                     logger.error(f"❌ Dimension mismatch: Found {X_context.shape[1]} context features, need 14.")
+                     logger.error(f"Available columns: {df.columns.tolist()[:30]}...")
+                     return
+
+                batch_results = self.inference.predict_batch(X_base, X_context)
+            except KeyError as e:
+                logger.error(f"❌ Missing feature in dataframe: {e}")
+                logger.error(f"Available columns: {df.columns.tolist()[:30]}...")
+                return
             
             signals = batch_results['signals'] # 0=SELL, 1=NEUTRAL, 2=BUY
             scores = batch_results['auditor_scores']
