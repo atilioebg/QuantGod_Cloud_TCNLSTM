@@ -149,7 +149,7 @@ def main():
     success = run_phase(
         name=f"Foundation Optuna ({n_trials_base} Trials | {epochs} Epochs)",
         script_path="src/cloud/base_model/otimizacao/run_foundation.py",
-        check_exists=str(check_path), 
+        check_exists=None, # [V4.3 Centralized] Always run foundation to ensure best_params.json extraction
         force_retrain=force_retrain
     )
     if not success and not skip_qa_on_fail: sys.exit(1)
