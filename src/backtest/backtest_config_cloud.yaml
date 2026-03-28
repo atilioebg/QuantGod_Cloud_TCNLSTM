@@ -44,7 +44,8 @@ simulation:
   trading_fee: 0.0006
   # [PESQUISA E BACKTEST] Threshold usado apenas pelo motor de SIMULAÇÃO.
   # Permite testar sensibilidade (ex: baixar para 0.60) sem afetar a segurança de produção acima.
-  auditor_threshold: 0.68
+  # RESET: 0.50 é o threshold padrão do DNA do Auditor.
+  auditor_threshold: 0.50
 
   # [SINCRONIA COM TREINO] Multiplicadores de Volatilidade Dinâmica (Prado ADR)
   # Estes valores multiplicam a volatilidade do BTC para definir alvos realistas.

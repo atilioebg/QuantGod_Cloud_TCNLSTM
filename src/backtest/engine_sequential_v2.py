@@ -62,9 +62,9 @@ class SequentialBacktestEngineV2:
     def run_sequential_backtest(self):
         data_dir = Path(self.config['pipeline_paths']['labelled_dir'])
         parquet_files = sorted(list(data_dir.glob("*.parquet")))
-        
-        # Filtro definitivo da lista de arquivos solicitado pelo usuário (pular dia 13)
-        parquet_files = [f for f in parquet_files if "2026-03-13" not in f.name]
+
+        # [VERIFICAÇÃO V2.2] Filtrando apenas o dia 21 sugerido pelo usuário por ser o menor
+        parquet_files = [f for f in parquet_files if "2026-03-21" in f.name]
         
         if not parquet_files:
             logger.error(f"❌ No parquet files found in {data_dir}")
