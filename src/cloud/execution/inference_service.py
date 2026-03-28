@@ -118,13 +118,13 @@ class InferenceService:
             if model_path_cfg:
                 from src.cloud.base_model.utils.path_utils import get_drive_session_path, resolve_local_project
                 base_dir = get_drive_session_path("MODELOS", self.config)
-                base_path = resolve_local_project(base_dir, project_root)
+                base_path = resolve_local_project(base_dir, self._project_root)
                 p_model = base_path / model_path_cfg
                 p_json = p_model.parent.parent / "CONFIG" / "best_params.json"
                 paths.append(p_json)
         
-        # 2. Local fallback
-        paths.append(project_root / "src/cloud/base_model/otimizacao/best_params.json")
+        # 3. Final Fallback: production default path
+        paths.append(self._project_root / "src/cloud/base_model/otimizacao/best_params.json")
         
         for p in paths:
             if p.exists():
