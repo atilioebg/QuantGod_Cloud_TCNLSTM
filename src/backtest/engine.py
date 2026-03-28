@@ -9,6 +9,7 @@ from pathlib import Path
 from tqdm import tqdm
 import sys
 import gc
+from numpy.lib.stride_tricks import sliding_window_view
 
 # Add project root to sys.path
 PROJECT_ROOT = Path(__file__).parents[2].absolute()
@@ -54,33 +55,12 @@ class BacktestEngine:
         X_context = df[context_features].values
         Y_target = df['target'].values
         timestamps = df['ts'].values
-        prices = df['close'].values
-        
         # ── Batch Prediction (The Speed Boost) ──
-        logger.info(f"🧠 Preparing windows and running batch inference for {len(X_base)} bars...")
+        logger.info(f"🧠 Running fully optimized batch inference for {len(X_base)} bars...")
         
-        # Create sliding windows efficiently using NumPy's stride_tricks
-        from numpy.lib.stride_tricks import sliding_window_view
-        S = self.inference.seq_len
-        
-        # Ensure we have enough data for at least one sequence
-        if len(X_base) < S:
-            logger.warning(f"⚠️ File {file_path.name} is too short for seq_len {S}")
-            return []
-
-        # Instant vectorized windowing (No copying!)
-        # sliding_window_view on (N, F) with window S on axis 0 returns (N-S+1, F, S)
-        # We need (N-S+1, S, F) for the models.
-        X_windows = sliding_window_view(X_base, window_shape=S, axis=0).transpose(0, 2, 1)
-        
-        # Context also needs to be aligned with the end of the windows
-        X_context_aligned = X_context[S-1:]
-        
-        # Clean up to free memory before batch
-        gc.collect()
-        
-        # Run Batch Inference
-        batch_results = self.inference.predict_batch(X_windows, X_context_aligned)
+        # Instant windowing and scaling logic moved to InferenceService for cleanliness
+        # Just send the RAW full sequence
+        batch_results = self.inference.predict_batch(X_base, X_context)
         
         # ── Log Results (CPU Simulation Loop) ──
         day_results = []
@@ -89,6 +69,7 @@ class BacktestEngine:
         probs = batch_results['probs_specialist']
         
         directions_map = {0: "SELL", 1: "NEUTRAL", 2: "BUY"}
+        S = self.inference.seq_len
         
         for i in tqdm(range(len(signals)), desc="📈 Trade Simulation", leave=False):
             idx = i + S - 1 # Original index in the dataframe

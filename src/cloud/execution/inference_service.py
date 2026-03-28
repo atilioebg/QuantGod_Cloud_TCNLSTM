@@ -3,8 +3,11 @@ import numpy as np
 import xgboost as xgb
 import logging
 import json
+import gc
 from pathlib import Path
 from typing import Dict, List, Any, Optional
+from tqdm import tqdm
+from numpy.lib.stride_tricks import sliding_window_view
 
 # Internal imports
 from src.cloud.base_model.models.model import Hybrid_TCN_LSTM
@@ -265,8 +268,7 @@ class InferenceService:
         # 4. Auditor Decision (XGBoost)
         dmatrix = xgb.DMatrix(auditor_input)
         auditor_score = self.auditor_model.predict(dmatrix)[0] # Confidence [0-1]
-        
-        # Result Determination
+            # Result Determination
         # The primary direction is determined by the specialist ensemble (highest prob)
         direction_idx = np.argmax(s_probs)
         directions = ["SELL", "NEUTRAL", "BUY"]
@@ -284,67 +286,80 @@ class InferenceService:
         }
 
     @torch.no_grad()
-    def predict_batch(self, x_base_raw: np.ndarray, x_context: np.ndarray, batch_size: int = 4096) -> Dict[str, np.ndarray]:
+    def predict_batch(self, x_base_raw: np.ndarray, x_context_raw: np.ndarray, batch_size: int = 4096) -> Dict[str, np.ndarray]:
         """
-        Calculates predictions for a large batch of windows using GPU batching.
-        x_base_raw: (N, seq_len, num_features)
-        x_context: (N, 14) 
+        OPTIMIZED BATCH INFERENCE 2.0:
+        1. Pre-scales raw features ONCE (512k rows vs 131M redundant calls).
+        2. Zero-copy windowing for RAM efficiency.
+        3. Low-latency batch generation to GPU.
         """
-        N = x_base_raw.shape[0]
+        from numpy.lib.stride_tricks import sliding_window_view
+        from tqdm import tqdm
+        import gc
+        
+        N_total = x_base_raw.shape[0]
+        S = self.seq_len
+        N_windows = N_total - S + 1
+        
+        if N_windows <= 0:
+            return {"signals": np.array([]), "auditor_scores": np.array([]), "probs_specialist": np.array([])}
+
+        # ── 1. Pre-scaling (CPU Optimization) ──
+        logger.info(f"⚖️ Pre-scaling {N_total} bars (Foundation)...")
+        f_scaled = self.scaler_foundation.transform(x_base_raw).astype(np.float32) if self.scaler_foundation else x_base_raw.astype(np.float32)
+        
+        logger.info(f"⚖️ Pre-scaling {N_total} bars (Specialist Folds)...")
+        s_scaled_list = [pair[1].transform(x_base_raw).astype(np.float32) for pair in self.specialist_pairs]
+        
+        # ── 2. Instant Windowing (Views - No memory copy) ──
+        # Formula: (N, F) -> window(S) -> transpose -> (N-S+1, S, F)
+        f_win_view = sliding_window_view(f_scaled, window_shape=S, axis=0).transpose(0, 2, 1)
+        s_win_views = [sliding_window_view(ss, window_shape=S, axis=0).transpose(0, 2, 1) for ss in s_scaled_list]
+        
+        # ── 3. GPU/Batch Inference ──
         all_f_probs = []
         all_s_probs = []
         
-        # 1. & 2. Foundation and Specialist Batch Inference
-        for start in range(0, N, batch_size):
-            end = min(start + batch_size, N)
-            batch_base = x_base_raw[start:end]
+        pbar = tqdm(range(0, N_windows, batch_size), desc="🚀 GPU Inference", leave=True)
+        for start in pbar:
+            end = min(start + batch_size, N_windows)
             
-            # Prep Foundation
-            # Flatten to (B*seq, feat) for scaler then reshape back
-            B, S, F = batch_base.shape
-            if self.scaler_foundation:
-                batch_f_flat = batch_base.reshape(-1, F)
-                batch_f_scaled = self.scaler_foundation.transform(batch_f_flat).reshape(B, S, F)
-            else:
-                batch_f_scaled = batch_base
-            
-            x_f = torch.from_numpy(batch_f_scaled.astype(np.float32)).to(self.device).float()
-            f_out = self.foundation_model(x_f)
+            # 1. Foundation Model
+            x_f_batch = torch.from_numpy(f_win_view[start:end]).to(self.device)
+            f_out = self.foundation_model(x_f_batch)
             all_f_probs.append(f_out['probs'].cpu().numpy())
             
-            # Prep Specialists
+            # 2. Specialist Models (Ensemble Mean)
             fold_probs = []
-            for model, scaler in self.specialist_pairs:
-                batch_s_flat = batch_base.reshape(-1, F)
-                batch_s_scaled = scaler.transform(batch_s_flat).reshape(B, S, F)
-                
-                x_s = torch.from_numpy(batch_s_scaled.astype(np.float32)).to(self.device).float()
-                s_out = model(x_s)
+            for i, model_pair in enumerate(self.specialist_pairs):
+                x_s_batch = torch.from_numpy(s_win_views[i][start:end]).to(self.device)
+                s_out = model_pair[0](x_s_batch)
                 fold_probs.append(s_out['probs'].cpu().numpy())
             
-            # Mean of folds for this batch
+            # Mean for this batch
             all_s_probs.append(np.mean(fold_probs, axis=0))
             
-        f_probs_all = np.concatenate(all_f_probs, axis=0) # (N, 3)
-        s_probs_all = np.concatenate(all_s_probs, axis=0) # (N, 3)
+        f_probs_all = np.concatenate(all_f_probs, axis=0) # (N_win, 3)
+        s_probs_all = np.concatenate(all_s_probs, axis=0) # (N_win, 3)
         
-        # 3. Auditor Batch Inference (XGBoost handles batching naturally)
-        auditor_input = np.concatenate([f_probs_all, s_probs_all, x_context], axis=1)
+        # Free temp VRAM
+        del all_f_probs, all_s_probs, fold_probs
+        gc.collect()
+        
+        # ── 4. Auditor Batch (XGBoost) ──
+        # Auditor input aligns with windows (ends at windows index)
+        x_context_aligned = x_context_raw[S-1:]
+        auditor_input = np.concatenate([f_probs_all, s_probs_all, x_context_aligned], axis=1)
         
         if self.scaler_auditor:
             auditor_input = self.scaler_auditor.transform(auditor_input.astype(np.float32))
             
         dmatrix = xgb.DMatrix(auditor_input)
-        auditor_scores = self.auditor_model.predict(dmatrix) # (N,)
+        auditor_scores = self.auditor_model.predict(dmatrix)
         
-        # 4. Signal Determination
+        # ── 5. Decision Logic ──
         directions_idx = np.argmax(s_probs_all, axis=1)
-        # directions = ["SELL", "NEUTRAL", "BUY"] mapped to indices [0, 1, 2]
-        
-        # Vectorized signal logic
-        final_signals = np.full(N, 1) # Start all as Neutral (index 1)
-        
-        # Mask for valid trades: Score > Threshold AND (Buy or Sell)
+        final_signals = np.full(N_windows, 1) # NEUTRAL
         valid_mask = (auditor_scores > self.threshold) & (directions_idx != 1)
         final_signals[valid_mask] = directions_idx[valid_mask]
         
