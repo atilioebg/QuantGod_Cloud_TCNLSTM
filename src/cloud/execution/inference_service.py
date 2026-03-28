@@ -142,21 +142,28 @@ class InferenceService:
             raise FileNotFoundError(f"Model file not found: {p}")
 
         # --- [DINÂMICO] Buscar config local para este modelo specifico ---
-        # Tenta: pasta_do_modelo/../CONFIG/best_params.json (Stucture do Champion)
-        # Ou: pasta_do_modelo/best_params.json
-        local_json = p.parent.parent / "CONFIG" / "best_params.json"
-        alt_json = p.parent / "best_params.json"
+        # Prioridade 1: pasta_do_modelo/CONFIG/best_params.json (Stucture local dedicada)
+        # Prioridade 2: pasta_do_modelo/../CONFIG/best_params.json (Structure Champion padrão)
+        # Prioridade 3: pasta_do_modelo/best_params.json (Estrutura Flat)
+        
+        local_json_v1 = p.parent / "CONFIG" / "best_params.json"
+        local_json_v2 = p.parent.parent / "CONFIG" / "best_params.json"
+        alt_json      = p.parent / "best_params.json"
         
         chosen_params = self.arch_params # Fallback default
         
-        if local_json.exists():
-            with open(local_json, 'r') as f:
+        if local_json_v1.exists():
+            with open(local_json_v1, 'r') as f:
                 chosen_params = json.load(f)
-            # logger.info(f"🧬 Local architecture loaded for {p.name} from {local_json}")
+            # logger.info(f"🧬 Local architecture (V1) loaded for {p.name}: {chosen_params.get('tcn_channels')} channels")
+        elif local_json_v2.exists():
+            with open(local_json_v2, 'r') as f:
+                chosen_params = json.load(f)
+            # logger.info(f"🧬 Local architecture (V2) loaded for {p.name}: {chosen_params.get('tcn_channels')} channels")
         elif alt_json.exists():
             with open(alt_json, 'r') as f:
                 chosen_params = json.load(f)
-            # logger.info(f"🧬 Local architecture loaded for {p.name} from {alt_json}")
+            # logger.info(f"🧬 Local architecture (Alt) loaded for {p.name}: {chosen_params.get('tcn_channels')} channels")
         else:
             logger.warning(f"⚠️ No local best_params.json found for {p.name}. Using global fallback.")
 
