@@ -1,5 +1,5 @@
 {
-    "tcn_channels": 256,
+    "tcn_channels": 512,
     "lstm_hidden": 256,
     "num_lstm_layers": 2,
     "batch_size": 512,
