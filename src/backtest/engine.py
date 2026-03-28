@@ -55,6 +55,8 @@ class BacktestEngine:
         X_context = df[context_features].values
         Y_target = df['target'].values
         timestamps = df['ts'].values
+        prices = df['close'].values
+        
         # ── Batch Prediction (The Speed Boost) ──
         logger.info(f"🧠 Running fully optimized batch inference for {len(X_base)} bars...")
         
