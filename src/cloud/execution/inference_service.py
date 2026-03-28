@@ -286,16 +286,15 @@ class InferenceService:
         }
 
     @torch.no_grad()
-    def predict_batch(self, x_base_raw: np.ndarray, x_context_raw: np.ndarray, batch_size: int = 4096) -> Dict[str, np.ndarray]:
+    def predict_batch(self, x_base_raw: np.ndarray, x_context_raw: np.ndarray, batch_size: int = 16384) -> Dict[str, np.ndarray]:
         """
-        OPTIMIZED BATCH INFERENCE 2.0:
-        1. Pre-scales raw features ONCE (512k rows vs 131M redundant calls).
-        2. Zero-copy windowing for RAM efficiency.
-        3. Low-latency batch generation to GPU.
+        TURBO 3.0 INFERENCE - High Density GPU Throughput:
+        1. Pre-scaling once (CPU side).
+        2. Mixed Precision (AMP FP16) for Tensor Core acceleration.
+        3. Contiguous memory copies to minimize PCIe latency.
         """
-        from numpy.lib.stride_tricks import sliding_window_view
-        from tqdm import tqdm
         import gc
+        from numpy.lib.stride_tricks import sliding_window_view
         
         N_total = x_base_raw.shape[0]
         S = self.seq_len
@@ -304,62 +303,66 @@ class InferenceService:
         if N_windows <= 0:
             return {"signals": np.array([]), "auditor_scores": np.array([]), "probs_specialist": np.array([])}
 
-        # ── 1. Pre-scaling (CPU Optimization) ──
-        logger.info(f"⚖️ Pre-scaling {N_total} bars (Foundation)...")
+        # ── 1. Pre-scaling (Contiguous Float32) ──
+        logger.info(f"⚖️ Turbo Scaling Found. ({N_total} bars)...")
         f_scaled = self.scaler_foundation.transform(x_base_raw).astype(np.float32) if self.scaler_foundation else x_base_raw.astype(np.float32)
-        
-        logger.info(f"⚖️ Pre-scaling {N_total} bars (Specialist Folds)...")
         s_scaled_list = [pair[1].transform(x_base_raw).astype(np.float32) for pair in self.specialist_pairs]
         
-        # ── 2. Instant Windowing (Views - No memory copy) ──
-        # Formula: (N, F) -> window(S) -> transpose -> (N-S+1, S, F)
+        # ── 2. Optimized Window views ──
         f_win_view = sliding_window_view(f_scaled, window_shape=S, axis=0).transpose(0, 2, 1)
         s_win_views = [sliding_window_view(ss, window_shape=S, axis=0).transpose(0, 2, 1) for ss in s_scaled_list]
         
-        # ── 3. GPU/Batch Inference ──
         all_f_probs = []
         all_s_probs = []
         
-        pbar = tqdm(range(0, N_windows, batch_size), desc="🚀 GPU Inference", leave=True)
+        # ── 3. GPU Multi-Model AMP Batch Loop ──
+        pbar = tqdm(range(0, N_windows, batch_size), desc="🚀 TURBO GPU", leave=True)
         for start in pbar:
             end = min(start + batch_size, N_windows)
             
-            # 1. Foundation Model
-            x_f_batch = torch.from_numpy(f_win_view[start:end]).to(self.device)
-            f_out = self.foundation_model(x_f_batch)
-            all_f_probs.append(f_out['probs'].cpu().numpy())
+            # Use AMP for massive speedup on Ampere+ GPUs (RTX A4500)
+            with torch.cuda.amp.autocast():
+                # 1. Foundation (Contiguous slice copy)
+                x_f_batch = torch.from_numpy(f_win_view[start:end].copy()).to(self.device, non_blocking=True)
+                f_out = self.foundation_model(x_f_batch)
+                all_f_probs.append(f_out['probs'].cpu().float().numpy())
+                
+                # 2. Specialists mean
+                fold_probs = []
+                for i in range(len(self.specialist_pairs)):
+                    x_s_batch = torch.from_numpy(s_win_views[i][start:end].copy()).to(self.device, non_blocking=True)
+                    s_out = self.specialist_pairs[i][0](x_s_batch)
+                    fold_probs.append(s_out['probs'].cpu().float().numpy())
+                
+                all_s_probs.append(np.mean(fold_probs, axis=0))
             
-            # 2. Specialist Models (Ensemble Mean)
-            fold_probs = []
-            for i, model_pair in enumerate(self.specialist_pairs):
-                x_s_batch = torch.from_numpy(s_win_views[i][start:end]).to(self.device)
-                s_out = model_pair[0](x_s_batch)
-                fold_probs.append(s_out['probs'].cpu().numpy())
-            
-            # Mean for this batch
-            all_s_probs.append(np.mean(fold_probs, axis=0))
-            
-        f_probs_all = np.concatenate(all_f_probs, axis=0) # (N_win, 3)
-        s_probs_all = np.concatenate(all_s_probs, axis=0) # (N_win, 3)
+        f_probs_all = np.concatenate(all_f_probs, axis=0)
+        s_probs_all = np.concatenate(all_s_probs, axis=0)
         
-        # Free temp VRAM
-        del all_f_probs, all_s_probs, fold_probs
+        # Cleanup
+        del all_f_probs, all_s_probs, f_win_view, s_win_views
         gc.collect()
+        torch.cuda.empty_cache()
         
         # ── 4. Auditor Batch (XGBoost) ──
-        # Auditor input aligns with windows (ends at windows index)
         x_context_aligned = x_context_raw[S-1:]
-        auditor_input = np.concatenate([f_probs_all, s_probs_all, x_context_aligned], axis=1)
+        auditor_input = np.concatenate([f_probs_all, s_probs_all, x_context_aligned], axis=1).astype(np.float32)
         
         if self.scaler_auditor:
-            auditor_input = self.scaler_auditor.transform(auditor_input.astype(np.float32))
+            auditor_input = self.scaler_auditor.transform(auditor_input)
             
-        dmatrix = xgb.DMatrix(auditor_input)
-        auditor_scores = self.auditor_model.predict(dmatrix)
+        # Optional: Set XGBoost to use GPU if available (requires gpu_hist support)
+        # Note: For small feature sets like 20 features, CPU might be faster due to transfer overhead
+        try:
+            dmatrix = xgb.DMatrix(auditor_input)
+            auditor_scores = self.auditor_model.predict(dmatrix)
+        except:
+            dmatrix = xgb.DMatrix(auditor_input)
+            auditor_scores = self.auditor_model.predict(dmatrix)
         
-        # ── 5. Decision Logic ──
+        # ── 5. Decisions ──
         directions_idx = np.argmax(s_probs_all, axis=1)
-        final_signals = np.full(N_windows, 1) # NEUTRAL
+        final_signals = np.full(N_windows, 1) # Neutral
         valid_mask = (auditor_scores > self.threshold) & (directions_idx != 1)
         final_signals[valid_mask] = directions_idx[valid_mask]
         
