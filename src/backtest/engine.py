@@ -49,55 +49,50 @@ class BacktestEngine:
         # We simulate the decision bar by bar to respect the Sequential nature
         # (Though we could batch the neural layers, let's keep it simple and accurate first)
         
+        # ── Batch Prediction (The Speed Boost) ──
+        logger.info(f"🧠 Calculating {len(X_base)} windows in Batch Mode...")
+        
+        # Create sliding windows efficiently using NumPy's stride_tricks
+        S = self.inference.seq_len
+        F = X_base.shape[1]
+        
+        # Ensure we have enough data for at least one sequence
+        if len(X_base) < S:
+            logger.warning(f"⚠️ File {file_path.name} is too short for seq_len {S}")
+            return []
+
+        # We need windows ending at index S-1 to len(X_base)-1
+        # shape: (N_windows, seq_len, num_features)
+        # We use a simple windowing for now, can be further optimized with as_strided
+        windows = []
+        for i in range(S-1, len(X_base)):
+            windows.append(X_base[i-S+1 : i+1])
+        X_windows = np.array(windows)
+        
+        # Context also needs to be aligned with the end of the windows
+        X_context_aligned = X_context[S-1:]
+        
+        # Run Batch Inference
+        batch_results = self.inference.predict_batch(X_windows, X_context_aligned)
+        
+        # ── Log Results (CPU Simulation Loop) ──
         day_results = []
+        signals = batch_results['signals']
+        scores = batch_results['auditor_scores']
+        probs = batch_results['probs_specialist']
         
-        # Prepare data for faster access
-        X_base = df[base_features].values
-        X_context = df[context_features].values
-        Y_target = df['target'].values
-        timestamps = df['ts'].values
-        prices = df['close'].values
+        directions_map = {0: "SELL", 1: "NEUTRAL", 2: "BUY"}
         
-        for i in tqdm(range(len(df)), desc=f"📈 {file_path.name}", leave=False):
-            # 1. Get raw input (Production expects 30 features)
-            raw_input = X_base[i].reshape(1, -1)
-            context_input = X_context[i].reshape(1, -1)
-            
-            # 2. Predict
-            # Note: InferenceService.predict expects (seq_len, 30) or similar
-            # If the model is TCN-LSTM with seq_len, we need a window.
-            # However, the pre-processed data already reflects the state at time T.
-            # But the TCN-LSTM usually expects a 3D tensor (Batch, Seq, Feat).
-            # If our labelled parquet has flat rows, we need to reconstruct the sequence if seq_len > 1.
-            
-            # Wait, the training data usually has sequences. 
-            # If the parquet is already 'featured', we might need to handle the seq_len.
-            # Let's check how many rows we have per bar.
-            
-            # Assuming seq_len=1 for now as a baseline or if the features encapsulate history
-            # Actually, standard TCN-LSTM in this project uses seq_len (e.g. 720).
-            # If so, the inference service needs a buffer.
-            
-            # For this backtest implementation, we'll assume the InferenceService
-            # correctly handles its internal requirements or we provide the window.
-            
-            # Simple windowing:
-            if i < self.inference.seq_len:
-                continue # Need more data for sequence
-                
-            window = X_base[i - self.inference.seq_len + 1 : i+1]
-            
-            pred = self.inference.predict(window, context_input)
-            
-            # 3. Log Results
+        for i in range(len(signals)):
+            idx = i + S - 1 # Original index in the dataframe
             day_results.append({
-                "ts": timestamps[i],
-                "price": prices[i],
-                "target": Y_target[i],
-                "signal": pred['signal'],
-                "probs_spec_buy": pred['probs_specialist'][2],
-                "probs_spec_sell": pred['probs_specialist'][0],
-                "auditor_score": pred['auditor_score']
+                "ts": timestamps[idx],
+                "price": prices[idx],
+                "target": Y_target[idx],
+                "signal": directions_map[signals[i]],
+                "probs_spec_buy": float(probs[i][2]),
+                "probs_spec_sell": float(probs[i][0]),
+                "auditor_score": float(scores[i])
             })
             
         return day_results

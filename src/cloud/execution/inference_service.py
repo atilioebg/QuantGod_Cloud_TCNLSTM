@@ -283,6 +283,77 @@ class InferenceService:
             "probs_specialist": s_probs.tolist()
         }
 
+    @torch.no_grad()
+    def predict_batch(self, x_base_raw: np.ndarray, x_context: np.ndarray, batch_size: int = 4096) -> Dict[str, np.ndarray]:
+        """
+        Calculates predictions for a large batch of windows using GPU batching.
+        x_base_raw: (N, seq_len, num_features)
+        x_context: (N, 14) 
+        """
+        N = x_base_raw.shape[0]
+        all_f_probs = []
+        all_s_probs = []
+        
+        # 1. & 2. Foundation and Specialist Batch Inference
+        for start in range(0, N, batch_size):
+            end = min(start + batch_size, N)
+            batch_base = x_base_raw[start:end]
+            
+            # Prep Foundation
+            # Flatten to (B*seq, feat) for scaler then reshape back
+            B, S, F = batch_base.shape
+            if self.scaler_foundation:
+                batch_f_flat = batch_base.reshape(-1, F)
+                batch_f_scaled = self.scaler_foundation.transform(batch_f_flat).reshape(B, S, F)
+            else:
+                batch_f_scaled = batch_base
+            
+            x_f = torch.from_numpy(batch_f_scaled.astype(np.float32)).to(self.device).float()
+            f_out = self.foundation_model(x_f)
+            all_f_probs.append(f_out['probs'].cpu().numpy())
+            
+            # Prep Specialists
+            fold_probs = []
+            for model, scaler in self.specialist_pairs:
+                batch_s_flat = batch_base.reshape(-1, F)
+                batch_s_scaled = scaler.transform(batch_s_flat).reshape(B, S, F)
+                
+                x_s = torch.from_numpy(batch_s_scaled.astype(np.float32)).to(self.device).float()
+                s_out = model(x_s)
+                fold_probs.append(s_out['probs'].cpu().numpy())
+            
+            # Mean of folds for this batch
+            all_s_probs.append(np.mean(fold_probs, axis=0))
+            
+        f_probs_all = np.concatenate(all_f_probs, axis=0) # (N, 3)
+        s_probs_all = np.concatenate(all_s_probs, axis=0) # (N, 3)
+        
+        # 3. Auditor Batch Inference (XGBoost handles batching naturally)
+        auditor_input = np.concatenate([f_probs_all, s_probs_all, x_context], axis=1)
+        
+        if self.scaler_auditor:
+            auditor_input = self.scaler_auditor.transform(auditor_input.astype(np.float32))
+            
+        dmatrix = xgb.DMatrix(auditor_input)
+        auditor_scores = self.auditor_model.predict(dmatrix) # (N,)
+        
+        # 4. Signal Determination
+        directions_idx = np.argmax(s_probs_all, axis=1)
+        # directions = ["SELL", "NEUTRAL", "BUY"] mapped to indices [0, 1, 2]
+        
+        # Vectorized signal logic
+        final_signals = np.full(N, 1) # Start all as Neutral (index 1)
+        
+        # Mask for valid trades: Score > Threshold AND (Buy or Sell)
+        valid_mask = (auditor_scores > self.threshold) & (directions_idx != 1)
+        final_signals[valid_mask] = directions_idx[valid_mask]
+        
+        return {
+            "signals": final_signals,
+            "auditor_scores": auditor_scores,
+            "probs_specialist": s_probs_all
+        }
+
 if __name__ == "__main__":
     # Test loading
     from src.cloud.base_model.utils.config_utils import load_config
