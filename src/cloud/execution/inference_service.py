@@ -21,16 +21,17 @@ class InferenceService:
     2. Specialist Ensemble (5-Fold TCN-LSTM)
     3. Auditor Layer (XGBoost Meta-Model)
     """
-    def __init__(self, config: Dict):
+    def __init__(self, config: Dict[str, Any]):
         self.config = config
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._project_root = Path(__file__).parents[3]
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
-        # ── Load Architecture ────────────────────────────────────────────────
+        # --- 1. Resolve Paths (Anchored in V3.1 Native Logic) ---
+        self.base_path = self._get_models_dir()
         self.arch_params = self._load_best_params()
         
-        # Load Model Parameters
-        self.num_features = len(config['model']['feature_names'])
+        # Extract metadata from arch_params
+        self.num_features = int(self.arch_params.get('num_features', 97))
         self.seq_len = self.arch_params.get('seq_len', config['optimization'].get('seq_len', 60))
         self.num_classes = 3 # Sell, Neutral, Buy
         
