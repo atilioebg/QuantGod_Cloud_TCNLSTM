@@ -164,20 +164,36 @@ def run_full_backtest():
     engine = BacktestEngine(config)
     labelled_dir = Path(config['pipeline_paths']['local_data_root']) / "labelled"
     files = sorted(list(labelled_dir.glob("*.parquet")))
+    output_path = labelled_dir.parent / "backtest_results.csv"
     
+    # Check for resume or existing
+    if output_path.exists():
+        logger.info(f"💾 Found existing {output_path}. Results will be APPENDED for safety.")
+
     all_results = []
-    for pf in files:
+    for pf in tqdm(files, desc="📅 Full Backtest Pipeline"):
         res = engine.run_backtest_file(pf)
-        all_results.extend(res)
+        if res:
+            all_results.extend(res)
+            # Incremental Save (DATA SAFETY)
+            df_day = pd.DataFrame(res)
+            file_exists = output_path.exists()
+            df_day.to_csv(output_path, mode='a', index=False, header=not file_exists)
+            logger.info(f"✅ Checkpoint: {pf.name} saved to {output_path.name}")
+            
+        gc.collect()
+        torch.cuda.empty_cache()
         
+    if not all_results:
+        logger.warning("❌ No results generated during backtest.")
+        return
+
     report, df_res = engine.analyze_performance(all_results)
     
     logger.info("============== BACKTEST REPORT ==============")
     logger.info(json.dumps(report, indent=4))
     
-    # Save results
-    df_res.to_csv(labelled_dir.parent / "backtest_results.csv", index=False)
-    logger.info(f"✅ Results saved to {labelled_dir.parent / 'backtest_results.csv'}")
+    logger.info(f"🏆 Backtest Complete! Final results aggregated in {output_path}")
 
 if __name__ == "__main__":
     run_full_backtest()

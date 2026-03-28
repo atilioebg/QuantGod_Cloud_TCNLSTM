@@ -321,7 +321,7 @@ class InferenceService:
             end = min(start + batch_size, N_windows)
             
             # Use AMP for massive speedup on Ampere+ GPUs (RTX A4500)
-            with torch.cuda.amp.autocast():
+            with torch.amp.autocast('cuda'):
                 # 1. Foundation (Contiguous slice copy)
                 x_f_batch = torch.from_numpy(f_win_view[start:end].copy()).to(self.device, non_blocking=True)
                 f_out = self.foundation_model(x_f_batch)
