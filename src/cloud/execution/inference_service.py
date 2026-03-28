@@ -192,7 +192,7 @@ class InferenceService:
                 logger.error(f"⚠️ Failed to load Foundation Scaler: {e}")
         return None
 
-    def _load_kfold_specialists(self) -> List[Tuple[Hybrid_TCN_LSTM, Any]]:
+    def _load_kfold_specialists(self) -> List[tuple]:
         """Loads all specialist models and their scalers using relative anchors."""
         import joblib
         
