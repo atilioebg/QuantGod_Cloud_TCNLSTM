@@ -23,6 +23,7 @@ class SequentialBacktestEngineV2:
             backtest_cfg = yaml.safe_load(f)
         
         self.simulation_cfg = backtest_cfg['simulation']
+        self.backtest_paths = backtest_cfg.get('pipeline_paths', {})
         
         # 2. Inicializar Serviço de Inferência (Resolução de Caminhos V3.5 Autoritária)
         # O InferenceService agora trava a âncora diretamente da auditoria
@@ -49,7 +50,12 @@ class SequentialBacktestEngineV2:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def run_sequential_backtest(self):
-        data_dir = Path(get_labelled_dir(self.config))
+        # Priorizar labelled_dir do backtest_config, caso contrário usa o padrão do master
+        if 'labelled_dir' in self.backtest_paths:
+            data_dir = Path(self.backtest_paths['labelled_dir'])
+        else:
+            data_dir = Path(get_labelled_dir(self.config))
+            
         # Busca recursiva para encontrar parquets em subpastas (val/train)
         parquet_files = sorted(list(data_dir.rglob("*.parquet")))
 
