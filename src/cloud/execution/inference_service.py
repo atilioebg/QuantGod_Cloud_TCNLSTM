@@ -428,7 +428,13 @@ class InferenceService:
         torch.cuda.empty_cache()
         
         # ── 4. Auditor Batch (XGBoost) ──
-        x_context_aligned = x_context_raw[S-1:]
+        # Alinhamento resiliente: se o contexto já veio fatiado (tamanho == N_windows), use-o direto.
+        # Caso contrário, aplique o offset de seq_len.
+        if x_context_raw.shape[0] == N_windows:
+            x_context_aligned = x_context_raw
+        else:
+            x_context_aligned = x_context_raw[S-1:]
+            
         auditor_input = np.concatenate([f_probs_all, s_probs_all, x_context_aligned], axis=1).astype(np.float32)
         
         if self.scaler_auditor:
