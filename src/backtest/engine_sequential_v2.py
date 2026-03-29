@@ -42,7 +42,8 @@ class SequentialBacktestEngineV2:
         self.balance = self.initial_capital
         self.leverage = self.simulation_cfg['leverage']
         self.trading_fee = self.simulation_cfg['trading_fee']
-        self.auditor_threshold = self.simulation_cfg['auditor_threshold']
+        # Threshold de Auditoria (Sobe de 0.8 para 0.9 na V4.11.1 para filtrar ruído)
+        self.auditor_threshold = backtest_cfg.get('auditor_threshold', 0.9)
         
         # Sincronia de Volatilidade (Prado Multipliers)
         self.pt_mult = self.simulation_cfg.get('pt_multiplier', 0.65)
@@ -182,16 +183,17 @@ class SequentialBacktestEngineV2:
                     entry_price = curr_price
                     entry_ts = curr_ts_ms
                     
-                    # Barrier Scale Fix: Usamos a anchor_vol (Volatilidade de Eventos)
-                    # Isso dá ao trade o espaço de manobra que ele teve no treino.
-                    curr_vol = max(anchor_vol, 1e-7)
+                    # [VÊRTICE V4.11.1] Segurança Econômica: Piso de Volatilidade (Min 0.15% TP)
+                    # Isso garante que o alvo sempre supere o custo de corretagem (Fees)
+                    min_viability_vol = 0.0015 / self.pt_mult
+                    effective_vol = max(anchor_vol, min_viability_vol)
                     
                     if sig == 2: # LONG
-                        target_tp = entry_price * np.exp(curr_vol * self.pt_mult)
-                        target_sl = entry_price * np.exp(-curr_vol * self.sl_mult)
+                        target_tp = entry_price * np.exp(effective_vol * self.pt_mult)
+                        target_sl = entry_price * np.exp(-effective_vol * self.sl_mult)
                     else: # SHORT
-                        target_tp = entry_price * np.exp(-curr_vol * self.pt_mult)
-                        target_sl = entry_price * np.exp(curr_vol * self.sl_mult)
+                        target_tp = entry_price * np.exp(-effective_vol * self.pt_mult)
+                        target_sl = entry_price * np.exp(effective_vol * self.sl_mult)
                     
                     # --- [TRIPLE BARRIER SEARCH] ---
                     # Procuramos segundo a segundo qual barreira será tocada primeiro
