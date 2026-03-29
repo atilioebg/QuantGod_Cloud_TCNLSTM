@@ -9,6 +9,14 @@ from pathlib import Path
 from tqdm import tqdm
 from src.cloud.base_model.utils.path_utils import get_labelled_dir
 from src.cloud.execution.inference_service import InferenceService
+import pandas as pd
+
+# Lista Oficial de Sensores Alpha do Auditor (14 features)
+AUDITOR_SENSOR_NAMES = [
+    'ema_trend', 'ema_cross_dist', 'bb_pct', 'rsi_14', 'stoch_14', 
+    'atr_norm', 'vol_1h', 'vol_zscore_1h', 'delta_vol_24h',
+    'adx_14', 'vwap_zscore', 'mfi_14', 'book_skew_bid', 'book_skew_ask'
+]
 
 # Configuração de Logs
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -149,16 +157,11 @@ class SequentialBacktestEngineV2:
                     continue
 
                 # 3. Inferência do Modelo (InferenceStack: Foundation + Specialists + Auditor)
-                # Separamos as colunas de Base (DNA) e Contexto (Alpha Sensors - APENAS NUMÉRICOS)
+                # Seleção rigorosa dos 14 sensores alpha para o Auditor (Paridade Total V4.8)
                 feature_names = self.inference.config['model'].get('feature_names', [])
-                context_names = [
-                    c for c in df.columns 
-                    if c not in feature_names and c not in ['ts', 'close', 'high', 'low', 'side', 'label']
-                    and pd.api.types.is_numeric_dtype(df[c])
-                ]
                 
                 x_base = df[feature_names].iloc[idx-self.inference.seq_len+1:idx+1].values
-                x_ctx = df[context_names].iloc[idx:idx+1].values
+                x_ctx = df[AUDITOR_SENSOR_NAMES].iloc[idx:idx+1].values
                 
                 sig, conf = self.inference.predict_batch(x_base, x_ctx, threshold=self.auditor_threshold)
                 sig, conf = sig[0], conf[0]
