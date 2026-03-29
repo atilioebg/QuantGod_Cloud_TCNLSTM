@@ -66,9 +66,9 @@ class SequentialBacktestEngineV2:
         # Filtro de parquets (se existirem)
         parquet_files = [f for f in all_files_found if f.suffix == '.parquet']
         
-        # [VERIFICAÇÃO V2.7] Filtro no CAMINHO completo
+        # [VERIFICAÇÃO V2.8] Filtro no CAMINHO completo e EXTENSÃO .parquet
         target_dates = ["2026-03-21", "2026_03_21"]
-        parquet_files = [f for f in all_files_found if any(dt in str(f) for dt in target_dates)]
+        parquet_files = [f for f in all_files_found if f.suffix == '.parquet' and any(dt in str(f) for dt in target_dates)]
         
         if not parquet_files:
             logger.error(f"❌ No labelled parquet files found for day 21 in {data_dir}")
@@ -149,8 +149,14 @@ class SequentialBacktestEngineV2:
                     continue
 
                 # 3. Inferência do Modelo (InferenceStack: Foundation + Specialists + Auditor)
-                # Forçamos o threshold do auditor para paridade com a simulação
-                sig, conf = self.inference.predict_batch(df.iloc[idx:idx+1], threshold=self.auditor_threshold)
+                # Separamos as colunas de Base (DNA) e Contexto (Alpha Sensors)
+                feature_names = self.inference.config['model'].get('feature_names', [])
+                context_names = [c for c in df.columns if c not in feature_names and c not in ['ts', 'close', 'high', 'low', 'side', 'label']]
+                
+                x_base = df[feature_names].iloc[idx-self.inference.seq_len+1:idx+1].values
+                x_ctx = df[context_names].iloc[idx:idx+1].values
+                
+                sig, conf = self.inference.predict_batch(x_base, x_ctx, threshold=self.auditor_threshold)
                 sig, conf = sig[0], conf[0]
                 
                 # Auditor aprova o sinal? (Threshold 0.50)
