@@ -348,7 +348,7 @@ class InferenceService:
 
         # 4. Auditor Decision (XGBoost)
         dmatrix = xgb.DMatrix(auditor_input)
-        auditor_score = self.auditor_model.predict(dmatrix)[0] # Confidence [0-1]
+        auditor_score = self.auditor.predict(dmatrix)[0] # Confidence [0-1]
             # Result Determination
         # The primary direction is determined by the specialist ensemble (highest prob)
         direction_idx = np.argmax(s_probs)
@@ -444,10 +444,10 @@ class InferenceService:
         # Note: For small feature sets like 20 features, CPU might be faster due to transfer overhead
         try:
             dmatrix = xgb.DMatrix(auditor_input)
-            auditor_scores = self.auditor_model.predict(dmatrix)
+            auditor_scores = self.auditor.predict(dmatrix)
         except:
             dmatrix = xgb.DMatrix(auditor_input)
-            auditor_scores = self.auditor_model.predict(dmatrix)
+            auditor_scores = self.auditor.predict(dmatrix)
         
         # ── 5. Decisions ──
         directions_idx = np.argmax(s_probs_all, axis=1)
