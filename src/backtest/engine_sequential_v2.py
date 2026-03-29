@@ -56,21 +56,18 @@ class SequentialBacktestEngineV2:
         else:
             data_dir = Path(get_labelled_dir(self.config))
             
-        # Busca recursiva para encontrar parquets em subpastas (val/train)
-        parquet_files = sorted(list(data_dir.rglob("*.parquet")))
+        # Busca recursiva agressiva para encontrar parquets
+        all_parquet_found = sorted(list(data_dir.rglob("*.parquet")))
+        logger.info(f"📁 Total parquets found in {data_dir}: {len(all_parquet_found)}")
 
-        # [VERIFICAÇÃO V2.6] Filtro no CAMINHO completo (não apenas no nome do arquivo)
-        target_date_h = "2026-03-21"
-        target_date_u = "2026_03_21"
-        
-        parquet_files = [f for f in parquet_files if target_date_h in str(f) or target_date_u in str(f)]
+        # [VERIFICAÇÃO V2.7] Filtro no CAMINHO completo
+        target_dates = ["2026-03-21", "2026_03_21"]
+        parquet_files = [f for f in all_parquet_found if any(dt in str(f) for dt in target_dates)]
         
         if not parquet_files:
-            logger.error(f"❌ No labelled parquet files found for {target_date_h}/{target_date_u} in {data_dir}")
-            # Diagnóstico: listar o que foi encontrado (primeiros 3) para ajudar o usuário
-            all_found = sorted(list(data_dir.rglob("*.parquet")))[:3]
-            if all_found:
-                logger.info(f"🔍 Filenames found in dir (sample): {[f.name for f in all_found]}")
+            logger.error(f"❌ No labelled parquet files found for day 21 in {data_dir}")
+            if all_parquet_found:
+                logger.info(f"🔍 Sample of files found (first 5): {[f.name for f in all_parquet_found[:5]]}")
             return
 
         logger.info(f"🚀 [V2.5 Twin] Starting Event-Driven Backtest on {len(parquet_files)} day(s)...")

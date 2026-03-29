@@ -367,13 +367,15 @@ class InferenceService:
         }
 
     @torch.no_grad()
-    def predict_batch(self, x_base_raw: np.ndarray, x_context_raw: np.ndarray, batch_size: int = 4096) -> Dict[str, np.ndarray]:
+    def predict_batch(self, x_base_raw: np.ndarray, x_context_raw: np.ndarray, batch_size: int = 4096, threshold: Optional[float] = None) -> Dict[str, np.ndarray]:
         """
         TURBO 3.0 INFERENCE - Balanced Stability:
         1. Pre-scaling once (CPU side).
         2. Mixed Precision (AMP FP16) for Tensor Core acceleration.
         3. Contiguous memory copies to minimize PCIe latency.
         """
+        active_threshold = threshold if threshold is not None else self.threshold
+        
         import gc
         from numpy.lib.stride_tricks import sliding_window_view
         
@@ -444,7 +446,7 @@ class InferenceService:
         # ── 5. Decisions ──
         directions_idx = np.argmax(s_probs_all, axis=1)
         final_signals = np.full(N_windows, 1) # Neutral
-        valid_mask = (auditor_scores > self.threshold) & (directions_idx != 1)
+        valid_mask = (auditor_scores > active_threshold) & (directions_idx != 1)
         final_signals[valid_mask] = directions_idx[valid_mask]
         
         return {
