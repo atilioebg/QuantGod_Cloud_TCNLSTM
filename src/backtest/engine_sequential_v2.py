@@ -163,8 +163,10 @@ class SequentialBacktestEngineV2:
                 x_base = df[feature_names].iloc[idx-self.inference.seq_len+1:idx+1].values
                 x_ctx = df[AUDITOR_SENSOR_NAMES].iloc[idx:idx+1].values
                 
-                sig, conf = self.inference.predict_batch(x_base, x_ctx, threshold=self.auditor_threshold)
-                sig, conf = sig[0], conf[0]
+                # O predict_batch retorna um dicionário (V4.8.1)
+                results = self.inference.predict_batch(x_base, x_ctx, threshold=self.auditor_threshold)
+                sig = results['signals'][0]
+                conf = results['auditor_scores'][0]
                 
                 # Auditor aprova o sinal? (Threshold 0.50)
                 if sig in [0, 2] and conf >= self.auditor_threshold:
