@@ -149,9 +149,13 @@ class SequentialBacktestEngineV2:
                     continue
 
                 # 3. Inferência do Modelo (InferenceStack: Foundation + Specialists + Auditor)
-                # Separamos as colunas de Base (DNA) e Contexto (Alpha Sensors)
+                # Separamos as colunas de Base (DNA) e Contexto (Alpha Sensors - APENAS NUMÉRICOS)
                 feature_names = self.inference.config['model'].get('feature_names', [])
-                context_names = [c for c in df.columns if c not in feature_names and c not in ['ts', 'close', 'high', 'low', 'side', 'label']]
+                context_names = [
+                    c for c in df.columns 
+                    if c not in feature_names and c not in ['ts', 'close', 'high', 'low', 'side', 'label']
+                    and pd.api.types.is_numeric_dtype(df[c])
+                ]
                 
                 x_base = df[feature_names].iloc[idx-self.inference.seq_len+1:idx+1].values
                 x_ctx = df[context_names].iloc[idx:idx+1].values
