@@ -24,10 +24,10 @@ pre_processing:
 # Paths Config
 pipeline_paths:
   local_data_root: "data/backtest/L2"
-  raw_zip_dir: "data/backtest/L2/raw_zip"
-  raw_trades_dir: "data/backtest/L2/raw_trades"
-  pre_processed_dir: "data/backtest/L2/pre_processed"
-  labelled_dir: "data/backtest/L2/labelled"
+  raw_zip_dir:       "data/backtest/L2/labelled/BTC_USDT_L2_2023_2026"
+  raw_trades_dir:     "data/backtest/L2/labelled/BTC_USDT_L2_TRADE_2023_2026"
+  pre_processed_dir:  "data/backtest/L2/pre_processed"
+  labelled_dir:       "data/backtest/L2/labelled"
   session_timestamp: "2026_03_28"
   
   # Model Assets (Champion 2026_03_21)

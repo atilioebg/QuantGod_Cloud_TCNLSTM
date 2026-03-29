@@ -243,8 +243,8 @@ def sync_drive_data(config):
 
 def run_backtest_pipeline_robust(config):
     # 0. Setup and Sync
-    if "/workspace" in str(PROJECT_ROOT):
-        sync_drive_data(config)
+    # if "/workspace" in str(PROJECT_ROOT):
+    #     sync_drive_data(config)
 
     raw_trade_dir = PROJECT_ROOT / config['pipeline_paths']['raw_trades_dir']
     pre_processed_dir = PROJECT_ROOT / config['pipeline_paths']['pre_processed_dir']
