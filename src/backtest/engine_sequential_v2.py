@@ -56,13 +56,19 @@ class SequentialBacktestEngineV2:
         else:
             data_dir = Path(get_labelled_dir(self.config))
             
-        # Busca recursiva agressiva para encontrar parquets
-        all_parquet_found = sorted(list(data_dir.rglob("*.parquet")))
-        logger.info(f"📁 Total parquets found in {data_dir}: {len(all_parquet_found)}")
+        # Busca recursiva TOTAL para diagnóstico
+        all_files_found = sorted([f for f in data_dir.rglob("*") if f.is_file()])
+        logger.info(f"📁 Total files found in {data_dir}: {len(all_files_found)}")
+        
+        if all_files_found and len(all_files_found) > 0:
+            logger.info(f"🔍 Sample of ANY files found: {[f.name for f in all_files_found[:5]]}")
 
+        # Filtro de parquets (se existirem)
+        parquet_files = [f for f in all_files_found if f.suffix == '.parquet']
+        
         # [VERIFICAÇÃO V2.7] Filtro no CAMINHO completo
         target_dates = ["2026-03-21", "2026_03_21"]
-        parquet_files = [f for f in all_parquet_found if any(dt in str(f) for dt in target_dates)]
+        parquet_files = [f for f in all_files_found if any(dt in str(f) for dt in target_dates)]
         
         if not parquet_files:
             logger.error(f"❌ No labelled parquet files found for day 21 in {data_dir}")
