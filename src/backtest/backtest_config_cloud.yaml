@@ -28,7 +28,7 @@ pipeline_paths:
   raw_trades_dir: "data/backtest/L2/raw_trades"
   pre_processed_dir: "data/backtest/L2/pre_processed"
   labelled_dir: "data/backtest/L2/labelled"
-  session_timestamp: "2026_03_21"
+  session_timestamp: "2026_03_28"
   
   # Model Assets (Champion 2026_03_21)
   best_tcn_lstm_model: "BASE_MODEL/best_tcn_lstm.pt"
