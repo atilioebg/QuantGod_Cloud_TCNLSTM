@@ -387,7 +387,6 @@ class InferenceService:
             return {"signals": np.array([]), "auditor_scores": np.array([]), "probs_specialist": np.array([])}
 
         # ── 1. Pre-scaling (Contiguous Float32) ──
-        logger.info(f"⚖️ Turbo Scaling Found. ({N_total} bars)...")
         f_scaled = self.scaler_foundation.transform(x_base_raw).astype(np.float32) if self.scaler_foundation else x_base_raw.astype(np.float32)
         s_scaled_list = [pair[1].transform(x_base_raw).astype(np.float32) for pair in self.specialist_pairs]
         
@@ -424,7 +423,7 @@ class InferenceService:
         
         # Cleanup
         del all_f_probs, all_s_probs, f_win_view, s_win_views
-        gc.collect()
+        # ── 3. Memory Guard ──
         torch.cuda.empty_cache()
         
         # ── 4. Auditor Batch (XGBoost) ──

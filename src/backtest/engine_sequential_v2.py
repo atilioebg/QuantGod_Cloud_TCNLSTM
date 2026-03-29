@@ -119,6 +119,18 @@ class SequentialBacktestEngineV2:
             busy_until = 0 # Milissegundos
             S = self.inference.seq_len # Janela de entrada do modelo
             
+            # [VÊRTICE V4.9.5] Inferência Vetorial (Padrão de Ouro de Performance)
+            # Extraímos as 30 features base configuradas no master_config
+            f_names = self.inference.config['model'].get('feature_names', [])
+            logger.info(f"🧠 Running fully optimized batch inference for {len(df)} bars...")
+            X_base = df[f_names].values
+            X_ctx = df[AUDITOR_SENSOR_NAMES].values
+            
+            # O cérebro processa o dia inteiro em segundos na GPU
+            batch_results = self.inference.predict_batch(X_base, X_ctx, threshold=self.auditor_threshold)
+            all_signals = batch_results['signals']
+            all_confidences = batch_results['auditor_scores']
+            
             # --- LOOP PRINCIPAL SEGUNDO A SEGUNDO ---
             for idx in range(S, len(df)):
                 curr_price = prices[idx]
@@ -156,17 +168,10 @@ class SequentialBacktestEngineV2:
                 if curr_ts_ms < busy_until:
                     continue
 
-                # 3. Inferência do Modelo (InferenceStack: Foundation + Specialists + Auditor)
-                # Seleção rigorosa dos 14 sensores alpha para o Auditor (Paridade Total V4.8)
-                feature_names = self.inference.config['model'].get('feature_names', [])
-                
-                x_base = df[feature_names].iloc[idx-self.inference.seq_len+1:idx+1].values
-                x_ctx = df[AUDITOR_SENSOR_NAMES].iloc[idx:idx+1].values
-                
-                # O predict_batch retorna um dicionário (V4.8.1)
-                results = self.inference.predict_batch(x_base, x_ctx, threshold=self.auditor_threshold)
-                sig = results['signals'][0]
-                conf = results['auditor_scores'][0]
+                # 3. Consulta de Sinal (Pré-calculado Vetorialmente)
+                res_idx = idx - S
+                sig = int(all_signals[res_idx])
+                conf = float(all_confidences[res_idx])
                 
                 # Auditor aprova o sinal? (Threshold 0.50)
                 if sig in [0, 2] and conf >= self.auditor_threshold:
