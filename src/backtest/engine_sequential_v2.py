@@ -59,11 +59,11 @@ class SequentialBacktestEngineV2:
         # Busca recursiva para encontrar parquets em subpastas (val/train)
         parquet_files = sorted(list(data_dir.rglob("*.parquet")))
 
-        # [VERIFICAÇÃO V2.5] Filtro flexível para 21 de Março (hífen ou underscore)
+        # [VERIFICAÇÃO V2.6] Filtro no CAMINHO completo (não apenas no nome do arquivo)
         target_date_h = "2026-03-21"
         target_date_u = "2026_03_21"
         
-        parquet_files = [f for f in parquet_files if target_date_h in f.name or target_date_u in f.name]
+        parquet_files = [f for f in parquet_files if target_date_h in str(f) or target_date_u in str(f)]
         
         if not parquet_files:
             logger.error(f"❌ No labelled parquet files found for {target_date_h}/{target_date_u} in {data_dir}")
@@ -146,8 +146,8 @@ class SequentialBacktestEngineV2:
                     continue
 
                 # 3. Inferência do Modelo (InferenceStack: Foundation + Specialists + Auditor)
-                # Passamos o dataframe fatiado com seq_len para a inferência
-                sig, conf = self.inference.predict_batch(df.iloc[idx:idx+1])
+                # Forçamos o threshold do auditor para paridade com a simulação
+                sig, conf = self.inference.predict_batch(df.iloc[idx:idx+1], threshold=self.auditor_threshold)
                 sig, conf = sig[0], conf[0]
                 
                 # Auditor aprova o sinal? (Threshold 0.50)
