@@ -74,8 +74,8 @@ class SequentialBacktestEngineV2:
         # Filtro de parquets (se existirem)
         parquet_files = [f for f in all_files_found if f.suffix == '.parquet']
         
-        # [VERIFICAÇÃO V2.8] Filtro no CAMINHO completo e EXTENSÃO .parquet
-        target_dates = ["2026-03-21", "2026_03_21"]
+        # [EXPANSÃO V4.10.1] Filtro para o período completo de Março 14 a 26
+        target_dates = [f"2026-03-{d:02d}" for d in range(14, 27)] + [f"2026_03_{d:02d}" for d in range(14, 27)]
         parquet_files = [f for f in all_files_found if f.suffix == '.parquet' and any(dt in str(f) for dt in target_dates)]
         
         if not parquet_files:
@@ -88,6 +88,10 @@ class SequentialBacktestEngineV2:
         
         for pf in tqdm(parquet_files, desc="Processing Days"):
             self.execute_single_parquet(pf)
+            
+        # [VÊRTICE V4.10.1] Gerar Relatório Consolidado após processar todos os dias
+        df_trades = pd.DataFrame(self.trades)
+        self.print_report(df_trades, self.balance)
 
     def execute_single_parquet(self, pf: Path):
         try:
