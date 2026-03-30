@@ -192,9 +192,9 @@ class SequentialBacktestEngineV2:
                     # Target TP baseado na volatilidade de evento (min 0.50%)
                     target_tp = entry_price * np.exp(effective_vol * self.pt_mult)
                     
-                    # Target SL fixado rigidamente no valor da taxa round-trip do trade
-                    taxa_total = self.trading_fee * 2
-                    target_sl = entry_price * np.exp(-taxa_total)
+                    # [V4.15] Target SL Simétrico (1:1 com TP)
+                    # Dá ao trade o mesmo espaço de respiração que dá para buscar o lucro.
+                    target_sl = entry_price * np.exp(-effective_vol * self.pt_mult)
                     
                     # --- [TRIPLE BARRIER SEARCH] ---
                     # Procuramos segundo a segundo qual barreira será tocada primeiro
