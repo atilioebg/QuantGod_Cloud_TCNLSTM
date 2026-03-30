@@ -42,6 +42,7 @@ class SequentialBacktestEngineV2:
         self.balance = self.initial_capital
         self.leverage = self.simulation_cfg['leverage']
         self.trading_fee = self.simulation_cfg['trading_fee']
+        self.min_tp_pct_floor = self.simulation_cfg.get('min_tp_pct_floor', 0.0050)
         # Threshold de Auditoria (V4.11.3 - Respeita o baseline do HPO: 0.5)
         self.auditor_threshold = backtest_cfg.get('model', {}).get('auditor', {}).get('manual_threshold', 0.5)
         
@@ -184,8 +185,8 @@ class SequentialBacktestEngineV2:
                     entry_ts = curr_ts_ms
                     
                     # [VÊRTICE V4.14] Segurança Econômica Asimétrica (EV+)
-                    # Isso garante que o alvo de lucro pague o Risco-Retorno de 40% WinRate
-                    min_viability_vol = 0.0050 / self.pt_mult
+                    # O alvo de lucro minímo é extraído do backtest_config_cloud.yaml
+                    min_viability_vol = self.min_tp_pct_floor / self.pt_mult
                     effective_vol = max(anchor_vol, min_viability_vol)
                     
                     # Target TP baseado na volatilidade de evento (min 0.50%)
