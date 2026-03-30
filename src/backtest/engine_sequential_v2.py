@@ -178,22 +178,22 @@ class SequentialBacktestEngineV2:
                 sig = int(all_signals[res_idx])
                 conf = float(all_confidences[res_idx])
                 
-                # Auditor aprova o sinal? (Threshold 0.50)
-                if sig in [0, 2] and conf >= self.auditor_threshold:
+                # [V4.12] Estratégia Long-Only Direcional: Ignora Sell (0) e Neutral (1)
+                if sig == 2 and conf >= self.auditor_threshold:
                     entry_price = curr_price
                     entry_ts = curr_ts_ms
                     
                     # [VÊRTICE V4.11.1] Segurança Econômica: Piso de Volatilidade (Min 0.15% TP)
-                    # Isso garante que o alvo sempre supere o custo de corretagem (Fees)
+                    # Isso garante que o alvo de lucro sempre supere o custo de corretagem
                     min_viability_vol = 0.0015 / self.pt_mult
                     effective_vol = max(anchor_vol, min_viability_vol)
                     
-                    if sig == 2: # LONG
-                        target_tp = entry_price * np.exp(effective_vol * self.pt_mult)
-                        target_sl = entry_price * np.exp(-effective_vol * self.sl_mult)
-                    else: # SHORT
-                        target_tp = entry_price * np.exp(-effective_vol * self.pt_mult)
-                        target_sl = entry_price * np.exp(effective_vol * self.sl_mult)
+                    # Target TP baseado na volatilidade de evento (min 0.15%)
+                    target_tp = entry_price * np.exp(effective_vol * self.pt_mult)
+                    
+                    # Target SL fixado rigidamente no valor da taxa round-trip do trade
+                    taxa_total = self.trading_fee * 2
+                    target_sl = entry_price * np.exp(-taxa_total)
                     
                     # --- [TRIPLE BARRIER SEARCH] ---
                     # Procuramos segundo a segundo qual barreira será tocada primeiro
@@ -209,16 +209,11 @@ class SequentialBacktestEngineV2:
                             outcome = "TIME"; exit_price = prices[exit_idx]; break
                         
                         # Barreira 2 e 3: TP e SL (Horizontal)
-                        if sig == 2: # LONG
-                            if highs[exit_idx] >= target_tp:
-                                outcome = "TP"; exit_price = target_tp; break
-                            if lows[exit_idx] <= target_sl:
-                                outcome = "SL"; exit_price = target_sl; break
-                        else: # SHORT
-                            if lows[exit_idx] <= target_tp:
-                                outcome = "TP"; exit_price = target_tp; break
-                            if highs[exit_idx] >= target_sl:
-                                outcome = "SL"; exit_price = target_sl; break
+                        if highs[exit_idx] >= target_tp:
+                            outcome = "TP"; exit_price = target_tp; break
+                        if lows[exit_idx] <= target_sl:
+                            outcome = "SL"; exit_price = target_sl; break
+                            
                         exit_idx += 1
                     
                     # Se o dia acabou sem tocar barreiras
