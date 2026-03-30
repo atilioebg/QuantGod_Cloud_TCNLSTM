@@ -76,8 +76,8 @@ class SequentialBacktestEngineV2:
         # Filtro de parquets (se existirem)
         parquet_files = [f for f in all_files_found if f.suffix == '.parquet']
         
-        # [EXPANSÃO V4.10.1] Filtro para o período completo de Março 14 a 26
-        target_dates = [f"2026-03-{d:02d}" for d in range(14, 27)] + [f"2026_03_{d:02d}" for d in range(14, 27)]
+        # [EXPANSÃO V4.14.2] Filtro para o período completo de Março 14 a 27
+        target_dates = [f"2026-03-{d:02d}" for d in range(14, 28)] + [f"2026_03_{d:02d}" for d in range(14, 28)]
         parquet_files = [f for f in all_files_found if f.suffix == '.parquet' and any(dt in str(f) for dt in target_dates)]
         
         if not parquet_files:
