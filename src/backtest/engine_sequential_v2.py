@@ -183,12 +183,12 @@ class SequentialBacktestEngineV2:
                     entry_price = curr_price
                     entry_ts = curr_ts_ms
                     
-                    # [VÊRTICE V4.11.1] Segurança Econômica: Piso de Volatilidade (Min 0.15% TP)
-                    # Isso garante que o alvo de lucro sempre supere o custo de corretagem
-                    min_viability_vol = 0.0015 / self.pt_mult
+                    # [VÊRTICE V4.14] Segurança Econômica Asimétrica (EV+)
+                    # Isso garante que o alvo de lucro pague o Risco-Retorno de 40% WinRate
+                    min_viability_vol = 0.0050 / self.pt_mult
                     effective_vol = max(anchor_vol, min_viability_vol)
                     
-                    # Target TP baseado na volatilidade de evento (min 0.15%)
+                    # Target TP baseado na volatilidade de evento (min 0.50%)
                     target_tp = entry_price * np.exp(effective_vol * self.pt_mult)
                     
                     # Target SL fixado rigidamente no valor da taxa round-trip do trade
