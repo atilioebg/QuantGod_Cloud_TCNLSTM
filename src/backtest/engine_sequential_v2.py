@@ -201,11 +201,19 @@ class SequentialBacktestEngineV2:
                     outcome = "TIME"
                     exit_price = entry_price
                     
+                    time_barrier_start = entry_ts # [V4.13] Ampulheta Desacoplada
+                    
                     while exit_idx < len(prices):
                         fwd_ts = timestamps[exit_idx]
                         
+                        # [V4.13] Conviction Renewal (Extensão do Tempo Horizon)
+                        fwd_res_idx = exit_idx - S
+                        if (fwd_res_idx < len(all_signals)) and (int(all_signals[fwd_res_idx]) == 2) and (float(all_confidences[fwd_res_idx]) >= self.auditor_threshold):
+                            # O modelo ainda acredita na alta. Renova a ampulheta do tempo limite!
+                            time_barrier_start = fwd_ts
+                            
                         # Barreira 1: Vertical (Tempo Limite)
-                        if (fwd_ts - entry_ts) > self.exit_horizon_ms:
+                        if (fwd_ts - time_barrier_start) > self.exit_horizon_ms:
                             outcome = "TIME"; exit_price = prices[exit_idx]; break
                         
                         # Barreira 2 e 3: TP e SL (Horizontal)
