@@ -34,7 +34,11 @@ class SequentialBacktestEngineV2:
         self.backtest_paths = backtest_cfg.get('pipeline_paths', {})
         
         # 2. Inicializar Serviço de Inferência (Resolução de Caminhos V3.5 Autoritária)
-        # O InferenceService agora trava a âncora diretamente da auditoria
+        # Injetando o threshold de simulação no master_config para alinhar o Log do motor!
+        if 'execution' not in self.config:
+            self.config['execution'] = {}
+        self.config['execution']['manual_security_threshold'] = backtest_cfg.get('simulation', {}).get('manual_security_threshold', 0.5)
+        
         self.inference = InferenceService(self.config)
         
         # 3. Parâmetros da Simulação
@@ -69,24 +73,18 @@ class SequentialBacktestEngineV2:
         # Busca recursiva TOTAL para diagnóstico
         all_files_found = sorted([f for f in data_dir.rglob("*") if f.is_file()])
         logger.info(f"📁 Total files found in {data_dir}: {len(all_files_found)}")
-        
-        if all_files_found and len(all_files_found) > 0:
-            logger.info(f"🔍 Sample of ANY files found: {[f.name for f in all_files_found[:5]]}")
 
-        # Filtro de parquets (se existirem)
-        parquet_files = [f for f in all_files_found if f.suffix == '.parquet']
-        
         # [EXPANSÃO V4.14.2] Filtro para o período completo de Março 14 a 27
         target_dates = [f"2026-03-{d:02d}" for d in range(14, 28)] + [f"2026_03_{d:02d}" for d in range(14, 28)]
         parquet_files = [f for f in all_files_found if f.suffix == '.parquet' and any(dt in str(f) for dt in target_dates)]
         
-        if not parquet_files:
-            logger.error(f"❌ No labelled parquet files found for day 21 in {data_dir}")
-            if all_parquet_found:
-                logger.info(f"🔍 Sample of files found (first 5): {[f.name for f in all_parquet_found[:5]]}")
+        if parquet_files:
+            logger.info(f"🎯 Targeted Backtest Sample: {[f.name for f in parquet_files[:5]]}")
+        else:
+            logger.error(f"❌ No labelled parquet files found in target dates [14-27] within {data_dir}")
             return
 
-        logger.info(f"🚀 [V2.5 Twin] Starting Event-Driven Backtest on {len(parquet_files)} day(s)...")
+        logger.info(f"🚀 [V2.5 Twin] Starting Event-Driven Backtest on {len(parquet_files)} targeted day(s)...")
         
         for pf in tqdm(parquet_files, desc="Processing Days"):
             self.execute_single_parquet(pf)
