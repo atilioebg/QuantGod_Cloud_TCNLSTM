@@ -190,9 +190,8 @@ class SequentialBacktestEngineV2:
                     # Target TP baseado na volatilidade de evento (min 0.50%)
                     target_tp = entry_price * np.exp(effective_vol * self.pt_mult)
                     
-                    # [V4.15] Target SL Simétrico (1:1 com TP)
-                    # Dá ao trade o mesmo espaço de respiração que dá para buscar o lucro.
-                    target_sl = entry_price * np.exp(-effective_vol * self.pt_mult)
+                    # [V4.16] HODL Mode: O Stop Loss inferior por barreira de preço foi DESLIGADO.
+                    # O robô só sai por Target TP ou Tempo de Expiração (protegendo de whipsaws)
                     
                     # --- [TRIPLE BARRIER SEARCH] ---
                     # Procuramos segundo a segundo qual barreira será tocada primeiro
@@ -215,11 +214,9 @@ class SequentialBacktestEngineV2:
                         if (fwd_ts - time_barrier_start) > self.exit_horizon_ms:
                             outcome = "TIME"; exit_price = prices[exit_idx]; break
                         
-                        # Barreira 2 e 3: TP e SL (Horizontal)
+                        # Barreira 2: TP Exclusivo (Horizontal)
                         if highs[exit_idx] >= target_tp:
                             outcome = "TP"; exit_price = target_tp; break
-                        if lows[exit_idx] <= target_sl:
-                            outcome = "SL"; exit_price = target_sl; break
                             
                         exit_idx += 1
                     

@@ -55,9 +55,9 @@ simulation:
   min_tp_pct_floor: 0.0050 # [NOVO V4.14] Lucro bruto mínimo forçado para cobrir SL + Taxas (0.50%)
   
   # [PRODUÇÃO] Threshold oficial para o InferenceService. 
-  # Deve ser 0.50 para bater com a calibração do Auditor.
-  manual_security_threshold: 0.50
-  auditor_threshold: 0.50
+  # Elevado a 0.65 (V4.16) para classificar apenas sinais de Elite e escapar de ruídos.
+  manual_security_threshold: 0.65
+  auditor_threshold: 0.65
 
   # [SIMULAÇÃO TWIN] Limiares para recriar as barras de EVENTO do treino
   # O backtest vai acumular ticks de 1s até atingir um destes gatilhos.
