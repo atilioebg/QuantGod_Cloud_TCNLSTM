@@ -42,8 +42,8 @@ class SequentialBacktestEngineV2:
         self.balance = self.initial_capital
         self.leverage = self.simulation_cfg['leverage']
         self.trading_fee = self.simulation_cfg['trading_fee']
-        # Threshold de Auditoria (V4.11.2 - Recuo para 0.82. 0.9 foi restritivo demais)
-        self.auditor_threshold = backtest_cfg.get('auditor_threshold', 0.82)
+        # Threshold de Auditoria (V4.11.3 - Respeita o baseline do HPO: 0.5)
+        self.auditor_threshold = backtest_cfg.get('model', {}).get('auditor', {}).get('manual_threshold', 0.5)
         
         # Sincronia de Volatilidade (Prado Multipliers)
         self.pt_mult = self.simulation_cfg.get('pt_multiplier', 0.65)
