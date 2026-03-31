@@ -56,9 +56,9 @@ simulation:
   horizon_minutes: 480     # [V4.18] Paciência Máxima do Robô = 8 horas de hold por sinal
   
   # [PRODUÇÃO] Threshold oficial para o InferenceService. 
-  # Elevado a 0.75 (V4.18) para buscar a Sniper-Zone de ~2 trades por semana.
-  manual_security_threshold: 0.75
-  auditor_threshold: 0.75
+  # Elevado a 0.80 (V4.18.2) para buscar a Sniper-Zone EXATA de ~2 trades por semana.
+  manual_security_threshold: 0.80
+  auditor_threshold: 0.80
 
   # [SIMULAÇÃO TWIN] Limiares para recriar as barras de EVENTO do treino
   # O backtest vai acumular ticks de 1s até atingir um destes gatilhos.
