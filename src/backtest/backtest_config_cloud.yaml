@@ -52,12 +52,12 @@ simulation:
   initial_capital: 10000
   leverage: 10
   trading_fee: 0.0006
-  # [V4.35] Horizonte de Saída (Oracle Moonshot)
-  # 8 horas de tempo para permitir que a tendência macro exploda.
+  # [V4.36] Horizonte de Saída (Eternal Strike)
+  # 8 horas de fôlego absoluto para o Oráculo brilhar.
   horizon_minutes: 480
   
   # [PRODUÇÃO] Threshold oficial para o InferenceService. 
-  # Calibrado para Elite Sniper 0.8929 (V4.35) para ROI VERDE.
+  # Calibrado para Elite Sniper 0.8929 (V4.36) para ROI VERDE.
   manual_security_threshold: 0.8928
   auditor_threshold: 0.8928
   auditor_authority_threshold: 0.8929
@@ -75,7 +75,7 @@ simulation:
   # [SINCRONIA COM TREINO] Multiplicadores de Volatilidade Dinâmica (Prado ADR)
   # Estes valores multiplicam a volatilidade do BTC para definir alvos realistas.
   pt_multiplier: 10.0 # [V4.35] Oracle Moonshot: Alvo supremo para vencer o mercado.
-  sl_multiplier: 0.85 # [V4.35] Resilience: Barreira técnica para o trade respirar.
+  sl_multiplier: 1.9 # [V4.36] Bunker: Sobrevivência total ao ruído inicial.
   
 # Processing
 processing:
