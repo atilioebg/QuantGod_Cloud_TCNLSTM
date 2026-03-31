@@ -190,8 +190,16 @@ class SequentialBacktestEngineV2:
                     # Target TP baseado na volatilidade de evento (min 0.50%)
                     target_tp = entry_price * np.exp(effective_vol * self.pt_mult)
                     
-                    # [V4.16] HODL Mode: O Stop Loss inferior por barreira de preço foi DESLIGADO.
-                    # O robô só sai por Target TP ou Tempo de Expiração (protegendo de whipsaws)
+                    # [V4.17] Protocolo Break-Even Categórico (Risco Zero em tendências parciais)
+                    # SL Simétrico Inicial para afastar whipsaws extremos
+                    target_sl = entry_price * np.exp(-effective_vol * self.pt_mult) 
+                    
+                    # Gatilho de Proteção (Metade do caminho para o Alvo)
+                    be_trigger = entry_price * np.exp(effective_vol * (self.pt_mult / 2))
+                    
+                    # Linha Final de Segurança (Preço de Entrada + Taxas Totais Pagas + Gordura Minúscula)
+                    be_level = entry_price * np.exp(self.trading_fee * 2.5) 
+                    be_activated = False
                     
                     # --- [TRIPLE BARRIER SEARCH] ---
                     # Procuramos segundo a segundo qual barreira será tocada primeiro
@@ -210,13 +218,22 @@ class SequentialBacktestEngineV2:
                             # O modelo ainda acredita na alta. Renova a ampulheta do tempo limite!
                             time_barrier_start = fwd_ts
                             
+                        # [V4.17] Acionamento de Break-Even (Zero-Risk Trailing Stop)
+                        if not be_activated and highs[exit_idx] >= be_trigger:
+                            be_activated = True
+                            # Arrasta o cordão do Stop Loss para cobrir as taxas e matar o risco nativo.
+                            target_sl = max(target_sl, be_level) 
+                            
                         # Barreira 1: Vertical (Tempo Limite)
                         if (fwd_ts - time_barrier_start) > self.exit_horizon_ms:
                             outcome = "TIME"; exit_price = prices[exit_idx]; break
                         
-                        # Barreira 2: TP Exclusivo (Horizontal)
+                        # Barreira 2 e 3: Take Profit ou Stop Loss / Break Even
                         if highs[exit_idx] >= target_tp:
                             outcome = "TP"; exit_price = target_tp; break
+                        if lows[exit_idx] <= target_sl:
+                            outcome = "BE" if be_activated else "SL"
+                            exit_price = target_sl; break
                             
                         exit_idx += 1
                     
