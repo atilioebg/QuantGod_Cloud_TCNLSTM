@@ -52,14 +52,15 @@ simulation:
   initial_capital: 10000
   leverage: 10
   trading_fee: 0.0006
-  min_tp_pct_floor: 0.0050 # [V4.20] Alinhamento com 15 min do DNA do modelo (TP 0.50%)
-  horizon_minutes: 15      # [V4.20] Alinhamento nativo com o labelling de treino
+  # [V4.27] Horizonte de Saída (Barreira Vertical)
+  # Aumentamos para 30 minutos para deixar o Sniper buscar o 1.5 de lucro.
+  horizon_minutes: 30
   
   # [PRODUÇÃO] Threshold oficial para o InferenceService. 
-  # Calibrado para Elite Sniper 0.890 (V4.26) para ROI VERDE.
-  manual_security_threshold: 0.888
-  auditor_threshold: 0.888
-  auditor_authority_threshold: 0.890
+  # Calibrado para Elite Sniper 0.891 (V4.27) para ROI VERDE.
+  manual_security_threshold: 0.889
+  auditor_threshold: 0.889
+  auditor_authority_threshold: 0.891
   trade_cooldown_minutes: 480 # [V4.26] 8h de silêncio para máxima qualidade.
 
   # [SIMULAÇÃO TWIN] Limiares para recriar as barras de EVENTO do treino
@@ -74,7 +75,7 @@ simulation:
   # [SINCRONIA COM TREINO] Multiplicadores de Volatilidade Dinâmica (Prado ADR)
   # Estes valores multiplicam a volatilidade do BTC para definir alvos realistas.
   pt_multiplier: 1.5 # [V4.26] Explosividade: Alvo longo para buscar a tendência.
-  sl_multiplier: 0.45 # [V4.26] Resiliência: Stop levemente ajustado.
+  sl_multiplier: 0.55 # [V4.27] Resiliência: Stop folgado para tempo de 30min.
   
 # Processing
 processing:
