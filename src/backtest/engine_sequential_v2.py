@@ -135,6 +135,11 @@ class SequentialBacktestEngineV2:
             all_signals = batch_results['signals']
             all_confidences = batch_results['auditor_scores']
             
+            # [DIAGNÓSTICO V4.21] Auditando por que não há trades
+            raw_buys = np.sum(all_signals == 2)
+            max_conf = np.max(all_confidences) if len(all_confidences) > 0 else 0
+            logger.info(f"🔎 [Audit] Raw Buy Signals: {raw_buys} | Max Auditor Confidence: {max_conf:.4f}")
+            
             # --- LOOP PRINCIPAL SEGUNDO A SEGUNDO ---
             for idx in range(S, len(df)):
                 curr_price = prices[idx]
