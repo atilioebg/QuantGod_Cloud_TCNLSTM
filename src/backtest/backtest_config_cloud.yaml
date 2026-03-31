@@ -52,16 +52,16 @@ simulation:
   initial_capital: 10000
   leverage: 10
   trading_fee: 0.0006
-  # [V4.33] Horizonte de Saída (Titan Awakening)
-  # 4 horas para permitir que as God Candles aconteçam.
-  horizon_minutes: 240
+  # [V4.34] Horizonte de Saída (Ghost Strike)
+  # Retorno ao DNA de 15 minutos para alta frequência.
+  horizon_minutes: 15
   
   # [PRODUÇÃO] Threshold oficial para o InferenceService. 
-  # Calibrado para Elite Sniper 0.8928 (V4.33) para ROI VERDE.
-  manual_security_threshold: 0.8925
-  auditor_threshold: 0.8925
-  auditor_authority_threshold: 0.8928
-  trade_cooldown_minutes: 1440 # [V4.31] 24h de silêncio para Alpha Atômico.
+  # Calibrado para Elite Sniper 0.887 (V4.34) para ROI VERDE.
+  manual_security_threshold: 0.885
+  auditor_threshold: 0.885
+  auditor_authority_threshold: 0.887
+  trade_cooldown_minutes: 30 # [V4.34] Alta Frequência (Ghost Strike).
 
   # [SIMULAÇÃO TWIN] Limiares para recriar as barras de EVENTO do treino
   # O backtest vai acumular ticks de 1s até atingir um destes gatilhos.
@@ -74,8 +74,8 @@ simulation:
 
   # [SINCRONIA COM TREINO] Multiplicadores de Volatilidade Dinâmica (Prado ADR)
   # Estes valores multiplicam a volatilidade do BTC para definir alvos realistas.
-  pt_multiplier: 5.0 # [V4.31] Titan Strike: Alvo massivo para vencer as taxas.
-  sl_multiplier: 1.5 # [V4.33] Titan Awakening: O respiro do Titã.
+  pt_multiplier: 1.8 # [V4.34] Ghost Strike: Alvo de convexidade (6.4x).
+  sl_multiplier: 0.28 # [V4.34] Precisão Cirúrgica: Saída quase instantânea.
   
 # Processing
 processing:
