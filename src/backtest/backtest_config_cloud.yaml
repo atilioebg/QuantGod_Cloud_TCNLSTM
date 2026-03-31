@@ -52,16 +52,16 @@ simulation:
   initial_capital: 10000
   leverage: 10
   trading_fee: 0.0006
-  # [V4.36] Horizonte de Saída (Eternal Strike)
-  # 8 horas de fôlego absoluto para o Oráculo brilhar.
-  horizon_minutes: 480
+  # [V4.37] Horizonte de Saída (Realistic Sniper)
+  # 2 horas para capturar a tendência intradiária sem exposição excessiva.
+  horizon_minutes: 120
   
   # [PRODUÇÃO] Threshold oficial para o InferenceService. 
-  # Calibrado para Elite Sniper 0.8929 (V4.36) para ROI VERDE.
-  manual_security_threshold: 0.8928
-  auditor_threshold: 0.8928
-  auditor_authority_threshold: 0.8929
-  trade_cooldown_minutes: 720 # [V4.35] 12h de observação para Alpha Macro.
+  # Calibrado para Elite Sniper 0.891 (V4.37) para ROI VERDE SUSTENTÁVEL.
+  manual_security_threshold: 0.890
+  auditor_threshold: 0.890
+  auditor_authority_threshold: 0.891
+  trade_cooldown_minutes: 240 # [V4.37] 4h de observação para Alpha Intradiário.
 
   # [SIMULAÇÃO TWIN] Limiares para recriar as barras de EVENTO do treino
   # O backtest vai acumular ticks de 1s até atingir um destes gatilhos.
@@ -74,8 +74,8 @@ simulation:
 
   # [SINCRONIA COM TREINO] Multiplicadores de Volatilidade Dinâmica (Prado ADR)
   # Estes valores multiplicam a volatilidade do BTC para definir alvos realistas.
-  pt_multiplier: 10.0 # [V4.35] Oracle Moonshot: Alvo supremo para vencer o mercado.
-  sl_multiplier: 1.9 # [V4.36] Bunker: Sobrevivência total ao ruído inicial.
+  pt_multiplier: 3.5 # [V4.37] Realistic Target: Equilíbrio entre risco e probabilidade.
+  sl_multiplier: 1.5 # [V4.37] Safety: Sobrevivência ao ruído com proteção técnica.
   
 # Processing
 processing:
