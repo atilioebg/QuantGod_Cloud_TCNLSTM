@@ -56,11 +56,11 @@ simulation:
   horizon_minutes: 15      # [V4.20] Alinhamento nativo com o labelling de treino
   
   # [PRODUÇÃO] Threshold oficial para o InferenceService. 
-  # Calibrado para Elite Sniper 0.875 (V4.23b) para evitar over-trading.
-  manual_security_threshold: 0.85
-  auditor_threshold: 0.85
-  auditor_authority_threshold: 0.875
-  trade_cooldown_minutes: 30 # [V4.23b] Filtro de tempo pós-desmonte de posição.
+  # Calibrado para Elite Sniper 0.885 (V4.24) para evitar over-trading.
+  manual_security_threshold: 0.88
+  auditor_threshold: 0.88
+  auditor_authority_threshold: 0.885
+  trade_cooldown_minutes: 120 # [V4.24] 2h de descanso para evitar o mesmo ciclo.
 
   # [SIMULAÇÃO TWIN] Limiares para recriar as barras de EVENTO do treino
   # O backtest vai acumular ticks de 1s até atingir um destes gatilhos.
@@ -74,7 +74,7 @@ simulation:
   # [SINCRONIA COM TREINO] Multiplicadores de Volatilidade Dinâmica (Prado ADR)
   # Estes valores multiplicam a volatilidade do BTC para definir alvos realistas.
   pt_multiplier: 0.65
-  sl_multiplier: 0.33
+  sl_multiplier: 0.50 # [V4.24] Resiliência: Mais espaço para o Sniper respirar.
   
 # Processing
 processing:
