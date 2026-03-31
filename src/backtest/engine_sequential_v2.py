@@ -230,8 +230,14 @@ class SequentialBacktestEngineV2:
                     trade_return = (exit_price - entry_price) / entry_price if sig == 2 else (entry_price - exit_price) / entry_price
                     net_return = trade_return - (self.trading_fee * 2) # Fee de compra e venda
                     
+                    # [V4.20] Bet Sizing Dinâmico (Prado): Escalonamento pela Confiança
+                    # A alavancagem cresce linearmente entre o Threshold e 1.0 de score.
+                    conf_range = 1.0 - self.auditor_threshold
+                    conf_pos = (conf - self.auditor_threshold) / conf_range if conf_range > 0 else 1.0
+                    effective_leverage = max(1.0, self.leverage * conf_pos) # Min 1x, Max config leverage
+                    
                     old_balance = self.balance
-                    self.balance *= (1 + net_return * self.leverage)
+                    self.balance *= (1 + net_return * effective_leverage)
                     
                     duration_min = (timestamps[exit_idx] - entry_ts) / 60000
                     busy_until = timestamps[exit_idx] # Silêncio até a saída do trade
@@ -243,6 +249,7 @@ class SequentialBacktestEngineV2:
                         "entry_price": float(entry_price),
                         "exit_price": float(exit_price),
                         "outcome": outcome,
+                        "leverage": float(effective_leverage),
                         "net_return": float(net_return),
                         "duration_min": float(duration_min),
                         "balance": float(self.balance)
