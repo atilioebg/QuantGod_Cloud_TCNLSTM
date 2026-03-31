@@ -47,8 +47,8 @@ class SequentialBacktestEngineV2:
         self.leverage = self.simulation_cfg['leverage']
         self.trading_fee = self.simulation_cfg['trading_fee']
         self.min_tp_pct_floor = self.simulation_cfg.get('min_tp_pct_floor', 0.0050)
-        # Threshold de Auditoria (V4.11.3 - Respeita o baseline do HPO: 0.5)
-        self.auditor_threshold = backtest_cfg.get('model', {}).get('auditor', {}).get('manual_threshold', 0.5)
+        # Threshold da Simulação Dinâmica na Nuvem
+        self.auditor_threshold = self.simulation_cfg.get('auditor_threshold', 0.80)
         
         # Sincronia de Volatilidade (Prado Multipliers)
         self.pt_mult = self.simulation_cfg.get('pt_multiplier', 0.65)
