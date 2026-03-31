@@ -56,9 +56,11 @@ simulation:
   horizon_minutes: 15      # [V4.20] Alinhamento nativo com o labelling de treino
   
   # [PRODUÇÃO] Threshold oficial para o InferenceService. 
-  # Calibrado para 0.72 (V4.20) para sniper accuracy em 15 minutos.
-  manual_security_threshold: 0.72
-  auditor_threshold: 0.72
+  # Calibrado para Elite Sniper 0.875 (V4.23b) para evitar over-trading.
+  manual_security_threshold: 0.85
+  auditor_threshold: 0.85
+  auditor_authority_threshold: 0.875
+  trade_cooldown_minutes: 30 # [V4.23b] Filtro de tempo pós-desmonte de posição.
 
   # [SIMULAÇÃO TWIN] Limiares para recriar as barras de EVENTO do treino
   # O backtest vai acumular ticks de 1s até atingir um destes gatilhos.

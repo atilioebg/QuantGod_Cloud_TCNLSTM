@@ -367,7 +367,8 @@ class InferenceService:
         }
 
     @torch.no_grad()
-    def predict_batch(self, x_base_raw: np.ndarray, x_context_raw: np.ndarray, batch_size: int = 4096, threshold: Optional[float] = None) -> Dict[str, np.ndarray]:
+    def predict_batch(self, x_base_raw: np.ndarray, x_context_raw: np.ndarray, batch_size: int = 4096, 
+                    threshold: Optional[float] = None, bypass_threshold: Optional[float] = None) -> Dict[str, np.ndarray]:
         """
         TURBO 3.0 INFERENCE - Balanced Stability:
         1. Pre-scaling once (CPU side).
@@ -375,6 +376,10 @@ class InferenceService:
         3. Contiguous memory copies to minimize PCIe latency.
         """
         active_threshold = threshold if threshold is not None else self.threshold
+        
+        # [V4.23b] Sniper Alignment: Se não houver bypass explícito, tenta ler da config de simulação
+        if bypass_threshold is None:
+            bypass_threshold = self.config.get('simulation', {}).get('auditor_authority_threshold', 0.85)
         
         import gc
         from numpy.lib.stride_tricks import sliding_window_view
@@ -457,11 +462,11 @@ class InferenceService:
         final_signals[valid_mask] = directions_idx[valid_mask]
         
         # [V4.22] Auditor Authority Bypass: Sniper Overrules Neutral
-        # Se o Auditor estiver com certeza extrema (>0.85) e o viés for BUY > SELL, forçamos a compra!
-        bypass_mask = (auditor_scores > 0.85) & (s_probs_all[:, 2] > s_probs_all[:, 0])
+        # Se o Auditor estiver com certeza extrema e o viés for BUY > SELL, forçamos a compra!
+        bypass_mask = (auditor_scores > bypass_threshold) & (s_probs_all[:, 2] > s_probs_all[:, 0])
         num_bypassed = np.sum(bypass_mask)
         if num_bypassed > 0:
-            logger.info(f"🎯 [V4.22] Auditor Authority Bypass: Forced {num_bypassed} BUY signals.")
+            logger.info(f"🎯 [V4.23b] Auditor Authority Bypass: Forced {num_bypassed} BUY signals (Thresh: {bypass_threshold}).")
         final_signals[bypass_mask] = 2
         
         return {

@@ -58,6 +58,10 @@ class SequentialBacktestEngineV2:
         # Horizonte de Saída (Barreira Vertical) - Sincronizado com o Labelling
         self.exit_horizon_ms = self.simulation_cfg.get('horizon_minutes', 15) * 60 * 1000
         
+        # [V4.23b] Sniper Diamond Parameters
+        self.authority_threshold = self.simulation_cfg.get('auditor_authority_threshold', 0.85)
+        self.cooldown_ms = self.simulation_cfg.get('trade_cooldown_minutes', 0) * 60 * 1000
+        
         # Resultados
         self.trades = []
         self.output_dir = Path(self.config['pipeline_paths']['local_data_root']) / "backtest_results_sequential_v2"
@@ -131,7 +135,11 @@ class SequentialBacktestEngineV2:
             X_ctx = df[AUDITOR_SENSOR_NAMES].values
             
             # O cérebro processa o dia inteiro em segundos na GPU
-            batch_results = self.inference.predict_batch(X_base, X_ctx, threshold=self.auditor_threshold)
+            batch_results = self.inference.predict_batch(
+                X_base, X_ctx, 
+                threshold=self.auditor_threshold,
+                bypass_threshold=self.authority_threshold
+            )
             all_signals = batch_results['signals']
             all_confidences = batch_results['auditor_scores']
             
@@ -245,7 +253,9 @@ class SequentialBacktestEngineV2:
                     self.balance *= (1 + net_return * effective_leverage)
                     
                     duration_min = (timestamps[exit_idx] - entry_ts) / 60000
-                    busy_until = timestamps[exit_idx] # Silêncio até a saída do trade
+                    
+                    # [V4.23b] Bug Fix + Cooldown: O robô acorda após o trade + tempo de descanso
+                    busy_until = timestamps[exit_idx] + self.cooldown_ms 
                     
                     self.trades.append({
                         "entry_ts": pd.to_datetime(entry_ts, unit='ms'),
