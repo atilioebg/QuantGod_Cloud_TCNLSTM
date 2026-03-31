@@ -187,12 +187,13 @@ class SequentialBacktestEngineV2:
                     min_viability_vol = self.min_tp_pct_floor / self.pt_mult
                     effective_vol = max(anchor_vol, min_viability_vol)
                     
-                    # Target TP baseado na volatilidade de evento (min 0.50%)
+                    # Target TP baseado na volatilidade de evento (min 1.50% via config floor)
                     target_tp = entry_price * np.exp(effective_vol * self.pt_mult)
                     
-                    # [V4.17] Protocolo Break-Even Categórico (Risco Zero em tendências parciais)
-                    # SL Simétrico Inicial para afastar whipsaws extremos
-                    target_sl = entry_price * np.exp(-effective_vol * self.pt_mult) 
+                    # [V4.18] Swing Sniper Mode (Asymmetric R/R 1:3 Base)
+                    # O TP é elástico (>1.50%), mas o SL é rígido e inflexível travado em -0.50%.
+                    # Em caso de HODL longo (8h), proteger o capital de rebaixamentos fundos é mandatário.
+                    target_sl = entry_price * np.exp(-0.0050) 
                     
                     # Gatilho de Proteção (Metade do caminho para o Alvo)
                     be_trigger = entry_price * np.exp(effective_vol * (self.pt_mult / 2))

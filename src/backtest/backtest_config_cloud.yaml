@@ -52,12 +52,13 @@ simulation:
   initial_capital: 10000
   leverage: 10
   trading_fee: 0.0006
-  min_tp_pct_floor: 0.0050 # [NOVO V4.14] Lucro bruto mínimo forçado para cobrir SL + Taxas (0.50%)
+  min_tp_pct_floor: 0.0150 # [V4.18] Mínimo de 1.50% de ganho bruto para Swing Trading Sniper
+  horizon_minutes: 480     # [V4.18] Paciência Máxima do Robô = 8 horas de hold por sinal
   
   # [PRODUÇÃO] Threshold oficial para o InferenceService. 
-  # Elevado a 0.65 (V4.16) para classificar apenas sinais de Elite e escapar de ruídos.
-  manual_security_threshold: 0.65
-  auditor_threshold: 0.65
+  # Elevado a 0.75 (V4.18) para buscar a Sniper-Zone de ~2 trades por semana.
+  manual_security_threshold: 0.75
+  auditor_threshold: 0.75
 
   # [SIMULAÇÃO TWIN] Limiares para recriar as barras de EVENTO do treino
   # O backtest vai acumular ticks de 1s até atingir um destes gatilhos.
