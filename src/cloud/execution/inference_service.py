@@ -451,8 +451,18 @@ class InferenceService:
         # ── 5. Decisions ──
         directions_idx = np.argmax(s_probs_all, axis=1)
         final_signals = np.full(N_windows, 1) # Neutral
+        
+        # [MODO ORIGINAL] Segue o modelo primário se atingir o threshold de meta-labeling.
         valid_mask = (auditor_scores > active_threshold) & (directions_idx != 1)
         final_signals[valid_mask] = directions_idx[valid_mask]
+        
+        # [V4.22] Auditor Authority Bypass: Sniper Overrules Neutral
+        # Se o Auditor estiver com certeza extrema (>0.85) e o viés for BUY > SELL, forçamos a compra!
+        bypass_mask = (auditor_scores > 0.85) & (s_probs_all[:, 2] > s_probs_all[:, 0])
+        num_bypassed = np.sum(bypass_mask)
+        if num_bypassed > 0:
+            logger.info(f"🎯 [V4.22] Auditor Authority Bypass: Forced {num_bypassed} BUY signals.")
+        final_signals[bypass_mask] = 2
         
         return {
             "signals": final_signals,
