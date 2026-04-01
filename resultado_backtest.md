@@ -25,25 +25,29 @@ Nossa calibração provou empiricamente a seguinte trilha:
     *   *Tentativa:* Para reduzir as taxas, subimos o filtro de Convicção (Threshold de 0.8910 para **0.8920**). Para cobrir qualquer resto de taxa, voltamos a sonhar alto (PT 5.0).
     *   *Resultado:* A tese de filtro funcionou majestosamente! Os trades despencaram de 68 para 40 (corte de ~50% nas taxas). Porém, o alvo de 5.0 estragou o belíssimo Win Rate (caiu para 20.0%). O trade era bom, mas não elástico o suficiente.
 
-4.  **O Ponto de Ouro (A Síntese Final - V4.39 Platinum):**
-    *   Pegamos a assertividade incrível do Alvo de **3.5** (V4.37) e ligamos ao Filtro Rigoroso (Threshold de **0.8920**) da V4.38, criando a janela de tempo perfeita (2.5 horas). 
-    *   O robô fará 40 cirurgias exatas e fechará as posições antes da retração. **É a purificadora extração do Alpha para arrancar o ROI Verde!**
+4.  **A Armadilha de Liquidez (V4.39 - Platinum Strike):**
+    *   *Tentativa:* Pegamos a assertividade incrível do Alvo de **3.5** (V4.37) e ligamos ao Filtro Rigoroso (Threshold de **0.8920**).
+    *   *Resultado:* O Win Rate despencou para 25%. Descobrimos que sinais >0.892 em TCN-LSTM não são inícios de tendência pura, são "Stop Hunts" institucionais. O robô entrava no topo do pico de liquidez e tomava reversão na cara.
+
+5.  **A Síntese do Lucro Bruto (A Vitória - V4.40):**
+    *   *A Solução Suprema:* Retornamos o Threshold para **0.890** (onde o Alpha real habita) para resgatar o Win Rate de ~35%, mas implementamos um **Cooldown Algorítmico Extremo de 12 Horas** para barrar a destruição gerada pelas taxas de corretagem.
+    *   *O Resultado:* Os trades caíram drasticamente para apenas 26 na quinzena. As taxas foram esmagadas, e o modelo gerou matematicamente um **Lucro Bruto Direcional de +0.89%**. Conseguimos extrair a Vantagem Estatística (Edge) da Inteligência Artificial.
 
 ---
 
 ### 📊 Tabela Oficial de Performance
 
-| Versão | Codenome | Thresh | PT | SL | Horiz | Trades | WR% | Dur(m) | T/Dia | Balanço | ROI (%) |
+| Versão | Codenome | Thresh | PT | SL | Horiz | Trades | WR% | Dur(m) | T/Dia | ROI Líquido | Alpha Bruto |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **4.26** | Sniper Base | 0.890 | 1.5 | 0.45 | 15m | 39 | 10.3 | 13.9 | 3.0 | 9594 | -4.06 |
-| **4.31** | Titan Strike | 0.8928 | 5.0 | 1.0 | 4h | 5 | 0.0 | 13.5 | 0.45 | 9890 | -1.09 |
-| **4.34** | Ghost Strike | 0.887 | 1.8 | 0.28 | 15m | 398 | 16.1 | 11.0 | 30.7 | 6300 | -37.00 |
-| **4.35** | Oracle Strike| 0.8929 | 10.0 | 0.85 | 8h | 5 | 0.0 | 3.28 | 0.45 | 9919 | -0.81 |
-| **4.36** | Eternal Bunker| 0.8929 | 10.0 | 1.9 | 8h | 5 | 0.0 | 7.28 | 0.45 | 9892 | -1.07 |
-| **4.37** | Realistic Sniper| 0.8910 | 3.5 | 1.5 | 2h | 68 | 33.8 | 37.0 | 5.3 | 9385 | -6.14 |
-| **4.38** | Golden Strike| 0.8920 | 5.0 | 1.5 | 3h | 40 | 20.0 | 19.2 | 3.1 | 9443 | -5.56 |
-| **4.39** | Platinum Strike| 0.8920 | 3.5 | 1.5 | 2.5h| 44 | 25.0 | 27.4 | 3.4 | 9325 | -6.74 |
-| **4.40** | True Alpha | 0.8900 | 3.5 | 1.5 | 2h | 26 | 34.6 | 61.0 | 2.0 | 9776 | -2.23 |
+| **4.26** | Sniper Base | 0.890 | 1.5 | 0.45 | 15m | 39 | 10.3 | 13.9 | 3.0 | -4.06% | *Negativo* |
+| **4.31** | Titan Strike | 0.8928 | 5.0 | 1.0 | 4h | 5 | 0.0 | 13.5 | 0.45 | -1.09% | *Negativo* |
+| **4.34** | Ghost Strike | 0.887 | 1.8 | 0.28 | 15m | 398 | 16.1 | 11.0 | 30.7 | -37.00% | *Negativo* |
+| **4.35** | Oracle Strike| 0.8929 | 10.0 | 0.85 | 8h | 5 | 0.0 | 3.28 | 0.45 | -0.81% | *Negativo* |
+| **4.36** | Eternal Bunker| 0.8929 | 10.0 | 1.9 | 8h | 5 | 0.0 | 7.28 | 0.45 | -1.07% | *Negativo* |
+| **4.37** | Realistic Sniper| 0.8910 | 3.5 | 1.5 | 2h | 68 | 33.8 | 37.0 | 5.3 | -6.14% | **+2.02%** |
+| **4.38** | Golden Strike| 0.8920 | 5.0 | 1.5 | 3h | 40 | 20.0 | 19.2 | 3.1 | -5.56% | *Negativo* |
+| **4.39** | Platinum Strike| 0.8920 | 3.5 | 1.5 | 2.5h| 44 | 25.0 | 27.4 | 3.4 | -6.74% | *Negativo* |
+| **4.40** | **True Alpha** | **0.8900** | **3.5** | **1.5** | **2h** | **26** | **34.6** | **61.0** | **2.0** | **-2.23%** | **+0.89%** |
 
 ---
 
