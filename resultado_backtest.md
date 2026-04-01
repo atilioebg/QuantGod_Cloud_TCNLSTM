@@ -42,9 +42,10 @@ Nossa calibração provou empiricamente a seguinte trilha:
 | **4.36** | Eternal Bunker| 0.8929 | 10.0 | 1.9 | 8h | 5 | 0.0 | 7.28 | 0.45 | 9892 | -1.07 |
 | **4.37** | Realistic Sniper| 0.8910 | 3.5 | 1.5 | 2h | 68 | 33.8 | 37.0 | 5.3 | 9385 | -6.14 |
 | **4.38** | Golden Strike| 0.8920 | 5.0 | 1.5 | 3h | 40 | 20.0 | 19.2 | 3.1 | 9443 | -5.56 |
-| **4.39** | **Platinum Strike**| **0.8920** | **3.5** | **1.5** | **2.5h** | *EXEC* | *WAIT* | *WAIT* | *WAIT* | *WAIT* | *WAIT* |
+| **4.39** | Platinum Strike| 0.8920 | 3.5 | 1.5 | 2.5h| 44 | 25.0 | 27.4 | 3.4 | 9325 | -6.74 |
+| **4.40** | **True Alpha** | **0.8900** | **3.5** | **1.5** | **2h** | *EXEC* | *WAIT* | *WAIT* | *WAIT* | *WAIT* | *WAIT* |
 
 ---
 
 > [!IMPORTANT]
-> **V4.39 - Platinum Strike:** A síntese do lucro. Pegamos o excelente Win Rate (33%) da V4.37 gerado pelo alvo realista de 3.5 e combinamos com o rigor cirúrgico (40 trades) do Threshold de 0.892 validado na V4.38. O objetivo é cruzar a linha verde sem as penalidades maciças de taxa e nem de alvos inatingíveis.
+> **V4.40 - True Alpha Shift:** Descobrimos a "Armadilha de Superconfiança". Sinais extremamente altos (>0.892) no TCN-LSTM são capturas de liquidez (agulhadas) que varrem stops e revertem o mercado. O fluxo verdadeiro e sustentável (Alpha de 33% de WR) mora na faixa de 0.890. Vamos baixar o Threshold para o nível rentável e esmagar as taxas usando um bloqueio temporal agressivo (Cooldown de 12 horas!).
