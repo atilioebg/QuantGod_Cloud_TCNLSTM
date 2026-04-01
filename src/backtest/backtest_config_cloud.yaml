@@ -52,16 +52,16 @@ simulation:
   initial_capital: 10000
   leverage: 10
   trading_fee: 0.0006
-  # [V4.38] Horizonte de Saída (Golden Strike)
-  # 3 horas para permitir que o movimento de 5.0 PT se desenvolva plenamente.
-  horizon_minutes: 180
+  # [V4.39] Horizonte de Saída (Platinum Strike)
+  # 2.5 horas é o ponto de saturação ótimo para o alvo de 3.5.
+  horizon_minutes: 150
   
   # [PRODUÇÃO] Threshold oficial para o InferenceService. 
-  # Calibrado para Elite Sniper 0.892 (V4.38) para esmagar as taxas.
+  # Calibrado para Elite Sniper 0.892 (V4.39) para rigor em taxas.
   manual_security_threshold: 0.8915
   auditor_threshold: 0.8915
   auditor_authority_threshold: 0.892
-  trade_cooldown_minutes: 360 # [V4.38] 6h de observação para Alpha de Magnitude.
+  trade_cooldown_minutes: 300 # [V4.39] 5h de observação para Alpha Cirúrgico.
 
   # [SIMULAÇÃO TWIN] Limiares para recriar as barras de EVENTO do treino
   # O backtest vai acumular ticks de 1s até atingir um destes gatilhos.
@@ -74,8 +74,8 @@ simulation:
 
   # [SINCRONIA COM TREINO] Multiplicadores de Volatilidade Dinâmica (Prado ADR)
   # Estes valores multiplicam a volatilidade do BTC para definir alvos realistas.
-  pt_multiplier: 5.0 # [V4.38] Golden Target: Proporção 3.3:1 para ROI positivo real.
-  sl_multiplier: 1.5 # [V4.38] Safety: Mantendo a resiliência técnica.
+  pt_multiplier: 3.5 # [V4.39] Platinum Target: Retorno ao alvo de 33% de WR.
+  sl_multiplier: 1.5 # [V4.39] Safety: Resiliência balanceada.
   
 # Processing
 processing:
